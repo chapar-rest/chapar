@@ -69,18 +69,17 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 			Left:   10,
 			Right:  5,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return t.Icon.Layout(gtx, borderColor)
-			})
-
 			inputLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return t.textField.Layout(gtx)
 			})
-
 			widgets := []layout.FlexChild{inputLayout}
 
 			spacing := layout.SpaceBetween
 			if t.Icon != nil {
+				iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return t.Icon.Layout(gtx, borderColor)
+				})
+
 				if t.IconPosition == IconPositionEnd {
 					widgets = []layout.FlexChild{inputLayout, iconLayout}
 				} else {

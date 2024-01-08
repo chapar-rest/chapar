@@ -15,6 +15,11 @@ var HomeIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var SwapHoriz *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionSwapHoriz)
+	return icon
+}()
+
 var SettingsIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionSettings)
 	return icon

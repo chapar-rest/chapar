@@ -3,6 +3,8 @@ package ui
 import (
 	"image/color"
 
+	"example.com/gio_test/ui/widgets"
+
 	"gioui.org/op/paint"
 
 	"gioui.org/app"
@@ -107,7 +109,7 @@ func (u *UI) LayoutHeader(gtx layout.Context) layout.Dimensions {
 
 func horizontalLine(gtx layout.Context) layout.FlexChild {
 	return layout.Rigid(func(gtx C) D {
-		return Rect{
+		return widgets.Rect{
 			// gray 300
 			Color: color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			Size:  f32.Point{X: float32(gtx.Constraints.Max.X), Y: 2},
@@ -118,7 +120,7 @@ func horizontalLine(gtx layout.Context) layout.FlexChild {
 
 func verticalLine(gtx layout.Context) layout.FlexChild {
 	return layout.Rigid(func(gtx C) D {
-		return Rect{
+		return widgets.Rect{
 			// gray 300
 			Color: color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			Size:  f32.Point{X: 2, Y: float32(gtx.Constraints.Max.Y)},
