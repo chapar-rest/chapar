@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"image/color"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -15,13 +13,29 @@ const (
 )
 
 type TextField struct {
+	theme *material.Theme
+
 	textEditor widget.Editor
 	textField  material.EditorStyle
-	icon       *widget.Icon
+	Icon       *widget.Icon
 
-	iconPosition int
+	IconPosition int
 
-	text string
+	Text string
+}
+
+func NewTextField(theme *material.Theme, text string) *TextField {
+	t := &TextField{
+		theme:      theme,
+		textEditor: widget.Editor{},
+		Text:       text,
+	}
+
+	t.textField = material.Editor(theme, &t.textEditor, "")
+	t.textField.Editor.SetText(text)
+	t.textField.Editor.SingleLine = true
+
+	return t
 }
 
 func (t *TextField) SetText(text string) {
@@ -29,14 +43,14 @@ func (t *TextField) SetText(text string) {
 }
 
 func (t *TextField) SetIcon(icon *widget.Icon, position int) {
-	t.icon = icon
-	t.iconPosition = position
+	t.Icon = icon
+	t.IconPosition = position
 }
 
 func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
-	borderColor := color.NRGBA{R: 0xc0, G: 0xc3, B: 0xc8, A: 0xff}
+	borderColor := t.theme.Palette.ContrastFg
 	if t.textEditor.Focused() {
-		borderColor = color.NRGBA{R: 0x3f, G: 0x7e, B: 0xca, A: 0xff}
+		borderColor = t.theme.Palette.ContrastBg
 	}
 
 	cornerRadius := unit.Dp(4)
@@ -55,14 +69,27 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 			Left:   10,
 			Right:  5,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return t.textField.Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return t.icon.Layout(gtx, borderColor)
-				}),
-			)
+			iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return t.Icon.Layout(gtx, borderColor)
+			})
+
+			inputLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return t.textField.Layout(gtx)
+			})
+
+			widgets := []layout.FlexChild{inputLayout}
+
+			spacing := layout.SpaceBetween
+			if t.Icon != nil {
+				if t.IconPosition == IconPositionEnd {
+					widgets = []layout.FlexChild{inputLayout, iconLayout}
+				} else {
+					widgets = []layout.FlexChild{iconLayout, inputLayout}
+					spacing = layout.SpaceEnd
+				}
+			}
+
+			return layout.Flex{Axis: layout.Horizontal, Spacing: spacing}.Layout(gtx, widgets...)
 		})
 	})
 }

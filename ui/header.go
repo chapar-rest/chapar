@@ -3,6 +3,9 @@ package ui
 import (
 	"fmt"
 
+	"gioui.org/widget"
+	"golang.org/x/exp/shiny/materialdesign/icons"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -13,6 +16,8 @@ type Header struct {
 	//dropDown *Dropdown
 
 	combo *ComboBox
+
+	textField *TextField
 }
 
 func NewHeader(theme *material.Theme) *Header {
@@ -28,6 +33,10 @@ func NewHeader(theme *material.Theme) *Header {
 		NewOption("Prod", func() { fmt.Println("Prod") }),
 	)
 
+	h.textField = NewTextField(theme, "Search")
+	icon, _ := widget.NewIcon(icons.ActionSearch)
+	h.textField.SetIcon(icon, IconPositionStart)
+
 	return h
 }
 
@@ -41,9 +50,13 @@ func (h *Header) Layout(gtx C) D {
 					return material.H6(h.Theme, "Chapar").Layout(gtx)
 				})
 			}),
+			//layout.Rigid(func(gtx C) D {
+			//	return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			//		return h.textField.Layout(gtx)
+			//	})
+			//}),
 			layout.Rigid(func(gtx C) D {
 				return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					//return h.dropDown.Layout(gtx, h.Theme)
 					return h.combo.Layout(gtx)
 				})
 			}),
