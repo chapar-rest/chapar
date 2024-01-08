@@ -13,23 +13,19 @@ import (
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
-type ComboBox struct {
+type DropDown struct {
 	// Theme is the material theme.
 	Theme *material.Theme
-
-	textEditor widget.Editor
-	textField  material.EditorStyle
-	textLabel  widget.Label
 
 	menuContextArea component.ContextArea
 	menu            component.MenuState
 	dropDownIcon    *widget.Icon
 
-	isOpen bool
-	minX   int
-
+	isOpen              bool
 	selectedOptionIndex int
 	options             []*Option
+
+	size image.Point
 }
 
 type Option struct {
@@ -61,24 +57,20 @@ func (o *Option) DefaultSelected() *Option {
 	return o
 }
 
-func NewComboBox(theme *material.Theme, options ...*Option) *ComboBox {
-	c := &ComboBox{
-		Theme:      theme,
-		textEditor: widget.Editor{},
+func NewDropDown(theme *material.Theme, options ...*Option) *DropDown {
+	c := &DropDown{
+		Theme: theme,
 		menuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
 			AbsolutePosition: true,
 		},
-		textLabel: widget.Label{},
 	}
 
 	c.dropDownIcon, _ = widget.NewIcon(icons.NavigationArrowDropDown)
 
-	var editorText = ""
+	minX := 0
 	for i, opt := range options {
-
 		if opt.isDefault {
-			editorText = opt.Text
 			c.selectedOptionIndex = i
 		}
 
@@ -88,19 +80,20 @@ func NewComboBox(theme *material.Theme, options ...*Option) *ComboBox {
 		}
 
 		opt.clickable = widget.Clickable{}
+
+		if len(opt.Text) > minX {
+			minX = len(opt.Text)
+		}
 		c.menu.Options = append(c.menu.Options, component.MenuItem(theme, &opt.clickable, opt.Text).Layout)
 	}
 
+	c.size.X = minX * 20
+
 	c.options = options
-
-	c.textField = material.Editor(theme, &c.textEditor, "")
-	c.textField.Editor.ReadOnly = true
-	c.textField.Editor.SetText(editorText)
-
 	return c
 }
 
-func (c *ComboBox) TextField(gtx C, text string) D {
+func (c *DropDown) box(gtx C, text string) D {
 	borderColor := c.Theme.Palette.ContrastFg //color.NRGBA{R: 0xc0, G: 0xc3, B: 0xc8, A: 0xff}
 	if c.isOpen {
 		borderColor = c.Theme.Palette.ContrastBg
@@ -114,11 +107,10 @@ func (c *ComboBox) TextField(gtx C, text string) D {
 	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.X = 300
-		gtx.Constraints.Min.Y = 60
+		gtx.Constraints.Min = c.size
 		return layout.Inset{
 			Top:    10,
-			Bottom: 0,
+			Bottom: 5,
 			Left:   10,
 			Right:  5,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -134,9 +126,12 @@ func (c *ComboBox) TextField(gtx C, text string) D {
 	})
 }
 
-// Layout the ComboBox.
-func (c *ComboBox) Layout(gtx C) D {
-	// set min width to 250
+func (c *DropDown) SetSize(size image.Point) {
+	c.size = size
+}
+
+// Layout the DropDown.
+func (c *DropDown) Layout(gtx C) D {
 	c.isOpen = c.menuContextArea.Active()
 
 	for i, opt := range c.options {
@@ -149,7 +144,7 @@ func (c *ComboBox) Layout(gtx C) D {
 
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx C) D {
-			return c.TextField(gtx, c.options[c.selectedOptionIndex].Text)
+			return c.box(gtx, c.options[c.selectedOptionIndex].Text)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			return c.menuContextArea.Layout(gtx, func(gtx C) D {
