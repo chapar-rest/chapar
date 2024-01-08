@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"example.com/gio_test/ui/widgets"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -11,7 +12,7 @@ import (
 type Header struct {
 	Theme *material.Theme
 
-	envDropDown *DropDown
+	envDropDown *widgets.DropDown
 }
 
 func NewHeader(theme *material.Theme) *Header {
@@ -19,12 +20,12 @@ func NewHeader(theme *material.Theme) *Header {
 		Theme: theme,
 	}
 
-	h.envDropDown = NewDropDown(theme,
-		NewOption("No Environment", func() { fmt.Println("none") }),
-		NewDivider(),
-		NewOption("Local", func() { fmt.Println("Local") }),
-		NewOption("Dev", func() { fmt.Println("Dev") }),
-		NewOption("Prod", func() { fmt.Println("Prod") }),
+	h.envDropDown = widgets.NewDropDown(theme,
+		widgets.NewOption("No Environment", func() { fmt.Println("none") }),
+		widgets.NewDivider(),
+		widgets.NewOption("Local", func() { fmt.Println("Local") }),
+		widgets.NewOption("Dev", func() { fmt.Println("Dev") }),
+		widgets.NewOption("Prod", func() { fmt.Println("Prod") }),
 	)
 
 	return h
@@ -40,11 +41,6 @@ func (h *Header) Layout(gtx C) D {
 					return material.H6(h.Theme, "Chapar").Layout(gtx)
 				})
 			}),
-			//layout.Rigid(func(gtx C) D {
-			//	return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			//		return h.textField.Layout(gtx)
-			//	})
-			//}),
 			layout.Rigid(func(gtx C) D {
 				return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return h.envDropDown.Layout(gtx)

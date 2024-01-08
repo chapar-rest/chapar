@@ -1,4 +1,4 @@
-package ui
+package widgets
 
 import (
 	"fmt"
@@ -93,7 +93,7 @@ func NewDropDown(theme *material.Theme, options ...*Option) *DropDown {
 	return c
 }
 
-func (c *DropDown) box(gtx C, text string) D {
+func (c *DropDown) box(gtx layout.Context, text string) layout.Dimensions {
 	borderColor := c.Theme.Palette.ContrastFg //color.NRGBA{R: 0xc0, G: 0xc3, B: 0xc8, A: 0xff}
 	if c.isOpen {
 		borderColor = c.Theme.Palette.ContrastBg
@@ -131,7 +131,7 @@ func (c *DropDown) SetSize(size image.Point) {
 }
 
 // Layout the DropDown.
-func (c *DropDown) Layout(gtx C) D {
+func (c *DropDown) Layout(gtx layout.Context) layout.Dimensions {
 	c.isOpen = c.menuContextArea.Active()
 
 	for i, opt := range c.options {
@@ -143,15 +143,15 @@ func (c *DropDown) Layout(gtx C) D {
 	}
 
 	return layout.Stack{}.Layout(gtx,
-		layout.Stacked(func(gtx C) D {
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return c.box(gtx, c.options[c.selectedOptionIndex].Text)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return c.menuContextArea.Layout(gtx, func(gtx C) D {
+			return c.menuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				offset := layout.Inset{
 					Top: unit.Dp(float32(70)/gtx.Metric.PxPerDp + 5),
 				}
-				return offset.Layout(gtx, func(gtx C) D {
+				return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min = image.Point{}
 					return component.Menu(c.Theme, &c.menu).Layout(gtx)
 				})

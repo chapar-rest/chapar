@@ -1,4 +1,4 @@
-package ui
+package widgets
 
 import (
 	"image"
@@ -20,14 +20,14 @@ type Rect struct {
 }
 
 // Layout renders the Rect into the provided context
-func (r Rect) Layout(gtx C) D {
+func (r Rect) Layout(gtx layout.Context) layout.Dimensions {
 	return DrawRect(gtx, r.Color, r.Size, r.Radii)
 }
 
 // DrawRect creates a rectangle of the provided background color with
 // Dimensions specified by size and a corner radius (on all corners)
 // specified by radii.
-func DrawRect(gtx C, background color.NRGBA, size f32.Point, radii float32) D {
+func DrawRect(gtx layout.Context, background color.NRGBA, size f32.Point, radii float32) layout.Dimensions {
 	bounds := image.Rectangle{
 		Max: image.Point{
 			X: int(size.X),
