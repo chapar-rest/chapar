@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"image"
-	"image/color"
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -102,9 +101,9 @@ func NewComboBox(theme *material.Theme, options ...*Option) *ComboBox {
 }
 
 func (c *ComboBox) TextField(gtx C, text string) D {
-	borderColor := color.NRGBA{R: 0xc0, G: 0xc3, B: 0xc8, A: 0xff}
+	borderColor := c.Theme.Palette.ContrastFg //color.NRGBA{R: 0xc0, G: 0xc3, B: 0xc8, A: 0xff}
 	if c.isOpen {
-		borderColor = color.NRGBA{R: 0x3f, G: 0x7e, B: 0xca, A: 0xff}
+		borderColor = c.Theme.Palette.ContrastBg
 	}
 
 	cornerRadius := unit.Dp(4)
@@ -125,8 +124,7 @@ func (c *ComboBox) TextField(gtx C, text string) D {
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					c.textField.Editor.SetText(text)
-					return c.textField.Layout(gtx)
+					return material.Label(c.Theme, unit.Sp(16), text).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return c.dropDownIcon.Layout(gtx, borderColor)
