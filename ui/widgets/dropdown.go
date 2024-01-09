@@ -3,6 +3,7 @@ package widgets
 import (
 	"fmt"
 	"image"
+	"image/color"
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -26,6 +27,10 @@ type DropDown struct {
 	options             []*Option
 
 	size image.Point
+
+	borderColor  color.NRGBA
+	borderWidth  unit.Dp
+	cornerRadius unit.Dp
 }
 
 type Option struct {
@@ -93,17 +98,22 @@ func NewDropDown(theme *material.Theme, options ...*Option) *DropDown {
 	return c
 }
 
+func (c *DropDown) SetBorder(color color.NRGBA, width unit.Dp, cornerRadius unit.Dp) {
+	c.borderColor = color
+	c.borderWidth = width
+	c.cornerRadius = cornerRadius
+}
+
 func (c *DropDown) box(gtx layout.Context, text string) layout.Dimensions {
-	borderColor := c.Theme.Palette.ContrastFg //color.NRGBA{R: 0xc0, G: 0xc3, B: 0xc8, A: 0xff}
+	borderColor := c.borderColor
 	if c.isOpen {
 		borderColor = c.Theme.Palette.ContrastBg
 	}
 
-	cornerRadius := unit.Dp(4)
 	border := widget.Border{
 		Color:        borderColor,
-		Width:        unit.Dp(1),
-		CornerRadius: cornerRadius,
+		Width:        c.borderWidth,
+		CornerRadius: c.cornerRadius,
 	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

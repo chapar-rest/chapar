@@ -28,6 +28,8 @@ func NewHeader(theme *material.Theme) *Header {
 		widgets.NewOption("Prod", func() { fmt.Println("Prod") }),
 	)
 
+	h.envDropDown.SetBorder(theme.ContrastFg, unit.Dp(1), unit.Dp(4))
+
 	return h
 }
 

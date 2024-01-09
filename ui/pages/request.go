@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"image/color"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -15,6 +17,8 @@ type Request struct {
 
 	textEditor widget.Editor
 	searchBox  *widgets.TextField
+
+	split widgets.SplitView
 }
 
 func NewRequest(theme *material.Theme) *Request {
@@ -24,6 +28,13 @@ func NewRequest(theme *material.Theme) *Request {
 		theme:     theme,
 		actions:   NewActions(theme),
 		searchBox: search,
+		split: widgets.SplitView{
+			Ratio:         -0.64,
+			MinLeftSize:   420,
+			MaxLeftSize:   800,
+			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
+			BarColorHover: theme.Palette.ContrastBg,
+		},
 	}
 }
 
@@ -60,15 +71,27 @@ func (r *Request) list(gtx layout.Context) layout.Dimensions {
 }
 
 func (r *Request) Layout(gtx layout.Context) layout.Dimensions {
-	return layout.Flex{Axis: layout.Horizontal, WeightSum: 12}.Layout(gtx,
-		layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+
+	return r.split.Layout(gtx,
+		func(gtx layout.Context) layout.Dimensions {
 			return r.list(gtx)
-		}),
-		widgets.VerticalFullLine(),
-		layout.Flexed(9, func(gtx layout.Context) layout.Dimensions {
+		},
+		func(gtx layout.Context) layout.Dimensions {
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return material.H3(r.theme, "Request").Layout(gtx)
 			})
-		}),
+		},
 	)
+
+	//return layout.Flex{Axis: layout.Horizontal, WeightSum: 12}.Layout(gtx,
+	//	layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+	//		return r.list(gtx)
+	//	}),
+	//	widgets.VerticalFullLine(),
+	//	layout.Flexed(9, func(gtx layout.Context) layout.Dimensions {
+	//		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	//			return material.H3(r.theme, "Request").Layout(gtx)
+	//		})
+	//	}),
+	//)
 }
