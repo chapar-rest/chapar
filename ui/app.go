@@ -3,6 +3,8 @@ package ui
 import (
 	"image/color"
 
+	"example.com/gio_test/ui/pages"
+
 	"example.com/gio_test/ui/widgets"
 
 	"gioui.org/op/paint"
@@ -25,6 +27,8 @@ type UI struct {
 
 	sideBar *Sidebar
 	header  *Header
+
+	requestPage *pages.Request
 }
 
 // New creates a new UI using the Go Fonts.
@@ -44,6 +48,8 @@ func New() (*UI, error) {
 
 	ui.header = NewHeader(ui.Theme)
 	ui.sideBar = NewSidebar(ui.Theme)
+
+	ui.requestPage = pages.NewRequest(ui.Theme)
 
 	return ui, nil
 }
@@ -81,9 +87,9 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return u.sideBar.Layout(gtx)
 				}),
-				//layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				//	return u.LayoutContent(gtx)
-				//}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return u.requestPage.Layout(gtx)
+				}),
 			)
 		}),
 	)

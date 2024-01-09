@@ -31,10 +31,8 @@ func NewTextField(theme *material.Theme, text string) *TextField {
 		Text:       text,
 	}
 
-	t.textField = material.Editor(theme, &t.textEditor, "")
-	t.textField.Editor.SetText(text)
-	t.textField.Editor.SingleLine = true
-
+	t.textEditor.SetText(text)
+	t.textEditor.SingleLine = true
 	return t
 }
 
@@ -61,7 +59,6 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.X = 300
 		gtx.Constraints.Min.Y = 60
 		return layout.Inset{
 			Top:    10,
@@ -69,8 +66,8 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 			Left:   10,
 			Right:  5,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			inputLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return t.textField.Layout(gtx)
+			inputLayout := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return material.Editor(t.theme, &t.textEditor, "").Layout(gtx)
 			})
 			widgets := []layout.FlexChild{inputLayout}
 
