@@ -1,11 +1,12 @@
 package main
 
 import (
-	"example.com/gio_test/ui"
-	"gioui.org/app"
-	"gioui.org/unit"
 	"log"
 	"os"
+
+	"gioui.org/app"
+	"gioui.org/unit"
+	"github.com/mirzakhany/chapar/ui"
 )
 
 func main() {

@@ -3,17 +3,15 @@ package ui
 import (
 	"image/color"
 
-	"example.com/gio_test/ui/pages"
-
-	"gioui.org/op/paint"
-
 	"gioui.org/app"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/pages"
 )
 
 type C = layout.Context

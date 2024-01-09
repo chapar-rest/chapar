@@ -1,9 +1,9 @@
-module example.com/gio_test
+module github.com/mirzakhany/chapar
 
-go 1.21.3
+go 1.21.6
 
 require (
-	gioui.org v0.4.0
+	gioui.org v0.4.2
 	gioui.org/x v0.4.0
 	golang.org/x/exp/shiny v0.0.0-20220827204233-334a2380cb91
 )

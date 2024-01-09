@@ -1,10 +1,10 @@
 package ui
 
 import (
-	"example.com/gio_test/ui/widgets"
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Sidebar struct {
