@@ -22,7 +22,7 @@ func NewActions(theme *material.Theme) *Actions {
 func (a *Actions) Layout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(a.theme, &a.addRequestButton, "Add Request").Layout(gtx)
+			return material.Button(a.theme, &a.addRequestButton, "Add").Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Width: 2}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

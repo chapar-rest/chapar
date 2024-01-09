@@ -1,6 +1,8 @@
 package widgets
 
 import (
+	"image"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -22,6 +24,8 @@ type TextField struct {
 	IconPosition int
 
 	Text string
+
+	size image.Point
 }
 
 func NewTextField(theme *material.Theme, text string) *TextField {
@@ -29,6 +33,7 @@ func NewTextField(theme *material.Theme, text string) *TextField {
 		theme:      theme,
 		textEditor: widget.Editor{},
 		Text:       text,
+		size:       image.Pt(0, 60),
 	}
 
 	t.textEditor.SetText(text)
@@ -45,6 +50,10 @@ func (t *TextField) SetIcon(icon *widget.Icon, position int) {
 	t.IconPosition = position
 }
 
+func (t *TextField) SetMinWidth(width int) {
+	t.size.X = width
+}
+
 func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 	borderColor := t.theme.Palette.ContrastFg
 	if t.textEditor.Focused() {
@@ -59,7 +68,11 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.Y = 60
+		if t.size.X == 0 {
+			t.size.X = gtx.Constraints.Min.X
+		}
+
+		gtx.Constraints.Min = t.size
 		return layout.Inset{
 			Top:    10,
 			Bottom: 0,

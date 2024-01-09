@@ -60,12 +60,12 @@ func (r *Request) list(gtx layout.Context) layout.Dimensions {
 }
 
 func (r *Request) Layout(gtx layout.Context) layout.Dimensions {
-	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-		layout.Flexed(0.2, func(gtx layout.Context) layout.Dimensions {
+	return layout.Flex{Axis: layout.Horizontal, WeightSum: 12}.Layout(gtx,
+		layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
 			return r.list(gtx)
 		}),
-		widgets.VerticalLine(),
-		layout.Flexed(0.8, func(gtx layout.Context) layout.Dimensions {
+		widgets.VerticalFullLine(),
+		layout.Flexed(9, func(gtx layout.Context) layout.Dimensions {
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return material.H3(r.theme, "Request").Layout(gtx)
 			})

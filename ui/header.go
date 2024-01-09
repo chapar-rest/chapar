@@ -54,6 +54,6 @@ func (h *Header) Layout(gtx C) D {
 			gtx.Constraints.Min.Y = 200
 			return headerBar
 		}),
-		horizontalLine(gtx),
+		widgets.HorizontalFullLine(),
 	)
 }

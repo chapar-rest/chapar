@@ -1,10 +1,7 @@
 package ui
 
 import (
-	"image/color"
-
 	"example.com/gio_test/ui/widgets"
-	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -31,15 +28,7 @@ func (s *Sidebar) Layout(gtx C) D {
 			h.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
 			return h.Layout(gtx)
 		}),
-		//layout.Rigid(layout.Spacer{Height: 10}.Layout),
-		layout.Rigid(func(gtx C) D {
-			return widgets.Rect{
-				// gray 300
-				Color: color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
-				Size:  f32.Point{X: float32(90), Y: 2},
-				Radii: 1,
-			}.Layout(gtx)
-		}),
+		widgets.HorizontalLine(90.0),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			h := widgets.NewFlatButton(s.Theme, &s.environmentsButton, "Envs")
 			h.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
@@ -51,6 +40,6 @@ func (s *Sidebar) Layout(gtx C) D {
 		layout.Rigid(func(gtx C) D {
 			return sidebarButtons
 		}),
-		verticalLine(gtx),
+		widgets.VerticalFullLine(),
 	)
 }

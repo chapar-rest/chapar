@@ -5,12 +5,9 @@ import (
 
 	"example.com/gio_test/ui/pages"
 
-	"example.com/gio_test/ui/widgets"
-
 	"gioui.org/op/paint"
 
 	"gioui.org/app"
-	"gioui.org/f32"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -110,27 +107,5 @@ func (u *UI) LayoutHeader(gtx layout.Context) layout.Dimensions {
 				})
 			}),
 		)
-	})
-}
-
-func horizontalLine(gtx layout.Context) layout.FlexChild {
-	return layout.Rigid(func(gtx C) D {
-		return widgets.Rect{
-			// gray 300
-			Color: color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
-			Size:  f32.Point{X: float32(gtx.Constraints.Max.X), Y: 2},
-			Radii: 1,
-		}.Layout(gtx)
-	})
-}
-
-func verticalLine(gtx layout.Context) layout.FlexChild {
-	return layout.Rigid(func(gtx C) D {
-		return widgets.Rect{
-			// gray 300
-			Color: color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
-			Size:  f32.Point{X: 2, Y: float32(gtx.Constraints.Max.Y)},
-			Radii: 1,
-		}.Layout(gtx)
 	})
 }
