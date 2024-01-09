@@ -19,7 +19,7 @@ func main() {
 		// create main window
 		w := app.NewWindow(
 			app.Title("Chapar"),
-			app.Size(unit.Dp(800), unit.Dp(600)),
+			app.Size(unit.Dp(1200), unit.Dp(800)),
 		)
 		if err := appUI.Run(w); err != nil {
 			log.Println(err)

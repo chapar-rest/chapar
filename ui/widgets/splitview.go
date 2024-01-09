@@ -23,7 +23,7 @@ type SplitView struct {
 	dragX  float32
 
 	// Bar is the width for resizing the layout
-	Bar           unit.Dp
+	BarWidth      unit.Dp
 	BarColor      color.NRGBA
 	BarColorHover color.NRGBA
 
@@ -37,7 +37,7 @@ type SplitView struct {
 const defaultBarWidth = unit.Dp(2)
 
 func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout.Dimensions {
-	bar := gtx.Dp(s.Bar)
+	bar := gtx.Dp(s.BarWidth)
 	if bar <= 1 {
 		bar = gtx.Dp(defaultBarWidth)
 	}
@@ -64,8 +64,8 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 		rightsize = s.MaxRightSize
 	}
 
-	barColor := s.BarColor
-	{ // handle input
+	{
+		barColor := s.BarColor
 		for _, ev := range gtx.Events(s) {
 			e, ok := ev.(pointer.Event)
 			if !ok {
@@ -73,16 +73,12 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 			}
 
 			switch e.Kind {
-			case pointer.Enter:
-				barColor = s.BarColorHover
-			case pointer.Leave:
-				barColor = s.BarColor
-
 			case pointer.Press:
 				if s.drag {
 					break
 				}
 
+				barColor = s.BarColorHover
 				s.dragID = e.PointerID
 				s.dragX = e.Position.X
 
@@ -91,6 +87,7 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 					break
 				}
 
+				barColor = s.BarColorHover
 				deltaX := e.Position.X - s.dragX
 				s.dragX = e.Position.X
 
@@ -98,9 +95,11 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 				s.Ratio += deltaRatio
 
 			case pointer.Release:
+				barColor = s.BarColor
 				fallthrough
 			case pointer.Cancel:
 				s.drag = false
+				barColor = s.BarColor
 			default:
 				continue
 			}
