@@ -1,7 +1,6 @@
 package widgets
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 
@@ -120,16 +119,16 @@ func (c *DropDown) box(gtx layout.Context, text string) layout.Dimensions {
 		gtx.Constraints.Min = c.size
 		return layout.Inset{
 			Top:    10,
-			Bottom: 5,
-			Left:   10,
-			Right:  5,
+			Bottom: 0,
+			Left:   15,
+			Right:  10,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(c.Theme, unit.Sp(16), text).Layout(gtx)
+					return material.Label(c.Theme, c.Theme.TextSize, text).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return c.dropDownIcon.Layout(gtx, borderColor)
+					return c.dropDownIcon.Layout(gtx, c.Theme.Palette.Fg)
 				}),
 			)
 		})
@@ -146,7 +145,6 @@ func (c *DropDown) Layout(gtx layout.Context) layout.Dimensions {
 
 	for i, opt := range c.options {
 		for opt.clickable.Clicked(gtx) {
-			fmt.Println(i)
 			c.isOpen = false
 			c.selectedOptionIndex = i
 		}

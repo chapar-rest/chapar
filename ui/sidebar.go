@@ -13,26 +13,39 @@ type Sidebar struct {
 	// homeButton is the button that takes the user to the home screen.
 	homeButton         widget.Clickable
 	environmentsButton widget.Clickable
+
+	requestsButton *widgets.FlatButton
+	envButton      *widgets.FlatButton
 }
 
 func NewSidebar(theme *material.Theme) *Sidebar {
-	return &Sidebar{
-		Theme: theme,
+	s := &Sidebar{
+		Theme:          theme,
+		requestsButton: widgets.NewFlatButton(theme, "Requests"),
+		envButton:      widgets.NewFlatButton(theme, "Envs"),
 	}
+
+	s.requestsButton.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
+	s.requestsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
+	s.requestsButton.MinWidth = 100
+
+	s.envButton.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
+	s.envButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
+	s.envButton.MinWidth = 100
+
+	return s
 }
 
 func (s *Sidebar) Layout(gtx C) D {
 	sidebarButtons := layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			h := widgets.NewFlatButton(s.Theme, &s.homeButton, "Requests")
-			h.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
-			return h.Layout(gtx)
+			return s.requestsButton.Layout(gtx)
 		}),
+		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		widgets.HorizontalLine(90.0),
+		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			h := widgets.NewFlatButton(s.Theme, &s.environmentsButton, "Envs")
-			h.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
-			return h.Layout(gtx)
+			return s.envButton.Layout(gtx)
 		}),
 	)
 

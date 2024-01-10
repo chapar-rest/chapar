@@ -1,7 +1,12 @@
 package widgets
 
 import (
+	"image"
+	"image/color"
+
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -19,40 +24,50 @@ type FlatButton struct {
 
 	Icon         *widget.Icon
 	IconPosition int
-	spaceBetween int
+	SpaceBetween int
 
 	label widget.Label
 
-	clickable *widget.Clickable
+	clickable widget.Clickable
 
-	Text string
+	MinWidth        int
+	BackgroundColor color.NRGBA
+	TextColor       color.NRGBA
+	Text            string
 }
 
-func NewFlatButton(theme *material.Theme, clickable *widget.Clickable, text string) *FlatButton {
+func NewFlatButton(theme *material.Theme, text string) *FlatButton {
 	return &FlatButton{
-		theme: theme,
-		Text:  text,
-
-		clickable: clickable,
+		theme:     theme,
+		Text:      text,
+		clickable: widget.Clickable{},
 	}
 }
 
 func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween int) {
 	f.Icon = icon
 	f.IconPosition = position
-	f.spaceBetween = spaceBetween
+	f.SpaceBetween = spaceBetween
+}
+
+func (f *FlatButton) SetColor(background, text color.NRGBA) {
+	f.BackgroundColor = background
+	f.TextColor = text
 }
 
 func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
-	color := f.theme.Palette.ContrastFg
-	if f.clickable.Hovered() {
-		color = f.theme.Palette.ContrastBg
+	if f.BackgroundColor == (color.NRGBA{}) {
+		f.BackgroundColor = f.theme.Palette.ContrastBg
+	}
+
+	if f.TextColor == (color.NRGBA{}) {
+		f.TextColor = f.theme.Palette.ContrastFg
 	}
 
 	axis := layout.Horizontal
 	labelLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		l := material.Label(f.theme, unit.Sp(12), f.Text)
-		l.Color = color
+		l.Color = f.TextColor
 		return l.Layout(gtx)
 	})
 
@@ -60,8 +75,8 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 
 	if f.Icon != nil {
 		iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(f.spaceBetween)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return f.Icon.Layout(gtx, color)
+			return layout.UniformInset(unit.Dp(f.SpaceBetween)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return f.Icon.Layout(gtx, f.TextColor)
 			})
 		})
 
@@ -78,8 +93,27 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	return f.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: axis, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx, widgets...)
+		return layout.UniformInset(unit.Dp(3)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Background{}.Layout(gtx,
+				func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = f.MinWidth
+					defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 4).Push(gtx.Ops).Pop()
+					background := f.BackgroundColor
+					switch {
+					case gtx.Queue == nil:
+						background = Disabled(f.BackgroundColor)
+					case f.clickable.Hovered() || f.clickable.Focused():
+						background = Hovered(f.BackgroundColor)
+					}
+					paint.Fill(gtx.Ops, background)
+					return layout.Dimensions{Size: gtx.Constraints.Min}
+				},
+				func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: axis, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx, widgets...)
+					})
+				},
+			)
 		})
 	})
 }

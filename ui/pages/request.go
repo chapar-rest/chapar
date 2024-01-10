@@ -19,15 +19,19 @@ type Request struct {
 	searchBox  *widgets.TextField
 
 	split widgets.SplitView
+
+	tabItems *Tabs
 }
 
 func NewRequest(theme *material.Theme) *Request {
 	search := widgets.NewTextField(theme, "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
+	tabItems := NewTabs(theme, []string{"Create User", "Update User"})
 	return &Request{
 		theme:     theme,
 		actions:   NewActions(theme),
 		searchBox: search,
+		tabItems:  tabItems,
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   420,
@@ -71,28 +75,26 @@ func (r *Request) list(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func (r *Request) Layout(gtx layout.Context) layout.Dimensions {
+func (r *Request) requestContainer(gtx layout.Context) layout.Dimensions {
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return r.tabItems.Layout(gtx)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.H3(r.theme, "Request").Layout(gtx)
+			})
+		}),
+	)
+}
 
+func (r *Request) Layout(gtx layout.Context) layout.Dimensions {
 	return r.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return r.list(gtx)
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H3(r.theme, "Request").Layout(gtx)
-			})
+			return r.requestContainer(gtx)
 		},
 	)
-
-	//return layout.Flex{Axis: layout.Horizontal, WeightSum: 12}.Layout(gtx,
-	//	layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
-	//		return r.list(gtx)
-	//	}),
-	//	widgets.VerticalFullLine(),
-	//	layout.Flexed(9, func(gtx layout.Context) layout.Dimensions {
-	//		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-	//			return material.H3(r.theme, "Request").Layout(gtx)
-	//		})
-	//	}),
-	//)
 }
