@@ -2,7 +2,6 @@ package ui
 
 import (
 	"gioui.org/layout"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -10,19 +9,19 @@ import (
 type Sidebar struct {
 	Theme *material.Theme
 
-	// homeButton is the button that takes the user to the home screen.
-	homeButton         widget.Clickable
-	environmentsButton widget.Clickable
-
-	requestsButton *widgets.FlatButton
-	envButton      *widgets.FlatButton
+	protoFilesButton *widgets.FlatButton
+	requestsButton   *widgets.FlatButton
+	envButton        *widgets.FlatButton
+	settingsButton   *widgets.FlatButton
 }
 
 func NewSidebar(theme *material.Theme) *Sidebar {
 	s := &Sidebar{
-		Theme:          theme,
-		requestsButton: widgets.NewFlatButton(theme, "Requests"),
-		envButton:      widgets.NewFlatButton(theme, "Envs"),
+		Theme:            theme,
+		requestsButton:   widgets.NewFlatButton(theme, "Requests"),
+		envButton:        widgets.NewFlatButton(theme, "Envs"),
+		protoFilesButton: widgets.NewFlatButton(theme, "Proto"),
+		settingsButton:   widgets.NewFlatButton(theme, "Settings"),
 	}
 
 	s.requestsButton.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
@@ -32,6 +31,14 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 	s.envButton.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
 	s.envButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.envButton.MinWidth = 130
+
+	s.protoFilesButton.SetIcon(widgets.FileFolderIcon, widgets.FlatButtonIconTop, 5)
+	s.protoFilesButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
+	s.protoFilesButton.MinWidth = 130
+
+	s.settingsButton.SetIcon(widgets.SettingsIcon, widgets.FlatButtonIconTop, 5)
+	s.settingsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
+	s.settingsButton.MinWidth = 130
 
 	return s
 }
@@ -46,6 +53,18 @@ func (s *Sidebar) Layout(gtx C) D {
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.envButton.Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: 3}.Layout),
+		widgets.HorizontalLine(90.0),
+		layout.Rigid(layout.Spacer{Height: 3}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return s.protoFilesButton.Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: 3}.Layout),
+		widgets.HorizontalLine(90.0),
+		layout.Rigid(layout.Spacer{Height: 3}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return s.settingsButton.Layout(gtx)
 		}),
 	)
 
