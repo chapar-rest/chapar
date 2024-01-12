@@ -114,12 +114,12 @@ func (c *DropDown) box(gtx layout.Context, text string) layout.Dimensions {
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = c.size
 		return layout.Inset{
-			Top:    10,
-			Bottom: 0,
-			Left:   15,
-			Right:  10,
+			Top:    4,
+			Bottom: 4,
+			Left:   8,
+			Right:  8,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return material.Label(c.Theme, c.Theme.TextSize, text).Layout(gtx)
 				}),
@@ -146,14 +146,15 @@ func (c *DropDown) Layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 
+	box := c.box(gtx, c.options[c.selectedOptionIndex].Text)
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return c.box(gtx, c.options[c.selectedOptionIndex].Text)
+			return box
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			return c.menuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				offset := layout.Inset{
-					Top: unit.Dp(float32(70)/gtx.Metric.PxPerDp + 5),
+					Top: unit.Dp(float32(box.Size.Y)/gtx.Metric.PxPerDp + 1),
 				}
 				return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min = image.Point{}
