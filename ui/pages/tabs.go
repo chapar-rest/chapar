@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"fmt"
+
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -14,6 +16,8 @@ type Tabs struct {
 	SelectedIndex int
 
 	itemButtons []*widgets.Tab
+
+	TabsW *widgets.Tabs
 }
 
 func NewTabs(theme *material.Theme, items []string) *Tabs {
@@ -28,20 +32,25 @@ func NewTabs(theme *material.Theme, items []string) *Tabs {
 		t.itemButtons = append(t.itemButtons, f)
 	}
 
-	t.itemButtons[0].IsSelected = true
+	onSelectedChange := func(i int) {
+		fmt.Println("select tab", items[i])
+	}
+
+	t.TabsW = widgets.NewTabs(t.itemButtons, onSelectedChange)
+	//t.itemButtons[0].IsSelected = true
 
 	return t
 }
 
 func (t *Tabs) Layout(gtx layout.Context) layout.Dimensions {
-	var tabs []layout.FlexChild
+	//var tabs []layout.FlexChild
+	//
+	//for _, tb := range t.itemButtons {
+	//	tb := tb
+	//	tabs = append(tabs, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	//		return tb.Layout(t.theme, gtx)
+	//	}))
+	//}
 
-	for _, tb := range t.itemButtons {
-		tb := tb
-		tabs = append(tabs, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return tb.Layout(t.theme, gtx)
-		}))
-	}
-
-	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx, tabs...)
+	return t.TabsW.Layout(t.theme, gtx)
 }

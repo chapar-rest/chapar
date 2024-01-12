@@ -27,11 +27,11 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 
 	s.requestsButton.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
 	s.requestsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.requestsButton.MinWidth = 100
+	s.requestsButton.MinWidth = 130
 
 	s.envButton.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
 	s.envButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.envButton.MinWidth = 100
+	s.envButton.MinWidth = 130
 
 	return s
 }

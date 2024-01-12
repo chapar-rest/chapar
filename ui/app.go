@@ -41,7 +41,7 @@ func New() (*UI, error) {
 	// set background color
 	ui.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
 
-	ui.Theme.TextSize = unit.Sp(13)
+	ui.Theme.TextSize = unit.Sp(14)
 	ui.header = NewHeader(ui.Theme)
 	ui.sideBar = NewSidebar(ui.Theme)
 

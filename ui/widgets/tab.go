@@ -56,7 +56,7 @@ func (t *Tab) Layout(theme *material.Theme, gtx layout.Context) layout.Dimension
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if !t.IsSelected {
-								return layout.Dimensions{Size: image.Pt(1, 5)}
+								return layout.Dimensions{Size: image.Pt(200.0, 5)}
 							}
 							return Rect{
 								Color: t.IndicatorColor,
