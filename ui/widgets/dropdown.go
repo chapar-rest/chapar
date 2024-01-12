@@ -10,7 +10,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
 type DropDown struct {
@@ -19,7 +18,6 @@ type DropDown struct {
 
 	menuContextArea component.ContextArea
 	menu            component.MenuState
-	dropDownIcon    *widget.Icon
 
 	isOpen              bool
 	selectedOptionIndex int
@@ -69,8 +67,6 @@ func NewDropDown(theme *material.Theme, options ...*Option) *DropDown {
 			AbsolutePosition: true,
 		},
 	}
-
-	c.dropDownIcon, _ = widget.NewIcon(icons.NavigationArrowDropDown)
 
 	minX := 0
 	for i, opt := range options {
@@ -128,7 +124,7 @@ func (c *DropDown) box(gtx layout.Context, text string) layout.Dimensions {
 					return material.Label(c.Theme, c.Theme.TextSize, text).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return c.dropDownIcon.Layout(gtx, c.Theme.Palette.Fg)
+					return ArrowDropDownIcon.Layout(gtx, c.Theme.Palette.Fg)
 				}),
 			)
 		})

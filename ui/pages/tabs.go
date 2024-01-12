@@ -29,6 +29,8 @@ func NewTabs(theme *material.Theme, items []string) *Tabs {
 		f := widgets.NewTab(item, &widget.Clickable{})
 		f.BackgroundColor = theme.Palette.Bg
 		f.IndicatorColor = theme.Palette.ContrastBg
+		f.Closable = true
+		f.CloseClickable = &widget.Clickable{}
 		t.itemButtons = append(t.itemButtons, f)
 	}
 

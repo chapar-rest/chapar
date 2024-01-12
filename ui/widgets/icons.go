@@ -54,3 +54,13 @@ var VisibilityIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionVisibility)
 	return icon
 }()
+
+var CloseIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.NavigationClose)
+	return icon
+}()
+
+var ArrowDropDownIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.NavigationArrowDropDown)
+	return icon
+}()
