@@ -121,10 +121,13 @@ func (c *DropDown) box(gtx layout.Context, text string) layout.Dimensions {
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(c.Theme, c.Theme.TextSize, text).Layout(gtx)
+					return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.Label(c.Theme, c.Theme.TextSize, text).Layout(gtx)
+					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return ArrowDropDownIcon.Layout(gtx, c.Theme.Palette.Fg)
+					gtx.Constraints.Min.X = gtx.Dp(16)
+					return ExpandIcon.Layout(gtx, c.Theme.Palette.Fg)
 				}),
 			)
 		})

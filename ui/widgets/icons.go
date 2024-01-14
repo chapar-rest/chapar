@@ -70,6 +70,11 @@ var ForwardIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var ExpandIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.NavigationExpandMore)
+	return icon
+}()
+
 var FileFolderIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.FileFolder)
 	return icon

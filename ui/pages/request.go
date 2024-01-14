@@ -58,12 +58,17 @@ func NewRequest(theme *material.Theme) *Request {
 		tabsCounter: 2,
 	}
 
-	req.requestsTree.AddNode("Request 1", false, nil)
+	rq := widgets.NewNode("Request 0", false)
+	rq.AddChild(widgets.NewNode("Request 01", false))
+	rq.AddChild(widgets.NewNode("Request 02", false))
+	rq.AddChild(widgets.NewNode("Request 03", false))
+	rq.AddChild(widgets.NewNode("Request 04", false))
+	req.requestsTree.AddNode(rq, nil)
 
 	addOne := func() {
 		name := fmt.Sprintf("Request %d", req.tabsCounter)
 		req.tabs.AddTab(widgets.NewTab(name, &widget.Clickable{}))
-		req.requestsTree.AddNode(name, true, nil)
+		req.requestsTree.AddRootNode(name, true)
 		req.tabsCounter++
 	}
 
@@ -94,7 +99,7 @@ func (r *Request) list(gtx layout.Context) layout.Dimensions {
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return r.requestsTree.Layout(r.theme, gtx)
 				})
 			}),
