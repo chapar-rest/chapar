@@ -27,7 +27,7 @@ type Request struct {
 }
 
 func NewRequest(theme *material.Theme) *Request {
-	search := widgets.NewTextField(theme, "Search...")
+	search := widgets.NewTextField(theme, "", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	actions := NewActions(theme)
 

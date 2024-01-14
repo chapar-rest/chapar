@@ -23,17 +23,18 @@ type TextField struct {
 
 	IconPosition int
 
-	Text string
+	Text        string
+	Placeholder string
 
 	size image.Point
 }
 
-func NewTextField(theme *material.Theme, text string) *TextField {
+func NewTextField(theme *material.Theme, text, placeholder string) *TextField {
 	t := &TextField{
-		theme:      theme,
-		textEditor: widget.Editor{},
-		Text:       text,
-		size:       image.Pt(0, 60),
+		theme:       theme,
+		textEditor:  widget.Editor{},
+		Text:        text,
+		Placeholder: placeholder,
 	}
 
 	t.textEditor.SetText(text)
@@ -67,6 +68,11 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 		CornerRadius: cornerRadius,
 	}
 
+	leftPadding := unit.Dp(8)
+	if t.Icon != nil && t.IconPosition == IconPositionStart {
+		leftPadding = unit.Dp(0)
+	}
+
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if t.size.X == 0 {
 			t.size.X = gtx.Constraints.Min.X
@@ -74,13 +80,13 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 
 		gtx.Constraints.Min = t.size
 		return layout.Inset{
-			Top:    10,
-			Bottom: 0,
-			Left:   10,
-			Right:  5,
+			Top:    4,
+			Bottom: 4,
+			Left:   leftPadding,
+			Right:  4,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			inputLayout := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(t.theme, &t.textEditor, "").Layout(gtx)
+				return material.Editor(t.theme, &t.textEditor, t.Placeholder).Layout(gtx)
 			})
 			widgets := []layout.FlexChild{inputLayout}
 
@@ -98,7 +104,7 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 				}
 			}
 
-			return layout.Flex{Axis: layout.Horizontal, Spacing: spacing}.Layout(gtx, widgets...)
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: spacing}.Layout(gtx, widgets...)
 		})
 	})
 }
