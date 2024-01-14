@@ -60,14 +60,13 @@ func (t *Tab) Layout(theme *material.Theme, gtx layout.Context) layout.Dimension
 				layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					ib := &IconButton{
-						Icon:                   CloseIcon,
-						Color:                  theme.ContrastFg,
-						BackgroundColor:        t.BackgroundColor,
-						BackgroundHoveredColor: Hovered(t.BackgroundColor),
-						Size:                   unit.Dp(16),
-						Clickable:              t.CloseClickable,
+						Icon:            CloseIcon,
+						Color:           theme.ContrastFg,
+						BackgroundColor: t.BackgroundColor,
+						Size:            unit.Dp(16),
+						Clickable:       t.CloseClickable,
 					}
-					return ib.Layout(gtx)
+					return ib.Layout(theme, gtx)
 				}),
 			)
 		}

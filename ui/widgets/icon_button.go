@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/widget/material"
+
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -12,18 +14,21 @@ import (
 )
 
 type IconButton struct {
-	Icon                   *widget.Icon
-	Size                   unit.Dp
-	Color                  color.NRGBA
-	BackgroundColor        color.NRGBA
-	BackgroundHoveredColor color.NRGBA
+	Icon            *widget.Icon
+	Size            unit.Dp
+	Color           color.NRGBA
+	BackgroundColor color.NRGBA
 
 	Clickable *widget.Clickable
 
 	OnClick func()
 }
 
-func (ib *IconButton) Layout(gtx layout.Context) layout.Dimensions {
+func (ib *IconButton) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+	if ib.BackgroundColor == (color.NRGBA{}) {
+		ib.BackgroundColor = theme.Palette.Bg
+	}
+
 	for ib.Clickable.Clicked(gtx) {
 		if ib.OnClick != nil {
 			go ib.OnClick()
@@ -39,7 +44,7 @@ func (ib *IconButton) Layout(gtx layout.Context) layout.Dimensions {
 				case gtx.Queue == nil:
 					background = Disabled(ib.BackgroundColor)
 				case ib.Clickable.Hovered() || ib.Clickable.Focused():
-					background = ib.BackgroundHoveredColor
+					background = Hovered(ib.BackgroundColor)
 				}
 				paint.Fill(gtx.Ops, background)
 				return layout.Dimensions{Size: gtx.Constraints.Min}

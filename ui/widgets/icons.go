@@ -65,6 +65,11 @@ var ArrowDropDownIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var ForwardIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.NavigationChevronRight)
+	return icon
+}()
+
 var FileFolderIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.FileFolder)
 	return icon
