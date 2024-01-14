@@ -67,7 +67,7 @@ func NewRequest(theme *material.Theme) *Request {
 		req.tabsCounter++
 	}
 
-	for i := 0; i < 40; i++ {
+	for i := 0; i < 10; i++ {
 		addOne()
 	}
 
