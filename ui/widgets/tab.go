@@ -40,6 +40,14 @@ func (t *Tab) Layout(theme *material.Theme, gtx layout.Context) layout.Dimension
 		CornerRadius: 0,
 	}
 
+	if t.BackgroundColor == (color.NRGBA{}) {
+		t.BackgroundColor = theme.Palette.Bg
+	}
+
+	if t.IndicatorColor == (color.NRGBA{}) {
+		t.IndicatorColor = theme.Palette.ContrastBg
+	}
+
 	dims := layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if t.Closable {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,

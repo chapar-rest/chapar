@@ -24,6 +24,10 @@ func NewTabs(Items []*Tab, onSelectedChange func(int)) *Tabs {
 	return t
 }
 
+func (t *Tabs) AddTab(tab *Tab) {
+	t.Items = append(t.Items, tab)
+}
+
 func (t *Tabs) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
 	var items []layout.FlexChild
 	for i := range t.Items {
@@ -49,7 +53,9 @@ func (t *Tabs) changeSelected(index int) {
 		if i == index {
 			t.SelectedIndex = i
 			t.Items[i].IsSelected = true
-			go t.onSelectedChange(i)
+			if t.onSelectedChange != nil {
+				go t.onSelectedChange(i)
+			}
 			continue
 		} else {
 			item.IsSelected = false

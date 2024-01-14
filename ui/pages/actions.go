@@ -11,6 +11,8 @@ type Actions struct {
 
 	addRequestButton widget.Clickable
 	importButton     widget.Clickable
+
+	onClick func(target string)
 }
 
 func NewActions(theme *material.Theme) *Actions {
@@ -19,7 +21,19 @@ func NewActions(theme *material.Theme) *Actions {
 	}
 }
 
+func (a *Actions) OnClick(f func(target string)) {
+	a.onClick = f
+}
+
 func (a *Actions) Layout(gtx layout.Context) layout.Dimensions {
+	for a.addRequestButton.Clicked(gtx) {
+		a.onClick("Add")
+	}
+
+	for a.importButton.Clicked(gtx) {
+		a.onClick("Import")
+	}
+
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Button(a.theme, &a.addRequestButton, "Add").Layout(gtx)
