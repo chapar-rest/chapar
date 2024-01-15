@@ -1,7 +1,6 @@
 package widgets
 
 import (
-	"fmt"
 	"image"
 	"sort"
 
@@ -66,15 +65,13 @@ func (t *TreeView) AddNode(node *TreeViewNode, parent *TreeViewNode) {
 	parent.Children = append(parent.Children, node)
 }
 
-func (t *TreeView) parentLayout(theme *material.Theme, gtx layout.Context, node *TreeViewNode) layout.Dimensions {
+func (t *TreeView) childLayout(theme *material.Theme, gtx layout.Context, node *TreeViewNode) layout.Dimensions {
 	background := theme.Palette.Bg
-
 	for node.clickable.Clicked(gtx) {
 		node.collapsed = !node.collapsed
-		fmt.Println("clicked", node.Text, node.collapsed)
 	}
 
-	pr := node.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return node.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Background{}.Layout(gtx,
 			func(gtx layout.Context) layout.Dimensions {
 				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
@@ -88,9 +85,46 @@ func (t *TreeView) parentLayout(theme *material.Theme, gtx layout.Context, node 
 				return layout.Dimensions{Size: gtx.Constraints.Min}
 			},
 			func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(48)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Label(theme, theme.TextSize, node.Text).Layout(gtx)
+				})
+			},
+		)
+	})
+}
+
+func (t *TreeView) parentLayout(theme *material.Theme, gtx layout.Context, node *TreeViewNode) layout.Dimensions {
+	background := theme.Palette.Bg
+	for node.clickable.Clicked(gtx) {
+		if node.Children == nil {
+			continue
+		}
+		node.collapsed = !node.collapsed
+	}
+
+	pr := node.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Background{}.Layout(gtx,
+			func(gtx layout.Context) layout.Dimensions {
+				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
+				switch {
+				case gtx.Queue == nil:
+					background = Disabled(theme.Palette.Bg)
+				case node.clickable.Hovered() || node.clickable.Focused() || !node.collapsed:
+					background = Hovered(theme.Palette.Bg)
+				}
+				paint.Fill(gtx.Ops, background)
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			},
+			func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceEnd}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if node.Children == nil {
+								s := gtx.Constraints.Min
+								s.X = gtx.Dp(unit.Dp(16))
+								return layout.Dimensions{Size: s}
+							}
+
 							gtx.Constraints.Min.X = gtx.Dp(16)
 							if !node.collapsed {
 								return ExpandIcon.Layout(gtx, theme.ContrastFg)
@@ -119,13 +153,12 @@ func (t *TreeView) parentLayout(theme *material.Theme, gtx layout.Context, node 
 	for _, child := range node.Children {
 		child := child
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(48)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Label(theme, theme.TextSize, child.Text).Layout(gtx)
-			})
+			return t.childLayout(theme, gtx, child)
 		}))
 	}
 
 	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle, Spacing: layout.SpaceEnd}.Layout(gtx, children...)
+
 }
 
 func (t *TreeView) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {

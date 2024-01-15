@@ -2,6 +2,7 @@ package pages
 
 import (
 	"gioui.org/layout"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 )
@@ -38,7 +39,7 @@ func (a *Actions) Layout(gtx layout.Context) layout.Dimensions {
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Button(a.theme, &a.addRequestButton, "Add").Layout(gtx)
 		}),
-		layout.Rigid(layout.Spacer{Width: 2}.Layout),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Button(a.theme, &a.importButton, "Import").Layout(gtx)
 		}),
