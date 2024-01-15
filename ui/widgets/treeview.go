@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"image"
-	"sort"
 
 	"gioui.org/op/clip"
 
@@ -162,11 +161,6 @@ func (t *TreeView) parentLayout(theme *material.Theme, gtx layout.Context, node 
 }
 
 func (t *TreeView) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
-	// sort parents by text. TODO sort by order
-	sort.Slice(t.nodes, func(i, j int) bool {
-		return t.nodes[i].Text < t.nodes[j].Text
-	})
-
 	return material.List(theme, t.list).Layout(gtx, len(t.nodes), func(gtx layout.Context, index int) layout.Dimensions {
 		return t.parentLayout(theme, gtx, t.nodes[index])
 	})
