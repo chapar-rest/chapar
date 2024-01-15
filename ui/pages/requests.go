@@ -26,6 +26,8 @@ type Request struct {
 	tabsCounter int
 
 	requestsTree *widgets.TreeView
+
+	restContainer *RestContainer
 }
 
 func NewRequest(theme *material.Theme) *Request {
@@ -55,7 +57,8 @@ func NewRequest(theme *material.Theme) *Request {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		tabsCounter: 2,
+		tabsCounter:   2,
+		restContainer: NewRestContainer(theme),
 	}
 
 	rq := widgets.NewNode("Request 0", false)
@@ -113,9 +116,7 @@ func (r *Request) requestContainer(gtx layout.Context) layout.Dimensions {
 			return r.tabs.Layout(r.theme, gtx)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H3(r.theme, "Request").Layout(gtx)
-			})
+			return r.restContainer.Layout(r.theme, gtx)
 		}),
 	)
 }
