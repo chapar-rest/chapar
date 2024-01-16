@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="Chapar" width="300"/>
+  <img src="appicon.png" alt="Chapar"/>
 </div>
 
 # Chapar
