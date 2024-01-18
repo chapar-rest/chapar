@@ -14,11 +14,13 @@ import (
 )
 
 type IconButton struct {
-	Icon            *widget.Icon
-	Size            unit.Dp
-	Color           color.NRGBA
-	BackgroundColor color.NRGBA
+	Icon                 *widget.Icon
+	Size                 unit.Dp
+	Color                color.NRGBA
+	BackgroundColor      color.NRGBA
+	BackgroundColorHover color.NRGBA
 
+	SkipFocus bool
 	Clickable *widget.Clickable
 
 	OnClick func()
@@ -27,6 +29,10 @@ type IconButton struct {
 func (ib *IconButton) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
 	if ib.BackgroundColor == (color.NRGBA{}) {
 		ib.BackgroundColor = theme.Palette.Bg
+	}
+
+	if ib.BackgroundColorHover == (color.NRGBA{}) {
+		ib.BackgroundColorHover = Hovered(ib.BackgroundColor)
 	}
 
 	for ib.Clickable.Clicked(gtx) {
@@ -43,8 +49,8 @@ func (ib *IconButton) Layout(theme *material.Theme, gtx layout.Context) layout.D
 				switch {
 				case gtx.Queue == nil:
 					background = Disabled(ib.BackgroundColor)
-				case ib.Clickable.Hovered() || ib.Clickable.Focused():
-					background = Hovered(ib.BackgroundColor)
+				case ib.Clickable.Hovered() || (ib.Clickable.Focused() && !ib.SkipFocus):
+					background = ib.BackgroundColorHover
 				}
 				paint.Fill(gtx.Ops, background)
 				return layout.Dimensions{Size: gtx.Constraints.Min}

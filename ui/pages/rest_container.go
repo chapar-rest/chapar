@@ -23,6 +23,8 @@ type RestContainer struct {
 	split widgets.SplitView
 
 	responseEditor widget.Editor
+
+	requestTabs *widgets.TabsV2
 }
 
 func NewRestContainer(theme *material.Theme) *RestContainer {
@@ -34,6 +36,20 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 	}
+
+	tabV2Items := []widgets.TabV2{
+		{Title: "Params"},
+		{Title: "Body"},
+		{Title: "Headers"},
+		{Title: "Pre-req"},
+		{Title: "Post-req"},
+	}
+
+	onTabsChange := func(index int) {
+		fmt.Println("selected tab", index)
+	}
+
+	r.requestTabs = widgets.NewTabsV2(tabV2Items, onTabsChange)
 
 	r.methodDropDown = widgets.NewDropDown(theme,
 		widgets.NewOption("GET", func() { fmt.Println("none") }),
@@ -49,7 +65,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.textEditor.SingleLine = true
 
 	r.responseEditor.SingleLine = false
-	r.responseEditor.ReadOnly = true
+	r.responseEditor.ReadOnly = false
 
 	return r
 }
@@ -86,6 +102,17 @@ func (r *RestContainer) requestBar(theme *material.Theme, gtx layout.Context) la
 	})
 }
 
+func (r *RestContainer) requestLayout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+	return layout.Flex{
+		Axis:      layout.Vertical,
+		Alignment: layout.Start,
+	}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return r.requestTabs.Layout(theme, gtx)
+		}),
+	)
+}
+
 func (r *RestContainer) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -105,9 +132,7 @@ func (r *RestContainer) Layout(theme *material.Theme, gtx layout.Context) layout
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return r.split.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, theme.TextSize, "Request").Layout(gtx)
-					})
+					return r.requestLayout(theme, gtx)
 				},
 				func(gtx layout.Context) layout.Dimensions {
 					return material.Editor(theme, &r.responseEditor, "").Layout(gtx)

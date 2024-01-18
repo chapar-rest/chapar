@@ -21,12 +21,12 @@ type Request struct {
 
 	split widgets.SplitView
 
-	tabs *widgets.Tabs
-
+	tabs        *widgets.Tabs
 	tabsCounter int
 
-	requestsTree *widgets.TreeView
+	tabsV2 *widgets.TabsV2
 
+	requestsTree  *widgets.TreeView
 	restContainer *RestContainer
 }
 
@@ -35,8 +35,19 @@ func NewRequest(theme *material.Theme) *Request {
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	actions := NewActions(theme)
 
+	tabStyle := &widgets.TabStyle{
+		BorderWidth: unit.Dp(1),
+	}
+
 	tabItems := []*widgets.Tab{
-		widgets.NewTab("Request 1", &widget.Clickable{}),
+		widgets.NewTab("Request 1", &widget.Clickable{}, tabStyle),
+	}
+
+	tabV2Items := []widgets.TabV2{
+		{Title: "Request 1", Closable: true, CloseClickable: &widget.Clickable{}},
+		{Title: "Request 2", Closable: true, CloseClickable: &widget.Clickable{}},
+		{Title: "Request 3", Closable: true, CloseClickable: &widget.Clickable{}},
+		{Title: "Request 4", Closable: true, CloseClickable: &widget.Clickable{}},
 	}
 
 	onTabsChange := func(index int) {
@@ -48,6 +59,7 @@ func NewRequest(theme *material.Theme) *Request {
 		actions:      actions,
 		searchBox:    search,
 		tabs:         widgets.NewTabs(tabItems, onTabsChange),
+		tabsV2:       widgets.NewTabsV2(tabV2Items, onTabsChange),
 		requestsTree: widgets.NewTreeView(),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
@@ -70,7 +82,7 @@ func NewRequest(theme *material.Theme) *Request {
 
 	addOne := func() {
 		name := fmt.Sprintf("Request %d", req.tabsCounter)
-		req.tabs.AddTab(widgets.NewTab(name, &widget.Clickable{}))
+		req.tabs.AddTab(widgets.NewTab(name, &widget.Clickable{}, tabStyle))
 		req.requestsTree.AddRootNode(name, true)
 		req.tabsCounter++
 	}
@@ -113,7 +125,8 @@ func (r *Request) list(gtx layout.Context) layout.Dimensions {
 func (r *Request) requestContainer(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return r.tabs.Layout(r.theme, gtx)
+			//return r.tabs.Layout(r.theme, gtx)
+			return r.tabsV2.Layout(r.theme, gtx)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return r.restContainer.Layout(r.theme, gtx)

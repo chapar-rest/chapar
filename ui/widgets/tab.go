@@ -13,6 +13,11 @@ import (
 	"gioui.org/widget/material"
 )
 
+const (
+	IndicatorPositionTop = iota
+	IndicatorPositionBottom
+)
+
 type Tab struct {
 	clickable *widget.Clickable
 
@@ -21,22 +26,37 @@ type Tab struct {
 
 	IsSelected bool
 
-	BackgroundColor color.NRGBA
-	IndicatorColor  color.NRGBA
-	Text            string
+	*TabStyle
+
+	Text string
 }
 
-func NewTab(text string, clickable *widget.Clickable) *Tab {
+type TabStyle struct {
+	BackgroundColor   color.NRGBA
+	IndicatorColor    color.NRGBA
+	IndicatorPosition int
+
+	BorderWidth unit.Dp
+	BorderColor color.NRGBA
+}
+
+func NewTab(text string, clickable *widget.Clickable, style *TabStyle) *Tab {
 	return &Tab{
 		Text:      text,
 		clickable: clickable,
+		TabStyle:  style,
 	}
+}
+
+func (t *Tab) SetStyle(style *TabStyle) *Tab {
+	t.TabStyle = style
+	return t
 }
 
 func (t *Tab) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
 	border := widget.Border{
 		Color:        Gray300,
-		Width:        1,
+		Width:        t.BorderWidth,
 		CornerRadius: 0,
 	}
 
@@ -95,21 +115,32 @@ func (t *Tab) Layout(theme *material.Theme, gtx layout.Context) layout.Dimension
 				})
 			},
 			func(gtx layout.Context) layout.Dimensions {
+				indicator := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !t.IsSelected {
+						return layout.Dimensions{Size: image.Pt(dims.Size.X, 5)}
+					}
+					return Rect{
+						Color: t.IndicatorColor,
+						Size:  f32.Point{X: float32(dims.Size.X), Y: 5},
+						Radii: 0,
+					}.Layout(gtx)
+				})
+
+				if t.IndicatorPosition == IndicatorPositionTop {
+					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Baseline}.Layout(gtx,
+						indicator,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							cc.Add(gtx.Ops)
+							return dims
+						}),
+					)
+				}
 				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Baseline}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if !t.IsSelected {
-							return layout.Dimensions{Size: image.Pt(dims.Size.X, 5)}
-						}
-						return Rect{
-							Color: t.IndicatorColor,
-							Size:  f32.Point{X: float32(dims.Size.X), Y: 5},
-							Radii: 0,
-						}.Layout(gtx)
-					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						cc.Add(gtx.Ops)
 						return dims
 					}),
+					indicator,
 				)
 			},
 		)
