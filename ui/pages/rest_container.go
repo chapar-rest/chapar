@@ -13,22 +13,6 @@ import (
 
 var (
 	requestTabsInset = layout.Inset{Left: unit.Dp(5), Top: unit.Dp(3)}
-
-	httpMethods = []string{
-		"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTION",
-	}
-
-	preActions = []string{
-		"None", "Python Script", "SSH Script", "SSH Tunnel", "Kubectl Tunnel",
-	}
-
-	postActions = []string{
-		"None", "Python Script", "SSH Script",
-	}
-
-	bodyTypes = []string{
-		"None", "JSON", "Text", "XML", "Form data", "Binary", "Urlencoded",
-	}
 )
 
 type RestContainer struct {
@@ -41,7 +25,7 @@ type RestContainer struct {
 
 	responseEditor widget.Editor
 
-	requestTabs *widgets.TabsV2
+	requestTabs *widgets.Tabs
 
 	preRequestDropDown  *widgets.DropDown
 	postRequestDropDown *widgets.DropDown
@@ -61,7 +45,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		},
 	}
 
-	tabV2Items := []widgets.TabV2{
+	tabV2Items := []widgets.Tab{
 		{Title: "Params"},
 		{Title: "Body"},
 		{Title: "Headers"},
@@ -69,7 +53,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		{Title: "Post-req"},
 	}
 
-	r.requestTabs = widgets.NewTabsV2(tabV2Items, nil)
+	r.requestTabs = widgets.NewTabs(tabV2Items, nil)
 
 	r.methodDropDown = widgets.NewDropDown(theme,
 		widgets.NewDropDownOption("GET"),
@@ -100,11 +84,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 
 	r.postRequestDropDown.SetSize(image.Point{X: 230})
 	r.postRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
-
-	var requestBodyTypes []*widgets.DropDownOption
-	for _, t := range bodyTypes {
-		requestBodyTypes = append(requestBodyTypes, widgets.NewDropDownOption(t))
-	}
 
 	r.requestBodyDropDown = widgets.NewDropDown(theme,
 		widgets.NewDropDownOption("None"),

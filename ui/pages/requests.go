@@ -16,7 +16,7 @@ type Request struct {
 	importButton     widget.Clickable
 
 	split  widgets.SplitView
-	tabsV2 *widgets.TabsV2
+	tabsV2 *widgets.Tabs
 
 	searchBox     *widgets.TextField
 	requestsTree  *widgets.TreeView
@@ -26,7 +26,7 @@ type Request struct {
 func NewRequest(theme *material.Theme) *Request {
 	search := widgets.NewTextField(theme, "", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	tabV2Items := []widgets.TabV2{
+	tabV2Items := []widgets.Tab{
 		{Title: "Register user", Closable: true, CloseClickable: &widget.Clickable{}},
 	}
 
@@ -36,7 +36,7 @@ func NewRequest(theme *material.Theme) *Request {
 
 	req := &Request{
 		searchBox:    search,
-		tabsV2:       widgets.NewTabsV2(tabV2Items, onTabsChange),
+		tabsV2:       widgets.NewTabs(tabV2Items, onTabsChange),
 		requestsTree: widgets.NewTreeView(),
 		split: widgets.SplitView{
 			Ratio:         -0.64,

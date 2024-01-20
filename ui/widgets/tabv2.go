@@ -12,15 +12,15 @@ import (
 	"gioui.org/widget/material"
 )
 
-type TabsV2 struct {
+type Tabs struct {
 	list     layout.List
-	tabs     []TabV2
+	tabs     []Tab
 	selected int
 
 	onSelectedChange func(int)
 }
 
-type TabV2 struct {
+type Tab struct {
 	btn   widget.Clickable
 	Title string
 
@@ -28,8 +28,8 @@ type TabV2 struct {
 	CloseClickable *widget.Clickable
 }
 
-func NewTabsV2(items []TabV2, onSelectedChange func(int)) *TabsV2 {
-	t := &TabsV2{
+func NewTabs(items []Tab, onSelectedChange func(int)) *Tabs {
+	t := &Tabs{
 		tabs:             items,
 		selected:         0,
 		onSelectedChange: onSelectedChange,
@@ -37,11 +37,11 @@ func NewTabsV2(items []TabV2, onSelectedChange func(int)) *TabsV2 {
 	return t
 }
 
-func (tabs *TabsV2) Selected() int {
+func (tabs *Tabs) Selected() int {
 	return tabs.selected
 }
 
-func (tabs *TabsV2) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (tabs *Tabs) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return tabs.list.Layout(gtx, len(tabs.tabs), func(gtx layout.Context, tabIdx int) layout.Dimensions {
