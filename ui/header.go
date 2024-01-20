@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -21,13 +19,12 @@ func NewHeader(theme *material.Theme) *Header {
 	}
 
 	h.envDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("No Environment", func() { fmt.Println("none") }),
+		widgets.NewOption("No Environment"),
 		widgets.NewDivider(),
-		widgets.NewOption("Local", func() { fmt.Println("Local") }),
-		widgets.NewOption("Dev", func() { fmt.Println("Dev") }),
-		widgets.NewOption("Prod", func() { fmt.Println("Prod") }),
+		widgets.NewOption("Local"),
+		widgets.NewOption("Dev"),
+		widgets.NewOption("Prod"),
 	)
-
 	h.envDropDown.SetBorder(theme.ContrastFg, unit.Dp(1), unit.Dp(4))
 
 	return h

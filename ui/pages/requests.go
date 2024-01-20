@@ -12,20 +12,13 @@ import (
 )
 
 type Request struct {
-	theme *material.Theme
+	addRequestButton widget.Clickable
+	importButton     widget.Clickable
 
-	actions *Actions
-
-	textEditor widget.Editor
-	searchBox  *widgets.TextField
-
-	split widgets.SplitView
-
-	tabs        *widgets.Tabs
-	tabsCounter int
-
+	split  widgets.SplitView
 	tabsV2 *widgets.TabsV2
 
+	searchBox     *widgets.TextField
 	requestsTree  *widgets.TreeView
 	restContainer *RestContainer
 }
@@ -33,21 +26,8 @@ type Request struct {
 func NewRequest(theme *material.Theme) *Request {
 	search := widgets.NewTextField(theme, "", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	actions := NewActions(theme)
-
-	tabStyle := &widgets.TabStyle{
-		BorderWidth: unit.Dp(1),
-	}
-
-	tabItems := []*widgets.Tab{
-		widgets.NewTab("Request 1", &widget.Clickable{}, tabStyle),
-	}
-
 	tabV2Items := []widgets.TabV2{
-		{Title: "Request 1", Closable: true, CloseClickable: &widget.Clickable{}},
-		{Title: "Request 2", Closable: true, CloseClickable: &widget.Clickable{}},
-		{Title: "Request 3", Closable: true, CloseClickable: &widget.Clickable{}},
-		{Title: "Request 4", Closable: true, CloseClickable: &widget.Clickable{}},
+		{Title: "Register user", Closable: true, CloseClickable: &widget.Clickable{}},
 	}
 
 	onTabsChange := func(index int) {
@@ -55,10 +35,7 @@ func NewRequest(theme *material.Theme) *Request {
 	}
 
 	req := &Request{
-		theme:        theme,
-		actions:      actions,
 		searchBox:    search,
-		tabs:         widgets.NewTabs(tabItems, onTabsChange),
 		tabsV2:       widgets.NewTabsV2(tabV2Items, onTabsChange),
 		requestsTree: widgets.NewTreeView(),
 		split: widgets.SplitView{
@@ -69,43 +46,30 @@ func NewRequest(theme *material.Theme) *Request {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		tabsCounter:   2,
 		restContainer: NewRestContainer(theme),
 	}
 
-	rq := widgets.NewNode("Request 0", false)
-	rq.AddChild(widgets.NewNode("Request 01", false))
-	rq.AddChild(widgets.NewNode("Request 02", false))
-	rq.AddChild(widgets.NewNode("Request 03", false))
-	rq.AddChild(widgets.NewNode("Request 04", false))
+	rq := widgets.NewNode("Users", false)
+	rq.AddChild(widgets.NewNode("Register user", false))
 	req.requestsTree.AddNode(rq, nil)
-
-	addOne := func() {
-		name := fmt.Sprintf("Request %d", req.tabsCounter)
-		req.tabs.AddTab(widgets.NewTab(name, &widget.Clickable{}, tabStyle))
-		req.requestsTree.AddRootNode(name, true)
-		req.tabsCounter++
-	}
-
-	for i := 0; i < 10; i++ {
-		addOne()
-	}
-
-	actions.OnClick(func(target string) {
-		if target == "Add" {
-			addOne()
-		}
-	})
 
 	return req
 }
 
-func (r *Request) list(gtx layout.Context) layout.Dimensions {
+func (r *Request) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.actions.Layout(gtx)
+					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return material.Button(theme, &r.addRequestButton, "Add").Layout(gtx)
+						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return material.Button(theme, &r.importButton, "Import").Layout(gtx)
+						}),
+					)
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -115,32 +79,32 @@ func (r *Request) list(gtx layout.Context) layout.Dimensions {
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestsTree.Layout(r.theme, gtx)
+					return r.requestsTree.Layout(theme, gtx)
 				})
 			}),
 		)
 	})
 }
 
-func (r *Request) requestContainer(gtx layout.Context) layout.Dimensions {
+func (r *Request) requestContainer(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			//return r.tabs.Layout(r.theme, gtx)
-			return r.tabsV2.Layout(r.theme, gtx)
+			return r.tabsV2.Layout(theme, gtx)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return r.restContainer.Layout(r.theme, gtx)
+			return r.restContainer.Layout(gtx, theme)
 		}),
 	)
 }
 
-func (r *Request) Layout(gtx layout.Context) layout.Dimensions {
+func (r *Request) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return r.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
-			return r.list(gtx)
+			return r.list(gtx, theme)
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			return r.requestContainer(gtx)
+			return r.requestContainer(gtx, theme)
 		},
 	)
 }

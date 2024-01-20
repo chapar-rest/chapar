@@ -1,7 +1,6 @@
 package pages
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 
@@ -10,6 +9,26 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/ui/widgets"
+)
+
+var (
+	requestTabsInset = layout.Inset{Left: unit.Dp(5), Top: unit.Dp(3)}
+
+	httpMethods = []string{
+		"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTION",
+	}
+
+	preActions = []string{
+		"None", "Python Script", "SSH Script", "SSH Tunnel", "Kubectl Tunnel",
+	}
+
+	postActions = []string{
+		"None", "Python Script", "SSH Script",
+	}
+
+	bodyTypes = []string{
+		"None", "JSON", "Text", "XML", "Form data", "Binary", "Urlencoded",
+	}
 )
 
 type RestContainer struct {
@@ -24,8 +43,12 @@ type RestContainer struct {
 
 	requestTabs *widgets.TabsV2
 
-	// preRequest
-	preRequestDropDown *widgets.DropDown
+	preRequestDropDown  *widgets.DropDown
+	postRequestDropDown *widgets.DropDown
+	requestBodyDropDown *widgets.DropDown
+
+	selectedMethod string
+	url            string
 }
 
 func NewRestContainer(theme *material.Theme) *RestContainer {
@@ -46,42 +69,63 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		{Title: "Post-req"},
 	}
 
-	onTabsChange := func(index int) {
-		fmt.Println("selected tab", index)
-	}
-
-	r.requestTabs = widgets.NewTabsV2(tabV2Items, onTabsChange)
+	r.requestTabs = widgets.NewTabsV2(tabV2Items, nil)
 
 	r.methodDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("GET", func() { fmt.Println("none") }),
-		widgets.NewOption("POST", func() { fmt.Println("none") }),
-		widgets.NewOption("PUT", func() { fmt.Println("none") }),
-		widgets.NewOption("PATCH", func() { fmt.Println("none") }),
-		widgets.NewOption("DELETE", func() { fmt.Println("none") }),
-		widgets.NewOption("HEAD", func() { fmt.Println("none") }),
-		widgets.NewOption("OPTION", func() { fmt.Println("none") }),
+		widgets.NewOption("GET"),
+		widgets.NewOption("POST"),
+		widgets.NewOption("PUT"),
+		widgets.NewOption("PATCH"),
+		widgets.NewOption("DELETE"),
+		widgets.NewOption("HEAD"),
+		widgets.NewOption("OPTION"),
 	)
 	r.methodDropDown.SetSize(image.Point{X: 150})
 
 	r.preRequestDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("None", func() { fmt.Println("none") }),
-		widgets.NewOption("Python Script", func() { fmt.Println("python-script") }),
-		widgets.NewOption("SSH Script", func() { fmt.Println("ssh-script") }),
-		widgets.NewOption("SSH Tunnel", func() { fmt.Println("ssh tunnel") }),
-		widgets.NewOption("Kubectl Tunnel", func() { fmt.Println("kubectl tunnel") }),
+		widgets.NewOption("None"),
+		widgets.NewOption("Python Script"),
+		widgets.NewOption("SSH Script"),
+		widgets.NewOption("SSH Tunnel"),
+		widgets.NewOption("Kubectl Tunnel"),
 	)
 	r.preRequestDropDown.SetSize(image.Point{X: 230})
 	r.preRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
-	r.textEditor.SingleLine = true
+	r.postRequestDropDown = widgets.NewDropDown(theme,
+		widgets.NewOption("None"),
+		widgets.NewOption("Python Script"),
+		widgets.NewOption("SSH Script"),
+	)
 
+	r.postRequestDropDown.SetSize(image.Point{X: 230})
+	r.postRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
+
+	var requestBodyTypes []*widgets.Option
+	for _, t := range bodyTypes {
+		requestBodyTypes = append(requestBodyTypes, widgets.NewOption(t))
+	}
+
+	r.requestBodyDropDown = widgets.NewDropDown(theme,
+		widgets.NewOption("None"),
+		widgets.NewOption("JSON"),
+		widgets.NewOption("Text"),
+		widgets.NewOption("XML"),
+		widgets.NewOption("Form data"),
+		widgets.NewOption("Binary"),
+		widgets.NewOption("Urlencoded"),
+	)
+	r.requestBodyDropDown.SetSize(image.Point{X: 230})
+	r.requestBodyDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
+
+	r.textEditor.SingleLine = true
 	r.responseEditor.SingleLine = false
 	r.responseEditor.ReadOnly = false
 
 	return r
 }
 
-func (r *RestContainer) requestBar(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	border := widget.Border{
 		Color:        widgets.Gray400,
 		Width:        unit.Dp(1),
@@ -113,13 +157,24 @@ func (r *RestContainer) requestBar(theme *material.Theme, gtx layout.Context) la
 	})
 }
 
-func (r *RestContainer) requestBodyLayout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Label(theme, theme.TextSize, "Body").Layout(gtx)
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.Label(theme, theme.TextSize, "Request body").Layout(gtx)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return r.requestBodyDropDown.Layout(gtx)
+					})
+				}),
+			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -129,7 +184,7 @@ func (r *RestContainer) requestBodyLayout(theme *material.Theme, gtx layout.Cont
 	)
 }
 
-func (r *RestContainer) requestPreReqLayout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (r *RestContainer) requestPostReqLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,
@@ -137,12 +192,39 @@ func (r *RestContainer) requestPreReqLayout(theme *material.Theme, gtx layout.Co
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(10), Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, theme.TextSize, "Pre-req").Layout(gtx)
+					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.Label(theme, theme.TextSize, "Action to do after request").Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(10), Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return r.postRequestDropDown.Layout(gtx)
+					})
+				}),
+			)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Editor(theme, &r.textEditor, "").Layout(gtx)
+			})
+		}),
+	)
+}
+
+func (r *RestContainer) requestPreReqLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	return layout.Flex{
+		Axis:      layout.Vertical,
+		Alignment: layout.Start,
+	}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.Label(theme, theme.TextSize, "Action to do before request").Layout(gtx)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return r.preRequestDropDown.Layout(gtx)
 					})
 				}),
@@ -156,7 +238,7 @@ func (r *RestContainer) requestPreReqLayout(theme *material.Theme, gtx layout.Co
 	)
 }
 
-func (r *RestContainer) requestLayout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,
@@ -173,7 +255,7 @@ func (r *RestContainer) requestLayout(theme *material.Theme, gtx layout.Context)
 
 			case 1:
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestBodyLayout(theme, gtx)
+					return r.requestBodyLayout(gtx, theme)
 				})
 
 			case 2:
@@ -183,12 +265,12 @@ func (r *RestContainer) requestLayout(theme *material.Theme, gtx layout.Context)
 
 			case 3:
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestPreReqLayout(theme, gtx)
+					return r.requestPreReqLayout(gtx, theme)
 				})
 
 			case 4:
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Post-req").Layout(gtx)
+					return r.requestPostReqLayout(gtx, theme)
 				})
 			}
 
@@ -197,7 +279,7 @@ func (r *RestContainer) requestLayout(theme *material.Theme, gtx layout.Context)
 	)
 }
 
-func (r *RestContainer) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{
@@ -210,13 +292,13 @@ func (r *RestContainer) Layout(theme *material.Theme, gtx layout.Context) layout
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.requestBar(theme, gtx)
+				return r.requestBar(gtx, theme)
 			})
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return r.split.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
-					return r.requestLayout(theme, gtx)
+					return r.requestLayout(gtx, theme)
 				},
 				func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {

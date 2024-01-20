@@ -85,7 +85,7 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 					return u.sideBar.Layout(gtx)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return u.requestPage.Layout(gtx)
+					return u.requestPage.Layout(gtx, u.Theme)
 				}),
 			)
 		}),

@@ -31,19 +31,16 @@ type DropDown struct {
 }
 
 type Option struct {
-	Text    string
-	OnClick func()
-
+	Text      string
 	clickable widget.Clickable
 
 	isDivider bool
 	isDefault bool
 }
 
-func NewOption(text string, onClick func()) *Option {
+func NewOption(text string) *Option {
 	return &Option{
 		Text:      text,
-		OnClick:   onClick,
 		isDivider: false,
 	}
 }
@@ -91,6 +88,10 @@ func NewDropDown(theme *material.Theme, options ...*Option) *DropDown {
 
 	c.options = options
 	return c
+}
+
+func (c *DropDown) GetSelected() *Option {
+	return c.options[c.selectedOptionIndex]
 }
 
 func (c *DropDown) SetBorder(color color.NRGBA, width unit.Dp, cornerRadius unit.Dp) {
