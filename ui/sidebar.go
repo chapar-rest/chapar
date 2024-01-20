@@ -2,6 +2,7 @@ package ui
 
 import (
 	"gioui.org/layout"
+	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -26,19 +27,19 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 
 	s.requestsButton.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
 	s.requestsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.requestsButton.MinWidth = 130
+	s.requestsButton.MinWidth = unit.Dp(60)
 
 	s.envButton.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
 	s.envButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.envButton.MinWidth = 130
+	s.envButton.MinWidth = unit.Dp(60)
 
 	s.protoFilesButton.SetIcon(widgets.FileFolderIcon, widgets.FlatButtonIconTop, 5)
 	s.protoFilesButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.protoFilesButton.MinWidth = 130
+	s.protoFilesButton.MinWidth = unit.Dp(60)
 
 	s.settingsButton.SetIcon(widgets.SettingsIcon, widgets.FlatButtonIconTop, 5)
 	s.settingsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.settingsButton.MinWidth = 130
+	s.settingsButton.MinWidth = unit.Dp(60)
 
 	return s
 }
@@ -49,19 +50,25 @@ func (s *Sidebar) Layout(gtx C) D {
 			return s.requestsButton.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		widgets.HorizontalLine(90.0),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
+		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.envButton.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		widgets.HorizontalLine(90.0),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
+		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.protoFilesButton.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		widgets.HorizontalLine(90.0),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
+		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.settingsButton.Layout(gtx)

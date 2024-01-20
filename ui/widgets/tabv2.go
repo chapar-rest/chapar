@@ -37,6 +37,10 @@ func NewTabsV2(items []TabV2, onSelectedChange func(int)) *TabsV2 {
 	return t
 }
 
+func (tabs *TabsV2) Selected() int {
+	return tabs.selected
+}
+
 func (tabs *TabsV2) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

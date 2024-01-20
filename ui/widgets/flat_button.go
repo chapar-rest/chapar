@@ -30,7 +30,7 @@ type FlatButton struct {
 
 	clickable widget.Clickable
 
-	MinWidth        int
+	MinWidth        unit.Dp
 	BackgroundColor color.NRGBA
 	TextColor       color.NRGBA
 	Text            string
@@ -96,7 +96,7 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(3)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Background{}.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = f.MinWidth
+					gtx.Constraints.Min.X = gtx.Dp(f.MinWidth)
 					defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 4).Push(gtx.Ops).Pop()
 					background := f.BackgroundColor
 					switch {

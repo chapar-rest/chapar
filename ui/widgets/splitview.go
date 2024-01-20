@@ -27,11 +27,11 @@ type SplitView struct {
 	BarColor      color.NRGBA
 	BarColorHover color.NRGBA
 
-	MinLeftSize int
-	MaxLeftSize int
+	MinLeftSize unit.Dp
+	MaxLeftSize unit.Dp
 
-	MinRightSize int
-	MaxRightSize int
+	MinRightSize unit.Dp
+	MaxRightSize unit.Dp
 }
 
 const defaultBarWidth = unit.Dp(2)
@@ -42,26 +42,31 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 		bar = gtx.Dp(defaultBarWidth)
 	}
 
+	mils := gtx.Dp(s.MinLeftSize)
+	mals := gtx.Dp(s.MaxLeftSize)
+	mirs := gtx.Dp(s.MinRightSize)
+	mars := gtx.Dp(s.MaxRightSize)
+
 	// 0.18 := (x + 1) / 2
 	proportion := (s.Ratio + 1) / 2
 	leftSize := int(proportion*float32(gtx.Constraints.Max.X) - float32(bar))
-	if leftSize < s.MinLeftSize {
-		leftSize = s.MinLeftSize
+	if leftSize < mils {
+		leftSize = mils
 	}
 
-	if leftSize > s.MaxLeftSize && s.MaxLeftSize > 0 {
-		leftSize = s.MaxLeftSize
+	if leftSize > mals && mals > 0 {
+		leftSize = mals
 	}
 
 	rightOffset := leftSize + bar
 	rightsize := gtx.Constraints.Max.X - rightOffset
 
-	if rightsize < s.MinRightSize {
-		rightsize = s.MinRightSize
+	if rightsize < mirs {
+		rightsize = mirs
 	}
 
-	if rightsize > s.MaxRightSize && s.MaxRightSize > 0 {
-		rightsize = s.MaxRightSize
+	if rightsize > mars && mars > 0 {
+		rightsize = mars
 	}
 
 	{

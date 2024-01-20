@@ -1,7 +1,13 @@
 package widgets
 
 import (
+	"image"
 	"image/color"
+
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+
+	"gioui.org/unit"
 
 	"gioui.org/f32"
 	"gioui.org/layout"
@@ -42,4 +48,11 @@ func VerticalLine(height float32) layout.FlexChild {
 			Radii: 1,
 		}.Layout(gtx)
 	})
+}
+
+func DrawLine(gtx layout.Context, background color.NRGBA, height, width unit.Dp) layout.Dimensions {
+	w, h := gtx.Dp(width), gtx.Dp(height)
+	tabRect := image.Rect(0, 0, w, h)
+	paint.FillShape(gtx.Ops, background, clip.Rect(tabRect).Op())
+	return layout.Dimensions{Size: image.Pt(w, h)}
 }

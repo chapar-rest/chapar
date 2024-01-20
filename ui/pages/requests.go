@@ -63,8 +63,8 @@ func NewRequest(theme *material.Theme) *Request {
 		requestsTree: widgets.NewTreeView(),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
-			MinLeftSize:   420,
-			MaxLeftSize:   800,
+			MinLeftSize:   unit.Dp(250),
+			MaxLeftSize:   unit.Dp(800),
 			BarWidth:      unit.Dp(2),
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
