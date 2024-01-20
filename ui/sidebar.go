@@ -50,25 +50,19 @@ func (s *Sidebar) Layout(gtx C) D {
 			return s.requestsButton.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
-		}),
+		widgets.DrawLineFlex(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45)),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.envButton.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
-		}),
+		widgets.DrawLineFlex(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45)),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.protoFilesButton.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
-		}),
+		widgets.DrawLineFlex(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45)),
 		layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.settingsButton.Layout(gtx)

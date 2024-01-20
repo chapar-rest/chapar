@@ -50,6 +50,12 @@ func VerticalLine(height float32) layout.FlexChild {
 	})
 }
 
+func DrawLineFlex(gtx layout.Context, background color.NRGBA, height, width unit.Dp) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return DrawLine(gtx, background, height, width)
+	})
+}
+
 func DrawLine(gtx layout.Context, background color.NRGBA, height, width unit.Dp) layout.Dimensions {
 	w, h := gtx.Dp(width), gtx.Dp(height)
 	tabRect := image.Rect(0, 0, w, h)
