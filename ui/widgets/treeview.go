@@ -92,7 +92,7 @@ func (t *TreeView) childLayout(theme *material.Theme, gtx layout.Context, node *
 	})
 }
 
-func (t *TreeView) parentLayout(theme *material.Theme, gtx layout.Context, node *TreeViewNode) layout.Dimensions {
+func (t *TreeView) parentLayout(gtx layout.Context, theme *material.Theme, node *TreeViewNode) layout.Dimensions {
 	background := theme.Palette.Bg
 	for node.clickable.Clicked(gtx) {
 		if node.Children == nil {
@@ -160,8 +160,8 @@ func (t *TreeView) parentLayout(theme *material.Theme, gtx layout.Context, node 
 
 }
 
-func (t *TreeView) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (t *TreeView) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return material.List(theme, t.list).Layout(gtx, len(t.nodes), func(gtx layout.Context, index int) layout.Dimensions {
-		return t.parentLayout(theme, gtx, t.nodes[index])
+		return t.parentLayout(gtx, theme, t.nodes[index])
 	})
 }

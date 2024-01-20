@@ -14,19 +14,20 @@ import (
 type Request struct {
 	addRequestButton widget.Clickable
 	importButton     widget.Clickable
+	searchBox        *widgets.TextField
+	requestsTree     *widgets.TreeView
 
-	split  widgets.SplitView
-	tabsV2 *widgets.Tabs
+	split widgets.SplitView
 
-	searchBox     *widgets.TextField
-	requestsTree  *widgets.TreeView
+	tabs          *widgets.Tabs
 	restContainer *RestContainer
 }
 
 func NewRequest(theme *material.Theme) *Request {
-	search := widgets.NewTextField(theme, "", "Search...")
+	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	tabV2Items := []widgets.Tab{
+
+	tabItems := []widgets.Tab{
 		{Title: "Register user", Closable: true, CloseClickable: &widget.Clickable{}},
 	}
 
@@ -36,7 +37,7 @@ func NewRequest(theme *material.Theme) *Request {
 
 	req := &Request{
 		searchBox:    search,
-		tabsV2:       widgets.NewTabs(tabV2Items, onTabsChange),
+		tabs:         widgets.NewTabs(tabItems, onTabsChange),
 		requestsTree: widgets.NewTreeView(),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
@@ -74,23 +75,22 @@ func (r *Request) list(gtx layout.Context, theme *material.Theme) layout.Dimensi
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10), Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.searchBox.Layout(gtx)
+					return r.searchBox.Layout(gtx, theme)
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestsTree.Layout(theme, gtx)
+					return r.requestsTree.Layout(gtx, theme)
 				})
 			}),
 		)
 	})
 }
 
-func (r *Request) requestContainer(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Request) container(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			//return r.tabs.Layout(r.theme, gtx)
-			return r.tabsV2.Layout(theme, gtx)
+			return r.tabs.Layout(gtx, theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return r.restContainer.Layout(gtx, theme)
@@ -104,7 +104,7 @@ func (r *Request) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 			return r.list(gtx, theme)
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			return r.requestContainer(gtx, theme)
+			return r.container(gtx, theme)
 		},
 	)
 }

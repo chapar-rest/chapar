@@ -223,7 +223,7 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 		Alignment: layout.Start,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return r.requestTabs.Layout(theme, gtx)
+			return r.requestTabs.Layout(gtx, theme)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			switch r.requestTabs.Selected() {

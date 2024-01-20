@@ -41,7 +41,7 @@ func (tabs *Tabs) Selected() int {
 	return tabs.selected
 }
 
-func (tabs *Tabs) Layout(theme *material.Theme, gtx layout.Context) layout.Dimensions {
+func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return tabs.list.Layout(gtx, len(tabs.tabs), func(gtx layout.Context, tabIdx int) layout.Dimensions {

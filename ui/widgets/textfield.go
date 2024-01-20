@@ -15,8 +15,6 @@ const (
 )
 
 type TextField struct {
-	theme *material.Theme
-
 	textEditor widget.Editor
 	textField  material.EditorStyle
 	Icon       *widget.Icon
@@ -29,9 +27,8 @@ type TextField struct {
 	size image.Point
 }
 
-func NewTextField(theme *material.Theme, text, placeholder string) *TextField {
+func NewTextField(text, placeholder string) *TextField {
 	t := &TextField{
-		theme:       theme,
 		textEditor:  widget.Editor{},
 		Text:        text,
 		Placeholder: placeholder,
@@ -55,10 +52,10 @@ func (t *TextField) SetMinWidth(width int) {
 	t.size.X = width
 }
 
-func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
-	borderColor := t.theme.Palette.ContrastFg
+func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	borderColor := theme.Palette.ContrastFg
 	if t.textEditor.Focused() {
-		borderColor = t.theme.Palette.ContrastBg
+		borderColor = theme.Palette.ContrastBg
 	}
 
 	cornerRadius := unit.Dp(4)
@@ -86,7 +83,7 @@ func (t *TextField) Layout(gtx layout.Context) layout.Dimensions {
 			Right:  4,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			inputLayout := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(t.theme, &t.textEditor, t.Placeholder).Layout(gtx)
+				return material.Editor(theme, &t.textEditor, t.Placeholder).Layout(gtx)
 			})
 			widgets := []layout.FlexChild{inputLayout}
 
