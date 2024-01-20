@@ -19,11 +19,11 @@ func NewHeader(theme *material.Theme) *Header {
 	}
 
 	h.envDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("No Environment"),
-		widgets.NewDivider(),
-		widgets.NewOption("Local"),
-		widgets.NewOption("Dev"),
-		widgets.NewOption("Prod"),
+		widgets.NewDropDownOption("No Environment"),
+		widgets.NewDropDownDivider(),
+		widgets.NewDropDownOption("Local"),
+		widgets.NewDropDownOption("Dev"),
+		widgets.NewDropDownOption("Prod"),
 	)
 	h.envDropDown.SetBorder(theme.ContrastFg, unit.Dp(1), unit.Dp(4))
 

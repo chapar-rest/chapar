@@ -21,7 +21,7 @@ type DropDown struct {
 
 	isOpen              bool
 	selectedOptionIndex int
-	options             []*Option
+	options             []*DropDownOption
 
 	size image.Point
 
@@ -30,7 +30,7 @@ type DropDown struct {
 	cornerRadius unit.Dp
 }
 
-type Option struct {
+type DropDownOption struct {
 	Text      string
 	clickable widget.Clickable
 
@@ -38,25 +38,25 @@ type Option struct {
 	isDefault bool
 }
 
-func NewOption(text string) *Option {
-	return &Option{
+func NewDropDownOption(text string) *DropDownOption {
+	return &DropDownOption{
 		Text:      text,
 		isDivider: false,
 	}
 }
 
-func NewDivider() *Option {
-	return &Option{
+func NewDropDownDivider() *DropDownOption {
+	return &DropDownOption{
 		isDivider: true,
 	}
 }
 
-func (o *Option) DefaultSelected() *Option {
+func (o *DropDownOption) DefaultSelected() *DropDownOption {
 	o.isDefault = true
 	return o
 }
 
-func NewDropDown(theme *material.Theme, options ...*Option) *DropDown {
+func NewDropDown(theme *material.Theme, options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		Theme: theme,
 		menuContextArea: component.ContextArea{
@@ -90,7 +90,7 @@ func NewDropDown(theme *material.Theme, options ...*Option) *DropDown {
 	return c
 }
 
-func (c *DropDown) GetSelected() *Option {
+func (c *DropDown) GetSelected() *DropDownOption {
 	return c.options[c.selectedOptionIndex]
 }
 

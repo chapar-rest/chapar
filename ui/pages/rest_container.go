@@ -72,48 +72,48 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.requestTabs = widgets.NewTabsV2(tabV2Items, nil)
 
 	r.methodDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("GET"),
-		widgets.NewOption("POST"),
-		widgets.NewOption("PUT"),
-		widgets.NewOption("PATCH"),
-		widgets.NewOption("DELETE"),
-		widgets.NewOption("HEAD"),
-		widgets.NewOption("OPTION"),
+		widgets.NewDropDownOption("GET"),
+		widgets.NewDropDownOption("POST"),
+		widgets.NewDropDownOption("PUT"),
+		widgets.NewDropDownOption("PATCH"),
+		widgets.NewDropDownOption("DELETE"),
+		widgets.NewDropDownOption("HEAD"),
+		widgets.NewDropDownOption("OPTION"),
 	)
 	r.methodDropDown.SetSize(image.Point{X: 150})
 
 	r.preRequestDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("None"),
-		widgets.NewOption("Python Script"),
-		widgets.NewOption("SSH Script"),
-		widgets.NewOption("SSH Tunnel"),
-		widgets.NewOption("Kubectl Tunnel"),
+		widgets.NewDropDownOption("None"),
+		widgets.NewDropDownOption("Python Script"),
+		widgets.NewDropDownOption("SSH Script"),
+		widgets.NewDropDownOption("SSH Tunnel"),
+		widgets.NewDropDownOption("Kubectl Tunnel"),
 	)
 	r.preRequestDropDown.SetSize(image.Point{X: 230})
 	r.preRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
 	r.postRequestDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("None"),
-		widgets.NewOption("Python Script"),
-		widgets.NewOption("SSH Script"),
+		widgets.NewDropDownOption("None"),
+		widgets.NewDropDownOption("Python Script"),
+		widgets.NewDropDownOption("SSH Script"),
 	)
 
 	r.postRequestDropDown.SetSize(image.Point{X: 230})
 	r.postRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
-	var requestBodyTypes []*widgets.Option
+	var requestBodyTypes []*widgets.DropDownOption
 	for _, t := range bodyTypes {
-		requestBodyTypes = append(requestBodyTypes, widgets.NewOption(t))
+		requestBodyTypes = append(requestBodyTypes, widgets.NewDropDownOption(t))
 	}
 
 	r.requestBodyDropDown = widgets.NewDropDown(theme,
-		widgets.NewOption("None"),
-		widgets.NewOption("JSON"),
-		widgets.NewOption("Text"),
-		widgets.NewOption("XML"),
-		widgets.NewOption("Form data"),
-		widgets.NewOption("Binary"),
-		widgets.NewOption("Urlencoded"),
+		widgets.NewDropDownOption("None"),
+		widgets.NewDropDownOption("JSON"),
+		widgets.NewDropDownOption("Text"),
+		widgets.NewDropDownOption("XML"),
+		widgets.NewDropDownOption("Form data"),
+		widgets.NewDropDownOption("Binary"),
+		widgets.NewDropDownOption("Urlencoded"),
 	)
 	r.requestBodyDropDown.SetSize(image.Point{X: 230})
 	r.requestBodyDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
