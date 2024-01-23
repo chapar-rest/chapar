@@ -412,8 +412,8 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 						//	return material.Label(theme, theme.TextSize, r.resultLines()[index]).Layout(gtx)
 						//})
 
-						return richtext.Text(&r.richResponse, theme.Shaper, r.spans...).Layout(gtx)
-						// return material.Editor(theme, r.responseBody, "").Layout(gtx)
+						//return richtext.Text(&r.richResponse, theme.Shaper, r.spans...).Layout(gtx)
+						return material.Editor(theme, r.responseBody, "").Layout(gtx)
 					})
 				},
 			)
