@@ -34,6 +34,11 @@ type FlatButton struct {
 	BackgroundColor color.NRGBA
 	TextColor       color.NRGBA
 	Text            string
+
+	BackgroundPadding unit.Dp
+	ContentPadding    unit.Dp
+
+	OnClicked func()
 }
 
 func NewFlatButton(theme *material.Theme, text string) *FlatButton {
@@ -73,6 +78,12 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 
 	widgets := []layout.FlexChild{labelLayout}
 
+	for f.clickable.Clicked(gtx) {
+		if f.OnClicked != nil {
+			go f.OnClicked()
+		}
+	}
+
 	if f.Icon != nil {
 		iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(f.SpaceBetween)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -93,7 +104,7 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	return f.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(unit.Dp(3)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(f.BackgroundPadding).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Background{}.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(f.MinWidth)
@@ -109,7 +120,7 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 					return layout.Dimensions{Size: gtx.Constraints.Min}
 				},
 				func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(f.ContentPadding).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: axis, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx, widgets...)
 					})
 				},

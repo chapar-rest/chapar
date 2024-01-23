@@ -5,6 +5,8 @@ import "image/color"
 var (
 	Gray300 = color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff}
 	Gray400 = color.NRGBA{R: 0x3c, G: 0x3f, B: 0x46, A: 0xff}
+	Gray500 = color.NRGBA{R: 0x4c, G: 0x4f, B: 0x56, A: 0xff}
+	Gray600 = color.NRGBA{R: 0x6c, G: 0x6f, B: 0x76, A: 0xff}
 )
 
 // MulAlpha applies the alpha to the color.

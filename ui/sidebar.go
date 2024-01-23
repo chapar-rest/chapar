@@ -28,18 +28,26 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 	s.requestsButton.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
 	s.requestsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.requestsButton.MinWidth = unit.Dp(60)
+	s.requestsButton.ContentPadding = unit.Dp(5)
+	s.requestsButton.BackgroundPadding = unit.Dp(3)
 
 	s.envButton.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
 	s.envButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.envButton.MinWidth = unit.Dp(60)
+	s.envButton.ContentPadding = unit.Dp(5)
+	s.envButton.BackgroundPadding = unit.Dp(3)
 
 	s.protoFilesButton.SetIcon(widgets.FileFolderIcon, widgets.FlatButtonIconTop, 5)
 	s.protoFilesButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.protoFilesButton.MinWidth = unit.Dp(60)
+	s.protoFilesButton.ContentPadding = unit.Dp(5)
+	s.protoFilesButton.BackgroundPadding = unit.Dp(3)
 
 	s.settingsButton.SetIcon(widgets.SettingsIcon, widgets.FlatButtonIconTop, 5)
 	s.settingsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.settingsButton.MinWidth = unit.Dp(60)
+	s.settingsButton.ContentPadding = unit.Dp(5)
+	s.settingsButton.BackgroundPadding = unit.Dp(3)
 
 	return s
 }

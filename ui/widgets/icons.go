@@ -5,8 +5,18 @@ import (
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
+var SaveIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ContentSave)
+	return icon
+}()
+
 var MenuIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.NavigationMenu)
+	return icon
+}()
+
+var CopyIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ContentContentCopy)
 	return icon
 }()
 

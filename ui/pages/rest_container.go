@@ -7,10 +7,12 @@ import (
 	"image/color"
 	"io"
 	"net/http"
-	"strings"
+
+	"golang.design/x/clipboard"
+
+	"gioui.org/op"
 
 	"gioui.org/font/gofont"
-
 	"gioui.org/x/richtext"
 
 	"gioui.org/layout"
@@ -30,10 +32,16 @@ type RestContainer struct {
 	methodDropDown *widgets.DropDown
 	address        *widget.Editor
 
+	copyResponseButton *widgets.FlatButton
+	saveResponseButton *widgets.FlatButton
+
 	section      *widget.Editor
 	requestBody  *widget.Editor
 	responseBody *widget.Editor
 	list         *widget.List
+
+	responseMacro op.CallOp
+	responseDim   layout.Dimensions
 
 	richResponse richtext.InteractiveText
 	spans        []richtext.SpanStyle
@@ -83,6 +91,23 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 				Axis: layout.Vertical,
 			},
 		},
+
+		copyResponseButton: widgets.NewFlatButton(theme, "Copy"),
+		saveResponseButton: widgets.NewFlatButton(theme, "Save"),
+	}
+
+	r.copyResponseButton.SetIcon(widgets.CopyIcon, widgets.FlatButtonIconEnd, 5)
+	r.copyResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
+	r.copyResponseButton.MinWidth = unit.Dp(75)
+	r.copyResponseButton.OnClicked = func() {
+		clipboard.Write(clipboard.FmtText, []byte(r.result))
+	}
+
+	r.saveResponseButton.SetIcon(widgets.SaveIcon, widgets.FlatButtonIconEnd, 5)
+	r.saveResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
+	r.saveResponseButton.MinWidth = unit.Dp(75)
+	r.saveResponseButton.OnClicked = func() {
+
 	}
 
 	r.sendButton = material.Button(theme, &r.sendClickable, "Send")
@@ -352,6 +377,42 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 	)
 }
 
+func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	if r.result == "" {
+		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			l := material.LabelStyle{
+				Text:     "No response available yet ;)",
+				Color:    widgets.Gray600,
+				TextSize: theme.TextSize,
+				Shaper:   theme.Shaper,
+			}
+			l.Font.Typeface = theme.Face
+			return l.Layout(gtx)
+		})
+	}
+
+	return layout.Flex{
+		Axis: layout.Vertical,
+	}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.End}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return r.copyResponseButton.Layout(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return r.saveResponseButton.Layout(gtx)
+				}),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(1)}.Layout),
+		widgets.DrawLineFlex(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(gtx.Constraints.Max.Y)),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Editor(theme, r.responseBody, "").Layout(gtx)
+		}),
+	)
+}
+
 func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -369,29 +430,6 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 			})
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			//return r.resizer.Layout(gtx,
-			//	func(gtx layout.Context) layout.Dimensions {
-			//		return r.requestLayout(gtx, theme)
-			//	},
-			//	func(gtx layout.Context) layout.Dimensions {
-			//		return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			//			if r.loading {
-			//				return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
-			//			} else {
-			//				// update only once
-			//				if !r.resultUpdated {
-			//					r.responseBody.SetText(r.result)
-			//					r.resultUpdated = true
-			//				}
-			//			}
-			//			return material.Editor(theme, r.responseBody, "").Layout(gtx)
-			//		})
-			//	},
-			//	func(gtx layout.Context) layout.Dimensions {
-			//		return widgets.DrawLine(gtx, theme.Palette.ContrastBg, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(2))
-			//	},
-			//)
-
 			return r.split.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
 					return r.requestLayout(gtx, theme)
@@ -408,24 +446,11 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 							}
 						}
 
-						//return material.List(theme, r.list).Layout(gtx, len(r.resultLines()), func(gtx layout.Context, index int) layout.Dimensions {
-						//	return material.Label(theme, theme.TextSize, r.resultLines()[index]).Layout(gtx)
-						//})
-
-						//return richtext.Text(&r.richResponse, theme.Shaper, r.spans...).Layout(gtx)
-						return material.Editor(theme, r.responseBody, "").Layout(gtx)
+						return r.responseLayout(gtx, theme)
+						// return material.Editor(theme, r.responseBody, "").Layout(gtx)
 					})
 				},
 			)
 		}),
 	)
-}
-
-func (r *RestContainer) resultLines() []string {
-	// break r.result into lines
-	return strings.Split(r.result, "\n")
-}
-
-func (r *RestContainer) makeSpans() {
-
 }
