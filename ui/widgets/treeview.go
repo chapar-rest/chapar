@@ -108,7 +108,7 @@ func (t *TreeView) parentLayout(gtx layout.Context, theme *material.Theme, node 
 				switch {
 				case gtx.Queue == nil:
 					background = Disabled(theme.Palette.Bg)
-				case node.clickable.Hovered() || node.clickable.Focused() || !node.collapsed:
+				case node.clickable.Hovered() || node.clickable.Focused():
 					background = Hovered(theme.Palette.Bg)
 				}
 				paint.Fill(gtx.Ops, background)

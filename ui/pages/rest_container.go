@@ -1,8 +1,17 @@
 package pages
 
 import (
+	"bytes"
+	"encoding/json"
 	"image"
 	"image/color"
+	"io"
+	"net/http"
+	"strings"
+
+	"gioui.org/font/gofont"
+
+	"gioui.org/x/richtext"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -13,26 +22,42 @@ import (
 
 var (
 	requestTabsInset = layout.Inset{Left: unit.Dp(5), Top: unit.Dp(3)}
+	green            = color.NRGBA{G: 170, A: 255}
+	fonts            = gofont.Collection()
 )
 
 type RestContainer struct {
 	methodDropDown *widgets.DropDown
-	textEditor     widget.Editor
+	address        *widget.Editor
 
-	sendButton widget.Clickable
+	section      *widget.Editor
+	requestBody  *widget.Editor
+	responseBody *widget.Editor
+	list         *widget.List
+
+	richResponse richtext.InteractiveText
+	spans        []richtext.SpanStyle
+
+	sendClickable widget.Clickable
+	sendButton    material.ButtonStyle
+
+	loading       bool
+	resultUpdated bool
+	result        string
 
 	split widgets.SplitView
 
-	responseEditor widget.Editor
+	//	resizer *component.Resize
 
 	requestTabs *widgets.Tabs
 
-	preRequestDropDown  *widgets.DropDown
-	postRequestDropDown *widgets.DropDown
-	requestBodyDropDown *widgets.DropDown
+	preRequestDropDown *widgets.DropDown
+	preRequestBody     *widget.Editor
 
-	selectedMethod string
-	url            string
+	postRequestDropDown *widgets.DropDown
+	postRequestBody     *widget.Editor
+
+	requestBodyDropDown *widgets.DropDown
 }
 
 func NewRestContainer(theme *material.Theme) *RestContainer {
@@ -43,7 +68,24 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
+		//resizer: &component.Resize{
+		//	Axis:  layout.Horizontal,
+		//	Ratio: 0,
+		//},
+		responseBody:    new(widget.Editor),
+		address:         new(widget.Editor),
+		requestBody:     new(widget.Editor),
+		preRequestBody:  new(widget.Editor),
+		postRequestBody: new(widget.Editor),
+		section:         new(widget.Editor),
+		list: &widget.List{
+			List: layout.List{
+				Axis: layout.Vertical,
+			},
+		},
 	}
+
+	r.sendButton = material.Button(theme, &r.sendClickable, "Send")
 
 	tabV2Items := []widgets.Tab{
 		{Title: "Params"},
@@ -97,11 +139,59 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.requestBodyDropDown.SetSize(image.Point{X: 230})
 	r.requestBodyDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
-	r.textEditor.SingleLine = true
-	r.responseEditor.SingleLine = false
-	r.responseEditor.ReadOnly = false
+	r.address.SingleLine = true
+	r.address.SetText("https://jsonplaceholder.typicode.com/comments")
+
+	r.responseBody.SingleLine = false
+	r.responseBody.ReadOnly = true
 
 	return r
+}
+
+func (r *RestContainer) Submit() {
+	method := r.methodDropDown.GetSelected().Text
+	address := r.address.Text()
+
+	r.sendButton.Text = "Cancel"
+	r.loading = true
+	r.resultUpdated = false
+	defer func() {
+		r.sendButton.Text = "Send"
+		r.loading = false
+		r.resultUpdated = false
+	}()
+
+	//body := r.requestBody.Text()
+
+	req, err := http.NewRequest(method, address, nil)
+	if err != nil {
+		r.responseBody.SetText(err.Error())
+		return
+	}
+
+	// send request
+	res, err := http.DefaultClient.Do(req)
+
+	if err != nil {
+		r.responseBody.SetText(err.Error())
+		return
+	}
+
+	data, err := io.ReadAll(res.Body)
+	defer res.Body.Close()
+
+	if err != nil {
+		r.responseBody.SetText(err.Error())
+		return
+	}
+
+	out := bytes.Buffer{}
+	if err := json.Indent(&out, data, "", "    "); err != nil {
+		r.responseBody.SetText(err.Error())
+		return
+	}
+
+	r.result = out.String()
 }
 
 func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -123,13 +213,17 @@ func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) la
 			widgets.VerticalLine(40.0),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme, &r.textEditor, "https://example.com").Layout(gtx)
+					return material.Editor(theme, r.address, "https://example.com").Layout(gtx)
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					if r.sendClickable.Clicked(gtx) {
+						go r.Submit()
+					}
+
 					gtx.Constraints.Min.X = gtx.Dp(80)
-					return material.Button(theme, &r.sendButton, "Send").Layout(gtx)
+					return r.sendButton.Layout(gtx)
 				})
 			}),
 		)
@@ -157,7 +251,7 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme, &r.textEditor, "").Layout(gtx)
+				return material.Editor(theme, r.requestBody, "").Layout(gtx)
 			})
 		}),
 	)
@@ -184,7 +278,7 @@ func (r *RestContainer) requestPostReqLayout(gtx layout.Context, theme *material
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme, &r.textEditor, "").Layout(gtx)
+				return material.Editor(theme, r.postRequestBody, "").Layout(gtx)
 			})
 		}),
 	)
@@ -211,7 +305,7 @@ func (r *RestContainer) requestPreReqLayout(gtx layout.Context, theme *material.
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme, &r.textEditor, "").Layout(gtx)
+				return material.Editor(theme, r.preRequestBody, "").Layout(gtx)
 			})
 		}),
 	)
@@ -275,16 +369,63 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 			})
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			//return r.resizer.Layout(gtx,
+			//	func(gtx layout.Context) layout.Dimensions {
+			//		return r.requestLayout(gtx, theme)
+			//	},
+			//	func(gtx layout.Context) layout.Dimensions {
+			//		return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			//			if r.loading {
+			//				return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
+			//			} else {
+			//				// update only once
+			//				if !r.resultUpdated {
+			//					r.responseBody.SetText(r.result)
+			//					r.resultUpdated = true
+			//				}
+			//			}
+			//			return material.Editor(theme, r.responseBody, "").Layout(gtx)
+			//		})
+			//	},
+			//	func(gtx layout.Context) layout.Dimensions {
+			//		return widgets.DrawLine(gtx, theme.Palette.ContrastBg, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(2))
+			//	},
+			//)
+
 			return r.split.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
 					return r.requestLayout(gtx, theme)
 				},
 				func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Editor(theme, &r.responseEditor, "").Layout(gtx)
+						if r.loading {
+							return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
+						} else {
+							// update only once
+							if !r.resultUpdated {
+								r.responseBody.SetText(r.result)
+								r.resultUpdated = true
+							}
+						}
+
+						//return material.List(theme, r.list).Layout(gtx, len(r.resultLines()), func(gtx layout.Context, index int) layout.Dimensions {
+						//	return material.Label(theme, theme.TextSize, r.resultLines()[index]).Layout(gtx)
+						//})
+
+						return richtext.Text(&r.richResponse, theme.Shaper, r.spans...).Layout(gtx)
+						// return material.Editor(theme, r.responseBody, "").Layout(gtx)
 					})
 				},
 			)
 		}),
 	)
+}
+
+func (r *RestContainer) resultLines() []string {
+	// break r.result into lines
+	return strings.Split(r.result, "\n")
+}
+
+func (r *RestContainer) makeSpans() {
+
 }

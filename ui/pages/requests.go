@@ -29,6 +29,8 @@ func NewRequest(theme *material.Theme) *Request {
 
 	tabItems := []widgets.Tab{
 		{Title: "Register user", Closable: true, CloseClickable: &widget.Clickable{}},
+		{Title: "Delete user", Closable: true, CloseClickable: &widget.Clickable{}},
+		{Title: "Update user", Closable: true, CloseClickable: &widget.Clickable{}},
 	}
 
 	onTabsChange := func(index int) {
@@ -52,6 +54,8 @@ func NewRequest(theme *material.Theme) *Request {
 
 	rq := widgets.NewNode("Users", false)
 	rq.AddChild(widgets.NewNode("Register user", false))
+	rq.AddChild(widgets.NewNode("Delete user", false))
+	rq.AddChild(widgets.NewNode("Update user", false))
 	req.requestsTree.AddNode(rq, nil)
 
 	return req
