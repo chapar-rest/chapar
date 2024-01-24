@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"image"
 	"image/color"
 
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+
+	"github.com/mirzakhany/chapar/ui/widgets"
 
 	"gioui.org/app"
 	"gioui.org/io/system"
@@ -25,6 +29,8 @@ type UI struct {
 	header  *Header
 
 	requestPage *pages.Request
+
+	notification *widgets.Notification
 }
 
 // New creates a new UI using the Go Fonts.
@@ -48,6 +54,8 @@ func New() (*UI, error) {
 
 	ui.requestPage = pages.NewRequest(ui.Theme)
 
+	ui.notification = &widgets.Notification{}
+
 	return ui, nil
 }
 
@@ -61,7 +69,8 @@ func (u *UI) Run(w *app.Window) error {
 		case system.FrameEvent:
 			gtx := layout.NewContext(&ops, e)
 			// render and handle UI.
-			u.Layout(gtx)
+
+			u.Layout(gtx, gtx.Constraints.Max.X)
 			// render and handle the operations from the UI.
 			e.Frame(gtx.Ops)
 		// this is sent when the application is closed.
@@ -72,20 +81,30 @@ func (u *UI) Run(w *app.Window) error {
 }
 
 // Layout displays the main program layout.
-func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
-	paint.Fill(gtx.Ops, u.Theme.Palette.Bg)
+func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
+	// Create a full-screen rectangle for the background
+	bgRect := image.Rectangle{Max: gtx.Constraints.Max}
+	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(bgRect).Op())
 
-	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return u.header.Layout(gtx)
+	return layout.Stack{Alignment: layout.S}.Layout(gtx,
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return widgets.NotificationController.Layout(gtx, u.Theme, windowWidth)
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return u.sideBar.Layout(gtx)
+					return u.header.Layout(gtx)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return u.requestPage.Layout(gtx, u.Theme)
+					return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return u.sideBar.Layout(gtx)
+						}),
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							return u.requestPage.Layout(gtx, u.Theme)
+						}),
+					)
 				}),
 			)
 		}),

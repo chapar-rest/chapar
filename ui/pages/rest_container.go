@@ -6,11 +6,11 @@ import (
 	"image"
 	"image/color"
 	"net/http"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/mirzakhany/chapar/internal/rest"
 
-	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -63,6 +63,8 @@ type RestContainer struct {
 	postRequestBody     *widget.Editor
 
 	requestBodyDropDown *widgets.DropDown
+
+	notification *widgets.Notification
 }
 
 func NewRestContainer(theme *material.Theme) *RestContainer {
@@ -84,6 +86,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 				Axis: layout.Vertical,
 			},
 		},
+		notification: &widgets.Notification{},
 
 		copyResponseButton: widgets.NewFlatButton(theme, "Copy"),
 		saveResponseButton: widgets.NewFlatButton(theme, "Save"),
@@ -93,7 +96,8 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.copyResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	r.copyResponseButton.MinWidth = unit.Dp(75)
 	r.copyResponseButton.OnClicked = func(ops *op.Ops) {
-		clipboard.WriteOp{Text: r.result}.Add(ops)
+		//clipboard.WriteOp{Text: r.result}.Add(ops)
+		widgets.Noifiy("Response copied to clipboard", time.Second*3)
 	}
 
 	r.saveResponseButton.SetIcon(widgets.SaveIcon, widgets.FlatButtonIconEnd, 5)
@@ -398,12 +402,12 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						l := material.LabelStyle{
 							Text:     r.resultStatus,
-							Color:    widgets.Green500,
+							Color:    widgets.LightGreen,
 							TextSize: theme.TextSize,
 							Shaper:   theme.Shaper,
 						}
 						l.Font.Typeface = theme.Face
-						return material.Label(theme, theme.TextSize, r.resultStatus).Layout(gtx)
+						return l.Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
