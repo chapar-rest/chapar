@@ -1,31 +1,27 @@
 package pages
 
 import (
-	"bytes"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
-	"io"
 	"net/http"
 
-	"golang.design/x/clipboard"
+	"github.com/dustin/go-humanize"
+	"github.com/mirzakhany/chapar/internal/rest"
 
-	"gioui.org/op"
-
-	"gioui.org/font/gofont"
-	"gioui.org/x/richtext"
-
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/richtext"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 var (
 	requestTabsInset = layout.Inset{Left: unit.Dp(5), Top: unit.Dp(3)}
-	green            = color.NRGBA{G: 170, A: 255}
-	fonts            = gofont.Collection()
 )
 
 type RestContainer struct {
@@ -53,11 +49,12 @@ type RestContainer struct {
 	resultUpdated bool
 	result        string
 
+	resultStatus string
+
 	split widgets.SplitView
 
-	//	resizer *component.Resize
-
-	requestTabs *widgets.Tabs
+	requestTabs  *widgets.Tabs
+	responseTabs *widgets.Tabs
 
 	preRequestDropDown *widgets.DropDown
 	preRequestBody     *widget.Editor
@@ -76,10 +73,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		//resizer: &component.Resize{
-		//	Axis:  layout.Horizontal,
-		//	Ratio: 0,
-		//},
 		responseBody:    new(widget.Editor),
 		address:         new(widget.Editor),
 		requestBody:     new(widget.Editor),
@@ -99,28 +92,31 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.copyResponseButton.SetIcon(widgets.CopyIcon, widgets.FlatButtonIconEnd, 5)
 	r.copyResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	r.copyResponseButton.MinWidth = unit.Dp(75)
-	r.copyResponseButton.OnClicked = func() {
-		clipboard.Write(clipboard.FmtText, []byte(r.result))
+	r.copyResponseButton.OnClicked = func(ops *op.Ops) {
+		clipboard.WriteOp{Text: r.result}.Add(ops)
 	}
 
 	r.saveResponseButton.SetIcon(widgets.SaveIcon, widgets.FlatButtonIconEnd, 5)
 	r.saveResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	r.saveResponseButton.MinWidth = unit.Dp(75)
-	r.saveResponseButton.OnClicked = func() {
+	r.saveResponseButton.OnClicked = func(ops *op.Ops) {
 
 	}
 
 	r.sendButton = material.Button(theme, &r.sendClickable, "Send")
 
-	tabV2Items := []widgets.Tab{
+	r.requestTabs = widgets.NewTabs([]widgets.Tab{
 		{Title: "Params"},
 		{Title: "Body"},
 		{Title: "Headers"},
 		{Title: "Pre-req"},
 		{Title: "Post-req"},
-	}
+	}, nil)
 
-	r.requestTabs = widgets.NewTabs(tabV2Items, nil)
+	r.responseTabs = widgets.NewTabs([]widgets.Tab{
+		{Title: "Body"},
+		{Title: "Headers"},
+	}, nil)
 
 	r.methodDropDown = widgets.NewDropDown(theme,
 		widgets.NewDropDownOption("GET"),
@@ -186,37 +182,36 @@ func (r *RestContainer) Submit() {
 		r.resultUpdated = false
 	}()
 
-	//body := r.requestBody.Text()
-
-	req, err := http.NewRequest(method, address, nil)
+	res, err := rest.DoRequest(&rest.Request{
+		URL:     address,
+		Method:  method,
+		Headers: nil,
+		Body:    nil,
+	})
 	if err != nil {
 		r.responseBody.SetText(err.Error())
 		return
 	}
 
-	// send request
-	res, err := http.DefaultClient.Do(req)
-
-	if err != nil {
-		r.responseBody.SetText(err.Error())
-		return
+	dataStr := string(res.Body)
+	if rest.IsJSON(dataStr) {
+		var data map[string]interface{}
+		if err := json.Unmarshal(res.Body, &data); err != nil {
+			r.responseBody.SetText(err.Error())
+			return
+		}
+		var err error
+		dataStr, err = rest.PrettyJSON(res.Body)
+		if err != nil {
+			r.responseBody.SetText(err.Error())
+			return
+		}
 	}
 
-	data, err := io.ReadAll(res.Body)
-	defer res.Body.Close()
+	// format response status
+	r.resultStatus = fmt.Sprintf("%d %s, %s, %s", res.StatusCode, http.StatusText(res.StatusCode), res.TimePassed, humanize.Bytes(uint64(len(res.Body))))
 
-	if err != nil {
-		r.responseBody.SetText(err.Error())
-		return
-	}
-
-	out := bytes.Buffer{}
-	if err := json.Indent(&out, data, "", "    "); err != nil {
-		r.responseBody.SetText(err.Error())
-		return
-	}
-
-	r.result = out.String()
+	r.result = dataStr
 }
 
 func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -395,7 +390,22 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 		Axis: layout.Vertical,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.End}.Layout(gtx,
+			return r.responseTabs.Layout(gtx, theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						l := material.LabelStyle{
+							Text:     r.resultStatus,
+							Color:    widgets.Green500,
+							TextSize: theme.TextSize,
+							Shaper:   theme.Shaper,
+						}
+						l.Font.Typeface = theme.Face
+						return material.Label(theme, theme.TextSize, r.resultStatus).Layout(gtx)
+					})
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return r.copyResponseButton.Layout(gtx)
 				}),
@@ -405,8 +415,7 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 				}),
 			)
 		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(1)}.Layout),
-		widgets.DrawLineFlex(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(gtx.Constraints.Max.Y)),
+		widgets.DrawLineFlex(gtx, widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Editor(theme, r.responseBody, "").Layout(gtx)
 		}),
@@ -435,20 +444,18 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 					return r.requestLayout(gtx, theme)
 				},
 				func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						if r.loading {
-							return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
-						} else {
-							// update only once
-							if !r.resultUpdated {
-								r.responseBody.SetText(r.result)
-								r.resultUpdated = true
-							}
+					if r.loading {
+						return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
+					} else {
+						// update only once
+						if !r.resultUpdated {
+							r.responseBody.SetText(r.result)
+							r.resultUpdated = true
 						}
+					}
 
-						return r.responseLayout(gtx, theme)
-						// return material.Editor(theme, r.responseBody, "").Layout(gtx)
-					})
+					return r.responseLayout(gtx, theme)
+					// return material.Editor(theme, r.responseBody, "").Layout(gtx)
 				},
 			)
 		}),

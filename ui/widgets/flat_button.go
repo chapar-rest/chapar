@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/op"
+
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -38,7 +40,7 @@ type FlatButton struct {
 	BackgroundPadding unit.Dp
 	ContentPadding    unit.Dp
 
-	OnClicked func()
+	OnClicked func(ops *op.Ops)
 }
 
 func NewFlatButton(theme *material.Theme, text string) *FlatButton {
@@ -80,7 +82,7 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 
 	for f.clickable.Clicked(gtx) {
 		if f.OnClicked != nil {
-			go f.OnClicked()
+			go f.OnClicked(gtx.Ops)
 		}
 	}
 

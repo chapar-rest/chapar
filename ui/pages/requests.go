@@ -17,8 +17,7 @@ type Request struct {
 	searchBox        *widgets.TextField
 	requestsTree     *widgets.TreeView
 
-	split widgets.SplitView
-
+	split         widgets.SplitView
 	tabs          *widgets.Tabs
 	restContainer *RestContainer
 }

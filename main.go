@@ -4,8 +4,6 @@ import (
 	"log"
 	"os"
 
-	"golang.design/x/clipboard"
-
 	"gioui.org/app"
 	"gioui.org/unit"
 	"github.com/mirzakhany/chapar/ui"
@@ -14,10 +12,6 @@ import (
 func main() {
 	appUI, err := ui.New()
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := clipboard.Init(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -34,5 +28,4 @@ func main() {
 		os.Exit(0)
 	}()
 	app.Main()
-
 }
