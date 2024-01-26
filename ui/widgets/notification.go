@@ -1,24 +1,29 @@
 package widgets
 
 import (
+	"image"
 	"sync"
 	"time"
 
+	"gioui.org/op"
+
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 )
 
 var NotificationController = &Notification{
-	mtx: sync.Mutex{},
+	Mtx: sync.Mutex{},
 }
 
 type Notification struct {
 	Text  string
 	EndAt time.Time
 
-	mtx sync.Mutex
+	Mtx sync.Mutex
 }
 
 type Notif struct {
@@ -28,39 +33,38 @@ type Notif struct {
 	Duration time.Duration
 }
 
-func Noifiy(text string, duration time.Duration) {
-	NotificationController.mtx.Lock()
-	defer NotificationController.mtx.Unlock()
-
-	NotificationController.EndAt = time.Now().Add(duration)
-	NotificationController.Text = text
-}
-
 func (n *Notification) Layout(gtx layout.Context, theme *material.Theme, windowWidth int) layout.Dimensions {
-	n.mtx.Lock()
-	defer n.mtx.Unlock()
+	n.Mtx.Lock()
+	defer n.Mtx.Unlock()
 
 	if n.Text == "" || n.EndAt == (time.Time{}) || time.Now().After(n.EndAt) {
 		return layout.Dimensions{}
 	}
 
-	border := widget.Border{
-		Color:        Gray600,
-		Width:        unit.Dp(1),
-		CornerRadius: unit.Dp(4),
-	}
-
+	macro := op.Record(gtx.Ops)
+	dim := layout.Background{}.Layout(gtx,
+		func(gtx layout.Context) layout.Dimensions {
+			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 8).Push(gtx.Ops).Pop()
+			paint.Fill(gtx.Ops, theme.Palette.ContrastBg)
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Body1(theme, n.Text).Layout(gtx)
+			})
+		},
+	)
+	call := macro.Stop()
 	// change the offset to move the notification to the right side of the screen
 	offset := layout.Inset{
-		Left:   unit.Dp((windowWidth / 2) - gtx.Metric.Dp(100)),
+		Top:    0,
+		Left:   unit.Dp(windowWidth/2 - dim.Size.X),
+		Right:  0,
 		Bottom: unit.Dp(40),
 	}
 
 	return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Body1(theme, n.Text).Layout(gtx)
-			})
-		})
+		call.Add(gtx.Ops)
+		return dim
 	})
 }

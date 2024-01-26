@@ -8,8 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dustin/go-humanize"
-	"github.com/mirzakhany/chapar/internal/rest"
+	"github.com/mirzakhany/chapar/internal/notify"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -17,7 +16,10 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/richtext"
+	"github.com/dustin/go-humanize"
+	"github.com/mirzakhany/chapar/internal/rest"
 	"github.com/mirzakhany/chapar/ui/widgets"
+	"golang.design/x/clipboard"
 )
 
 var (
@@ -95,15 +97,15 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.copyResponseButton.SetIcon(widgets.CopyIcon, widgets.FlatButtonIconEnd, 5)
 	r.copyResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	r.copyResponseButton.MinWidth = unit.Dp(75)
-	r.copyResponseButton.OnClicked = func(ops *op.Ops) {
-		//clipboard.WriteOp{Text: r.result}.Add(ops)
-		widgets.Noifiy("Response copied to clipboard", time.Second*3)
+	r.copyResponseButton.OnClicked = func() {
+		clipboard.Write(clipboard.FmtText, []byte("text data"))
+		notify.Send("Response copied to clipboard", time.Second*3)
 	}
 
 	r.saveResponseButton.SetIcon(widgets.SaveIcon, widgets.FlatButtonIconEnd, 5)
 	r.saveResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	r.saveResponseButton.MinWidth = unit.Dp(75)
-	r.saveResponseButton.OnClicked = func(ops *op.Ops) {
+	r.saveResponseButton.OnClicked = func() {
 
 	}
 

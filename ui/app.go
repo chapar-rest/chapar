@@ -4,19 +4,19 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/mirzakhany/chapar/internal/notify"
 
 	"gioui.org/app"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/ui/pages"
+	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type C = layout.Context
@@ -69,7 +69,6 @@ func (u *UI) Run(w *app.Window) error {
 		case system.FrameEvent:
 			gtx := layout.NewContext(&ops, e)
 			// render and handle UI.
-
 			u.Layout(gtx, gtx.Constraints.Max.X)
 			// render and handle the operations from the UI.
 			e.Frame(gtx.Ops)
@@ -87,9 +86,6 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(bgRect).Op())
 
 	return layout.Stack{Alignment: layout.S}.Layout(gtx,
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return widgets.NotificationController.Layout(gtx, u.Theme, windowWidth)
-		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
@@ -107,6 +103,9 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 					)
 				}),
 			)
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
 		}),
 	)
 }
