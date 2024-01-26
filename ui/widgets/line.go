@@ -50,7 +50,7 @@ func VerticalLine(height float32) layout.FlexChild {
 	})
 }
 
-func DrawLineFlex(gtx layout.Context, background color.NRGBA, height, width unit.Dp) layout.FlexChild {
+func DrawLineFlex(background color.NRGBA, height, width unit.Dp) layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return DrawLine(gtx, background, height, width)
 	})

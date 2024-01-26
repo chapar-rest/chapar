@@ -67,6 +67,8 @@ type RestContainer struct {
 	requestBodyDropDown *widgets.DropDown
 
 	notification *widgets.Notification
+
+	params *widgets.KeyValue
 }
 
 func NewRestContainer(theme *material.Theme) *RestContainer {
@@ -92,6 +94,11 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 
 		copyResponseButton: widgets.NewFlatButton(theme, "Copy"),
 		saveResponseButton: widgets.NewFlatButton(theme, "Save"),
+
+		params: widgets.NewKeyValue(
+			widgets.NewKeyValueItem("name", "John Doe", true),
+			widgets.NewKeyValueItem("email", "", false),
+		),
 	}
 
 	r.copyResponseButton.SetIcon(widgets.CopyIcon, widgets.FlatButtonIconEnd, 5)
@@ -349,7 +356,9 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 			switch r.requestTabs.Selected() {
 			case 0:
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Params").Layout(gtx)
+					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return r.params.WithAddLayout(gtx, theme)
+					})
 				})
 
 			case 1:
@@ -421,7 +430,7 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 				}),
 			)
 		}),
-		widgets.DrawLineFlex(gtx, widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
+		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Editor(theme, r.responseBody, "").Layout(gtx)
 		}),
@@ -461,7 +470,6 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 					}
 
 					return r.responseLayout(gtx, theme)
-					// return material.Editor(theme, r.responseBody, "").Layout(gtx)
 				},
 			)
 		}),
