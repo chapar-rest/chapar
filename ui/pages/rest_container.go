@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/color"
 	"net/http"
+	"net/url"
+	"sync"
 	"time"
 
 	"gioui.org/font"
@@ -29,13 +31,19 @@ var (
 
 type RestContainer struct {
 	methodDropDown *widgets.DropDown
-	address        *widget.Editor
+
+	addressMutex *sync.Mutex
+	address      *widget.Editor
+
+	requestURL material.EditorStyle
 
 	copyResponseButton *widgets.FlatButton
 	saveResponseButton *widgets.FlatButton
 
-	section             *widget.Editor
-	requestBody         *widget.Editor
+	section           *widget.Editor
+	requestBody       *widget.Editor
+	requestBodyBinary *widgets.TextField
+
 	responseBody        *widget.Editor
 	responseHeadersList *widget.List
 	responseHeaders     []responseHeader
@@ -67,9 +75,11 @@ type RestContainer struct {
 
 	notification *widgets.Notification
 
-	queryParams *widgets.KeyValue
-	pathParams  *widgets.KeyValue
-	headers     *widgets.KeyValue
+	queryParams      *widgets.KeyValue
+	formDataParams   *widgets.KeyValue
+	urlEncodedParams *widgets.KeyValue
+	pathParams       *widgets.KeyValue
+	headers          *widgets.KeyValue
 }
 
 type responseHeader struct {
@@ -88,12 +98,13 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		responseBody:    new(widget.Editor),
-		address:         new(widget.Editor),
-		requestBody:     new(widget.Editor),
-		preRequestBody:  new(widget.Editor),
-		postRequestBody: new(widget.Editor),
-		section:         new(widget.Editor),
+		responseBody:      new(widget.Editor),
+		address:           new(widget.Editor),
+		requestBody:       new(widget.Editor),
+		preRequestBody:    new(widget.Editor),
+		postRequestBody:   new(widget.Editor),
+		section:           new(widget.Editor),
+		requestBodyBinary: widgets.NewTextField("", "Select file"),
 		responseHeadersList: &widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -115,11 +126,22 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		headers: widgets.NewKeyValue(
 			widgets.NewKeyValueItem("", "", false),
 		),
-	}
 
-	r.queryParams.SetOnChanged(func(items []widgets.KeyValueItem) {
-		fmt.Println(items)
-	})
+		formDataParams: widgets.NewKeyValue(
+			widgets.NewKeyValueItem("", "", false),
+		),
+		urlEncodedParams: widgets.NewKeyValue(
+			widgets.NewKeyValueItem("", "", false),
+		),
+
+		addressMutex: &sync.Mutex{},
+	}
+	r.requestBodyBinary.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
+
+	search := widgets.NewTextField("", "Search...")
+	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
+
+	r.queryParams.SetOnChanged(r.onQueryParamChange)
 
 	r.copyResponseButton.SetIcon(widgets.CopyIcon, widgets.FlatButtonIconEnd, 5)
 	r.copyResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
@@ -202,6 +224,15 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 func (r *RestContainer) Submit() {
 	method := r.methodDropDown.GetSelected().Text
 	address := r.address.Text()
+	headers := make(map[string]string)
+	for _, h := range r.headers.GetItems() {
+		if h.Key == "" || !h.Active || h.Value == "" {
+			continue
+		}
+		headers[h.Key] = h.Value
+	}
+
+	body := r.prepareBody()
 
 	r.sendButton.Text = "Cancel"
 	r.loading = true
@@ -215,8 +246,8 @@ func (r *RestContainer) Submit() {
 	res, err := rest.DoRequest(&rest.Request{
 		URL:     address,
 		Method:  method,
-		Headers: nil,
-		Body:    nil,
+		Headers: headers,
+		Body:    body,
 	})
 	if err != nil {
 		r.responseBody.SetText(err.Error())
@@ -253,6 +284,29 @@ func (r *RestContainer) Submit() {
 	r.result = dataStr
 }
 
+func (r *RestContainer) prepareBody() []byte {
+	switch r.requestBodyDropDown.SelectedIndex() {
+	case 0: // none
+		return nil
+	case 1: // json
+		o, err := rest.EncodeJSON(r.requestBody.Text())
+		if err != nil {
+			return nil
+		}
+		return o
+	case 2, 3: // text, xml
+		return []byte(r.requestBody.Text())
+	case 4: // form data
+		return nil
+	case 5: // binary
+		return nil
+	case 6: // urlencoded
+		return nil
+	}
+
+	return nil
+}
+
 func (r *RestContainer) responseCopy() {
 	if r.result == "" {
 		return
@@ -269,6 +323,38 @@ func (r *RestContainer) responseCopy() {
 		clipboard.Write(clipboard.FmtText, []byte(headers))
 		notify.Send("Response headers copied to clipboard", time.Second*3)
 	}
+}
+
+func (r *RestContainer) onQueryParamChange(items []widgets.KeyValueItem) {
+	addr := r.address.Text()
+	if addr == "" {
+		return
+	}
+
+	// parse url
+	u, err := url.Parse(addr)
+	if err != nil {
+		return
+	}
+
+	// set query params
+	q := u.Query()
+
+	for _, item := range items {
+		if item.Key == "" || !item.Active || item.Value == "" {
+			continue
+		}
+		q.Set(item.Key, item.Value)
+	}
+
+	if len(q) == 0 {
+		return
+	}
+
+	u.RawQuery = q.Encode()
+	r.addressMutex.Lock()
+	r.address.SetText(u.String())
+	r.addressMutex.Unlock()
 }
 
 func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -290,6 +376,8 @@ func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) la
 			widgets.VerticalLine(40.0),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					//r.addressMutex.Lock()
+					//defer r.addressMutex.Unlock()
 					return material.Editor(theme, r.address, "https://example.com").Layout(gtx)
 				})
 			}),
@@ -328,7 +416,44 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme, r.requestBody, "").Layout(gtx)
+				switch r.requestBodyDropDown.SelectedIndex() {
+				case 1, 2, 3: // json, text, xml
+					hint := ""
+					if r.requestBodyDropDown.SelectedIndex() == 1 {
+						hint = "Enter valid json"
+					} else if r.requestBodyDropDown.SelectedIndex() == 2 {
+						hint = "Enter text"
+					} else if r.requestBodyDropDown.SelectedIndex() == 3 {
+						hint = "Enter valid xml"
+					}
+					return material.Editor(theme, r.requestBody, hint).Layout(gtx)
+				case 4: // form data
+					return layout.Flex{
+						Axis:      layout.Vertical,
+						Alignment: layout.Start,
+					}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return r.formDataParams.WithAddLayout(gtx, "", "", theme)
+							})
+						}),
+					)
+				case 5: // binary
+					return r.requestBodyBinary.Layout(gtx, theme)
+				case 6: // urlencoded
+					return layout.Flex{
+						Axis:      layout.Vertical,
+						Alignment: layout.Start,
+					}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return r.urlEncodedParams.WithAddLayout(gtx, "", "", theme)
+							})
+						}),
+					)
+				default:
+					return layout.Dimensions{}
+				}
 			})
 		}),
 	)
@@ -402,6 +527,19 @@ func (r *RestContainer) paramsLayout(gtx layout.Context, theme *material.Theme) 
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return r.pathParams.WithAddLayout(gtx, "Path", "path params inside bracket, for example: {id}", theme)
+			})
+		}),
+	)
+}
+
+func (r *RestContainer) requestBodyFormDataLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	return layout.Flex{
+		Axis:      layout.Vertical,
+		Alignment: layout.Start,
+	}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return r.queryParams.WithAddLayout(gtx, "Query", "", theme)
 			})
 		}),
 	)

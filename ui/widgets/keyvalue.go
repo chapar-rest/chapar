@@ -135,12 +135,14 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 
 	for _, ev := range kv.Items[index].keyEditor.Events() {
 		if _, ok := ev.(widget.ChangeEvent); ok {
+			kv.Items[index].Key = kv.Items[index].keyEditor.Text()
 			kv.triggerChanged()
 		}
 	}
 
 	for _, ev := range kv.Items[index].valueEditor.Events() {
 		if _, ok := ev.(widget.ChangeEvent); ok {
+			kv.Items[index].Value = kv.Items[index].valueEditor.Text()
 			kv.triggerChanged()
 		}
 	}

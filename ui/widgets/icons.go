@@ -94,3 +94,8 @@ var FileFolderIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.FileFolder)
 	return icon
 }()
+
+var UploadIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.FileFileUpload)
+	return icon
+}()

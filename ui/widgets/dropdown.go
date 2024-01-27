@@ -90,6 +90,10 @@ func NewDropDown(theme *material.Theme, options ...*DropDownOption) *DropDown {
 	return c
 }
 
+func (c *DropDown) SelectedIndex() int {
+	return c.selectedOptionIndex
+}
+
 func (c *DropDown) GetSelected() *DropDownOption {
 	return c.options[c.selectedOptionIndex]
 }

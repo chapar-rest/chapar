@@ -74,3 +74,19 @@ func PrettyJSON(data []byte) (string, error) {
 	}
 	return out.String(), nil
 }
+
+func ParseJSON(text string) (map[string]any, error) {
+	var js map[string]any
+	if err := json.Unmarshal([]byte(text), &js); err != nil {
+		return nil, err
+	}
+	return js, nil
+}
+
+func EncodeJSON(data any) ([]byte, error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
