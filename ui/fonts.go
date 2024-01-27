@@ -3,6 +3,7 @@ package ui
 import (
 	"embed"
 	"fmt"
+
 	"gioui.org/font"
 	"gioui.org/font/opentype"
 )
@@ -17,11 +18,25 @@ func prepareFonts() ([]font.FontFace, error) {
 		return nil, err
 	}
 
+	robotoBoldTTF, err := getFont("Roboto-Bold.ttf")
+	if err != nil {
+		return nil, err
+	}
+
 	robotoRegular, err := opentype.Parse(robotoRegularTTF)
 	if err != nil {
 		return nil, err
 	}
-	fontFaces = append(fontFaces, font.FontFace{Font: font.Font{}, Face: robotoRegular})
+
+	robotoBold, err := opentype.Parse(robotoBoldTTF)
+	if err != nil {
+		return nil, err
+	}
+
+	fontFaces = append(fontFaces,
+		font.FontFace{Font: font.Font{}, Face: robotoRegular},
+		font.FontFace{Font: font.Font{Weight: font.Bold}, Face: robotoBold},
+	)
 	return fontFaces, nil
 }
 

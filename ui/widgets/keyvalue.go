@@ -17,11 +17,14 @@ type KeyValue struct {
 	mx *sync.Mutex
 
 	list *widget.List
+
+	onChanged func(items []KeyValueItem)
 }
 
 type KeyValueItem struct {
-	Key   string
-	Value string
+	Key    string
+	Value  string
+	Active bool
 
 	keyEditor   *widget.Editor
 	valueEditor *widget.Editor
@@ -49,6 +52,8 @@ func NewKeyValue(items ...KeyValueItem) *KeyValue {
 
 	kv.addButton.OnClick = func() {
 		kv.AddItem(NewKeyValueItem("", "", false))
+
+		kv.triggerChanged()
 	}
 
 	return kv
@@ -64,11 +69,16 @@ func NewKeyValueItem(key, value string, active bool) KeyValueItem {
 	return KeyValueItem{
 		Key:          key,
 		Value:        value,
+		Active:       active,
 		keyEditor:    k,
 		valueEditor:  v,
 		deleteButton: &widget.Clickable{},
 		activeBool:   &widget.Bool{Value: active},
 	}
+}
+
+func (kv *KeyValue) SetOnChanged(onChanged func(items []KeyValueItem)) {
+	kv.onChanged = onChanged
 }
 
 func (kv *KeyValue) AddItem(item KeyValueItem) {
@@ -83,32 +93,26 @@ func (kv *KeyValue) SetItems(items []KeyValueItem) {
 	kv.Items = items
 }
 
-func (kv *KeyValue) SetActive(key string) {
+func (kv *KeyValue) GetItems() []KeyValueItem {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
-	for i, item := range kv.Items {
-		if item.Key == key {
-			kv.Items[i].activeBool.Value = true
-		} else {
-			kv.Items[i].activeBool.Value = false
-		}
-	}
+	return kv.Items
 }
 
-func (kv *KeyValue) GetActive() KeyValueItem {
-	for _, item := range kv.Items {
-		if item.activeBool.Value {
-			return item
-		}
+func (kv *KeyValue) triggerChanged() {
+	if kv.onChanged != nil {
+		go kv.onChanged(kv.Items)
 	}
-	return KeyValueItem{}
 }
 
 func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index int) layout.Dimensions {
 	if kv.Items[index].deleteButton.Clicked(gtx) {
 		kv.mx.Lock()
-		defer kv.mx.Unlock()
 		kv.Items = append(kv.Items[:index], kv.Items[index+1:]...)
+
+		kv.triggerChanged()
+
+		kv.mx.Unlock()
 	}
 
 	if index >= len(kv.Items) {
@@ -122,6 +126,23 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 		Color:        Gray300,
 		CornerRadius: 0,
 		Width:        1,
+	}
+
+	if kv.Items[index].activeBool.Update(gtx) {
+		kv.Items[index].Active = kv.Items[index].activeBool.Value
+		kv.triggerChanged()
+	}
+
+	for _, ev := range kv.Items[index].keyEditor.Events() {
+		if _, ok := ev.(widget.ChangeEvent); ok {
+			kv.triggerChanged()
+		}
+	}
+
+	for _, ev := range kv.Items[index].valueEditor.Events() {
+		if _, ok := ev.(widget.ChangeEvent); ok {
+			kv.triggerChanged()
+		}
 	}
 
 	leftPadding := layout.Inset{Left: unit.Dp(8)}
@@ -168,10 +189,21 @@ func (kv *KeyValue) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 	})
 }
 
-func (kv *KeyValue) WithAddLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Label(theme, theme.TextSize, title).Layout(gtx)
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{
+						Left:  unit.Dp(10),
+						Right: unit.Dp(10),
+					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.Label(theme, unit.Sp(10), hint).Layout(gtx)
+					})
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{
 						Top:    0,
