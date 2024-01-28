@@ -15,10 +15,6 @@ import (
 	"gioui.org/widget/material"
 )
 
-var NotificationController = &Notification{
-	Mtx: sync.Mutex{},
-}
-
 type Notification struct {
 	Text  string
 	EndAt time.Time

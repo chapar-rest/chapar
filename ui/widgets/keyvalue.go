@@ -101,25 +101,25 @@ func (kv *KeyValue) GetItems() []KeyValueItem {
 
 func (kv *KeyValue) triggerChanged() {
 	if kv.onChanged != nil {
-		go kv.onChanged(kv.Items)
+		kv.onChanged(kv.Items)
 	}
 }
 
 func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index int) layout.Dimensions {
-	if kv.Items[index].deleteButton.Clicked(gtx) {
-		kv.mx.Lock()
-		kv.Items = append(kv.Items[:index], kv.Items[index+1:]...)
-
-		kv.triggerChanged()
-
-		kv.mx.Unlock()
+	if index < 0 || index >= len(kv.Items) {
+		// Index is out of range, return zero dimensions.
+		return layout.Dimensions{}
 	}
 
-	if index >= len(kv.Items) {
-		if len(kv.Items) == 0 {
-			return layout.Dimensions{}
-		}
-		index = len(kv.Items) - 1
+	item := &kv.Items[index]
+
+	if item.deleteButton.Clicked(gtx) {
+		kv.mx.Lock()
+		kv.Items = append(kv.Items[:index], kv.Items[index+1:]...)
+		kv.triggerChanged()
+		kv.mx.Unlock()
+
+		return layout.Dimensions{}
 	}
 
 	border := widget.Border{

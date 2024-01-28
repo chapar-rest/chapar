@@ -345,29 +345,31 @@ func (r *RestContainer) onQueryParamChange(items []widgets.KeyValueItem) {
 		return
 	}
 
-	// parse url
-	u, err := url.Parse(addr)
+	// Parse the existing URL
+	parsedURL, err := url.Parse(addr)
 	if err != nil {
+		fmt.Println("Error parsing URL:", err)
 		return
 	}
 
-	// set query params
-	q := u.Query()
+	// Parse the query parameters from the URL
+	queryParams := parsedURL.Query()
 
+	// Iterate over the items and update the query parameters
 	for _, item := range items {
-		if item.Key == "" || !item.Active || item.Value == "" {
-			continue
+		if item.Active && item.Key != "" && item.Value != "" {
+			// Set the parameter only if both key and value are non-empty
+			queryParams.Set(item.Key, item.Value)
+		} else {
+			// Remove the parameter if the item is not active or key/value is empty
+			queryParams.Del(item.Key)
 		}
-		q.Set(item.Key, item.Value)
 	}
 
-	if len(q) == 0 {
-		return
-	}
-
-	u.RawQuery = q.Encode()
+	parsedURL.RawQuery = queryParams.Encode()
+	finalURL := parsedURL.String()
 	r.addressMutex.Lock()
-	r.address.SetText(u.String())
+	r.address.SetText(finalURL)
 	r.addressMutex.Unlock()
 }
 
@@ -390,8 +392,8 @@ func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) la
 			widgets.VerticalLine(40.0),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					//r.addressMutex.Lock()
-					//defer r.addressMutex.Unlock()
+					r.addressMutex.Lock()
+					defer r.addressMutex.Unlock()
 					return material.Editor(theme, r.address, "https://example.com").Layout(gtx)
 				})
 			}),
