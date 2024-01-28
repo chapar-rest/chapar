@@ -15,7 +15,6 @@ import (
 	"github.com/mirzakhany/chapar/internal/notify"
 
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -30,59 +29,46 @@ var (
 )
 
 type RestContainer struct {
+	// Request Bar
 	methodDropDown *widgets.DropDown
+	addressMutex   *sync.Mutex
+	address        *widget.Editor
+	sendClickable  widget.Clickable
+	sendButton     material.ButtonStyle
 
-	addressMutex *sync.Mutex
-	address      *widget.Editor
-
-	requestURL material.EditorStyle
-
-	copyResponseButton *widgets.FlatButton
-	saveResponseButton *widgets.FlatButton
-
-	section           *widget.Editor
-	requestBody       *widget.Editor
-	requestBodyBinary *widgets.TextField
-
+	// Response
 	responseBody        *widget.Editor
 	responseHeadersList *widget.List
-	responseHeaders     []responseHeader
+	responseCookiesList *widget.List
+	responseHeaders     []keyValue
+	responseCookies     []keyValue
+	loading             bool
+	resultUpdated       bool
+	result              string
+	copyResponseButton  *widgets.FlatButton
+	saveResponseButton  *widgets.FlatButton
+	responseTabs        *widgets.Tabs
 
-	responseMacro op.CallOp
-	responseDim   layout.Dimensions
-
-	sendClickable widget.Clickable
-	sendButton    material.ButtonStyle
-
-	loading       bool
-	resultUpdated bool
-	result        string
-
-	resultStatus string
-
-	split widgets.SplitView
-
-	requestTabs  *widgets.Tabs
-	responseTabs *widgets.Tabs
-
-	preRequestDropDown *widgets.DropDown
-	preRequestBody     *widget.Editor
-
+	// Request
+	requestBody         *widget.Editor
+	requestBodyDropDown *widgets.DropDown
+	requestBodyBinary   *widgets.TextField
+	resultStatus        string
+	requestTabs         *widgets.Tabs
+	preRequestDropDown  *widgets.DropDown
+	preRequestBody      *widget.Editor
 	postRequestDropDown *widgets.DropDown
 	postRequestBody     *widget.Editor
+	queryParams         *widgets.KeyValue
+	formDataParams      *widgets.KeyValue
+	urlEncodedParams    *widgets.KeyValue
+	pathParams          *widgets.KeyValue
+	headers             *widgets.KeyValue
 
-	requestBodyDropDown *widgets.DropDown
-
-	notification *widgets.Notification
-
-	queryParams      *widgets.KeyValue
-	formDataParams   *widgets.KeyValue
-	urlEncodedParams *widgets.KeyValue
-	pathParams       *widgets.KeyValue
-	headers          *widgets.KeyValue
+	split widgets.SplitView
 }
 
-type responseHeader struct {
+type keyValue struct {
 	Key   string
 	Value string
 
@@ -103,14 +89,18 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		requestBody:       new(widget.Editor),
 		preRequestBody:    new(widget.Editor),
 		postRequestBody:   new(widget.Editor),
-		section:           new(widget.Editor),
 		requestBodyBinary: widgets.NewTextField("", "Select file"),
 		responseHeadersList: &widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
 			},
 		},
-		notification: &widgets.Notification{},
+
+		responseCookiesList: &widget.List{
+			List: layout.List{
+				Axis: layout.Vertical,
+			},
+		},
 
 		copyResponseButton: widgets.NewFlatButton(theme, "Copy"),
 		saveResponseButton: widgets.NewFlatButton(theme, "Save"),
@@ -151,12 +141,8 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.saveResponseButton.SetIcon(widgets.SaveIcon, widgets.FlatButtonIconEnd, 5)
 	r.saveResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	r.saveResponseButton.MinWidth = unit.Dp(75)
-	r.saveResponseButton.OnClicked = func() {
-
-	}
 
 	r.sendButton = material.Button(theme, &r.sendClickable, "Send")
-
 	r.requestTabs = widgets.NewTabs([]widgets.Tab{
 		{Title: "Params"},
 		{Title: "Body"},
@@ -168,6 +154,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.responseTabs = widgets.NewTabs([]widgets.Tab{
 		{Title: "Body"},
 		{Title: "Headers"},
+		{Title: "Cookies"},
 	}, nil)
 
 	r.methodDropDown = widgets.NewDropDown(theme,
@@ -271,11 +258,22 @@ func (r *RestContainer) Submit() {
 
 	// format response status
 	r.resultStatus = fmt.Sprintf("%d %s, %s, %s", res.StatusCode, http.StatusText(res.StatusCode), res.TimePassed, humanize.Bytes(uint64(len(res.Body))))
-	r.responseHeaders = make([]responseHeader, 0)
+	r.responseHeaders = make([]keyValue, 0)
 	for k, v := range res.Headers {
-		r.responseHeaders = append(r.responseHeaders, responseHeader{
+		r.responseHeaders = append(r.responseHeaders, keyValue{
 			Key:             k,
 			Value:           v,
+			keySelectable:   &widget.Selectable{},
+			valueSelectable: &widget.Selectable{},
+		})
+	}
+
+	// response cookies
+	r.responseCookies = make([]keyValue, 0)
+	for _, c := range res.Cookies {
+		r.responseCookies = append(r.responseCookies, keyValue{
+			Key:             c.Name,
+			Value:           c.Value,
 			keySelectable:   &widget.Selectable{},
 			valueSelectable: &widget.Selectable{},
 		})
@@ -585,18 +583,48 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 	)
 }
 
+func (r *RestContainer) responseKeyValue(gtx layout.Context, theme *material.Theme, state *widget.List, itemType string, items []keyValue) layout.Dimensions {
+	if len(items) == 0 {
+		return r.noDataLayout(gtx, theme, fmt.Sprintf("No %s available", itemType))
+	}
+
+	return material.List(theme, state).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(theme, theme.TextSize, items[i].Key+":")
+					l.Font.Weight = font.Bold
+					l.State = items[i].keySelectable
+					return l.Layout(gtx)
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					l := material.Label(theme, theme.TextSize, items[i].Value)
+					l.State = items[i].valueSelectable
+					return l.Layout(gtx)
+				})
+			}),
+		)
+	})
+}
+
+func (r *RestContainer) noDataLayout(gtx layout.Context, theme *material.Theme, message string) layout.Dimensions {
+	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		l := material.LabelStyle{
+			Text:     message,
+			Color:    widgets.Gray600,
+			TextSize: theme.TextSize,
+			Shaper:   theme.Shaper,
+		}
+		l.Font.Typeface = theme.Face
+		return l.Layout(gtx)
+	})
+}
+
 func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if r.result == "" {
-		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			l := material.LabelStyle{
-				Text:     "No response available yet ;)",
-				Color:    widgets.Gray600,
-				TextSize: theme.TextSize,
-				Shaper:   theme.Shaper,
-			}
-			l.Font.Typeface = theme.Face
-			return l.Layout(gtx)
-		})
+		return r.noDataLayout(gtx, theme, "No response available yet ;)")
 	}
 
 	return layout.Flex{
@@ -630,28 +658,16 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 		}),
 		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if r.responseTabs.Selected() == 0 {
-				return material.Editor(theme, r.responseBody, "").Layout(gtx)
+			switch r.responseTabs.Selected() {
+			case 1:
+				return r.responseKeyValue(gtx, theme, r.responseHeadersList, "headers", r.responseHeaders)
+			case 2:
+				return r.responseKeyValue(gtx, theme, r.responseCookiesList, "cookies", r.responseCookies)
+			default:
+				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Editor(theme, r.responseBody, "").Layout(gtx)
+				})
 			}
-			return material.List(theme, r.responseHeadersList).Layout(gtx, len(r.responseHeaders), func(gtx layout.Context, i int) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							l := material.Label(theme, theme.TextSize, r.responseHeaders[i].Key+":")
-							l.Font.Weight = font.Bold
-							l.State = r.responseHeaders[i].keySelectable
-							return l.Layout(gtx)
-						})
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							l := material.Label(theme, theme.TextSize, r.responseHeaders[i].Value)
-							l.State = r.responseHeaders[i].valueSelectable
-							return l.Layout(gtx)
-						})
-					}),
-				)
-			})
 		}),
 	)
 }

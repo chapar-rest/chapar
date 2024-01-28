@@ -18,6 +18,7 @@ type Request struct {
 type Response struct {
 	StatusCode int
 	Headers    map[string]string
+	Cookies    []*http.Cookie
 	Body       []byte
 
 	TimePassed time.Duration
@@ -58,6 +59,7 @@ func DoRequest(r *Request) (*Response, error) {
 		StatusCode: resp.StatusCode,
 		Headers:    headers,
 		Body:       data,
+		Cookies:    resp.Cookies(),
 		TimePassed: timePassed.Truncate(time.Millisecond),
 	}, nil
 }
