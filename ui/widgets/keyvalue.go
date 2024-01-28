@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"sort"
 	"sync"
 
 	"gioui.org/layout"
@@ -22,6 +23,7 @@ type KeyValue struct {
 }
 
 type KeyValueItem struct {
+	id     int
 	Key    string
 	Value  string
 	Active bool
@@ -84,18 +86,27 @@ func (kv *KeyValue) SetOnChanged(onChanged func(items []KeyValueItem)) {
 func (kv *KeyValue) AddItem(item KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
+	item.id = len(kv.Items)
 	kv.Items = append(kv.Items, item)
 }
 
 func (kv *KeyValue) SetItems(items []KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
+	for i := range items {
+		items[i].id = i
+	}
 	kv.Items = items
 }
 
 func (kv *KeyValue) GetItems() []KeyValueItem {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
+
+	sort.Slice(kv.Items, func(i, j int) bool {
+		return kv.Items[i].id < kv.Items[j].id
+	})
+
 	return kv.Items
 }
 
@@ -116,8 +127,9 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 	if item.deleteButton.Clicked(gtx) {
 		kv.mx.Lock()
 		kv.Items = append(kv.Items[:index], kv.Items[index+1:]...)
-		kv.triggerChanged()
 		kv.mx.Unlock()
+
+		kv.triggerChanged()
 
 		return layout.Dimensions{}
 	}

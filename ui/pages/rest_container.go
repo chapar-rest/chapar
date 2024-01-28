@@ -32,9 +32,11 @@ type RestContainer struct {
 	// Request Bar
 	methodDropDown *widgets.DropDown
 	addressMutex   *sync.Mutex
-	address        *widget.Editor
-	sendClickable  widget.Clickable
-	sendButton     material.ButtonStyle
+
+	updateAddress bool
+	address       *widget.Editor
+	sendClickable widget.Clickable
+	sendButton    material.ButtonStyle
 
 	// Response
 	responseBody        *widget.Editor
@@ -59,11 +61,13 @@ type RestContainer struct {
 	preRequestBody      *widget.Editor
 	postRequestDropDown *widgets.DropDown
 	postRequestBody     *widget.Editor
-	queryParams         *widgets.KeyValue
-	formDataParams      *widgets.KeyValue
-	urlEncodedParams    *widgets.KeyValue
-	pathParams          *widgets.KeyValue
-	headers             *widgets.KeyValue
+
+	queryParams       *widgets.KeyValue
+	updateQueryParams bool
+	formDataParams    *widgets.KeyValue
+	urlEncodedParams  *widgets.KeyValue
+	pathParams        *widgets.KeyValue
+	headers           *widgets.KeyValue
 
 	split widgets.SplitView
 }
@@ -340,6 +344,11 @@ func (r *RestContainer) responseCopy() {
 }
 
 func (r *RestContainer) onQueryParamChange(items []widgets.KeyValueItem) {
+	if r.updateQueryParams {
+		r.updateQueryParams = false
+		return
+	}
+
 	addr := r.address.Text()
 	if addr == "" {
 		return
@@ -366,11 +375,53 @@ func (r *RestContainer) onQueryParamChange(items []widgets.KeyValueItem) {
 		}
 	}
 
+	// delete items that are not exit in items
+	for k := range queryParams {
+		found := false
+		for _, item := range items {
+			if item.Active && item.Key == k {
+				found = true
+				break
+			}
+		}
+		if !found {
+			queryParams.Del(k)
+		}
+	}
+
 	parsedURL.RawQuery = queryParams.Encode()
 	finalURL := parsedURL.String()
 	r.addressMutex.Lock()
+	r.updateAddress = true
+
+	_, coll := r.address.CaretPos()
 	r.address.SetText(finalURL)
+	r.address.SetCaret(coll, coll+1)
+
 	r.addressMutex.Unlock()
+}
+
+func (r *RestContainer) addressChanged() {
+	// Parse the existing URL
+	parsedURL, err := url.Parse(r.address.Text())
+	if err != nil {
+		fmt.Println("Error parsing URL:", err)
+		return
+	}
+
+	// Parse the query parameters from the URL
+	queryParams := parsedURL.Query()
+
+	items := make([]widgets.KeyValueItem, 0)
+	for k, v := range queryParams {
+		if len(v) > 0 {
+			// Add the parameter as a new key-value item
+			items = append(items, widgets.NewKeyValueItem(k, v[0], true))
+		}
+	}
+
+	r.updateQueryParams = true
+	r.queryParams.SetItems(items)
 }
 
 func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -378,6 +429,16 @@ func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) la
 		Color:        widgets.Gray400,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
+	}
+
+	for _, ev := range r.address.Events() {
+		if _, ok := ev.(widget.ChangeEvent); ok {
+			if !r.updateAddress {
+				r.addressChanged()
+			} else {
+				r.updateAddress = false
+			}
+		}
 	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
