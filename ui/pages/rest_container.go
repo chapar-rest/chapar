@@ -306,20 +306,36 @@ func (r *RestContainer) prepareBody() []byte {
 }
 
 func (r *RestContainer) responseCopy() {
-	if r.result == "" {
-		return
-	}
-
-	if r.responseTabs.Selected() == 0 {
-		clipboard.Write(clipboard.FmtText, []byte("text data"))
+	switch r.responseTabs.Selected() {
+	case 0:
+		if r.result == "" {
+			return
+		}
+		clipboard.Write(clipboard.FmtText, []byte(r.result))
 		notify.Send("Response copied to clipboard", time.Second*3)
-	} else {
+	case 1:
+		if len(r.responseHeaders) == 0 {
+			return
+		}
+
 		headers := ""
 		for _, h := range r.responseHeaders {
 			headers += fmt.Sprintf("%s: %s\n", h.Key, h.Value)
 		}
+
 		clipboard.Write(clipboard.FmtText, []byte(headers))
 		notify.Send("Response headers copied to clipboard", time.Second*3)
+	case 2:
+		if len(r.responseCookies) == 0 {
+			return
+		}
+
+		cookies := ""
+		for _, c := range r.responseCookies {
+			cookies += fmt.Sprintf("%s: %s\n", c.Key, c.Value)
+		}
+		clipboard.Write(clipboard.FmtText, []byte(cookies))
+		notify.Send("Response cookies copied to clipboard", time.Second*3)
 	}
 }
 
