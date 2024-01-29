@@ -198,6 +198,10 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 }
 
 func (kv *KeyValue) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	if len(kv.Items) == 0 {
+		return layout.Center.Layout(gtx, material.Label(theme, unit.Sp(14), "No items").Layout)
+	}
+
 	return material.List(theme, kv.list).Layout(gtx, len(kv.Items), func(gtx layout.Context, i int) layout.Dimensions {
 		return kv.itemLayout(gtx, theme, i)
 	})

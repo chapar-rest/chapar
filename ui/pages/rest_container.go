@@ -229,7 +229,8 @@ func (r *RestContainer) Submit() {
 		headers[h.Key] = h.Value
 	}
 
-	body := r.prepareBody()
+	body, contentType := r.prepareBody()
+	headers["Content-Type"] = contentType
 
 	r.resultStatus = ""
 	r.sendButton.Text = "Cancel"
@@ -293,27 +294,23 @@ func (r *RestContainer) Submit() {
 	r.result = dataStr
 }
 
-func (r *RestContainer) prepareBody() []byte {
+func (r *RestContainer) prepareBody() ([]byte, string) {
 	switch r.requestBodyDropDown.SelectedIndex() {
 	case 0: // none
-		return nil
+		return nil, ""
 	case 1: // json
-		o, err := rest.EncodeJSON(r.requestBody.Text())
-		if err != nil {
-			return nil
-		}
-		return o
+		return []byte(r.requestBody.Text()), "application/json"
 	case 2, 3: // text, xml
-		return []byte(r.requestBody.Text())
+		return []byte(r.requestBody.Text()), "application/text"
 	case 4: // form data
-		return nil
+		return nil, "application/form-data"
 	case 5: // binary
-		return nil
+		return nil, "application/octet-stream"
 	case 6: // urlencoded
-		return nil
+		return nil, "application/x-www-form-urlencoded"
 	}
 
-	return nil
+	return nil, ""
 }
 
 func (r *RestContainer) responseCopy() {
@@ -498,19 +495,29 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 				}),
 			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				switch r.requestBodyDropDown.SelectedIndex() {
 				case 1, 2, 3: // json, text, xml
 					hint := ""
 					if r.requestBodyDropDown.SelectedIndex() == 1 {
-						hint = "Enter valid json"
+						hint = "Enter json"
 					} else if r.requestBodyDropDown.SelectedIndex() == 2 {
 						hint = "Enter text"
 					} else if r.requestBodyDropDown.SelectedIndex() == 3 {
-						hint = "Enter valid xml"
+						hint = "Enter xml"
 					}
-					return material.Editor(theme, r.requestBody, hint).Layout(gtx)
+
+					border := widget.Border{
+						Color:        widgets.Gray300,
+						Width:        unit.Dp(1),
+						CornerRadius: 0,
+					}
+					return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.Editor(theme, r.requestBody, hint).Layout(gtx)
+						})
+					})
 				case 4: // form data
 					return layout.Flex{
 						Axis:      layout.Vertical,
