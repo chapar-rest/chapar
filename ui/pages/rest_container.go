@@ -42,17 +42,15 @@ type RestContainer struct {
 	sendButton    material.ButtonStyle
 
 	// Response
-	responseBody            *widget.Editor
-	responseHeadersList     *widget.List
-	responseCookiesList     *widget.List
-	responseHeaders         []keyValue
-	responseCookies         []keyValue
-	loading                 bool
-	resultUpdated           bool
-	result                  string
-	resultLines             []string
-	resultList              *widget.List
-	resultLineNumberPadding int
+	responseHeadersList *widget.List
+	responseCookiesList *widget.List
+	responseHeaders     []keyValue
+	responseCookies     []keyValue
+	loading             bool
+	resultUpdated       bool
+	result              string
+	resultLines         []string
+	resultList          *widget.List
 
 	copyResponseButton *widgets.FlatButton
 	saveResponseButton *widgets.FlatButton
@@ -95,7 +93,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		responseBody:      new(widget.Editor),
 		address:           new(widget.Editor),
 		requestBody:       new(widget.Editor),
 		preRequestBody:    new(widget.Editor),
@@ -218,9 +215,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.address.SingleLine = true
 	r.address.SetText("https://jsonplaceholder.typicode.com/comments")
 
-	r.responseBody.SingleLine = false
-	r.responseBody.ReadOnly = true
-
 	return r
 }
 
@@ -237,6 +231,7 @@ func (r *RestContainer) Submit() {
 
 	body := r.prepareBody()
 
+	r.resultStatus = ""
 	r.sendButton.Text = "Cancel"
 	r.loading = true
 	r.resultUpdated = false
@@ -253,7 +248,7 @@ func (r *RestContainer) Submit() {
 		Body:    body,
 	})
 	if err != nil {
-		r.responseBody.SetText(err.Error())
+		r.result = err.Error()
 		return
 	}
 
@@ -261,13 +256,13 @@ func (r *RestContainer) Submit() {
 	if rest.IsJSON(dataStr) {
 		var data map[string]interface{}
 		if err := json.Unmarshal(res.Body, &data); err != nil {
-			r.responseBody.SetText(err.Error())
+			r.result = err.Error()
 			return
 		}
 		var err error
 		dataStr, err = rest.PrettyJSON(res.Body)
 		if err != nil {
-			r.responseBody.SetText(err.Error())
+			r.result = err.Error()
 			return
 		}
 	}
@@ -676,7 +671,7 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 
 func (r *RestContainer) responseKeyValue(gtx layout.Context, theme *material.Theme, state *widget.List, itemType string, items []keyValue) layout.Dimensions {
 	if len(items) == 0 {
-		return r.noDataLayout(gtx, theme, fmt.Sprintf("No %s available", itemType))
+		return r.messageLayout(gtx, theme, fmt.Sprintf("No %s available", itemType))
 	}
 
 	return material.List(theme, state).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
@@ -700,7 +695,7 @@ func (r *RestContainer) responseKeyValue(gtx layout.Context, theme *material.The
 	})
 }
 
-func (r *RestContainer) noDataLayout(gtx layout.Context, theme *material.Theme, message string) layout.Dimensions {
+func (r *RestContainer) messageLayout(gtx layout.Context, theme *material.Theme, message string) layout.Dimensions {
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		l := material.LabelStyle{
 			Text:     message,
@@ -715,7 +710,7 @@ func (r *RestContainer) noDataLayout(gtx layout.Context, theme *material.Theme, 
 
 func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if r.result == "" {
-		return r.noDataLayout(gtx, theme, "No response available yet ;)")
+		return r.messageLayout(gtx, theme, "No response available yet ;)")
 	}
 
 	return layout.Flex{
@@ -809,7 +804,6 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 						// update only once
 						if !r.resultUpdated {
 							r.prepareLines()
-							r.responseBody.SetText(r.result)
 							r.resultUpdated = true
 						}
 					}
@@ -823,5 +817,4 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 
 func (r *RestContainer) prepareLines() {
 	r.resultLines = strings.Split(r.result, "\n")
-	r.resultLineNumberPadding = len(fmt.Sprintf("%d", len(r.resultLines)))
 }
