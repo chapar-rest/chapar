@@ -18,12 +18,12 @@ func prepareFonts() ([]font.FontFace, error) {
 		return nil, err
 	}
 
-	robotoBoldTTF, err := getFont("Roboto-Bold.ttf")
+	robotoRegular, err := opentype.Parse(robotoRegularTTF)
 	if err != nil {
 		return nil, err
 	}
 
-	robotoRegular, err := opentype.Parse(robotoRegularTTF)
+	robotoBoldTTF, err := getFont("Roboto-Bold.ttf")
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +33,19 @@ func prepareFonts() ([]font.FontFace, error) {
 		return nil, err
 	}
 
+	robotoMediumTTF, err := getFont("Roboto-Medium.ttf")
+	if err != nil {
+		return nil, err
+	}
+
+	robotoMedium, err := opentype.Parse(robotoMediumTTF)
+	if err != nil {
+		return nil, err
+	}
+
 	fontFaces = append(fontFaces,
 		font.FontFace{Font: font.Font{}, Face: robotoRegular},
+		font.FontFace{Font: font.Font{Weight: font.Medium}, Face: robotoMedium},
 		font.FontFace{Font: font.Font{Weight: font.Bold}, Face: robotoBold},
 	)
 	return fontFaces, nil

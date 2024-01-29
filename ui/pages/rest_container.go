@@ -7,8 +7,11 @@ import (
 	"image/color"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
+
+	"gioui.org/text"
 
 	"gioui.org/font"
 
@@ -39,17 +42,21 @@ type RestContainer struct {
 	sendButton    material.ButtonStyle
 
 	// Response
-	responseBody        *widget.Editor
-	responseHeadersList *widget.List
-	responseCookiesList *widget.List
-	responseHeaders     []keyValue
-	responseCookies     []keyValue
-	loading             bool
-	resultUpdated       bool
-	result              string
-	copyResponseButton  *widgets.FlatButton
-	saveResponseButton  *widgets.FlatButton
-	responseTabs        *widgets.Tabs
+	responseBody            *widget.Editor
+	responseHeadersList     *widget.List
+	responseCookiesList     *widget.List
+	responseHeaders         []keyValue
+	responseCookies         []keyValue
+	loading                 bool
+	resultUpdated           bool
+	result                  string
+	resultLines             []string
+	resultList              *widget.List
+	resultLineNumberPadding int
+
+	copyResponseButton *widgets.FlatButton
+	saveResponseButton *widgets.FlatButton
+	responseTabs       *widgets.Tabs
 
 	// Request
 	requestBody         *widget.Editor
@@ -101,6 +108,11 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		},
 
 		responseCookiesList: &widget.List{
+			List: layout.List{
+				Axis: layout.Vertical,
+			},
+		},
+		resultList: &widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
 			},
@@ -743,9 +755,27 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 			case 2:
 				return r.responseKeyValue(gtx, theme, r.responseCookiesList, "cookies", r.responseCookies)
 			default:
-				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme, r.responseBody, "").Layout(gtx)
+				return material.List(theme, r.resultList).Layout(gtx, len(r.resultLines), func(gtx layout.Context, i int) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								l := material.Label(theme, theme.TextSize, fmt.Sprintf("%d", i+1))
+								l.Font.Weight = font.Medium
+								l.Color = widgets.Gray800
+								l.Alignment = text.End
+								return l.Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return material.Label(theme, theme.TextSize, r.resultLines[i]).Layout(gtx)
+							})
+						}),
+					)
 				})
+				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				//	return material.Editor(theme, r.responseBody, "").Layout(gtx)
+				//})
 			}
 		}),
 	)
@@ -778,6 +808,7 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 					} else {
 						// update only once
 						if !r.resultUpdated {
+							r.prepareLines()
 							r.responseBody.SetText(r.result)
 							r.resultUpdated = true
 						}
@@ -788,4 +819,9 @@ func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout
 			)
 		}),
 	)
+}
+
+func (r *RestContainer) prepareLines() {
+	r.resultLines = strings.Split(r.result, "\n")
+	r.resultLineNumberPadding = len(fmt.Sprintf("%d", len(r.resultLines)))
 }
