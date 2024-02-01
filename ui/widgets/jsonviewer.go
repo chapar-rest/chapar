@@ -17,6 +17,8 @@ type JsonViewer struct {
 
 	lines []string
 
+	selectables []*widget.Selectable
+
 	list *widget.List
 }
 
@@ -33,6 +35,11 @@ func NewJsonViewer() *JsonViewer {
 func (j *JsonViewer) SetData(data string) {
 	j.data = data
 	j.lines = strings.Split(data, "\n")
+
+	j.selectables = make([]*widget.Selectable, len(j.lines))
+	for i := range j.selectables {
+		j.selectables[i] = &widget.Selectable{}
+	}
 }
 
 func (j *JsonViewer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -56,7 +63,9 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, theme.TextSize, j.lines[i]).Layout(gtx)
+						l := material.Label(theme, theme.TextSize, j.lines[i])
+						l.State = j.selectables[i]
+						return l.Layout(gtx)
 					})
 				}),
 			)

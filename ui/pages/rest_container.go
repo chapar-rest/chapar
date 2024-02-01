@@ -54,15 +54,15 @@ type RestContainer struct {
 	responseTabs       *widgets.Tabs
 
 	// Request
-	requestBody         *widget.Editor
+	requestBody         *widgets.CodeEditor
 	requestBodyDropDown *widgets.DropDown
 	requestBodyBinary   *widgets.TextField
 	resultStatus        string
 	requestTabs         *widgets.Tabs
 	preRequestDropDown  *widgets.DropDown
-	preRequestBody      *widget.Editor
+	preRequestBody      *widgets.CodeEditor
 	postRequestDropDown *widgets.DropDown
-	postRequestBody     *widget.Editor
+	postRequestBody     *widgets.CodeEditor
 
 	queryParams       *widgets.KeyValue
 	updateQueryParams bool
@@ -91,9 +91,9 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		address:           new(widget.Editor),
-		requestBody:       new(widget.Editor),
-		preRequestBody:    new(widget.Editor),
-		postRequestBody:   new(widget.Editor),
+		requestBody:       widgets.NewCodeEditor(""),
+		preRequestBody:    widgets.NewCodeEditor(""),
+		postRequestBody:   widgets.NewCodeEditor(""),
 		requestBodyBinary: widgets.NewTextField("", "Select file"),
 		responseHeadersList: &widget.List{
 			List: layout.List{
@@ -292,9 +292,9 @@ func (r *RestContainer) prepareBody() ([]byte, string) {
 	case 0: // none
 		return nil, ""
 	case 1: // json
-		return []byte(r.requestBody.Text()), "application/json"
+		return []byte(r.requestBody.Code()), "application/json"
 	case 2, 3: // text, xml
-		return []byte(r.requestBody.Text()), "application/text"
+		return []byte(r.requestBody.Code()), "application/text"
 	case 4: // form data
 		return nil, "application/form-data"
 	case 5: // binary
@@ -501,16 +501,7 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 						hint = "Enter xml"
 					}
 
-					border := widget.Border{
-						Color:        widgets.Gray300,
-						Width:        unit.Dp(1),
-						CornerRadius: 0,
-					}
-					return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Editor(theme, r.requestBody, hint).Layout(gtx)
-						})
-					})
+					return r.requestBody.Layout(gtx, theme, hint)
 				case 4: // form data
 					return layout.Flex{
 						Axis:      layout.Vertical,
@@ -562,9 +553,18 @@ func (r *RestContainer) requestPostReqLayout(gtx layout.Context, theme *material
 				}),
 			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			hint := ""
+			if r.postRequestDropDown.SelectedIndex() == 1 {
+				hint = "Python script"
+			} else if r.postRequestDropDown.SelectedIndex() == 2 {
+				hint = "SSH script"
+			} else {
+				return layout.Dimensions{}
+			}
+
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme, r.postRequestBody, "").Layout(gtx)
+				return r.postRequestBody.Layout(gtx, theme, hint)
 			})
 		}),
 	)
@@ -589,9 +589,18 @@ func (r *RestContainer) requestPreReqLayout(gtx layout.Context, theme *material.
 				}),
 			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			hint := ""
+			if r.preRequestDropDown.SelectedIndex() == 1 {
+				hint = "Python script"
+			} else if r.preRequestDropDown.SelectedIndex() == 2 {
+				hint = "SSH script"
+			} else {
+				return layout.Dimensions{}
+			}
+
 			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme, r.preRequestBody, "").Layout(gtx)
+				return r.preRequestBody.Layout(gtx, theme, hint)
 			})
 		}),
 	)
@@ -640,28 +649,28 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			switch r.requestTabs.Selected() {
 			case 0:
-				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.paramsLayout(gtx, theme)
-				})
+				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return r.paramsLayout(gtx, theme)
+				//})
 			case 1:
-				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestBodyLayout(gtx, theme)
-				})
+				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return r.requestBodyLayout(gtx, theme)
+				//})
 			case 2:
-				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return r.headers.WithAddLayout(gtx, "Headers", "", theme)
-					})
+				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return r.headers.WithAddLayout(gtx, "Headers", "", theme)
 				})
+				//})
 			case 3:
-				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestPreReqLayout(gtx, theme)
-				})
+				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return r.requestPreReqLayout(gtx, theme)
+				//})
 
 			case 4:
-				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestPostReqLayout(gtx, theme)
-				})
+				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return r.requestPostReqLayout(gtx, theme)
+				//})
 			}
 
 			return layout.Dimensions{}
