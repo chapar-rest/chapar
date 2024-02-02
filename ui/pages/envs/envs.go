@@ -1,7 +1,6 @@
 package envs
 
 import (
-	"fmt"
 	"image/color"
 
 	"gioui.org/layout"
@@ -32,10 +31,10 @@ func New(theme *material.Theme) *Envs {
 	}
 
 	onTabsChange := func(index int) {
-		fmt.Println("selected tab", index)
+
 	}
 
-	return &Envs{
+	e := &Envs{
 		searchBox: search,
 		tabs:      widgets.NewTabs(tabItems, onTabsChange),
 		envsList:  widgets.NewTreeView(),
@@ -51,9 +50,10 @@ func New(theme *material.Theme) *Envs {
 			items: widgets.NewKeyValue(
 				widgets.NewKeyValueItem("", "", false),
 			),
-			title: "Production",
 		},
 	}
+
+	return e
 }
 
 func (e *Envs) container(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -74,6 +74,12 @@ func (e *Envs) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if e.addEnvButton.Clicked(gtx) {
+								e.envsList.AddNode(widgets.NewNode("New env", false), nil)
+								i := e.tabs.AddTab(widgets.Tab{Title: "New env", Closable: true, CloseClickable: &widget.Clickable{}})
+								e.tabs.SetSelected(i)
+							}
+
 							return material.Button(theme, &e.addEnvButton, "Add").Layout(gtx)
 						}),
 					)

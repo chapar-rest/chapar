@@ -9,12 +9,10 @@ import (
 
 type envContainer struct {
 	items *widgets.KeyValue
-
-	title string
 }
 
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return r.items.WithAddLayout(gtx, r.title, "", theme)
+		return r.items.WithAddLayout(gtx, "", "", theme)
 	})
 }

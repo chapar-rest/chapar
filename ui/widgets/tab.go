@@ -41,7 +41,20 @@ func (tabs *Tabs) Selected() int {
 	return tabs.selected
 }
 
+func (tabs *Tabs) AddTab(tab Tab) int {
+	tabs.tabs = append(tabs.tabs, tab)
+	return len(tabs.tabs) - 1
+}
+
+func (tabs *Tabs) SetSelected(index int) {
+	tabs.selected = index
+}
+
 func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	if len(tabs.tabs) == 1 {
+		tabs.selected = 0
+	}
+
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return tabs.list.Layout(gtx, len(tabs.tabs), func(gtx layout.Context, tabIdx int) layout.Dimensions {
