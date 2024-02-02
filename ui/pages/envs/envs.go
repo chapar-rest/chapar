@@ -38,18 +38,6 @@ func New(theme *material.Theme) *Envs {
 	pr := widgets.NewNode("Production", false)
 	treeView.AddNode(pr, nil)
 
-	container := &envContainer{
-		items: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", false),
-		),
-		title: widgets.NewEditableLabel("Production"),
-	}
-
-	container.title.SetOnChanged(func(text string) {
-		tabItems[0].Title = text
-		pr.Text = text
-	})
-
 	e := &Envs{
 		searchBox: search,
 		tabs:      widgets.NewTabs(tabItems, onTabsChange),
@@ -62,7 +50,7 @@ func New(theme *material.Theme) *Envs {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		envContainer: container,
+		envContainer: newEnvContainer(&tabItems[0], pr),
 	}
 
 	return e

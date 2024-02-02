@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -25,6 +26,8 @@ type TextField struct {
 	Placeholder string
 
 	size image.Point
+
+	borderColor color.NRGBA
 }
 
 func NewTextField(text, placeholder string) *TextField {
@@ -52,8 +55,16 @@ func (t *TextField) SetMinWidth(width int) {
 	t.size.X = width
 }
 
+func (t *TextField) SetBorderColor(color color.NRGBA) {
+	t.borderColor = color
+}
+
 func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	borderColor := theme.Palette.ContrastFg
+	if t.borderColor == (color.NRGBA{}) {
+		t.borderColor = theme.Palette.ContrastFg
+	}
+
+	borderColor := t.borderColor
 	if t.textEditor.Focused() {
 		borderColor = theme.Palette.ContrastBg
 	}

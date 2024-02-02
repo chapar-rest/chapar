@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -43,6 +44,11 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 		}
 	}
 
+	if e.clickable.Hovered() {
+		// set cursor to pointer
+		pointer.CursorText.Add(gtx.Ops)
+	}
+
 	return e.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if e.isEditing {
 			for _, ev := range e.editor.Events() {
@@ -67,6 +73,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 				})
 			})
 		}
+
 		return layout.Inset{
 			Top:    unit.Dp(5),
 			Bottom: unit.Dp(5),

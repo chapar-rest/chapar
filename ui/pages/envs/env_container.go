@@ -10,36 +10,49 @@ import (
 type envContainer struct {
 	items *widgets.KeyValue
 	title *widgets.EditableLabel
+
+	searchBox *widgets.TextField
 }
 
-func newEnvContainer(title string) *envContainer {
-	e := &envContainer{
+func newEnvContainer(tab *widgets.Tab, treeItem *widgets.TreeViewNode) *envContainer {
+	search := widgets.NewTextField("", "Search items")
+	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
+	search.SetBorderColor(widgets.Gray600)
+
+	container := &envContainer{
 		items: widgets.NewKeyValue(
 			widgets.NewKeyValueItem("", "", false),
 		),
-		title: widgets.NewEditableLabel(title),
+		title:     widgets.NewEditableLabel(tab.Title),
+		searchBox: search,
 	}
 
-	e.title.SetOnChanged(func(text string) {
-		e.title.Text = text
+	container.title.SetOnChanged(func(text string) {
+		tab.Title = text
+		treeItem.Text = text
 	})
 
-	return e
+	return container
 }
 
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(5), Bottom: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					// TODO : fix the max width
-					// should be calculated based on the text length
-					gtx.Constraints.Max.X = gtx.Dp(200)
-					return r.title.Layout(gtx, theme)
+				return layout.Inset{Top: unit.Dp(5), Bottom: unit.Dp(15)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return r.title.Layout(gtx, theme)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Max.X = gtx.Dp(200)
+							return r.searchBox.Layout(gtx, theme)
+						}),
+					)
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.items.Layout(gtx, theme)
+				return r.items.WithAddLayout(gtx, "", "*disabled items have no effect on your requests", theme)
 			}),
 		)
 	})
