@@ -14,6 +14,8 @@ type Sidebar struct {
 	requestsButton   *widgets.FlatButton
 	envButton        *widgets.FlatButton
 	settingsButton   *widgets.FlatButton
+
+	selectedIndex int
 }
 
 func NewSidebar(theme *material.Theme) *Sidebar {
@@ -30,26 +32,42 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 	s.requestsButton.MinWidth = unit.Dp(60)
 	s.requestsButton.ContentPadding = unit.Dp(5)
 	s.requestsButton.BackgroundPadding = unit.Dp(3)
+	s.requestsButton.OnClicked = func() {
+		s.selectedIndex = 0
+	}
 
 	s.envButton.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
 	s.envButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.envButton.MinWidth = unit.Dp(60)
 	s.envButton.ContentPadding = unit.Dp(5)
 	s.envButton.BackgroundPadding = unit.Dp(3)
+	s.envButton.OnClicked = func() {
+		s.selectedIndex = 1
+	}
 
 	s.protoFilesButton.SetIcon(widgets.FileFolderIcon, widgets.FlatButtonIconTop, 5)
 	s.protoFilesButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.protoFilesButton.MinWidth = unit.Dp(60)
 	s.protoFilesButton.ContentPadding = unit.Dp(5)
 	s.protoFilesButton.BackgroundPadding = unit.Dp(3)
+	s.protoFilesButton.OnClicked = func() {
+		s.selectedIndex = 2
+	}
 
 	s.settingsButton.SetIcon(widgets.SettingsIcon, widgets.FlatButtonIconTop, 5)
 	s.settingsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
 	s.settingsButton.MinWidth = unit.Dp(60)
 	s.settingsButton.ContentPadding = unit.Dp(5)
 	s.settingsButton.BackgroundPadding = unit.Dp(3)
+	s.settingsButton.OnClicked = func() {
+		s.selectedIndex = 3
+	}
 
 	return s
+}
+
+func (s *Sidebar) SelectedIndex() int {
+	return s.selectedIndex
 }
 
 func (s *Sidebar) Layout(gtx C) D {

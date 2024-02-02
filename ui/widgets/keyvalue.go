@@ -169,17 +169,20 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 				})
 			}),
 			DrawLineFlex(Gray300, unit.Dp(35), unit.Dp(1)),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(100))
-				return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme, kv.Items[index].keyEditor, "Key").Layout(gtx)
-				})
-			}),
-			DrawLineFlex(Gray300, unit.Dp(35), unit.Dp(1)),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme, kv.Items[index].valueEditor, "Value").Layout(gtx)
-				})
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Flexed(.80, func(gtx layout.Context) layout.Dimensions {
+						return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.Editor(theme, kv.Items[index].keyEditor, "Key").Layout(gtx)
+						})
+					}),
+					DrawLineFlex(Gray300, unit.Dp(35), unit.Dp(1)),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.Editor(theme, kv.Items[index].valueEditor, "Value").Layout(gtx)
+						})
+					}),
+				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				ib := IconButton{
@@ -188,7 +191,6 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 					Color:     Gray800,
 					Clickable: kv.Items[index].deleteButton,
 				}
-
 				return layout.Inset{Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return ib.Layout(theme, gtx)
 				})

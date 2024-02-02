@@ -1,4 +1,4 @@
-package pages
+package requests
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-type Request struct {
+type Requests struct {
 	addRequestButton widget.Clickable
 	importButton     widget.Clickable
 	searchBox        *widgets.TextField
@@ -22,7 +22,7 @@ type Request struct {
 	restContainer *RestContainer
 }
 
-func NewRequest(theme *material.Theme) *Request {
+func New(theme *material.Theme) *Requests {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
@@ -36,7 +36,7 @@ func NewRequest(theme *material.Theme) *Request {
 		fmt.Println("selected tab", index)
 	}
 
-	req := &Request{
+	req := &Requests{
 		searchBox:    search,
 		tabs:         widgets.NewTabs(tabItems, onTabsChange),
 		requestsTree: widgets.NewTreeView(),
@@ -60,7 +60,7 @@ func NewRequest(theme *material.Theme) *Request {
 	return req
 }
 
-func (r *Request) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -90,7 +90,7 @@ func (r *Request) list(gtx layout.Context, theme *material.Theme) layout.Dimensi
 	})
 }
 
-func (r *Request) container(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Requests) container(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return r.tabs.Layout(gtx, theme)
@@ -101,7 +101,7 @@ func (r *Request) container(gtx layout.Context, theme *material.Theme) layout.Di
 	)
 }
 
-func (r *Request) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Requests) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return r.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return r.list(gtx, theme)

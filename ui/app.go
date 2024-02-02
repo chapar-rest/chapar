@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/mirzakhany/chapar/internal/notify"
+	"github.com/mirzakhany/chapar/ui/pages/envs"
 
 	"gioui.org/app"
 	"gioui.org/io/system"
@@ -15,7 +15,8 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/pages"
+	"github.com/mirzakhany/chapar/internal/notify"
+	"github.com/mirzakhany/chapar/ui/pages/requests"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -28,7 +29,8 @@ type UI struct {
 	sideBar *Sidebar
 	header  *Header
 
-	requestPage *pages.Request
+	requestsPage *requests.Requests
+	envsPage     *envs.Envs
 
 	notification *widgets.Notification
 }
@@ -52,7 +54,8 @@ func New() (*UI, error) {
 	ui.header = NewHeader(ui.Theme)
 	ui.sideBar = NewSidebar(ui.Theme)
 
-	ui.requestPage = pages.NewRequest(ui.Theme)
+	ui.requestsPage = requests.New(ui.Theme)
+	ui.envsPage = envs.New(ui.Theme)
 
 	ui.notification = &widgets.Notification{}
 
@@ -98,7 +101,13 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 							return u.sideBar.Layout(gtx)
 						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return u.requestPage.Layout(gtx, u.Theme)
+							switch u.sideBar.SelectedIndex() {
+							case 0:
+								return u.requestsPage.Layout(gtx, u.Theme)
+							case 1:
+								return u.envsPage.Layout(gtx, u.Theme)
+							}
+							return u.requestsPage.Layout(gtx, u.Theme)
 						}),
 					)
 				}),
