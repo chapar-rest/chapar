@@ -34,10 +34,26 @@ func New(theme *material.Theme) *Envs {
 
 	}
 
+	treeView := widgets.NewTreeView()
+	pr := widgets.NewNode("Production", false)
+	treeView.AddNode(pr, nil)
+
+	container := &envContainer{
+		items: widgets.NewKeyValue(
+			widgets.NewKeyValueItem("", "", false),
+		),
+		title: widgets.NewEditableLabel("Production"),
+	}
+
+	container.title.SetOnChanged(func(text string) {
+		tabItems[0].Title = text
+		pr.Text = text
+	})
+
 	e := &Envs{
 		searchBox: search,
 		tabs:      widgets.NewTabs(tabItems, onTabsChange),
-		envsList:  widgets.NewTreeView(),
+		envsList:  treeView,
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),
@@ -46,11 +62,7 @@ func New(theme *material.Theme) *Envs {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		envContainer: &envContainer{
-			items: widgets.NewKeyValue(
-				widgets.NewKeyValueItem("", "", false),
-			),
-		},
+		envContainer: container,
 	}
 
 	return e
