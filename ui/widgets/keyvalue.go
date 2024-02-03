@@ -23,7 +23,7 @@ type KeyValue struct {
 }
 
 type KeyValueItem struct {
-	id     int
+	index  int
 	Key    string
 	Value  string
 	Active bool
@@ -86,7 +86,7 @@ func (kv *KeyValue) SetOnChanged(onChanged func(items []KeyValueItem)) {
 func (kv *KeyValue) AddItem(item KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
-	item.id = len(kv.Items)
+	item.index = len(kv.Items)
 	kv.Items = append(kv.Items, item)
 }
 
@@ -94,7 +94,7 @@ func (kv *KeyValue) SetItems(items []KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
 	for i := range items {
-		items[i].id = i
+		items[i].index = i
 	}
 	kv.Items = items
 }
@@ -104,7 +104,7 @@ func (kv *KeyValue) GetItems() []KeyValueItem {
 	defer kv.mx.Unlock()
 
 	sort.Slice(kv.Items, func(i, j int) bool {
-		return kv.Items[i].id < kv.Items[j].id
+		return kv.Items[i].index < kv.Items[j].index
 	})
 
 	return kv.Items

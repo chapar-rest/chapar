@@ -55,7 +55,10 @@ func New() (*UI, error) {
 	ui.sideBar = NewSidebar(ui.Theme)
 
 	ui.requestsPage = requests.New(ui.Theme)
-	ui.envsPage = envs.New(ui.Theme)
+	ui.envsPage, err = envs.New(ui.Theme)
+	if err != nil {
+		return nil, err
+	}
 
 	ui.notification = &widgets.Notification{}
 

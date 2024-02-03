@@ -7,6 +7,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -18,29 +20,33 @@ type Envs struct {
 	split        widgets.SplitView
 	tabs         *widgets.Tabs
 	envContainer *envContainer
+
+	data []*domain.Environment
+
+	openedEnvs []*domain.Environment
+
+	selectedIndex int
 }
 
-func New(theme *material.Theme) *Envs {
+func New(theme *material.Theme) (*Envs, error) {
+	data, err := loader.ReadEnvironmentsData()
+	if err != nil {
+		return nil, err
+	}
+
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
-	tabItems := []widgets.Tab{
-		{Title: "Production", Closable: true, CloseClickable: &widget.Clickable{}},
-		{Title: "Staging", Closable: true, CloseClickable: &widget.Clickable{}},
-		{Title: "Dev", Closable: true, CloseClickable: &widget.Clickable{}},
-	}
-
-	onTabsChange := func(index int) {
-
-	}
-
 	treeView := widgets.NewTreeView()
-	pr := widgets.NewNode("Production", false)
-	treeView.AddNode(pr, nil)
+	for _, env := range data {
+		node := widgets.NewNode(env.Meta.Name, false)
+		treeView.AddNode(node, nil)
+	}
 
 	e := &Envs{
+		data:      data,
 		searchBox: search,
-		tabs:      widgets.NewTabs(tabItems, onTabsChange),
+		tabs:      widgets.NewTabs([]widgets.Tab{}, nil),
 		envsList:  treeView,
 		split: widgets.SplitView{
 			Ratio:         -0.64,
@@ -50,10 +56,15 @@ func New(theme *material.Theme) *Envs {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		envContainer: newEnvContainer(&tabItems[0], pr),
+		envContainer: newEnvContainer(),
+		openedEnvs:   make([]*domain.Environment, 0),
 	}
 
-	return e
+	return e, nil
+}
+
+func (e *Envs) SetData(data []*domain.Environment) {
+	e.data = data
 }
 
 func (e *Envs) container(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -105,6 +116,15 @@ func (e *Envs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 			return e.list(gtx, theme)
 		},
 		func(gtx layout.Context) layout.Dimensions {
+			if len(e.openedEnvs) == 0 {
+				return layout.Dimensions{}
+			}
+
+			if e.selectedIndex != e.tabs.Selected() {
+				e.selectedIndex = e.tabs.Selected()
+				e.envContainer.Load(e.openedEnvs[e.selectedIndex])
+			}
+
 			return e.container(gtx, theme)
 		},
 	)

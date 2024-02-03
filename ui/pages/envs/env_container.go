@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -12,27 +13,34 @@ type envContainer struct {
 	title *widgets.EditableLabel
 
 	searchBox *widgets.TextField
+
+	tab  *widgets.Tab
+	item *widgets.TreeViewNode
 }
 
-func newEnvContainer(tab *widgets.Tab, treeItem *widgets.TreeViewNode) *envContainer {
+func newEnvContainer() *envContainer {
 	search := widgets.NewTextField("", "Search items")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(widgets.Gray600)
 
-	container := &envContainer{
+	c := &envContainer{
 		items: widgets.NewKeyValue(
 			widgets.NewKeyValueItem("", "", false),
 		),
-		title:     widgets.NewEditableLabel(tab.Title),
+		title:     widgets.NewEditableLabel(""),
 		searchBox: search,
 	}
 
-	container.title.SetOnChanged(func(text string) {
-		tab.Title = text
-		treeItem.Text = text
+	c.title.SetOnChanged(func(text string) {
+		c.tab.Title = text
+		c.item.Text = text
 	})
 
-	return container
+	return c
+}
+
+func (r *envContainer) Load(e *domain.Environment) {
+
 }
 
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -52,7 +60,7 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.items.WithAddLayout(gtx, "", "*disabled items have no effect on your requests", theme)
+				return r.items.WithAddLayout(gtx, "", "*Disabled items have no effect on your requests", theme)
 			}),
 		)
 	})
