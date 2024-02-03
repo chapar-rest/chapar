@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"image"
+	"time"
 
 	"gioui.org/op/clip"
 
@@ -25,7 +26,10 @@ type TreeViewNode struct {
 	Children []*TreeViewNode
 	Text     string
 
-	order int
+	lastClickAt time.Time
+	order       int
+
+	onDoubleClick func(tr *TreeViewNode)
 }
 
 func NewTreeView() *TreeView {
@@ -49,6 +53,10 @@ func NewNode(text string, collapsed bool) *TreeViewNode {
 		clickable: &widget.Clickable{},
 		order:     1,
 	}
+}
+
+func (tr *TreeViewNode) OnDoubleClick(f func(tr *TreeViewNode)) {
+	tr.onDoubleClick = f
 }
 
 func (tr *TreeViewNode) AddChild(node *TreeViewNode) {
@@ -95,10 +103,19 @@ func (t *TreeView) childLayout(theme *material.Theme, gtx layout.Context, node *
 func (t *TreeView) parentLayout(gtx layout.Context, theme *material.Theme, node *TreeViewNode) layout.Dimensions {
 	background := theme.Palette.Bg
 	for node.clickable.Clicked(gtx) {
-		if node.Children == nil {
-			continue
+		// is this a double click?
+		if time.Since(node.lastClickAt) < 500*time.Millisecond {
+			if node.onDoubleClick != nil {
+				node.onDoubleClick(node)
+			}
+		} else {
+			node.lastClickAt = time.Now()
+			if node.Children == nil {
+				continue
+			}
+
+			node.collapsed = !node.collapsed
 		}
-		node.collapsed = !node.collapsed
 	}
 
 	pr := node.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

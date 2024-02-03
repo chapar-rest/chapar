@@ -35,6 +35,10 @@ func (e *EditableLabel) SetOnChanged(f func(text string)) {
 	e.onChanged = f
 }
 
+func (e *EditableLabel) SetText(text string) {
+	e.Text = text
+}
+
 func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	for e.clickable.Clicked(gtx) {
 		if !e.isEditing {

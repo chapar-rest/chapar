@@ -40,7 +40,11 @@ func newEnvContainer() *envContainer {
 }
 
 func (r *envContainer) Load(e *domain.Environment) {
-
+	r.title.SetText(e.Meta.Name)
+	r.items.Items = []widgets.KeyValueItem{}
+	for _, vv := range e.Values {
+		r.items.AddItem(widgets.NewKeyValueItem(vv.Key, vv.Value, vv.Enable))
+	}
 }
 
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

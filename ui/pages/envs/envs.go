@@ -38,10 +38,6 @@ func New(theme *material.Theme) (*Envs, error) {
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
 	treeView := widgets.NewTreeView()
-	for _, env := range data {
-		node := widgets.NewNode(env.Meta.Name, false)
-		treeView.AddNode(node, nil)
-	}
 
 	e := &Envs{
 		data:      data,
@@ -60,7 +56,33 @@ func New(theme *material.Theme) (*Envs, error) {
 		openedEnvs:   make([]*domain.Environment, 0),
 	}
 
+	for _, env := range data {
+		node := widgets.NewNode(env.Meta.Name, false)
+		node.OnDoubleClick(e.onItemDoubleClick)
+		treeView.AddNode(node, nil)
+	}
+
 	return e, nil
+}
+
+func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
+	for _, env := range e.data {
+		if env.Meta.Name == tr.Text {
+			// if env is already opened, just switch to it
+			for i, openedEnv := range e.openedEnvs {
+				if openedEnv.Meta.Name == env.Meta.Name {
+					e.tabs.SetSelected(i)
+					e.envContainer.Load(env)
+					return
+				}
+			}
+
+			e.openedEnvs = append(e.openedEnvs, env)
+			i := e.tabs.AddTab(widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}})
+			e.tabs.SetSelected(i)
+			e.envContainer.Load(env)
+		}
+	}
 }
 
 func (e *Envs) SetData(data []*domain.Environment) {
