@@ -1,8 +1,9 @@
 package envs
 
 import (
-	"fmt"
 	"image/color"
+
+	"gioui.org/op"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -24,9 +25,17 @@ type Envs struct {
 
 	data []*domain.Environment
 
-	openedEnvs []*domain.Environment
+	openedTabs []*openedTab
 
 	selectedIndex int
+}
+
+type openedTab struct {
+	env      *domain.Environment
+	tab      *widgets.Tab
+	listItem *widgets.TreeViewNode
+
+	closed bool
 }
 
 func New(theme *material.Theme) (*Envs, error) {
@@ -43,7 +52,7 @@ func New(theme *material.Theme) (*Envs, error) {
 	e := &Envs{
 		data:      data,
 		searchBox: search,
-		tabs:      widgets.NewTabs([]widgets.Tab{}, nil),
+		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
 		envsList:  treeView,
 		split: widgets.SplitView{
 			Ratio:         -0.64,
@@ -54,7 +63,7 @@ func New(theme *material.Theme) (*Envs, error) {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		envContainer: newEnvContainer(),
-		openedEnvs:   make([]*domain.Environment, 0),
+		openedTabs:   make([]*openedTab, 0),
 	}
 
 	for _, env := range data {
@@ -68,20 +77,25 @@ func New(theme *material.Theme) (*Envs, error) {
 
 func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 	// if env is already opened, just switch to it
-	for i, openedEnv := range e.openedEnvs {
-		if openedEnv.Meta.Name == tr.Text {
-			e.tabs.SetSelected(i)
-			e.envContainer.Load(openedEnv)
+	for i, ot := range e.openedTabs {
+		if ot.env.Meta.Name == tr.Text {
+			e.selectedIndex = i
 			return
 		}
 	}
 
 	for _, env := range e.data {
 		if env.Meta.Name == tr.Text {
-			e.openedEnvs = append(e.openedEnvs, env)
-			tab := widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+			tab := &widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 			tab.SetOnClose(e.onTabClose)
+			e.openedTabs = append(e.openedTabs, &openedTab{
+				env:      env,
+				tab:      tab,
+				listItem: tr,
+			})
+
 			i := e.tabs.AddTab(tab)
+			e.selectedIndex = i
 			e.tabs.SetSelected(i)
 			e.envContainer.Load(env)
 		}
@@ -89,24 +103,9 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 }
 
 func (e *Envs) onTabClose(t *widgets.Tab) {
-	fmt.Println("tab closed", t.Title)
-	fmt.Println("selected tab", e.tabs.Selected())
-	fmt.Println("opened envs", len(e.openedEnvs))
-	fmt.Println("index", e.selectedIndex)
-
-	for i, env := range e.openedEnvs {
-		if env.Meta.Name == t.Title {
-			// if it's the last tab in the list, remove it and select the previous one
-			if i == len(e.openedEnvs)-1 && i > 0 {
-				e.tabs.SetSelected(i - 1)
-				e.envContainer.Load(e.openedEnvs[i-1])
-			} else {
-				// if it's not the last tab, select the next one
-				e.tabs.SetSelected(i + 1)
-				e.envContainer.Load(e.openedEnvs[i+1])
-			}
-
-			e.openedEnvs = append(e.openedEnvs[:i], e.openedEnvs[i+1:]...)
+	for _, ot := range e.openedTabs {
+		if ot.env.Meta.Name == t.Title {
+			ot.closed = true
 			break
 		}
 	}
@@ -136,7 +135,7 @@ func (e *Envs) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if e.addEnvButton.Clicked(gtx) {
 								e.envsList.AddNode(widgets.NewNode("New env", false), nil)
-								i := e.tabs.AddTab(widgets.Tab{Title: "New env", Closable: true, CloseClickable: &widget.Clickable{}})
+								i := e.tabs.AddTab(&widgets.Tab{Title: "New env", Closable: true, CloseClickable: &widget.Clickable{}})
 								e.tabs.SetSelected(i)
 							}
 
@@ -160,20 +159,49 @@ func (e *Envs) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 }
 
 func (e *Envs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	// update tabs with new items
+	tabItems := make([]*widgets.Tab, 0)
+	openItems := make([]*openedTab, 0)
+	for _, ot := range e.openedTabs {
+		if !ot.closed {
+			tabItems = append(tabItems, ot.tab)
+			openItems = append(openItems, ot)
+		}
+	}
+	e.tabs.SetTabs(tabItems)
+	e.openedTabs = openItems
+	selectTab := e.tabs.Selected()
+	op.InvalidateOp{}.Add(gtx.Ops)
+
+	// is selected tab is closed:
+	// if its the last tab and there is another tab before it, select the previous one
+	// if its the first tab and there is another tab after it, select the next one
+	// if its the only tab, select it
+
+	if selectTab > len(openItems)-1 {
+		//selectTab = 0
+		//e.tabs.SetSelected(selectTab)
+		if len(openItems) > 0 {
+			e.tabs.SetSelected(len(openItems) - 1)
+		} else {
+			selectTab = 0
+			e.tabs.SetSelected(0)
+		}
+	}
+
+	if e.selectedIndex != selectTab {
+		e.selectedIndex = selectTab
+		e.envContainer.Load(openItems[selectTab].env)
+	}
+
 	return e.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return e.list(gtx, theme)
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			if len(e.openedEnvs) == 0 {
+			if len(openItems) == 0 {
 				return layout.Dimensions{}
 			}
-
-			if e.selectedIndex != e.tabs.Selected() {
-				e.selectedIndex = e.tabs.Selected()
-				e.envContainer.Load(e.openedEnvs[e.selectedIndex])
-			}
-
 			return e.container(gtx, theme)
 		},
 	)

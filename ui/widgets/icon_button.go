@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/io/semantic"
+
 	"gioui.org/widget/material"
 
 	"gioui.org/layout"
@@ -42,6 +44,7 @@ func (ib *IconButton) Layout(theme *material.Theme, gtx layout.Context) layout.D
 	}
 
 	return ib.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		semantic.Button.Add(gtx.Ops)
 		return layout.Background{}.Layout(gtx,
 			func(gtx layout.Context) layout.Dimensions {
 				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 4).Push(gtx.Ops).Pop()

@@ -14,7 +14,7 @@ import (
 
 type Tabs struct {
 	list     layout.List
-	tabs     []Tab
+	tabs     []*Tab
 	selected int
 
 	onSelectedChange func(int)
@@ -30,12 +30,13 @@ type Tab struct {
 	onClose func(t *Tab)
 }
 
-func NewTabs(items []Tab, onSelectedChange func(int)) *Tabs {
+func NewTabs(items []*Tab, onSelectedChange func(int)) *Tabs {
 	t := &Tabs{
 		tabs:             items,
 		selected:         0,
 		onSelectedChange: onSelectedChange,
 	}
+
 	return t
 }
 
@@ -47,13 +48,17 @@ func (tab *Tab) SetOnClose(f func(t *Tab)) {
 	tab.onClose = f
 }
 
-func (tabs *Tabs) AddTab(tab Tab) int {
+func (tabs *Tabs) AddTab(tab *Tab) int {
 	tabs.tabs = append(tabs.tabs, tab)
 	return len(tabs.tabs) - 1
 }
 
 func (tabs *Tabs) SetSelected(index int) {
 	tabs.selected = index
+}
+
+func (tabs *Tabs) SetTabs(items []*Tab) {
+	tabs.tabs = items
 }
 
 func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -67,15 +72,14 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				if tabIdx > len(tabs.tabs)-1 {
 					tabIdx = len(tabs.tabs) - 1
 				}
-
-				t := &tabs.tabs[tabIdx]
-				if t.Closable && t.CloseClickable.Clicked(gtx) {
-					if t.onClose != nil {
-						t.onClose(t)
-					}
-					tabs.tabs = append(tabs.tabs[:tabIdx], tabs.tabs[tabIdx+1:]...)
+				//
+				t := tabs.tabs[tabIdx]
+				if t.Closable && t.onClose != nil && t.CloseClickable.Clicked(gtx) {
+					t.onClose(t)
+					//tabs.tabs = append(tabs.tabs[:tabIdx], tabs.tabs[tabIdx+1:]...)
 				}
 
+				//t := &tabs.tabs[tabIdx]
 				if t.btn.Clicked(gtx) {
 					tabs.selected = tabIdx
 					if tabs.onSelectedChange != nil {

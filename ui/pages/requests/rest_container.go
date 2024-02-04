@@ -149,7 +149,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.saveResponseButton.MinWidth = unit.Dp(75)
 
 	r.sendButton = material.Button(theme, &r.sendClickable, "Send")
-	r.requestTabs = widgets.NewTabs([]widgets.Tab{
+	r.requestTabs = widgets.NewTabs([]*widgets.Tab{
 		{Title: "Params"},
 		{Title: "Body"},
 		{Title: "Headers"},
@@ -157,7 +157,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		{Title: "Post-req"},
 	}, nil)
 
-	r.responseTabs = widgets.NewTabs([]widgets.Tab{
+	r.responseTabs = widgets.NewTabs([]*widgets.Tab{
 		{Title: "Body"},
 		{Title: "Headers"},
 		{Title: "Cookies"},
