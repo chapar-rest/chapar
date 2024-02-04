@@ -25,6 +25,7 @@ type Requests struct {
 func New(theme *material.Theme) *Requests {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
+	search.SetBorderColor(widgets.Gray600)
 
 	tabItems := []widgets.Tab{
 		{Title: "Register user", Closable: true, CloseClickable: &widget.Clickable{}},

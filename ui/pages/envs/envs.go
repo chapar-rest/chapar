@@ -1,6 +1,7 @@
 package envs
 
 import (
+	"fmt"
 	"image/color"
 
 	"gioui.org/layout"
@@ -66,21 +67,47 @@ func New(theme *material.Theme) (*Envs, error) {
 }
 
 func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
+	// if env is already opened, just switch to it
+	for i, openedEnv := range e.openedEnvs {
+		if openedEnv.Meta.Name == tr.Text {
+			e.tabs.SetSelected(i)
+			e.envContainer.Load(openedEnv)
+			return
+		}
+	}
+
 	for _, env := range e.data {
 		if env.Meta.Name == tr.Text {
-			// if env is already opened, just switch to it
-			for i, openedEnv := range e.openedEnvs {
-				if openedEnv.Meta.Name == env.Meta.Name {
-					e.tabs.SetSelected(i)
-					e.envContainer.Load(env)
-					return
-				}
-			}
-
 			e.openedEnvs = append(e.openedEnvs, env)
-			i := e.tabs.AddTab(widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}})
+			tab := widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+			tab.SetOnClose(e.onTabClose)
+			i := e.tabs.AddTab(tab)
 			e.tabs.SetSelected(i)
 			e.envContainer.Load(env)
+		}
+	}
+}
+
+func (e *Envs) onTabClose(t *widgets.Tab) {
+	fmt.Println("tab closed", t.Title)
+	fmt.Println("selected tab", e.tabs.Selected())
+	fmt.Println("opened envs", len(e.openedEnvs))
+	fmt.Println("index", e.selectedIndex)
+
+	for i, env := range e.openedEnvs {
+		if env.Meta.Name == t.Title {
+			// if it's the last tab in the list, remove it and select the previous one
+			if i == len(e.openedEnvs)-1 && i > 0 {
+				e.tabs.SetSelected(i - 1)
+				e.envContainer.Load(e.openedEnvs[i-1])
+			} else {
+				// if it's not the last tab, select the next one
+				e.tabs.SetSelected(i + 1)
+				e.envContainer.Load(e.openedEnvs[i+1])
+			}
+
+			e.openedEnvs = append(e.openedEnvs[:i], e.openedEnvs[i+1:]...)
+			break
 		}
 	}
 }

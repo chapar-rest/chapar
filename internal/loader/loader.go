@@ -2,7 +2,6 @@ package loader
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path"
 	"runtime"
@@ -110,8 +109,6 @@ func ReadEnvironmentsData() ([]*domain.Environment, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println(dir)
 
 	files, err := os.ReadDir(dir)
 	if err != nil {

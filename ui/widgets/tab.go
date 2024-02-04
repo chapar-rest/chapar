@@ -26,6 +26,8 @@ type Tab struct {
 
 	Closable       bool
 	CloseClickable *widget.Clickable
+
+	onClose func(t *Tab)
 }
 
 func NewTabs(items []Tab, onSelectedChange func(int)) *Tabs {
@@ -39,6 +41,10 @@ func NewTabs(items []Tab, onSelectedChange func(int)) *Tabs {
 
 func (tabs *Tabs) Selected() int {
 	return tabs.selected
+}
+
+func (tab *Tab) SetOnClose(f func(t *Tab)) {
+	tab.onClose = f
 }
 
 func (tabs *Tabs) AddTab(tab Tab) int {
@@ -58,12 +64,15 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return tabs.list.Layout(gtx, len(tabs.tabs), func(gtx layout.Context, tabIdx int) layout.Dimensions {
-				if tabIdx >= len(tabs.tabs) {
+				if tabIdx > len(tabs.tabs)-1 {
 					tabIdx = len(tabs.tabs) - 1
 				}
 
 				t := &tabs.tabs[tabIdx]
 				if t.Closable && t.CloseClickable.Clicked(gtx) {
+					if t.onClose != nil {
+						t.onClose(t)
+					}
 					tabs.tabs = append(tabs.tabs[:tabIdx], tabs.tabs[tabIdx+1:]...)
 				}
 
