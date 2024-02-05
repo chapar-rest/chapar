@@ -10,6 +10,11 @@ var DeleteIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var CircleIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ImageLens)
+	return icon
+}()
+
 var SaveIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ContentSave)
 	return icon

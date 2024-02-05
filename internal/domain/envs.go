@@ -18,3 +18,32 @@ type EnvValue struct {
 	Value  string `yaml:"value"`
 	Enable bool   `yaml:"enable"`
 }
+
+func (e *Environment) Clone() *Environment {
+	clone := &Environment{
+		ApiVersion: e.ApiVersion,
+		Kind:       e.Kind,
+		Meta:       e.Meta,
+		Values:     make([]EnvValue, len(e.Values)),
+	}
+
+	for i, v := range e.Values {
+		clone.Values[i] = v
+	}
+
+	return clone
+}
+
+func CompareEnvValues(a, b []EnvValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+
+	return true
+}

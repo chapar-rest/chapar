@@ -23,8 +23,9 @@ type TreeViewNode struct {
 	collapsed bool
 	clickable *widget.Clickable
 
-	Children []*TreeViewNode
-	Text     string
+	Children   []*TreeViewNode
+	Text       string
+	Identifier string
 
 	lastClickAt time.Time
 	order       int
@@ -61,6 +62,10 @@ func (tr *TreeViewNode) OnDoubleClick(f func(tr *TreeViewNode)) {
 
 func (tr *TreeViewNode) AddChild(node *TreeViewNode) {
 	tr.Children = append(tr.Children, node)
+}
+
+func (tr *TreeViewNode) SetIdentifier(identifier string) {
+	tr.Identifier = identifier
 }
 
 func (t *TreeView) AddNode(node *TreeViewNode, parent *TreeViewNode) {

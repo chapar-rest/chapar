@@ -9,6 +9,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/ui/widgets"
@@ -35,7 +36,8 @@ type openedTab struct {
 	tab      *widgets.Tab
 	listItem *widgets.TreeViewNode
 
-	closed bool
+	closed  bool
+	isDirty bool
 }
 
 func New(theme *material.Theme) (*Envs, error) {
@@ -67,27 +69,58 @@ func New(theme *material.Theme) (*Envs, error) {
 	}
 
 	for _, env := range data {
+		if env.Meta.ID == "" {
+			env.Meta.ID = uuid.NewString()
+		}
+
 		node := widgets.NewNode(env.Meta.Name, false)
 		node.OnDoubleClick(e.onItemDoubleClick)
+		node.SetIdentifier(env.Meta.ID)
 		treeView.AddNode(node, nil)
 	}
 
+	e.envContainer.SetOnEnvChanged(e.onEnvChanged)
+
 	return e, nil
+}
+
+func (e *Envs) onEnvChanged(env *domain.Environment) {
+	// find the opened tab and mark it as dirty
+	for _, ot := range e.openedTabs {
+		if ot.env.Meta.ID == env.Meta.ID {
+			// is name changed?
+			if ot.env.Meta.Name != env.Meta.Name {
+				ot.tab.SetDirty(true)
+				ot.listItem.Text = env.Meta.Name
+				ot.tab.Title = env.Meta.Name
+			}
+
+			// is values changed?
+			if !domain.CompareEnvValues(ot.env.Values, env.Values) {
+				ot.tab.SetDirty(true)
+				ot.env.Values = env.Values
+			}
+		}
+	}
 }
 
 func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 	// if env is already opened, just switch to it
 	for i, ot := range e.openedTabs {
-		if ot.env.Meta.Name == tr.Text {
+		if ot.env.Meta.ID == tr.Identifier {
 			e.selectedIndex = i
+			e.tabs.SetSelected(i)
+			e.envContainer.Load(ot.env.Clone())
 			return
 		}
 	}
 
 	for _, env := range e.data {
-		if env.Meta.Name == tr.Text {
+		if env.Meta.ID == tr.Identifier {
 			tab := &widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 			tab.SetOnClose(e.onTabClose)
+			tab.SetIdentifier(env.Meta.ID)
+
 			e.openedTabs = append(e.openedTabs, &openedTab{
 				env:      env,
 				tab:      tab,
@@ -97,14 +130,14 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 			i := e.tabs.AddTab(tab)
 			e.selectedIndex = i
 			e.tabs.SetSelected(i)
-			e.envContainer.Load(env)
+			e.envContainer.Load(env.Clone())
 		}
 	}
 }
 
 func (e *Envs) onTabClose(t *widgets.Tab) {
 	for _, ot := range e.openedTabs {
-		if ot.env.Meta.Name == t.Title {
+		if ot.env.Meta.ID == t.Identifier {
 			ot.closed = true
 			break
 		}
@@ -179,8 +212,6 @@ func (e *Envs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 	// if its the only tab, select it
 
 	if selectTab > len(openItems)-1 {
-		//selectTab = 0
-		//e.tabs.SetSelected(selectTab)
 		if len(openItems) > 0 {
 			e.tabs.SetSelected(len(openItems) - 1)
 		} else {

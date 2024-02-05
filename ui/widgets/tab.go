@@ -21,12 +21,14 @@ type Tabs struct {
 }
 
 type Tab struct {
-	btn   widget.Clickable
-	Title string
+	btn        widget.Clickable
+	Title      string
+	Identifier string
 
 	Closable       bool
 	CloseClickable *widget.Clickable
 
+	isDirty bool
 	onClose func(t *Tab)
 }
 
@@ -61,6 +63,14 @@ func (tabs *Tabs) SetTabs(items []*Tab) {
 	tabs.tabs = items
 }
 
+func (tab *Tab) SetDirty(dirty bool) {
+	tab.isDirty = dirty
+}
+
+func (tab *Tab) SetIdentifier(id string) {
+	tab.Identifier = id
+}
+
 func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if len(tabs.tabs) == 1 {
 		tabs.selected = 0
@@ -76,10 +86,8 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				t := tabs.tabs[tabIdx]
 				if t.Closable && t.onClose != nil && t.CloseClickable.Clicked(gtx) {
 					t.onClose(t)
-					//tabs.tabs = append(tabs.tabs[:tabIdx], tabs.tabs[tabIdx+1:]...)
 				}
 
-				//t := &tabs.tabs[tabIdx]
 				if t.btn.Clicked(gtx) {
 					tabs.selected = tabIdx
 					if tabs.onSelectedChange != nil {
@@ -110,15 +118,27 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 										if t.btn.Hovered() {
 											bkColor = hoveredColor
 										}
+										iconColor := theme.ContrastFg
+										closeIcon := CloseIcon
+										iconSize := unit.Dp(16)
+										padding := unit.Dp(4)
+										if t.isDirty {
+											// yellow
+											iconColor = color.NRGBA{R: 0xff, G: 0xff, B: 0x00, A: 0xff}
+											closeIcon = CircleIcon
+											iconSize = unit.Dp(10)
+											padding = unit.Dp(8)
+										}
+
 										ib := &IconButton{
-											Icon:                 CloseIcon,
-											Color:                theme.ContrastFg,
+											Icon:                 closeIcon,
+											Color:                iconColor,
 											BackgroundColor:      bkColor,
 											BackgroundColorHover: hoveredColor,
-											Size:                 unit.Dp(16),
+											Size:                 iconSize,
 											Clickable:            t.CloseClickable,
 										}
-										return layout.UniformInset(unit.Dp(4)).Layout(gtx,
+										return layout.UniformInset(padding).Layout(gtx,
 											func(gtx layout.Context) layout.Dimensions {
 												return ib.Layout(theme, gtx)
 											},

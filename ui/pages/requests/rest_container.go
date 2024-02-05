@@ -340,7 +340,7 @@ func (r *RestContainer) responseCopy() {
 	}
 }
 
-func (r *RestContainer) onQueryParamChange(items []widgets.KeyValueItem) {
+func (r *RestContainer) onQueryParamChange(items []*widgets.KeyValueItem) {
 	if r.updateQueryParams {
 		r.updateQueryParams = false
 		return
@@ -409,7 +409,7 @@ func (r *RestContainer) addressChanged() {
 	// Parse the query parameters from the URL
 	queryParams := parsedURL.Query()
 
-	items := make([]widgets.KeyValueItem, 0)
+	items := make([]*widgets.KeyValueItem, 0)
 	for k, v := range queryParams {
 		if len(v) > 0 {
 			// Add the parameter as a new key-value item

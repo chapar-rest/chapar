@@ -27,7 +27,8 @@ type TextField struct {
 
 	size image.Point
 
-	borderColor color.NRGBA
+	onTextChange func(text string)
+	borderColor  color.NRGBA
 }
 
 func NewTextField(text, placeholder string) *TextField {
@@ -59,6 +60,10 @@ func (t *TextField) SetBorderColor(color color.NRGBA) {
 	t.borderColor = color
 }
 
+func (t *TextField) SetOnTextChange(f func(text string)) {
+	t.onTextChange = f
+}
+
 func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if t.borderColor == (color.NRGBA{}) {
 		t.borderColor = theme.Palette.ContrastFg
@@ -79,6 +84,14 @@ func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 	leftPadding := unit.Dp(8)
 	if t.Icon != nil && t.IconPosition == IconPositionStart {
 		leftPadding = unit.Dp(0)
+	}
+
+	for _, ev := range t.textEditor.Events() {
+		if _, ok := ev.(widget.ChangeEvent); ok {
+			if t.onTextChange != nil {
+				t.onTextChange(t.textEditor.Text())
+			}
+		}
 	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
