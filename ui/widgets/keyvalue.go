@@ -12,7 +12,9 @@ import (
 )
 
 type KeyValue struct {
-	Items         []*KeyValueItem
+	Items []*KeyValueItem
+
+	filterText    string
 	filteredItems []*KeyValueItem
 
 	addButton *IconButton
@@ -52,6 +54,8 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 				Axis: layout.Vertical,
 			},
 		},
+
+		filteredItems: make([]*KeyValueItem, 0),
 	}
 
 	kv.addButton.OnClick = func() {
@@ -85,8 +89,10 @@ func (kv *KeyValue) Filter(text string) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
 
+	kv.filterText = text
+
 	if text == "" {
-		kv.filteredItems = nil
+		kv.filteredItems = []*KeyValueItem{}
 		return
 	}
 
@@ -221,7 +227,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 
 func (kv *KeyValue) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	items := kv.Items
-	if len(kv.filteredItems) > 0 {
+	if kv.filterText != "" {
 		items = kv.filteredItems
 	}
 
