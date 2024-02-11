@@ -3,6 +3,7 @@ package envs
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/widgets"
@@ -16,6 +17,9 @@ type envContainer struct {
 
 	searchBox *widgets.TextField
 
+	deleteButton *widget.Clickable
+
+	prompt       *widgets.Prompt
 	onEnvChanged func(*domain.Environment)
 }
 
@@ -30,6 +34,10 @@ func newEnvContainer() *envContainer {
 		),
 		title:     widgets.NewEditableLabel(""),
 		searchBox: search,
+
+		deleteButton: new(widget.Clickable),
+
+		prompt: widgets.NewPrompt("Delete", "Are you sure you want to delete this environment?", "Yes", "No"),
 	}
 
 	c.title.SetOnChanged(func(text string) {
@@ -89,7 +97,10 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(5), Bottom: unit.Dp(15)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{
+					Top:    unit.Dp(5),
+					Bottom: unit.Dp(15),
+				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return r.title.Layout(gtx, theme)
@@ -102,7 +113,7 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.items.WithAddLayout(gtx, "", "* Disabled items have no effect on your requests", theme)
+				return r.items.WithAddLayout(gtx, "", "Disabled items have no effect on your requests", theme)
 			}),
 		)
 	})

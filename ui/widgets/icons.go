@@ -1,9 +1,18 @@
 package widgets
 
 import (
+	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
+
+func MaterialIcons(name string, theme *material.Theme) material.LabelStyle {
+	l := material.Label(theme, unit.Sp(24), "")
+	l.Font.Typeface = "MaterialIcons"
+	l.Text = name
+	return l
+}
 
 var DeleteIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionDelete)

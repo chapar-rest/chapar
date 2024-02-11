@@ -43,10 +43,21 @@ func prepareFonts() ([]font.FontFace, error) {
 		return nil, err
 	}
 
+	materialIconsTTF, err := getFont("MaterialIcons-Regular.ttf")
+	if err != nil {
+		return nil, err
+	}
+
+	materialIcons, err := opentype.Parse(materialIconsTTF)
+	if err != nil {
+		return nil, err
+	}
+
 	fontFaces = append(fontFaces,
 		font.FontFace{Font: font.Font{}, Face: robotoRegular},
 		font.FontFace{Font: font.Font{Weight: font.Medium}, Face: robotoMedium},
 		font.FontFace{Font: font.Font{Weight: font.Bold}, Face: robotoBold},
+		font.FontFace{Font: font.Font{Typeface: "MaterialIcons"}, Face: materialIcons},
 	)
 	return fontFaces, nil
 }
