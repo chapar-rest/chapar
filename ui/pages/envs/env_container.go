@@ -1,6 +1,8 @@
 package envs
 
 import (
+	"fmt"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -23,7 +25,7 @@ type envContainer struct {
 	onEnvChanged func(*domain.Environment)
 }
 
-func newEnvContainer() *envContainer {
+func newEnvContainer(env *domain.Environment) *envContainer {
 	search := widgets.NewTextField("", "Search items")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(widgets.Gray600)
@@ -37,8 +39,10 @@ func newEnvContainer() *envContainer {
 
 		deleteButton: new(widget.Clickable),
 
-		prompt: widgets.NewPrompt("Delete", "Are you sure you want to delete this environment?", "Yes", "No"),
+		prompt: widgets.NewPrompt("Save", "This environment value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s", widgets.ModalTypeWarn, "Yes", "No"),
 	}
+	c.prompt.WithRememberBool()
+	c.Load(env)
 
 	c.title.SetOnChanged(func(text string) {
 		if c.env == nil {
@@ -46,6 +50,7 @@ func newEnvContainer() *envContainer {
 		}
 
 		if c.onEnvChanged != nil {
+			fmt.Println("title changed")
 			c.env.Meta.Name = text
 			c.onEnvChanged(c.env)
 		}
@@ -96,6 +101,9 @@ func (r *envContainer) Load(e *domain.Environment) {
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return r.prompt.Layout(gtx, theme)
+			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{
 					Top:    unit.Dp(5),

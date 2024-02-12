@@ -32,9 +32,10 @@ type Envs struct {
 }
 
 type openedTab struct {
-	env      *domain.Environment
-	tab      *widgets.Tab
-	listItem *widgets.TreeViewNode
+	env       *domain.Environment
+	tab       *widgets.Tab
+	listItem  *widgets.TreeViewNode
+	container *envContainer
 
 	closed  bool
 	isDirty bool
@@ -48,7 +49,6 @@ func New(theme *material.Theme) (*Envs, error) {
 
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-
 	treeView := widgets.NewTreeView()
 
 	e := &Envs{
@@ -64,8 +64,7 @@ func New(theme *material.Theme) (*Envs, error) {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		envContainer: newEnvContainer(),
-		openedTabs:   make([]*openedTab, 0),
+		openedTabs: make([]*openedTab, 0),
 	}
 
 	for _, env := range data {
@@ -78,8 +77,6 @@ func New(theme *material.Theme) (*Envs, error) {
 		node.SetIdentifier(env.Meta.ID)
 		treeView.AddNode(node, nil)
 	}
-
-	e.envContainer.SetOnEnvChanged(e.onEnvChanged)
 
 	return e, nil
 }
@@ -110,7 +107,6 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 		if ot.env.Meta.ID == tr.Identifier {
 			e.selectedIndex = i
 			e.tabs.SetSelected(i)
-			e.envContainer.Load(ot.env.Clone())
 			return
 		}
 	}
@@ -121,16 +117,20 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 			tab.SetOnClose(e.onTabClose)
 			tab.SetIdentifier(env.Meta.ID)
 
-			e.openedTabs = append(e.openedTabs, &openedTab{
-				env:      env,
-				tab:      tab,
-				listItem: tr,
-			})
+			ot := &openedTab{
+				env:       env,
+				tab:       tab,
+				listItem:  tr,
+				container: newEnvContainer(env.Clone()),
+			}
+			//ot.container.Load(env.Clone())
+			ot.container.SetOnEnvChanged(e.onEnvChanged)
+
+			e.openedTabs = append(e.openedTabs, ot)
 
 			i := e.tabs.AddTab(tab)
 			e.selectedIndex = i
 			e.tabs.SetSelected(i)
-			e.envContainer.Load(env.Clone())
 		}
 	}
 }
@@ -154,7 +154,7 @@ func (e *Envs) container(gtx layout.Context, theme *material.Theme) layout.Dimen
 			return e.tabs.Layout(gtx, theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return e.envContainer.Layout(gtx, theme)
+			return e.openedTabs[e.selectedIndex].container.Layout(gtx, theme)
 		}),
 	)
 }
@@ -222,7 +222,6 @@ func (e *Envs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 
 	if e.selectedIndex != selectTab {
 		e.selectedIndex = selectTab
-		e.envContainer.Load(openItems[selectTab].env)
 	}
 
 	return e.split.Layout(gtx,

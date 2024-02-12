@@ -2,7 +2,7 @@ package widgets
 
 import (
 	"image"
-	"time"
+	"image/color"
 
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -11,89 +11,166 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gioui.org/x/component"
+)
+
+// Prompt is a modal dialog that prompts the user for a response.
+const (
+	ModalTypeInfo = "info"
+	ModalTypeWarn = "warn"
+	ModalTypeErr  = "err"
+)
+
+var (
+	colors = map[string]color.NRGBA{
+		// Red
+		ModalTypeErr: {R: 0xD1, G: 0x1E, B: 0x35, A: 0xFF},
+		// Light blue
+		ModalTypeInfo: {R: 0x1D, G: 0xBF, B: 0xEC, A: 0xFF},
+		// Yellow
+		ModalTypeWarn: {R: 0xFD, G: 0xB5, B: 0x0E, A: 0xFF},
+	}
 )
 
 type Prompt struct {
 	Title   string
 	Content string
+	Type    string
+	Visible bool
 
-	options []string
-	result  string
+	rememberBool *widget.Bool
 
-	modal *component.ModalState
+	options           []string
+	optionsClickables []widget.Clickable
+
+	result string
 }
 
-func NewPrompt(title, content string, options ...string) *Prompt {
+func NewPrompt(title, content, modalType string, options ...string) *Prompt {
 	return &Prompt{
-		Title:   title,
-		Content: content,
-		options: options,
-		modal: &component.ModalState{
-			ScrimState: component.ScrimState{
-				VisibilityAnimation: component.VisibilityAnimation{
-					Duration: time.Millisecond * 1,
-					State:    component.Invisible,
-				},
-			},
-		},
+		Title:             title,
+		Content:           content,
+		Type:              modalType,
+		options:           options,
+		optionsClickables: make([]widget.Clickable, len(options)),
 	}
 }
 
-func (p *Prompt) Show(theme *material.Theme) {
-	p.modal.Show(time.Now(), func(gtx layout.Context) layout.Dimensions {
-		return p.modalLayout(gtx, theme)
-	})
+func (p *Prompt) SetOptions(options ...string) {
+	p.options = options
 }
 
-func (p *Prompt) modalLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	border := widget.Border{
-		Color:        Gray300,
-		Width:        unit.Dp(1),
-		CornerRadius: unit.Dp(5),
+func (p *Prompt) Show() {
+	p.Visible = true
+}
+
+func (p *Prompt) Hide() {
+	p.Visible = false
+}
+
+func (p *Prompt) IsVisible() bool {
+	return p.Visible
+}
+
+func (p *Prompt) WithRememberBool() {
+	p.rememberBool = &widget.Bool{Value: false}
+}
+
+func (p *Prompt) Result() (string, bool) {
+	if p.result == "" {
+		return "", false
 	}
 
-	// Create a full-screen rectangle for the background
-	bgRect := image.Rectangle{Max: gtx.Constraints.Max}
-	paint.FillShape(gtx.Ops, theme.Palette.Bg, clip.Rect(bgRect).Op())
+	if p.rememberBool != nil {
+		return p.result, p.rememberBool.Value
+	}
 
-	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{
-			Axis:      layout.Vertical,
-			Alignment: layout.Middle,
-		}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Bottom: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Center.Layout(gtx, material.H6(theme, p.Title).Layout)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Bottom: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Center.Layout(gtx, material.Body1(theme, p.Content).Layout)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return layout.Center.Layout(gtx, material.Button(theme, new(widget.Clickable), p.options[0]).Layout)
-								})
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return layout.Center.Layout(gtx, material.Button(theme, new(widget.Clickable), p.options[1]).Layout)
-								})
-							}),
-						)
-					})
-				})
-			}),
-		)
-	})
+	return p.result, false
 }
 
 func (p *Prompt) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return component.Modal(theme, p.modal).Layout(gtx)
+	if !p.Visible {
+		return layout.Dimensions{}
+	}
+
+	textColor := theme.ContrastFg
+	switch p.Type {
+	case ModalTypeErr:
+		textColor = color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
+	case ModalTypeInfo:
+		textColor = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xFF}
+	case ModalTypeWarn:
+		textColor = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xFF}
+	}
+
+	return layout.Background{}.Layout(gtx,
+		func(gtx layout.Context) layout.Dimensions {
+			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 8).Push(gtx.Ops).Pop()
+			paint.Fill(gtx.Ops, colors[p.Type])
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		}, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{
+					Axis:      layout.Vertical,
+					Alignment: layout.Middle,
+				}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							h := material.H6(theme, p.Title)
+							h.Color = textColor
+							return h.Layout(gtx)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							b := material.Body1(theme, p.Content)
+							b.Color = textColor
+							return b.Layout(gtx)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						count := len(p.options)
+						if p.rememberBool != nil {
+							count++
+						}
+
+						items := make([]layout.FlexChild, 0, count)
+						if p.rememberBool != nil {
+							items = append(
+								items,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return material.CheckBox(theme, p.rememberBool, "Don't ask again").Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+							)
+						}
+						for i := range p.options {
+							i := i
+
+							if p.optionsClickables[i].Clicked(gtx) {
+								p.result = p.options[i]
+								p.Visible = false
+							}
+
+							items = append(
+								items,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return material.Button(theme, &p.optionsClickables[i], p.options[i]).Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+							)
+						}
+						return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{
+								Axis:      layout.Horizontal,
+								Alignment: layout.Middle,
+								Spacing:   layout.SpaceStart,
+							}.Layout(gtx,
+								items...,
+							)
+						})
+					}),
+				)
+			})
+		},
+	)
 }

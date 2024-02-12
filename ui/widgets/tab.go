@@ -71,6 +71,10 @@ func (tab *Tab) SetIdentifier(id string) {
 	tab.Identifier = id
 }
 
+func (tab *Tab) IsDirty() bool {
+	return tab.isDirty
+}
+
 func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if len(tabs.tabs) == 1 {
 		tabs.selected = 0

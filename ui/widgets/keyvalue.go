@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -23,7 +24,8 @@ type KeyValue struct {
 
 	list *widget.List
 
-	onChanged func(items []*KeyValueItem)
+	initialLoadComplete bool
+	onChanged           func(items []*KeyValueItem)
 }
 
 type KeyValueItem struct {
@@ -119,10 +121,14 @@ func (kv *KeyValue) AddItem(item *KeyValueItem) {
 func (kv *KeyValue) SetItems(items []*KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
+	kv.initialLoadComplete = false
+
 	for i := range items {
 		items[i].index = i
 	}
 	kv.Items = items
+
+	kv.initialLoadComplete = true
 }
 
 func (kv *KeyValue) GetItems() []*KeyValueItem {
@@ -137,7 +143,7 @@ func (kv *KeyValue) GetItems() []*KeyValueItem {
 }
 
 func (kv *KeyValue) triggerChanged() {
-	if kv.onChanged != nil {
+	if kv.onChanged != nil && kv.initialLoadComplete { // Check flag before triggering
 		kv.onChanged(kv.Items)
 	}
 }
@@ -147,8 +153,6 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 		// Index is out of range, return zero dimensions.
 		return layout.Dimensions{}
 	}
-
-	//item := &kv.Items[index]
 
 	if item.deleteButton.Clicked(gtx) {
 		kv.mx.Lock()
@@ -174,6 +178,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 	for _, ev := range item.keyEditor.Events() {
 		if _, ok := ev.(widget.ChangeEvent); ok {
 			item.Key = item.keyEditor.Text()
+			fmt.Println("key changed")
 			kv.triggerChanged()
 		}
 	}
@@ -181,6 +186,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 	for _, ev := range item.valueEditor.Events() {
 		if _, ok := ev.(widget.ChangeEvent); ok {
 			item.Value = item.valueEditor.Text()
+			fmt.Println("value changed")
 			kv.triggerChanged()
 		}
 	}
