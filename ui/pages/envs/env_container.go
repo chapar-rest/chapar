@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -21,8 +22,12 @@ type envContainer struct {
 
 	deleteButton *widget.Clickable
 
-	prompt       *widgets.Prompt
-	onEnvChanged func(*domain.Environment)
+	prompt *widgets.Prompt
+
+	dataChanged bool
+
+	onTitleChanged func(id, title string)
+	onDataChanged  func(id string, values []domain.EnvValue)
 }
 
 func newEnvContainer(env *domain.Environment) *envContainer {
@@ -49,10 +54,23 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 			return
 		}
 
-		if c.onEnvChanged != nil {
-			fmt.Println("title changed")
-			c.env.Meta.Name = text
-			c.onEnvChanged(c.env)
+		if c.env.Meta.Name == text {
+			return
+		}
+
+		// save changes to the environment
+		c.env.Meta.Name = text
+		if err := loader.SaveEnvironment(c.env); err != nil {
+			c.prompt.Type = widgets.ModalTypeErr
+			c.prompt.Content = fmt.Sprintf("Error on saving the environment: %s", err.Error())
+			c.prompt.SetOptions("I see")
+			c.prompt.WithoutRememberBool()
+			c.prompt.Show()
+			return
+		}
+
+		if c.onTitleChanged != nil {
+			c.onTitleChanged(c.env.Meta.ID, text)
 		}
 	})
 
@@ -61,7 +79,7 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 			return
 		}
 
-		if c.onEnvChanged != nil {
+		if c.onDataChanged != nil {
 			c.env.Values = []domain.EnvValue{}
 			for _, vv := range items {
 				c.env.Values = append(c.env.Values, domain.EnvValue{
@@ -70,7 +88,7 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 					Enable: vv.Active,
 				})
 			}
-			c.onEnvChanged(c.env)
+			c.onDataChanged(c.env.Meta.ID, c.env.Values)
 		}
 	})
 
@@ -85,8 +103,8 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 	return c
 }
 
-func (r *envContainer) SetOnEnvChanged(f func(*domain.Environment)) {
-	r.onEnvChanged = f
+func (r *envContainer) SetOnTitleChanged(f func(string, string)) {
+	r.onTitleChanged = f
 }
 
 func (r *envContainer) Load(e *domain.Environment) {

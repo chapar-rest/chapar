@@ -121,14 +121,21 @@ func ReadEnvironmentsData() ([]*domain.Environment, error) {
 			continue
 		}
 
-		env, err := LoadFromYaml[domain.Environment](path.Join(dir, file.Name()))
+		filePath := path.Join(dir, file.Name())
+
+		env, err := LoadFromYaml[domain.Environment](filePath)
 		if err != nil {
 			return nil, err
 		}
+		env.FilePath = filePath
 		out = append(out, env)
 	}
 
 	return out, nil
+}
+
+func SaveEnvironment(env *domain.Environment) error {
+	return SaveToYaml(env.FilePath, env)
 }
 
 func LoadFromYaml[T any](filename string) (*T, error) {

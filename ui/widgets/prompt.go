@@ -75,6 +75,10 @@ func (p *Prompt) WithRememberBool() {
 	p.rememberBool = &widget.Bool{Value: false}
 }
 
+func (p *Prompt) WithoutRememberBool() {
+	p.rememberBool = nil
+}
+
 func (p *Prompt) Result() (string, bool) {
 	if p.result == "" {
 		return "", false

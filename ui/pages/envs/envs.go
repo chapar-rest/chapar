@@ -81,21 +81,28 @@ func New(theme *material.Theme) (*Envs, error) {
 	return e, nil
 }
 
+func (e *Envs) onTitleChanged(id, title string) {
+	// find the opened tab and mark it as dirty
+	for _, ot := range e.openedTabs {
+		if ot.env.Meta.ID == id {
+			// is name changed?
+			if ot.env.Meta.Name != title {
+				// Update the tree view item and the tab title
+				ot.env.Meta.Name = title
+				ot.tab.Title = title
+				ot.listItem.Text = title
+			}
+		}
+	}
+}
+
 func (e *Envs) onEnvChanged(env *domain.Environment) {
 	// find the opened tab and mark it as dirty
 	for _, ot := range e.openedTabs {
 		if ot.env.Meta.ID == env.Meta.ID {
-			// is name changed?
-			if ot.env.Meta.Name != env.Meta.Name {
-				ot.tab.SetDirty(true)
-				ot.listItem.Text = env.Meta.Name
-				ot.tab.Title = env.Meta.Name
-			}
-
-			// is values changed?
+			// are items changed?
 			if !domain.CompareEnvValues(ot.env.Values, env.Values) {
 				ot.tab.SetDirty(true)
-				ot.env.Values = env.Values
 			}
 		}
 	}
@@ -123,9 +130,7 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 				listItem:  tr,
 				container: newEnvContainer(env.Clone()),
 			}
-			//ot.container.Load(env.Clone())
-			ot.container.SetOnEnvChanged(e.onEnvChanged)
-
+			ot.container.SetOnTitleChanged(e.onTitleChanged)
 			e.openedTabs = append(e.openedTabs, ot)
 
 			i := e.tabs.AddTab(tab)

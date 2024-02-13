@@ -5,6 +5,8 @@ type Environment struct {
 	Kind       string     `yaml:"kind"`
 	Meta       EnvMeta    `yaml:"meta"`
 	Values     []EnvValue `yaml:"values"`
+
+	FilePath string `yaml:"-"`
 }
 
 type EnvMeta struct {
@@ -25,6 +27,7 @@ func (e *Environment) Clone() *Environment {
 		Kind:       e.Kind,
 		Meta:       e.Meta,
 		Values:     make([]EnvValue, len(e.Values)),
+		FilePath:   e.FilePath,
 	}
 
 	for i, v := range e.Values {
