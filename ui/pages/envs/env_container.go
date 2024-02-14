@@ -3,6 +3,10 @@ package envs
 import (
 	"fmt"
 
+	"github.com/mirzakhany/chapar/ui/utils"
+
+	"gioui.org/io/key"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -37,7 +41,7 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 
 	c := &envContainer{
 		items: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", false),
+			widgets.NewKeyValueItem("", "", "", false),
 		),
 		title:     widgets.NewEditableLabel(""),
 		searchBox: search,
@@ -74,23 +78,7 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 		}
 	})
 
-	c.items.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		if c.env == nil {
-			return
-		}
-
-		if c.onDataChanged != nil {
-			c.env.Values = []domain.EnvValue{}
-			for _, vv := range items {
-				c.env.Values = append(c.env.Values, domain.EnvValue{
-					Key:    vv.Key,
-					Value:  vv.Value,
-					Enable: vv.Active,
-				})
-			}
-			c.onDataChanged(c.env.Meta.ID, c.env.Values)
-		}
-	})
+	c.items.SetOnChanged(c.onItemsChange)
 
 	c.searchBox.SetOnTextChange(func(text string) {
 		if c.items == nil {
@@ -103,20 +91,50 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 	return c
 }
 
+func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
+	r.dataChanged = true
+	if r.onDataChanged != nil {
+		r.env.Values = []domain.EnvValue{}
+		for _, vv := range items {
+			r.env.Values = append(r.env.Values, domain.EnvValue{
+				ID:     vv.Identifier,
+				Key:    vv.Key,
+				Value:  vv.Value,
+				Enable: vv.Active,
+			})
+		}
+		r.onDataChanged(r.env.Meta.ID, r.env.Values)
+	}
+}
+
 func (r *envContainer) SetOnTitleChanged(f func(string, string)) {
 	r.onTitleChanged = f
+}
+
+func (r *envContainer) SetOnDataChanged(f func(string, []domain.EnvValue)) {
+	r.onDataChanged = f
 }
 
 func (r *envContainer) Load(e *domain.Environment) {
 	r.env = e
 	r.title.SetText(e.Meta.Name)
-	r.items.Items = []*widgets.KeyValueItem{}
+	items := make([]*widgets.KeyValueItem, 0, len(e.Values))
 	for _, vv := range e.Values {
-		r.items.AddItem(widgets.NewKeyValueItem(vv.Key, vv.Value, vv.Enable))
+		items = append(items, widgets.NewKeyValueItem(vv.Key, vv.Value, vv.ID, vv.Enable))
 	}
+
+	r.items.SetItems(items)
 }
 
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	// listen for combination of ctrl+s
+	if r.dataChanged {
+		if utils.IsKeysPressed(gtx, key.ModCommand, "s") {
+			r.dataChanged = false
+			fmt.Println("save the changes")
+		}
+	}
+
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {

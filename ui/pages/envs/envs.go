@@ -96,14 +96,16 @@ func (e *Envs) onTitleChanged(id, title string) {
 	}
 }
 
-func (e *Envs) onEnvChanged(env *domain.Environment) {
+func (e *Envs) onEnvChanged(id string, items []domain.EnvValue) {
 	// find the opened tab and mark it as dirty
 	for _, ot := range e.openedTabs {
-		if ot.env.Meta.ID == env.Meta.ID {
+		if ot.env.Meta.ID == id {
 			// are items changed?
-			if !domain.CompareEnvValues(ot.env.Values, env.Values) {
+			if !domain.CompareEnvValues(ot.env.Values, items) {
 				ot.tab.SetDirty(true)
 			}
+
+			break
 		}
 	}
 }
@@ -131,6 +133,7 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 				container: newEnvContainer(env.Clone()),
 			}
 			ot.container.SetOnTitleChanged(e.onTitleChanged)
+			ot.container.SetOnDataChanged(e.onEnvChanged)
 			e.openedTabs = append(e.openedTabs, ot)
 
 			i := e.tabs.AddTab(tab)

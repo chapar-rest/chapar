@@ -1,10 +1,11 @@
 package widgets
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/google/uuid"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -24,15 +25,16 @@ type KeyValue struct {
 
 	list *widget.List
 
-	initialLoadComplete bool
-	onChanged           func(items []*KeyValueItem)
+	onChanged func(items []*KeyValueItem)
 }
 
 type KeyValueItem struct {
-	index  int
-	Key    string
-	Value  string
-	Active bool
+	index int
+
+	Identifier string
+	Key        string
+	Value      string
+	Active     bool
 
 	keyEditor   *widget.Editor
 	valueEditor *widget.Editor
@@ -61,15 +63,14 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 	}
 
 	kv.addButton.OnClick = func() {
-		kv.AddItem(NewKeyValueItem("", "", false))
-
+		kv.AddItem(NewKeyValueItem("", "", uuid.NewString(), false))
 		kv.triggerChanged()
 	}
 
 	return kv
 }
 
-func NewKeyValueItem(key, value string, active bool) *KeyValueItem {
+func NewKeyValueItem(key, value, identifier string, active bool) *KeyValueItem {
 	k := &widget.Editor{SingleLine: true}
 	k.SetText(key)
 
@@ -77,6 +78,7 @@ func NewKeyValueItem(key, value string, active bool) *KeyValueItem {
 	v.SetText(value)
 
 	return &KeyValueItem{
+		Identifier:   identifier,
 		Key:          key,
 		Value:        value,
 		Active:       active,
@@ -114,6 +116,7 @@ func (kv *KeyValue) SetOnChanged(onChanged func(items []*KeyValueItem)) {
 func (kv *KeyValue) AddItem(item *KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
+
 	item.index = len(kv.Items)
 	kv.Items = append(kv.Items, item)
 }
@@ -121,14 +124,10 @@ func (kv *KeyValue) AddItem(item *KeyValueItem) {
 func (kv *KeyValue) SetItems(items []*KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
-	kv.initialLoadComplete = false
-
 	for i := range items {
 		items[i].index = i
 	}
 	kv.Items = items
-
-	kv.initialLoadComplete = true
 }
 
 func (kv *KeyValue) GetItems() []*KeyValueItem {
@@ -143,7 +142,7 @@ func (kv *KeyValue) GetItems() []*KeyValueItem {
 }
 
 func (kv *KeyValue) triggerChanged() {
-	if kv.onChanged != nil && kv.initialLoadComplete { // Check flag before triggering
+	if kv.onChanged != nil {
 		kv.onChanged(kv.Items)
 	}
 }
@@ -178,7 +177,6 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 	for _, ev := range item.keyEditor.Events() {
 		if _, ok := ev.(widget.ChangeEvent); ok {
 			item.Key = item.keyEditor.Text()
-			fmt.Println("key changed")
 			kv.triggerChanged()
 		}
 	}
@@ -186,7 +184,6 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 	for _, ev := range item.valueEditor.Events() {
 		if _, ok := ev.(widget.ChangeEvent); ok {
 			item.Value = item.valueEditor.Text()
-			fmt.Println("value changed")
 			kv.triggerChanged()
 		}
 	}

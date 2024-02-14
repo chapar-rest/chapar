@@ -112,22 +112,22 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		saveResponseButton: widgets.NewFlatButton(theme, "Save"),
 
 		queryParams: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", false),
+			widgets.NewKeyValueItem("", "", "", false),
 		),
 
 		pathParams: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", false),
+			widgets.NewKeyValueItem("", "", "", false),
 		),
 
 		headers: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", false),
+			widgets.NewKeyValueItem("", "", "", false),
 		),
 
 		formDataParams: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", false),
+			widgets.NewKeyValueItem("", "", "", false),
 		),
 		urlEncodedParams: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", false),
+			widgets.NewKeyValueItem("", "", "", false),
 		),
 
 		addressMutex: &sync.Mutex{},
@@ -413,7 +413,7 @@ func (r *RestContainer) addressChanged() {
 	for k, v := range queryParams {
 		if len(v) > 0 {
 			// Add the parameter as a new key-value item
-			items = append(items, widgets.NewKeyValueItem(k, v[0], true))
+			items = append(items, widgets.NewKeyValueItem(k, v[0], "", true))
 		}
 	}
 

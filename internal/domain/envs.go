@@ -21,6 +21,26 @@ type EnvValue struct {
 	Enable bool   `yaml:"enable"`
 }
 
+func CompareEnvValue(a, b EnvValue) bool {
+	if a.ID != b.ID {
+		return false
+	}
+
+	if a.Key != b.Key {
+		return false
+	}
+
+	if a.Value != b.Value {
+		return false
+	}
+
+	if a.Enable != b.Enable {
+		return false
+	}
+
+	return true
+}
+
 func (e *Environment) Clone() *Environment {
 	clone := &Environment{
 		ApiVersion: e.ApiVersion,
@@ -43,7 +63,7 @@ func CompareEnvValues(a, b []EnvValue) bool {
 	}
 
 	for i, v := range a {
-		if v != b[i] {
+		if !CompareEnvValue(v, b[i]) {
 			return false
 		}
 	}
