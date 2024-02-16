@@ -2,6 +2,7 @@ package loader
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"runtime"
@@ -134,7 +135,46 @@ func ReadEnvironmentsData() ([]*domain.Environment, error) {
 	return out, nil
 }
 
-func SaveEnvironment(env *domain.Environment) error {
+func getNewFileName(name string) (string, error) {
+	dir, err := GetEnvDir()
+	if err != nil {
+		return "", err
+	}
+
+	fileName := path.Join(dir, name+".yaml")
+
+	// if its already exists, add a number to the end of the name
+	if _, err := os.Stat(fileName); err != nil {
+		if os.IsNotExist(err) {
+			return fileName, nil
+		}
+
+		i := 0
+		for {
+			fileName = path.Join(dir, name, fmt.Sprintf("%s-%d.yaml", name, i))
+			if _, err := os.Stat(fileName); err != nil {
+				if os.IsNotExist(err) {
+					return fileName, nil
+				}
+			}
+			i++
+		}
+	}
+
+	return "", errors.New("file already exists")
+}
+
+func UpdateEnvironment(env *domain.Environment) error {
+	if env.FilePath == "" {
+		// this is a new environment
+		fileName, err := getNewFileName(env.Meta.Name)
+		if err != nil {
+			return err
+		}
+
+		env.FilePath = fileName
+	}
+
 	return SaveToYaml(env.FilePath, env)
 }
 

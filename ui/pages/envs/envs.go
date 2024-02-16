@@ -18,7 +18,7 @@ import (
 type Envs struct {
 	addEnvButton widget.Clickable
 	searchBox    *widgets.TextField
-	envsList     *widgets.TreeView
+	treeView     *widgets.TreeView
 
 	split        widgets.SplitView
 	tabs         *widgets.Tabs
@@ -49,13 +49,15 @@ func New(theme *material.Theme) (*Envs, error) {
 
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
+	search.SetBorderColor(widgets.Gray600)
+
 	treeView := widgets.NewTreeView()
 
 	e := &Envs{
 		data:      data,
 		searchBox: search,
 		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
-		envsList:  treeView,
+		treeView:  treeView,
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),
@@ -128,6 +130,41 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 	}
 }
 
+func (e *Envs) addNewEmptyEnv() {
+	env := &domain.Environment{
+		ApiVersion: "v1",
+		Kind:       "Environment",
+		Meta: domain.EnvMeta{
+			ID:   uuid.NewString(),
+			Name: "New env",
+		},
+		Values:   make([]domain.EnvValue, 0),
+		FilePath: "",
+	}
+
+	treeViewNode := widgets.NewNode(env.Meta.Name, false)
+	treeViewNode.OnDoubleClick(e.onItemDoubleClick)
+	treeViewNode.SetIdentifier(env.Meta.ID)
+	e.treeView.AddNode(treeViewNode, nil)
+
+	tab := &widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+	tab.SetOnClose(e.onTabClose)
+	tab.SetIdentifier(env.Meta.ID)
+
+	ot := &openedTab{
+		env:       env,
+		tab:       tab,
+		listItem:  treeViewNode,
+		container: newEnvContainer(env.Clone()),
+	}
+	ot.container.SetOnTitleChanged(e.onTitleChanged)
+	e.openedTabs = append(e.openedTabs, ot)
+
+	i := e.tabs.AddTab(tab)
+	e.selectedIndex = i
+	e.tabs.SetSelected(i)
+}
+
 func (e *Envs) onTabClose(t *widgets.Tab) {
 	for _, ot := range e.openedTabs {
 		if ot.env.Meta.ID == t.Identifier {
@@ -166,9 +203,7 @@ func (e *Envs) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if e.addEnvButton.Clicked(gtx) {
-								e.envsList.AddNode(widgets.NewNode("New env", false), nil)
-								i := e.tabs.AddTab(&widgets.Tab{Title: "New env", Closable: true, CloseClickable: &widget.Clickable{}})
-								e.tabs.SetSelected(i)
+								e.addNewEmptyEnv()
 							}
 
 							return material.Button(theme, &e.addEnvButton, "Add").Layout(gtx)
@@ -183,7 +218,7 @@ func (e *Envs) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return e.envsList.Layout(gtx, theme)
+					return e.treeView.Layout(gtx, theme)
 				})
 			}),
 		)

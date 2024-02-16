@@ -64,12 +64,8 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 
 		// save changes to the environment
 		c.env.Meta.Name = text
-		if err := loader.SaveEnvironment(c.env); err != nil {
-			c.prompt.Type = widgets.ModalTypeErr
-			c.prompt.Content = fmt.Sprintf("Error on saving the environment: %s", err.Error())
-			c.prompt.SetOptions("I see")
-			c.prompt.WithoutRememberBool()
-			c.prompt.Show()
+		if err := loader.UpdateEnvironment(c.env); err != nil {
+			c.showError(fmt.Sprintf("failed to update environment: %s", err))
 			return
 		}
 
@@ -89,6 +85,14 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 	})
 
 	return c
+}
+
+func (r *envContainer) showError(err string) {
+	r.prompt.Type = widgets.ModalTypeErr
+	r.prompt.Content = err
+	r.prompt.SetOptions("I see")
+	r.prompt.WithoutRememberBool()
+	r.prompt.Show()
 }
 
 func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
@@ -141,7 +145,6 @@ func (r *envContainer) Load(e *domain.Environment) {
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 	event.Op(gtx.Ops, r)
-	// check for presses of the escape key and close the window if we find them.
 	for {
 		keyEvent, ok := gtx.Event(
 			key.Filter{
@@ -152,11 +155,15 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 		if !ok {
 			break
 		}
+
 		if ev, ok := keyEvent.(key.Event); ok {
 			if ev.Name == "S" && ev.Modifiers.Contain(key.ModShortcut) && ev.State == key.Press {
 				if r.dataChanged {
-					_ = loader.SaveEnvironment(r.env)
-					r.dataChanged = false
+					if err := loader.UpdateEnvironment(r.env); err != nil {
+						r.showError(fmt.Sprintf("failed to update environment: %s", err))
+					} else {
+						r.dataChanged = false
+					}
 				}
 			}
 		}
