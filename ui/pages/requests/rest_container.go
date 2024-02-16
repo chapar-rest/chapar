@@ -428,8 +428,12 @@ func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) la
 		CornerRadius: unit.Dp(4),
 	}
 
-	for _, ev := range r.address.Events() {
-		if _, ok := ev.(widget.ChangeEvent); ok {
+	for {
+		event, ok := r.address.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := event.(widget.ChangeEvent); ok {
 			if !r.updateAddress {
 				r.addressChanged()
 			} else {

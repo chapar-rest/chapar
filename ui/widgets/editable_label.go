@@ -44,7 +44,6 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 		if !e.isEditing {
 			e.isEditing = true
 			e.editor.SetText(e.Text)
-			e.editor.Focus()
 		}
 	}
 
@@ -55,7 +54,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 
 	return e.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if e.isEditing {
-			for _, ev := range e.editor.Events() {
+			if ev, ok := e.editor.Update(gtx); ok {
 				switch ev.(type) {
 				case widget.SubmitEvent:
 					e.isEditing = false

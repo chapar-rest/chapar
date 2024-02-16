@@ -70,7 +70,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 	}
 
 	borderColor := t.borderColor
-	if t.textEditor.Focused() {
+	if gtx.Focused(t.textField) {
 		borderColor = theme.Palette.ContrastBg
 	}
 
@@ -86,8 +86,12 @@ func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 		leftPadding = unit.Dp(0)
 	}
 
-	for _, ev := range t.textEditor.Events() {
-		if _, ok := ev.(widget.ChangeEvent); ok {
+	for {
+		event, ok := t.textEditor.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := event.(widget.ChangeEvent); ok {
 			if t.onTextChange != nil {
 				t.onTextChange(t.textEditor.Text())
 			}

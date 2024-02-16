@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"gioui.org/font"
+	"gioui.org/io/event"
+
 	"gioui.org/io/key"
+
+	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/op/clip"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -56,21 +58,28 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 		Width:        unit.Dp(1),
 		CornerRadius: 0,
 	}
-	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-	key.InputOp{Tag: area, Keys: key.NameTab}.Add(gtx.Ops)
-	defer area.Pop()
 
-	// check for presses of the escape key and close the window if we find them.
-	for _, event := range gtx.Events(area) {
-		switch event := event.(type) {
-		case key.Event:
-			if event.Name == key.NameTab {
-				c.editor.Insert("\t")
-			}
+	event.Op(gtx.Ops, c.editor)
+	for {
+		ev, ok := gtx.Event(
+			key.Filter{
+				Focus: c.editor,
+				Name:  key.NameTab,
+			},
+		)
+		if !ok {
+			break
+		}
+		e, ok := ev.(key.Event)
+		if !ok {
+			continue
+		}
+		if e.Name == key.NameTab {
+			c.editor.Insert("    ")
 		}
 	}
 
-	for _, ev := range c.editor.Events() {
+	if ev, ok := c.editor.Update(gtx); ok {
 		if _, ok := ev.(widget.ChangeEvent); ok {
 			c.lines = strings.Split(c.editor.Text(), "\n")
 		}

@@ -174,15 +174,23 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 		kv.triggerChanged()
 	}
 
-	for _, ev := range item.keyEditor.Events() {
-		if _, ok := ev.(widget.ChangeEvent); ok {
+	for {
+		event, ok := item.keyEditor.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := event.(widget.ChangeEvent); ok {
 			item.Key = item.keyEditor.Text()
 			kv.triggerChanged()
 		}
 	}
 
-	for _, ev := range item.valueEditor.Events() {
-		if _, ok := ev.(widget.ChangeEvent); ok {
+	for {
+		event, ok := item.valueEditor.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := event.(widget.ChangeEvent); ok {
 			item.Value = item.valueEditor.Text()
 			kv.triggerChanged()
 		}

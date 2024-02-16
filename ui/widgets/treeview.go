@@ -4,6 +4,8 @@ import (
 	"image"
 	"time"
 
+	"gioui.org/io/input"
+
 	"gioui.org/op/clip"
 
 	"gioui.org/op/paint"
@@ -87,12 +89,12 @@ func (t *TreeView) childLayout(theme *material.Theme, gtx layout.Context, node *
 		return layout.Background{}.Layout(gtx,
 			func(gtx layout.Context) layout.Dimensions {
 				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
-				switch {
-				case gtx.Queue == nil:
+				if gtx.Source == (input.Source{}) {
 					background = Disabled(theme.Palette.Bg)
-				case node.clickable.Hovered() || node.clickable.Focused():
+				} else if node.clickable.Hovered() || gtx.Focused(node.clickable) {
 					background = Hovered(theme.Palette.Bg)
 				}
+
 				paint.Fill(gtx.Ops, background)
 				return layout.Dimensions{Size: gtx.Constraints.Min}
 			},
@@ -127,10 +129,9 @@ func (t *TreeView) parentLayout(gtx layout.Context, theme *material.Theme, node 
 		return layout.Background{}.Layout(gtx,
 			func(gtx layout.Context) layout.Dimensions {
 				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
-				switch {
-				case gtx.Queue == nil:
+				if gtx.Source == (input.Source{}) {
 					background = Disabled(theme.Palette.Bg)
-				case node.clickable.Hovered() || node.clickable.Focused():
+				} else if node.clickable.Hovered() || gtx.Focused(node.clickable) {
 					background = Hovered(theme.Palette.Bg)
 				}
 				paint.Fill(gtx.Ops, background)
