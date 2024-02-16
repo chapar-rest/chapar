@@ -7,7 +7,6 @@ import (
 	"github.com/mirzakhany/chapar/ui/pages/envs"
 
 	"gioui.org/app"
-	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -72,14 +71,14 @@ func (u *UI) Run(w *app.Window) error {
 	for {
 		switch e := w.NextEvent().(type) {
 		// this is sent when the application should re-render.
-		case system.FrameEvent:
-			gtx := layout.NewContext(&ops, e)
+		case app.FrameEvent:
+			gtx := app.NewContext(&ops, e)
 			// render and handle UI.
 			u.Layout(gtx, gtx.Constraints.Max.X)
 			// render and handle the operations from the UI.
 			e.Frame(gtx.Ops)
 		// this is sent when the application is closed.
-		case system.DestroyEvent:
+		case app.DestroyEvent:
 			return e.Err
 		}
 	}

@@ -96,20 +96,6 @@ func (e *Envs) onTitleChanged(id, title string) {
 	}
 }
 
-func (e *Envs) onEnvChanged(id string, items []domain.EnvValue) {
-	// find the opened tab and mark it as dirty
-	for _, ot := range e.openedTabs {
-		if ot.env.Meta.ID == id {
-			// are items changed?
-			if !domain.CompareEnvValues(ot.env.Values, items) {
-				ot.tab.SetDirty(true)
-			}
-
-			break
-		}
-	}
-}
-
 func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 	// if env is already opened, just switch to it
 	for i, ot := range e.openedTabs {
@@ -133,7 +119,6 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 				container: newEnvContainer(env.Clone()),
 			}
 			ot.container.SetOnTitleChanged(e.onTitleChanged)
-			ot.container.SetOnDataChanged(e.onEnvChanged)
 			e.openedTabs = append(e.openedTabs, ot)
 
 			i := e.tabs.AddTab(tab)
@@ -162,7 +147,13 @@ func (e *Envs) container(gtx layout.Context, theme *material.Theme) layout.Dimen
 			return e.tabs.Layout(gtx, theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return e.openedTabs[e.selectedIndex].container.Layout(gtx, theme)
+			if e.selectedIndex > len(e.openedTabs)-1 {
+				return layout.Dimensions{}
+			}
+			ct := e.openedTabs[e.selectedIndex].container
+			e.openedTabs[e.selectedIndex].tab.SetDirty(ct.IsDataChanged())
+
+			return ct.Layout(gtx, theme)
 		}),
 	)
 }
@@ -209,10 +200,11 @@ func (e *Envs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 			openItems = append(openItems, ot)
 		}
 	}
+
 	e.tabs.SetTabs(tabItems)
 	e.openedTabs = openItems
 	selectTab := e.tabs.Selected()
-	op.InvalidateOp{}.Add(gtx.Ops)
+	gtx.Execute(op.InvalidateCmd{})
 
 	// is selected tab is closed:
 	// if its the last tab and there is another tab before it, select the previous one

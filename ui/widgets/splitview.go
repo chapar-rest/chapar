@@ -4,11 +4,14 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/io/event"
+
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/unit"
 )
 
@@ -70,7 +73,25 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 
 	{
 		barColor := s.BarColor
-		for _, ev := range gtx.Events(s) {
+		// register for input
+		barRect := image.Rect(leftSize, 0, rightOffset, gtx.Constraints.Max.X)
+		area := clip.Rect(barRect).Push(gtx.Ops)
+		paint.FillShape(gtx.Ops, barColor, clip.Rect(barRect).Op())
+		pointer.CursorColResize.Add(gtx.Ops)
+		event.Op(gtx.Ops, s)
+
+		for {
+			ev, ok := gtx.Event(
+				pointer.Filter{
+					Target: s,
+					Kinds:  pointer.Press | pointer.Drag | pointer.Release | pointer.Cancel,
+				},
+			)
+
+			if !ok {
+				break
+			}
+
 			e, ok := ev.(pointer.Event)
 			if !ok {
 				continue
@@ -91,12 +112,22 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 					break
 				}
 
-				barColor = s.BarColorHover
+				if barColor != s.BarColorHover {
+					barColor = s.BarColorHover
+				}
+
 				deltaX := e.Position.X - s.dragX
 				s.dragX = e.Position.X
 
 				deltaRatio := deltaX * 2 / float32(gtx.Constraints.Max.X)
 				s.Ratio += deltaRatio
+
+				if e.Priority < pointer.Grabbed {
+					gtx.Execute(pointer.GrabCmd{
+						Tag: s,
+						ID:  s.dragID,
+					})
+				}
 
 			case pointer.Release:
 				barColor = s.BarColor
@@ -105,20 +136,11 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 				s.drag = false
 				barColor = s.BarColor
 			default:
+
 				continue
 			}
 		}
-
-		// register for input
-		barRect := image.Rect(leftSize, 0, rightOffset, gtx.Constraints.Max.X)
 		paint.FillShape(gtx.Ops, barColor, clip.Rect(barRect).Op())
-		area := clip.Rect(barRect).Push(gtx.Ops)
-		pointer.CursorColResize.Add(gtx.Ops)
-		pointer.InputOp{
-			Tag:   s,
-			Kinds: pointer.Press | pointer.Drag | pointer.Release,
-			Grab:  s.drag,
-		}.Add(gtx.Ops)
 		area.Pop()
 	}
 

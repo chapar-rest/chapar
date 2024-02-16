@@ -86,7 +86,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				if tabIdx > len(tabs.tabs)-1 {
 					tabIdx = len(tabs.tabs) - 1
 				}
-				//
+
 				t := tabs.tabs[tabIdx]
 				if t.Closable && t.onClose != nil && t.CloseClickable.Clicked(gtx) {
 					t.onClose(t)
@@ -99,7 +99,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 					}
 				}
 
-				if t.btn.Hovered() || t.btn.Focused() {
+				if t.btn.Hovered() {
 					paint.FillShape(gtx.Ops, theme.Palette.ContrastBg, clip.Rect{Max: gtx.Constraints.Min}.Op())
 				}
 

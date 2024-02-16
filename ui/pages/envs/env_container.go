@@ -3,9 +3,9 @@ package envs
 import (
 	"fmt"
 
-	"github.com/mirzakhany/chapar/ui/utils"
-
+	"gioui.org/io/event"
 	"gioui.org/io/key"
+	"gioui.org/op/clip"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -92,17 +92,25 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 }
 
 func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
+	newEnvValues := make([]domain.EnvValue, 0, len(items))
+	for _, vv := range items {
+		newEnvValues = append(newEnvValues, domain.EnvValue{
+			ID:     vv.Identifier,
+			Key:    vv.Key,
+			Value:  vv.Value,
+			Enable: vv.Active,
+		})
+	}
+
+	if domain.CompareEnvValues(r.env.Values, newEnvValues) {
+		r.dataChanged = false
+		return
+	}
+
+	r.env.Values = newEnvValues
 	r.dataChanged = true
+
 	if r.onDataChanged != nil {
-		r.env.Values = []domain.EnvValue{}
-		for _, vv := range items {
-			r.env.Values = append(r.env.Values, domain.EnvValue{
-				ID:     vv.Identifier,
-				Key:    vv.Key,
-				Value:  vv.Value,
-				Enable: vv.Active,
-			})
-		}
 		r.onDataChanged(r.env.Meta.ID, r.env.Values)
 	}
 }
@@ -113,6 +121,10 @@ func (r *envContainer) SetOnTitleChanged(f func(string, string)) {
 
 func (r *envContainer) SetOnDataChanged(f func(string, []domain.EnvValue)) {
 	r.onDataChanged = f
+}
+
+func (r *envContainer) IsDataChanged() bool {
+	return r.dataChanged
 }
 
 func (r *envContainer) Load(e *domain.Environment) {
@@ -127,13 +139,29 @@ func (r *envContainer) Load(e *domain.Environment) {
 }
 
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	// listen for combination of ctrl+s
-	if r.dataChanged {
-		if utils.IsKeysPressed(gtx, key.ModCommand, "s") {
-			r.dataChanged = false
-			fmt.Println("save the changes")
+	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+	event.Op(gtx.Ops, r)
+	// check for presses of the escape key and close the window if we find them.
+	for {
+		keyEvent, ok := gtx.Event(
+			key.Filter{
+				Required: key.ModShortcut,
+				Name:     "S",
+			},
+		)
+		if !ok {
+			break
+		}
+		if ev, ok := keyEvent.(key.Event); ok {
+			if ev.Name == "S" && ev.Modifiers.Contain(key.ModShortcut) && ev.State == key.Press {
+				if r.dataChanged {
+					_ = loader.SaveEnvironment(r.env)
+					r.dataChanged = false
+				}
+			}
 		}
 	}
+	area.Pop()
 
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
