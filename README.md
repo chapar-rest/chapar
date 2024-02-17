@@ -37,3 +37,9 @@ Stay tuned for the upcoming early beta release of Chapar. Once released, clone t
 
 ### Contributing
 We welcome contributions from the community once the early beta is released! If you have ideas, feedback, or wish to contribute, please open an issue or submit a pull request.
+
+### Support
+You can support the development of Chapar by starring the repository, sharing it with your friends, and contributing to the project. 
+Also you can support the project by donating to the project's wallet.
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/mohsen.mirzakhani)
