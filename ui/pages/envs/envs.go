@@ -80,6 +80,14 @@ func New(theme *material.Theme) (*Envs, error) {
 		treeView.AddNode(node, nil)
 	}
 
+	e.searchBox.SetOnTextChange(func(text string) {
+		if e.data == nil {
+			return
+		}
+
+		e.treeView.Filter(text)
+	})
+
 	return e, nil
 }
 

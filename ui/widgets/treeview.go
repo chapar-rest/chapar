@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"image"
+	"strings"
 	"time"
 
 	"gioui.org/io/input"
@@ -19,6 +20,9 @@ import (
 type TreeView struct {
 	nodes []*TreeViewNode
 	list  *widget.List
+
+	filterText    string
+	filteredNodes []*TreeViewNode
 }
 
 type TreeViewNode struct {
@@ -77,6 +81,30 @@ func (t *TreeView) AddNode(node *TreeViewNode, parent *TreeViewNode) {
 	}
 
 	parent.Children = append(parent.Children, node)
+}
+
+func (t *TreeView) Filter(text string) {
+	t.filterText = text
+
+	if text == "" {
+		t.filteredNodes = make([]*TreeViewNode, 0)
+		return
+	}
+
+	var items = make([]*TreeViewNode, 0)
+	for _, item := range t.nodes {
+		if strings.Contains(item.Text, text) {
+			items = append(items, item)
+		}
+
+		for _, child := range item.Children {
+			if strings.Contains(child.Text, text) {
+				items = append(items, child)
+			}
+		}
+	}
+
+	t.filteredNodes = items
 }
 
 func (t *TreeView) childLayout(theme *material.Theme, gtx layout.Context, node *TreeViewNode) layout.Dimensions {
@@ -184,7 +212,16 @@ func (t *TreeView) parentLayout(gtx layout.Context, theme *material.Theme, node 
 }
 
 func (t *TreeView) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return material.List(theme, t.list).Layout(gtx, len(t.nodes), func(gtx layout.Context, index int) layout.Dimensions {
-		return t.parentLayout(gtx, theme, t.nodes[index])
+	nodes := t.nodes
+	if t.filterText != "" {
+		nodes = t.filteredNodes
+	}
+
+	if len(nodes) == 0 {
+		return layout.Center.Layout(gtx, material.Label(theme, unit.Sp(14), "No items").Layout)
+	}
+
+	return material.List(theme, t.list).Layout(gtx, len(nodes), func(gtx layout.Context, index int) layout.Dimensions {
+		return t.parentLayout(gtx, theme, nodes[index])
 	})
 }
