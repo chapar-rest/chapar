@@ -176,6 +176,12 @@ func (e *Envs) addNewEmptyEnv() {
 func (e *Envs) onTabClose(t *widgets.Tab) {
 	for _, ot := range e.openedTabs {
 		if ot.env.Meta.ID == t.Identifier {
+
+			// can we close the tab?
+			if !ot.container.OnClose() {
+				return
+			}
+
 			ot.closed = true
 			break
 		}

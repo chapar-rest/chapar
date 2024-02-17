@@ -88,12 +88,40 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 	return c
 }
 
+// OnClose is called when the tab is closed
+// it returns true if the tab can be closed
+func (r *envContainer) OnClose() bool {
+	if r.dataChanged {
+		r.showNotSavedWarning()
+		return false
+	}
+
+	return true
+}
+
 func (r *envContainer) showError(err string) {
 	r.prompt.Type = widgets.ModalTypeErr
 	r.prompt.Content = err
 	r.prompt.SetOptions("I see")
 	r.prompt.WithoutRememberBool()
+	r.prompt.SetOnSubmit(nil)
 	r.prompt.Show()
+}
+
+func (r *envContainer) showNotSavedWarning() {
+	r.prompt.Type = widgets.ModalTypeWarn
+	r.prompt.Content = "This environment value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s"
+	r.prompt.SetOptions("Yes", "No")
+	r.prompt.WithRememberBool()
+	r.prompt.SetOnSubmit(r.onPromptSubmit)
+	r.prompt.Show()
+}
+
+func (r *envContainer) onPromptSubmit(selectedOption string, remember bool) {
+	if selectedOption == "Yes" {
+		r.save()
+		r.prompt.Hide()
+	}
 }
 
 func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {

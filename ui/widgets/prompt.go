@@ -43,6 +43,8 @@ type Prompt struct {
 	optionsClickables []widget.Clickable
 
 	result string
+
+	onSubmit func(selectedOption string, remember bool)
 }
 
 func NewPrompt(title, content, modalType string, options ...string) *Prompt {
@@ -77,6 +79,27 @@ func (p *Prompt) WithRememberBool() {
 
 func (p *Prompt) WithoutRememberBool() {
 	p.rememberBool = nil
+}
+
+func (p *Prompt) SetOnSubmit(f func(selectedOption string, remember bool)) {
+	p.onSubmit = f
+}
+
+func (p *Prompt) submit() {
+	if p.onSubmit == nil {
+		return
+	}
+
+	if !p.Visible {
+		return
+	}
+
+	if p.rememberBool == nil {
+		p.onSubmit(p.result, false)
+		return
+	}
+
+	p.onSubmit(p.result, p.rememberBool.Value)
 }
 
 func (p *Prompt) Result() (string, bool) {
@@ -152,7 +175,7 @@ func (p *Prompt) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 
 							if p.optionsClickables[i].Clicked(gtx) {
 								p.result = p.options[i]
-								p.Visible = false
+								p.submit()
 							}
 
 							items = append(
