@@ -155,6 +155,17 @@ func (r *envContainer) Load(e *domain.Environment) {
 	r.items.SetItems(items)
 }
 
+func (r *envContainer) save() {
+	if r.dataChanged {
+		r.populateItems()
+		if err := loader.UpdateEnvironment(r.env); err != nil {
+			r.showError(fmt.Sprintf("failed to update environment: %s", err))
+		} else {
+			r.dataChanged = false
+		}
+	}
+}
+
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 	event.Op(gtx.Ops, r)
@@ -171,14 +182,7 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 
 		if ev, ok := keyEvent.(key.Event); ok {
 			if ev.Name == "S" && ev.Modifiers.Contain(key.ModShortcut) && ev.State == key.Press {
-				if r.dataChanged {
-					r.populateItems()
-					if err := loader.UpdateEnvironment(r.env); err != nil {
-						r.showError(fmt.Sprintf("failed to update environment: %s", err))
-					} else {
-						r.dataChanged = false
-					}
-				}
+				r.save()
 			}
 		}
 	}
@@ -207,6 +211,10 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 											Size:      unit.Dp(20),
 											Color:     widgets.Gray800,
 											Clickable: r.saveButton,
+										}
+
+										if r.saveButton.Clicked(gtx) {
+											r.save()
 										}
 
 										return ib.Layout(theme, gtx)
