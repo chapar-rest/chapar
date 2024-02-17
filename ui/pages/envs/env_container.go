@@ -25,6 +25,7 @@ type envContainer struct {
 	searchBox *widgets.TextField
 
 	deleteButton *widget.Clickable
+	saveButton   *widget.Clickable
 
 	prompt *widgets.Prompt
 
@@ -47,6 +48,7 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 		searchBox: search,
 
 		deleteButton: new(widget.Clickable),
+		saveButton:   new(widget.Clickable),
 
 		prompt: widgets.NewPrompt("Save", "This environment value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s", widgets.ModalTypeWarn, "Yes", "No"),
 	}
@@ -111,12 +113,23 @@ func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
 		return
 	}
 
-	r.env.Values = newEnvValues
 	r.dataChanged = true
-
 	if r.onDataChanged != nil {
-		r.onDataChanged(r.env.Meta.ID, r.env.Values)
+		r.onDataChanged(r.env.Meta.ID, newEnvValues)
 	}
+}
+
+func (r *envContainer) populateItems() {
+	newEnvValues := make([]domain.EnvValue, 0, len(r.items.GetItems()))
+	for _, vv := range r.items.GetItems() {
+		newEnvValues = append(newEnvValues, domain.EnvValue{
+			ID:     vv.Identifier,
+			Key:    vv.Key,
+			Value:  vv.Value,
+			Enable: vv.Active,
+		})
+	}
+	r.env.Values = newEnvValues
 }
 
 func (r *envContainer) SetOnTitleChanged(f func(string, string)) {
@@ -159,6 +172,7 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 		if ev, ok := keyEvent.(key.Event); ok {
 			if ev.Name == "S" && ev.Modifiers.Contain(key.ModShortcut) && ev.State == key.Press {
 				if r.dataChanged {
+					r.populateItems()
 					if err := loader.UpdateEnvironment(r.env); err != nil {
 						r.showError(fmt.Sprintf("failed to update environment: %s", err))
 					} else {
@@ -182,7 +196,25 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return r.title.Layout(gtx, theme)
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return r.title.Layout(gtx, theme)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									if r.dataChanged {
+										ib := widgets.IconButton{
+											Icon:      widgets.SaveIcon,
+											Size:      unit.Dp(20),
+											Color:     widgets.Gray800,
+											Clickable: r.saveButton,
+										}
+
+										return ib.Layout(theme, gtx)
+									} else {
+										return layout.Dimensions{}
+									}
+								}),
+							)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Max.X = gtx.Dp(200)

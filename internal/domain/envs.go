@@ -22,19 +22,12 @@ type EnvValue struct {
 }
 
 func CompareEnvValue(a, b EnvValue) bool {
-	if a.ID != b.ID {
+	// compare length of the values
+	if len(a.Key) != len(b.Key) || len(a.Value) != len(b.Value) || len(a.ID) != len(b.ID) {
 		return false
 	}
 
-	if a.Key != b.Key {
-		return false
-	}
-
-	if a.Value != b.Value {
-		return false
-	}
-
-	if a.Enable != b.Enable {
+	if a.Key != b.Key || a.Value != b.Value || a.Enable != b.Enable || a.ID != b.ID {
 		return false
 	}
 
