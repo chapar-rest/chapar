@@ -3,6 +3,7 @@ package ui
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -10,95 +11,74 @@ import (
 type Sidebar struct {
 	Theme *material.Theme
 
-	protoFilesButton *widgets.FlatButton
-	requestsButton   *widgets.FlatButton
-	envButton        *widgets.FlatButton
-	settingsButton   *widgets.FlatButton
+	flatButtons []*widgets.FlatButton
+	Buttons     []*SideBarButton
+	list        *widget.List
 
 	selectedIndex int
 }
 
+type SideBarButton struct {
+	Icon *widget.Icon
+	Text string
+}
+
 func NewSidebar(theme *material.Theme) *Sidebar {
 	s := &Sidebar{
-		Theme:            theme,
-		requestsButton:   widgets.NewFlatButton(theme, "Requests"),
-		envButton:        widgets.NewFlatButton(theme, "Envs"),
-		protoFilesButton: widgets.NewFlatButton(theme, "Proto"),
-		settingsButton:   widgets.NewFlatButton(theme, "Settings"),
+		Theme: theme,
+
+		Buttons: []*SideBarButton{
+			{Icon: widgets.SwapHoriz, Text: "Requests"},
+			{Icon: widgets.MenuIcon, Text: "Envs"},
+			{Icon: widgets.FileFolderIcon, Text: "Proto"},
+			{Icon: widgets.SettingsIcon, Text: "Settings"},
+		},
+		list: &widget.List{
+			List: layout.List{
+				Axis: layout.Vertical,
+			},
+		},
 	}
 
-	s.requestsButton.SetIcon(widgets.SwapHoriz, widgets.FlatButtonIconTop, 5)
-	s.requestsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.requestsButton.MinWidth = unit.Dp(60)
-	s.requestsButton.ContentPadding = unit.Dp(5)
-	s.requestsButton.BackgroundPadding = unit.Dp(3)
-	s.requestsButton.OnClicked = func() {
-		s.selectedIndex = 0
-	}
-
-	s.envButton.SetIcon(widgets.MenuIcon, widgets.FlatButtonIconTop, 5)
-	s.envButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.envButton.MinWidth = unit.Dp(60)
-	s.envButton.ContentPadding = unit.Dp(5)
-	s.envButton.BackgroundPadding = unit.Dp(3)
-	s.envButton.OnClicked = func() {
-		s.selectedIndex = 1
-	}
-
-	s.protoFilesButton.SetIcon(widgets.FileFolderIcon, widgets.FlatButtonIconTop, 5)
-	s.protoFilesButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.protoFilesButton.MinWidth = unit.Dp(60)
-	s.protoFilesButton.ContentPadding = unit.Dp(5)
-	s.protoFilesButton.BackgroundPadding = unit.Dp(3)
-	s.protoFilesButton.OnClicked = func() {
-		s.selectedIndex = 2
-	}
-
-	s.settingsButton.SetIcon(widgets.SettingsIcon, widgets.FlatButtonIconTop, 5)
-	s.settingsButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	s.settingsButton.MinWidth = unit.Dp(60)
-	s.settingsButton.ContentPadding = unit.Dp(5)
-	s.settingsButton.BackgroundPadding = unit.Dp(3)
-	s.settingsButton.OnClicked = func() {
-		s.selectedIndex = 3
-	}
-
+	s.makeButtons(theme)
 	return s
+}
+
+func (s *Sidebar) makeButtons(theme *material.Theme) {
+	s.flatButtons = make([]*widgets.FlatButton, 0)
+	for _, b := range s.Buttons {
+		s.flatButtons = append(s.flatButtons, &widgets.FlatButton{
+			Icon:              b.Icon,
+			Text:              b.Text,
+			IconPosition:      widgets.FlatButtonIconTop,
+			SpaceBetween:      unit.Dp(5),
+			MinWidth:          unit.Dp(60),
+			BackgroundPadding: unit.Dp(3),
+			BackgroundColor:   theme.Palette.Bg,
+			TextColor:         theme.Palette.Fg,
+			ContentPadding:    unit.Dp(5),
+		})
+	}
 }
 
 func (s *Sidebar) SelectedIndex() int {
 	return s.selectedIndex
 }
 
-func (s *Sidebar) Layout(gtx C) D {
-	sidebarButtons := layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.requestsButton.Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(2), unit.Dp(45)),
-		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.envButton.Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(2), unit.Dp(45)),
-		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.protoFilesButton.Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(2), unit.Dp(45)),
-		layout.Rigid(layout.Spacer{Height: 3}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.settingsButton.Layout(gtx)
-		}),
-	)
+func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				btn := s.flatButtons[i]
+				if btn.Clickable.Clicked(gtx) {
+					s.selectedIndex = i
+				}
 
-	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-		layout.Rigid(func(gtx C) D {
-			return sidebarButtons
-		}),
-		widgets.VerticalFullLine(),
-	)
+				return btn.Layout(gtx, theme)
+			}),
+			layout.Rigid(layout.Spacer{Height: 3}.Layout),
+			widgets.DrawLineFlex(widgets.Gray300, unit.Dp(2), unit.Dp(45)),
+			layout.Rigid(layout.Spacer{Height: 3}.Layout),
+		)
+	})
 }

@@ -49,6 +49,8 @@ type RestContainer struct {
 
 	jsonViewer *widgets.JsonViewer
 
+	copyClickable      *widget.Clickable
+	saveClickable      *widget.Clickable
 	copyResponseButton *widgets.FlatButton
 	saveResponseButton *widgets.FlatButton
 	responseTabs       *widgets.Tabs
@@ -108,8 +110,8 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		},
 		jsonViewer: widgets.NewJsonViewer(),
 
-		copyResponseButton: widgets.NewFlatButton(theme, "Copy"),
-		saveResponseButton: widgets.NewFlatButton(theme, "Save"),
+		copyClickable: new(widget.Clickable),
+		saveClickable: new(widget.Clickable),
 
 		queryParams: widgets.NewKeyValue(
 			widgets.NewKeyValueItem("", "", "", false),
@@ -132,21 +134,33 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 
 		addressMutex: &sync.Mutex{},
 	}
+
+	r.copyResponseButton = &widgets.FlatButton{
+		Text:            "Copy",
+		BackgroundColor: theme.Palette.Bg,
+		TextColor:       theme.Palette.Fg,
+		MinWidth:        unit.Dp(75),
+		Icon:            widgets.CopyIcon,
+		IconPosition:    widgets.FlatButtonIconEnd,
+		SpaceBetween:    unit.Dp(5),
+	}
+
+	r.saveResponseButton = &widgets.FlatButton{
+		Text:            "Save",
+		BackgroundColor: theme.Palette.Bg,
+		TextColor:       theme.Palette.Fg,
+		MinWidth:        unit.Dp(75),
+		Icon:            widgets.CopyIcon,
+		IconPosition:    widgets.FlatButtonIconEnd,
+		SpaceBetween:    unit.Dp(5),
+	}
+
 	r.requestBodyBinary.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
 
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
 	r.queryParams.SetOnChanged(r.onQueryParamChange)
-
-	r.copyResponseButton.SetIcon(widgets.CopyIcon, widgets.FlatButtonIconEnd, 5)
-	r.copyResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	r.copyResponseButton.MinWidth = unit.Dp(75)
-	r.copyResponseButton.OnClicked = r.responseCopy
-
-	r.saveResponseButton.SetIcon(widgets.SaveIcon, widgets.FlatButtonIconEnd, 5)
-	r.saveResponseButton.SetColor(theme.Palette.Bg, theme.Palette.Fg)
-	r.saveResponseButton.MinWidth = unit.Dp(75)
 
 	r.sendButton = material.Button(theme, &r.sendClickable, "Send")
 	r.requestTabs = widgets.NewTabs([]*widgets.Tab{
@@ -726,6 +740,10 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 		return r.messageLayout(gtx, theme, "No response available yet ;)")
 	}
 
+	if r.copyClickable.Clicked(gtx) {
+		r.responseCopy()
+	}
+
 	return layout.Flex{
 		Axis: layout.Vertical,
 	}.Layout(gtx,
@@ -747,11 +765,11 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.copyResponseButton.Layout(gtx)
+					return r.copyResponseButton.Layout(gtx, theme)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.saveResponseButton.Layout(gtx)
+					return r.saveResponseButton.Layout(gtx, theme)
 				}),
 			)
 		}),

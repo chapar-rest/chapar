@@ -22,15 +22,13 @@ const (
 )
 
 type FlatButton struct {
-	theme *material.Theme
-
 	Icon         *widget.Icon
 	IconPosition int
-	SpaceBetween int
+	SpaceBetween unit.Dp
 
 	label widget.Label
 
-	clickable widget.Clickable
+	Clickable widget.Clickable
 
 	MinWidth        unit.Dp
 	BackgroundColor color.NRGBA
@@ -43,15 +41,7 @@ type FlatButton struct {
 	OnClicked func()
 }
 
-func NewFlatButton(theme *material.Theme, text string) *FlatButton {
-	return &FlatButton{
-		theme:     theme,
-		Text:      text,
-		clickable: widget.Clickable{},
-	}
-}
-
-func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween int) {
+func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween unit.Dp) {
 	f.Icon = icon
 	f.IconPosition = position
 	f.SpaceBetween = spaceBetween
@@ -62,33 +52,27 @@ func (f *FlatButton) SetColor(background, text color.NRGBA) {
 	f.TextColor = text
 }
 
-func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
+func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if f.BackgroundColor == (color.NRGBA{}) {
-		f.BackgroundColor = f.theme.Palette.ContrastBg
+		f.BackgroundColor = theme.Palette.ContrastBg
 	}
 
 	if f.TextColor == (color.NRGBA{}) {
-		f.TextColor = f.theme.Palette.ContrastFg
+		f.TextColor = theme.Palette.ContrastFg
 	}
 
 	axis := layout.Horizontal
 	labelLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		l := material.Label(f.theme, unit.Sp(12), f.Text)
+		l := material.Label(theme, unit.Sp(12), f.Text)
 		l.Color = f.TextColor
 		return l.Layout(gtx)
 	})
 
 	widgets := []layout.FlexChild{labelLayout}
 
-	for f.clickable.Clicked(gtx) {
-		if f.OnClicked != nil {
-			go f.OnClicked()
-		}
-	}
-
 	if f.Icon != nil {
 		iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(f.SpaceBetween)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(f.SpaceBetween).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return f.Icon.Layout(gtx, f.TextColor)
 			})
 		})
@@ -105,7 +89,7 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 
-	return f.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return f.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(f.BackgroundPadding).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Background{}.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
@@ -114,7 +98,7 @@ func (f *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 					background := f.BackgroundColor
 					if gtx.Source == (input.Source{}) {
 						background = Disabled(f.BackgroundColor)
-					} else if f.clickable.Hovered() || gtx.Focused(f.clickable) {
+					} else if f.Clickable.Hovered() || gtx.Focused(f.Clickable) {
 						background = Hovered(f.BackgroundColor)
 					}
 					paint.Fill(gtx.Ops, background)
