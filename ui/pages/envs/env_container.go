@@ -49,8 +49,7 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 
 		deleteButton: new(widget.Clickable),
 		saveButton:   new(widget.Clickable),
-
-		prompt: widgets.NewPrompt("Save", "This environment value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s", widgets.ModalTypeWarn, "Yes", "No"),
+		prompt:       widgets.NewPrompt("Save", "This environment value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s", widgets.ModalTypeWarn, "Yes", "No"),
 	}
 	c.prompt.WithRememberBool()
 	c.Load(env)
@@ -166,6 +165,36 @@ func (r *envContainer) save() {
 	}
 }
 
+func (r *envContainer) saveButtonLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	border := widget.Border{
+		Color:        theme.Palette.ContrastBg,
+		Width:        unit.Dp(1),
+		CornerRadius: unit.Dp(4),
+	}
+
+	return layout.Inset{Left: unit.Dp(15)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return widgets.Clickable(gtx, r.saveButton, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									gtx.Constraints.Max.X = gtx.Dp(16)
+									return widgets.SaveIcon.Layout(gtx, theme.Palette.ContrastFg)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return material.Body1(theme, "Save").Layout(gtx)
+								}),
+							)
+						}),
+					)
+				})
+			})
+		})
+	})
+}
+
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 	event.Op(gtx.Ops, r)
@@ -206,18 +235,11 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									if r.dataChanged {
-										ib := widgets.IconButton{
-											Icon:      widgets.SaveIcon,
-											Size:      unit.Dp(20),
-											Color:     widgets.Gray800,
-											Clickable: r.saveButton,
-										}
-
 										if r.saveButton.Clicked(gtx) {
 											r.save()
 										}
 
-										return ib.Layout(theme, gtx)
+										return r.saveButtonLayout(gtx, theme)
 									} else {
 										return layout.Dimensions{}
 									}
