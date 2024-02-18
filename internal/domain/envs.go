@@ -1,10 +1,14 @@
 package domain
 
+import "github.com/google/uuid"
+
+const EnvKind = "Environment"
+
 type Environment struct {
 	ApiVersion string     `yaml:"apiVersion"`
 	Kind       string     `yaml:"kind"`
 	Meta       EnvMeta    `yaml:"meta"`
-	Values     []EnvValue `yaml:"values"`
+	Values     []KeyValue `yaml:"values"`
 
 	FilePath string `yaml:"-"`
 }
@@ -14,14 +18,20 @@ type EnvMeta struct {
 	Name string `yaml:"name"`
 }
 
-type EnvValue struct {
-	ID     string `yaml:"id"`
-	Key    string `yaml:"key"`
-	Value  string `yaml:"value"`
-	Enable bool   `yaml:"enable"`
+func NewEnvironment(name string) *Environment {
+	return &Environment{
+		ApiVersion: ApiVersion,
+		Kind:       EnvKind,
+		Meta: EnvMeta{
+			ID:   uuid.NewString(),
+			Name: name,
+		},
+		Values:   make([]KeyValue, 0),
+		FilePath: "",
+	}
 }
 
-func CompareEnvValue(a, b EnvValue) bool {
+func CompareEnvValue(a, b KeyValue) bool {
 	// compare length of the values
 	if len(a.Key) != len(b.Key) || len(a.Value) != len(b.Value) || len(a.ID) != len(b.ID) {
 		return false
@@ -39,7 +49,7 @@ func (e *Environment) Clone() *Environment {
 		ApiVersion: e.ApiVersion,
 		Kind:       e.Kind,
 		Meta:       e.Meta,
-		Values:     make([]EnvValue, len(e.Values)),
+		Values:     make([]KeyValue, len(e.Values)),
 		FilePath:   e.FilePath,
 	}
 
@@ -50,7 +60,7 @@ func (e *Environment) Clone() *Environment {
 	return clone
 }
 
-func CompareEnvValues(a, b []EnvValue) bool {
+func CompareEnvValues(a, b []KeyValue) bool {
 	if len(a) != len(b) {
 		return false
 	}

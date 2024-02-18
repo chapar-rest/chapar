@@ -32,7 +32,7 @@ type envContainer struct {
 	dataChanged bool
 
 	onTitleChanged func(id, title string)
-	onDataChanged  func(id string, values []domain.EnvValue)
+	onDataChanged  func(id string, values []domain.KeyValue)
 }
 
 func newEnvContainer(env *domain.Environment) *envContainer {
@@ -125,9 +125,9 @@ func (r *envContainer) onPromptSubmit(selectedOption string, remember bool) {
 }
 
 func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
-	newEnvValues := make([]domain.EnvValue, 0, len(items))
+	newEnvValues := make([]domain.KeyValue, 0, len(items))
 	for _, vv := range items {
-		newEnvValues = append(newEnvValues, domain.EnvValue{
+		newEnvValues = append(newEnvValues, domain.KeyValue{
 			ID:     vv.Identifier,
 			Key:    vv.Key,
 			Value:  vv.Value,
@@ -147,9 +147,9 @@ func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
 }
 
 func (r *envContainer) populateItems() {
-	newEnvValues := make([]domain.EnvValue, 0, len(r.items.GetItems()))
+	newEnvValues := make([]domain.KeyValue, 0, len(r.items.GetItems()))
 	for _, vv := range r.items.GetItems() {
-		newEnvValues = append(newEnvValues, domain.EnvValue{
+		newEnvValues = append(newEnvValues, domain.KeyValue{
 			ID:     vv.Identifier,
 			Key:    vv.Key,
 			Value:  vv.Value,
@@ -163,7 +163,7 @@ func (r *envContainer) SetOnTitleChanged(f func(string, string)) {
 	r.onTitleChanged = f
 }
 
-func (r *envContainer) SetOnDataChanged(f func(string, []domain.EnvValue)) {
+func (r *envContainer) SetOnDataChanged(f func(string, []domain.KeyValue)) {
 	r.onDataChanged = f
 }
 

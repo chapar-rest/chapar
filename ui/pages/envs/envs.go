@@ -139,17 +139,7 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 }
 
 func (e *Envs) addNewEmptyEnv() {
-	env := &domain.Environment{
-		ApiVersion: "v1",
-		Kind:       "Environment",
-		Meta: domain.EnvMeta{
-			ID:   uuid.NewString(),
-			Name: "New env",
-		},
-		Values:   make([]domain.EnvValue, 0),
-		FilePath: "",
-	}
-
+	env := domain.NewEnvironment("New Environment")
 	treeViewNode := widgets.NewNode(env.Meta.Name, false)
 	treeViewNode.OnDoubleClick(e.onItemDoubleClick)
 	treeViewNode.SetIdentifier(env.Meta.ID)
