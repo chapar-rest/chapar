@@ -70,13 +70,13 @@ func New(theme *material.Theme) (*Envs, error) {
 	}
 
 	for _, env := range data {
-		if env.Meta.ID == "" {
-			env.Meta.ID = uuid.NewString()
+		if env.MetaData.ID == "" {
+			env.MetaData.ID = uuid.NewString()
 		}
 
-		node := widgets.NewNode(env.Meta.Name, false)
+		node := widgets.NewNode(env.MetaData.Name, false)
 		node.OnDoubleClick(e.onItemDoubleClick)
-		node.SetIdentifier(env.Meta.ID)
+		node.SetIdentifier(env.MetaData.ID)
 		treeView.AddNode(node, nil)
 	}
 
@@ -94,11 +94,11 @@ func New(theme *material.Theme) (*Envs, error) {
 func (e *Envs) onTitleChanged(id, title string) {
 	// find the opened tab and mark it as dirty
 	for _, ot := range e.openedTabs {
-		if ot.env.Meta.ID == id {
+		if ot.env.MetaData.ID == id {
 			// is name changed?
-			if ot.env.Meta.Name != title {
+			if ot.env.MetaData.Name != title {
 				// Update the tree view item and the tab title
-				ot.env.Meta.Name = title
+				ot.env.MetaData.Name = title
 				ot.tab.Title = title
 				ot.listItem.Text = title
 			}
@@ -109,7 +109,7 @@ func (e *Envs) onTitleChanged(id, title string) {
 func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 	// if env is already opened, just switch to it
 	for i, ot := range e.openedTabs {
-		if ot.env.Meta.ID == tr.Identifier {
+		if ot.env.MetaData.ID == tr.Identifier {
 			e.selectedIndex = i
 			e.tabs.SetSelected(i)
 			return
@@ -117,10 +117,10 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 	}
 
 	for _, env := range e.data {
-		if env.Meta.ID == tr.Identifier {
-			tab := &widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+		if env.MetaData.ID == tr.Identifier {
+			tab := &widgets.Tab{Title: env.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 			tab.SetOnClose(e.onTabClose)
-			tab.SetIdentifier(env.Meta.ID)
+			tab.SetIdentifier(env.MetaData.ID)
 
 			ot := &openedTab{
 				env:       env,
@@ -140,14 +140,14 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 
 func (e *Envs) addNewEmptyEnv() {
 	env := domain.NewEnvironment("New Environment")
-	treeViewNode := widgets.NewNode(env.Meta.Name, false)
+	treeViewNode := widgets.NewNode(env.MetaData.Name, false)
 	treeViewNode.OnDoubleClick(e.onItemDoubleClick)
-	treeViewNode.SetIdentifier(env.Meta.ID)
+	treeViewNode.SetIdentifier(env.MetaData.ID)
 	e.treeView.AddNode(treeViewNode, nil)
 
-	tab := &widgets.Tab{Title: env.Meta.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+	tab := &widgets.Tab{Title: env.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 	tab.SetOnClose(e.onTabClose)
-	tab.SetIdentifier(env.Meta.ID)
+	tab.SetIdentifier(env.MetaData.ID)
 
 	ot := &openedTab{
 		env:       env,
@@ -165,7 +165,7 @@ func (e *Envs) addNewEmptyEnv() {
 
 func (e *Envs) onTabClose(t *widgets.Tab) {
 	for _, ot := range e.openedTabs {
-		if ot.env.Meta.ID == t.Identifier {
+		if ot.env.MetaData.ID == t.Identifier {
 
 			// can we close the tab?
 			if !ot.container.OnClose() {

@@ -59,19 +59,19 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 			return
 		}
 
-		if c.env.Meta.Name == text {
+		if c.env.MetaData.Name == text {
 			return
 		}
 
 		// save changes to the environment
-		c.env.Meta.Name = text
+		c.env.MetaData.Name = text
 		if err := loader.UpdateEnvironment(c.env); err != nil {
 			c.showError(fmt.Sprintf("failed to update environment: %s", err))
 			return
 		}
 
 		if c.onTitleChanged != nil {
-			c.onTitleChanged(c.env.Meta.ID, text)
+			c.onTitleChanged(c.env.MetaData.ID, text)
 		}
 	})
 
@@ -135,14 +135,14 @@ func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
 		})
 	}
 
-	if domain.CompareEnvValues(r.env.Values, newEnvValues) {
+	if domain.CompareEnvValues(r.env.Spec.Values, newEnvValues) {
 		r.dataChanged = false
 		return
 	}
 
 	r.dataChanged = true
 	if r.onDataChanged != nil {
-		r.onDataChanged(r.env.Meta.ID, newEnvValues)
+		r.onDataChanged(r.env.MetaData.ID, newEnvValues)
 	}
 }
 
@@ -156,7 +156,7 @@ func (r *envContainer) populateItems() {
 			Enable: vv.Active,
 		})
 	}
-	r.env.Values = newEnvValues
+	r.env.Spec.Values = newEnvValues
 }
 
 func (r *envContainer) SetOnTitleChanged(f func(string, string)) {
@@ -173,9 +173,9 @@ func (r *envContainer) IsDataChanged() bool {
 
 func (r *envContainer) Load(e *domain.Environment) {
 	r.env = e
-	r.title.SetText(e.Meta.Name)
-	items := make([]*widgets.KeyValueItem, 0, len(e.Values))
-	for _, vv := range e.Values {
+	r.title.SetText(e.MetaData.Name)
+	items := make([]*widgets.KeyValueItem, 0, len(e.Spec.Values))
+	for _, vv := range e.Spec.Values {
 		items = append(items, widgets.NewKeyValueItem(vv.Key, vv.Value, vv.ID, vv.Enable))
 	}
 

@@ -1,8 +1,6 @@
 package domain
 
 const (
-	KindRequest = "Request"
-
 	RequestTypeHTTP = "http"
 	RequestTypeGRPC = "grpc"
 
@@ -31,27 +29,32 @@ const (
 	PrePostTypeK8sTunnel = "k8sTunnel"
 )
 
-type Request[Spec RequestSpec] struct {
+type Request struct {
 	ApiVersion string      `yaml:"apiVersion"`
 	Kind       string      `yaml:"kind"`
-	Meta       RequestMeta `yaml:"meta"`
-	Spec       Spec        `yaml:"spec"`
+	Meta       MetaData    `yaml:"metadata"`
+	Spec       RequestSpec `yaml:"spec"`
 	FilePath   string      `yaml:"-"`
 }
 
 type RequestMeta struct {
-	ID   string `yaml:"id"`
-	Name string `yaml:"name"`
+	MetaData
 	Type string `yaml:"type"`
 }
 
-type RequestSpec interface {
-	GRPCRequestSpec | HTTPRequestSpec
+type RequestSpec struct {
+	GRPC *GRPCRequestSpec `yaml:"grpc,omitempty"`
+	HTTP *HTTPRequestSpec `yaml:"http,omitempty"`
 }
 
 type GRPCRequestSpec struct {
 	Host   string `yaml:"host"`
 	Method string `yaml:"method"`
+}
+
+func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {
+	clone := *g
+	return &clone
 }
 
 type HTTPRequestSpec struct {
@@ -62,6 +65,11 @@ type HTTPRequestSpec struct {
 
 	Body      HTTPRequest    `yaml:"body"`
 	Responses []HTTPResponse `yaml:"responses"`
+}
+
+func (h *HTTPRequestSpec) Clone() *HTTPRequestSpec {
+	clone := *h
+	return &clone
 }
 
 type HTTPRequest struct {

@@ -5,28 +5,40 @@ import "github.com/google/uuid"
 const EnvKind = "Environment"
 
 type Environment struct {
-	ApiVersion string     `yaml:"apiVersion"`
-	Kind       string     `yaml:"kind"`
-	Meta       EnvMeta    `yaml:"meta"`
-	Values     []KeyValue `yaml:"values"`
-
-	FilePath string `yaml:"-"`
+	ApiVersion string   `yaml:"apiVersion"`
+	Kind       string   `yaml:"kind"`
+	MetaData   MetaData `yaml:"metadata"`
+	Spec       EnvSpec  `yaml:"spec"`
+	FilePath   string   `yaml:"-"`
 }
 
-type EnvMeta struct {
-	ID   string `yaml:"id"`
-	Name string `yaml:"name"`
+type EnvSpec struct {
+	Values []KeyValue `yaml:"values"`
+}
+
+func (e *EnvSpec) Clone() EnvSpec {
+	clone := EnvSpec{
+		Values: make([]KeyValue, len(e.Values)),
+	}
+
+	for i, v := range e.Values {
+		clone.Values[i] = v
+	}
+
+	return clone
 }
 
 func NewEnvironment(name string) *Environment {
 	return &Environment{
 		ApiVersion: ApiVersion,
 		Kind:       EnvKind,
-		Meta: EnvMeta{
+		MetaData: MetaData{
 			ID:   uuid.NewString(),
 			Name: name,
 		},
-		Values:   make([]KeyValue, 0),
+		Spec: EnvSpec{
+			Values: make([]KeyValue, 0),
+		},
 		FilePath: "",
 	}
 }
@@ -48,13 +60,9 @@ func (e *Environment) Clone() *Environment {
 	clone := &Environment{
 		ApiVersion: e.ApiVersion,
 		Kind:       e.Kind,
-		Meta:       e.Meta,
-		Values:     make([]KeyValue, len(e.Values)),
+		MetaData:   e.MetaData,
+		Spec:       e.Spec.Clone(),
 		FilePath:   e.FilePath,
-	}
-
-	for i, v := range e.Values {
-		clone.Values[i] = v
 	}
 
 	return clone

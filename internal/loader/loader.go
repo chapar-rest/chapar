@@ -167,7 +167,7 @@ func getNewFileName(name string) (string, error) {
 func UpdateEnvironment(env *domain.Environment) error {
 	if env.FilePath == "" {
 		// this is a new environment
-		fileName, err := getNewFileName(env.Meta.Name)
+		fileName, err := getNewFileName(env.MetaData.Name)
 		if err != nil {
 			return err
 		}
