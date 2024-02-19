@@ -229,7 +229,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 					Clickable: item.deleteButton,
 				}
 				return layout.Inset{Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return ib.Layout(theme, gtx)
+					return ib.Layout(gtx, theme)
 				})
 			}),
 		)
@@ -273,7 +273,7 @@ func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme 
 						Left:   0,
 						Right:  unit.Dp(10),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return kv.addButton.Layout(theme, gtx)
+						return kv.addButton.Layout(gtx, theme)
 					})
 				}),
 			)

@@ -113,3 +113,8 @@ var UploadIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.FileFileUpload)
 	return icon
 }()
+
+var MoreVertIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.NavigationMoreVert)
+	return icon
+}()

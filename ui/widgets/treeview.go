@@ -5,6 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"gioui.org/io/pointer"
+	"gioui.org/op"
+
+	"gioui.org/x/component"
+
 	"gioui.org/io/input"
 
 	"gioui.org/op/clip"
@@ -36,6 +41,11 @@ type TreeViewNode struct {
 	lastClickAt time.Time
 	order       int
 
+	menuClickable   *widget.Clickable
+	menuContextArea component.ContextArea
+	menu            component.MenuState
+	menuOptions     []string
+
 	onDoubleClick func(tr *TreeViewNode)
 }
 
@@ -55,10 +65,16 @@ func (t *TreeView) AddRootNode(text string, collapsed bool) {
 
 func NewNode(text string, collapsed bool) *TreeViewNode {
 	return &TreeViewNode{
-		Text:      text,
-		collapsed: collapsed,
-		clickable: &widget.Clickable{},
-		order:     1,
+		Text:          text,
+		collapsed:     collapsed,
+		clickable:     &widget.Clickable{},
+		menuClickable: &widget.Clickable{},
+		order:         1,
+		menuContextArea: component.ContextArea{
+			Activation:       pointer.ButtonPrimary,
+			AbsolutePosition: true,
+		},
+		menuOptions: []string{"Delete", "Duplicate"},
 	}
 }
 
@@ -167,7 +183,7 @@ func (t *TreeView) parentLayout(gtx layout.Context, theme *material.Theme, node 
 			},
 			func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceEnd}.Layout(gtx,
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if node.Children == nil {
 								s := gtx.Constraints.Min
@@ -182,9 +198,64 @@ func (t *TreeView) parentLayout(gtx layout.Context, theme *material.Theme, node 
 							return ForwardIcon.Layout(gtx, theme.ContrastFg)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return material.Label(theme, theme.TextSize, node.Text).Layout(gtx)
-							})
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										return material.Label(theme, theme.TextSize, node.Text).Layout(gtx)
+									})
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									if !node.clickable.Hovered() {
+										return layout.Dimensions{}
+									}
+
+									//ib := &IconButton{
+									//	Icon:                 MoreVertIcon,
+									//	Color:                theme.ContrastFg,
+									//	Size:                 unit.Dp(16),
+									//	BackgroundColor:      Hovered(theme.Palette.Bg),
+									//	BackgroundColorHover: theme.Palette.Bg,
+									//	Clickable:            node.menuClickable,
+									//}
+
+									iconBtn := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										//return ib.Layout(gtx, theme)
+										gtx.Constraints.Min.X = gtx.Dp(16)
+										return MoreVertIcon.Layout(gtx, theme.ContrastFg)
+									})
+
+									menuMicro := op.Record(gtx.Ops)
+									node.menu.Options = node.menu.Options[:0]
+									for _, opt := range node.menuOptions {
+										opt := opt
+										node.menu.Options = append(node.menu.Options, func(gtx layout.Context) layout.Dimensions {
+											dim := component.MenuItem(theme, &widget.Clickable{}, opt).Layout(gtx)
+											return dim
+										})
+									}
+									menuDim := component.Menu(theme, &node.menu).Layout(gtx)
+									menuMacroCall := menuMicro.Stop()
+
+									return layout.Stack{}.Layout(gtx,
+										layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+											return iconBtn
+										}),
+										layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+											return node.menuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												offset := layout.Inset{
+													Top:  unit.Dp(float32(iconBtn.Size.Y)/gtx.Metric.PxPerDp + 1),
+													Left: unit.Dp(4),
+												}
+												return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+													gtx.Constraints.Min = image.Point{}
+													menuMacroCall.Add(gtx.Ops)
+													return menuDim
+												})
+											})
+										}),
+									)
+								}),
+							)
 						}),
 					)
 				})

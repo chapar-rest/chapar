@@ -144,7 +144,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 										}
 										return layout.UniformInset(padding).Layout(gtx,
 											func(gtx layout.Context) layout.Dimensions {
-												return ib.Layout(theme, gtx)
+												return ib.Layout(gtx, theme)
 											},
 										)
 									}),
