@@ -5,14 +5,15 @@ import (
 
 	"gioui.org/io/event"
 	"gioui.org/io/key"
-	"gioui.org/op/clip"
-
 	"gioui.org/layout"
+	"gioui.org/op/clip"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
+	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -72,6 +73,7 @@ func newEnvContainer(env *domain.Environment) *envContainer {
 
 		if c.onTitleChanged != nil {
 			c.onTitleChanged(c.env.MetaData.ID, text)
+			bus.Publish(state.EnvironmentsChanged, nil)
 		}
 	})
 
@@ -189,6 +191,7 @@ func (r *envContainer) save() {
 			r.showError(fmt.Sprintf("failed to update environment: %s", err))
 		} else {
 			r.dataChanged = false
+			bus.Publish(state.EnvironmentsChanged, nil)
 		}
 	}
 }

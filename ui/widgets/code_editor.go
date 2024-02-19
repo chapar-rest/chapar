@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gioui.org/io/event"
-
 	"gioui.org/io/key"
 
 	"gioui.org/font"
@@ -59,7 +57,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 		CornerRadius: 0,
 	}
 
-	event.Op(gtx.Ops, c.editor)
 	for {
 		ev, ok := gtx.Event(
 			key.Filter{
@@ -74,6 +71,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 		if !ok {
 			continue
 		}
+
 		if e.Name == key.NameTab {
 			c.editor.Insert("    ")
 		}

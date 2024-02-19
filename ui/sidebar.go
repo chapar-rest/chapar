@@ -66,7 +66,7 @@ func (s *Sidebar) SelectedIndex() int {
 }
 
 func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
+	dims := s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				btn := s.flatButtons[i]
@@ -77,8 +77,20 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				return btn.Layout(gtx, theme)
 			}),
 			layout.Rigid(layout.Spacer{Height: 3}.Layout),
-			widgets.DrawLineFlex(widgets.Gray300, unit.Dp(2), unit.Dp(45)),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if i == len(s.Buttons)-1 {
+					return layout.Dimensions{}
+				}
+				return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
+			}),
 			layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		)
 	})
+
+	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return dims
+		}),
+		widgets.VerticalFullLine(),
+	)
 }

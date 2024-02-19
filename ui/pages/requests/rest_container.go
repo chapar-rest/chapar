@@ -177,7 +177,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		{Title: "Cookies"},
 	}, nil)
 
-	r.methodDropDown = widgets.NewDropDown(theme,
+	r.methodDropDown = widgets.NewDropDownWithoutBorder(
 		widgets.NewDropDownOption("GET"),
 		widgets.NewDropDownOption("POST"),
 		widgets.NewDropDownOption("PUT"),
@@ -186,9 +186,8 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		widgets.NewDropDownOption("HEAD"),
 		widgets.NewDropDownOption("OPTION"),
 	)
-	r.methodDropDown.SetSize(image.Point{X: 150})
 
-	r.preRequestDropDown = widgets.NewDropDown(theme,
+	r.preRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
 		widgets.NewDropDownOption("Python Script"),
 		widgets.NewDropDownOption("SSH Script"),
@@ -198,7 +197,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.preRequestDropDown.SetSize(image.Point{X: 230})
 	r.preRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
-	r.postRequestDropDown = widgets.NewDropDown(theme,
+	r.postRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
 		widgets.NewDropDownOption("Python Script"),
 		widgets.NewDropDownOption("SSH Script"),
@@ -207,7 +206,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	r.postRequestDropDown.SetSize(image.Point{X: 230})
 	r.postRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
-	r.requestBodyDropDown = widgets.NewDropDown(theme,
+	r.requestBodyDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
 		widgets.NewDropDownOption("JSON"),
 		widgets.NewDropDownOption("Text"),
@@ -463,7 +462,7 @@ func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) la
 			Spacing:   layout.SpaceEnd,
 		}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return r.methodDropDown.Layout(gtx)
+				return r.methodDropDown.Layout(gtx, theme)
 			}),
 			widgets.VerticalLine(40.0),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -501,7 +500,7 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return r.requestBodyDropDown.Layout(gtx)
+						return r.requestBodyDropDown.Layout(gtx, theme)
 					})
 				}),
 			)
@@ -566,7 +565,7 @@ func (r *RestContainer) requestPostReqLayout(gtx layout.Context, theme *material
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return r.postRequestDropDown.Layout(gtx)
+						return r.postRequestDropDown.Layout(gtx, theme)
 					})
 				}),
 			)
@@ -602,7 +601,7 @@ func (r *RestContainer) requestPreReqLayout(gtx layout.Context, theme *material.
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return r.preRequestDropDown.Layout(gtx)
+						return r.preRequestDropDown.Layout(gtx, theme)
 					})
 				}),
 			)
