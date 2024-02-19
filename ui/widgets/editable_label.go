@@ -70,6 +70,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 
 		if ee.Name == key.NameEscape {
 			e.isEditing = false
+			e.editor.SetText(e.Text)
 		}
 	}
 
