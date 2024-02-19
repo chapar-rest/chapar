@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -52,6 +53,26 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 		pointer.CursorText.Add(gtx.Ops)
 	}
 
+	for {
+		ev, ok := gtx.Event(
+			key.Filter{
+				Focus: e.editor,
+				Name:  key.NameEscape,
+			},
+		)
+		if !ok {
+			break
+		}
+		ee, ok := ev.(key.Event)
+		if !ok {
+			continue
+		}
+
+		if ee.Name == key.NameEscape {
+			e.isEditing = false
+		}
+	}
+
 	return e.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if e.isEditing {
 			if ev, ok := e.editor.Update(gtx); ok {
@@ -67,7 +88,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 
 			border := widget.Border{
 				Color:        theme.Palette.ContrastBg,
-				Width:        2,
+				Width:        1,
 				CornerRadius: unit.Dp(4),
 			}
 			return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
