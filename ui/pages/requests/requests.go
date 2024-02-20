@@ -15,7 +15,9 @@ type Requests struct {
 	addRequestButton widget.Clickable
 	importButton     widget.Clickable
 	searchBox        *widgets.TextField
-	requestsTree     *widgets.TreeView
+	// requestsTree     *widgets.TreeView
+
+	treeView *widgets.TreeViewV2
 
 	split         widgets.SplitView
 	tabs          *widgets.Tabs
@@ -38,9 +40,9 @@ func New(theme *material.Theme) *Requests {
 	}
 
 	req := &Requests{
-		searchBox:    search,
-		tabs:         widgets.NewTabs(tabItems, onTabsChange),
-		requestsTree: widgets.NewTreeView(),
+		searchBox: search,
+		tabs:      widgets.NewTabs(tabItems, onTabsChange),
+		//requestsTree: widgets.NewTreeView(),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),
@@ -52,11 +54,36 @@ func New(theme *material.Theme) *Requests {
 		restContainer: NewRestContainer(theme),
 	}
 
-	rq := widgets.NewNode("Users", false)
-	rq.AddChild(widgets.NewNode("Register user", false))
-	rq.AddChild(widgets.NewNode("Delete user", false))
-	rq.AddChild(widgets.NewNode("Update user", false))
-	req.requestsTree.AddNode(rq, nil)
+	req.treeView = widgets.NewTreeViewV2([]*widgets.TreeNodeV2{
+		{
+			Text:       "Users",
+			Identifier: "users",
+			Children: []*widgets.TreeNodeV2{
+				{
+					Text:       "Register user",
+					Identifier: "register_user",
+				},
+				{
+					Text:       "Delete user",
+					Identifier: "delete_user",
+				},
+				{
+					Text:       "Update user",
+					Identifier: "update_user",
+				},
+			},
+		},
+		{
+			Text:       "Posts",
+			Identifier: "posts",
+		},
+	})
+
+	//rq := widgets.NewNode("Users", false)
+	//rq.AddChild(widgets.NewNode("Register user", false))
+	//rq.AddChild(widgets.NewNode("Delete user", false))
+	//rq.AddChild(widgets.NewNode("Update user", false))
+	//req.requestsTree.AddNode(rq, nil)
 
 	return req
 }
@@ -84,7 +111,7 @@ func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimens
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestsTree.Layout(gtx, theme)
+					return r.treeView.Layout(gtx, theme)
 				})
 			}),
 		)
