@@ -17,7 +17,7 @@ type Requests struct {
 	searchBox        *widgets.TextField
 	// requestsTree     *widgets.TreeView
 
-	treeView *widgets.TreeViewV2
+	treeView *widgets.TreeView
 
 	split         widgets.SplitView
 	tabs          *widgets.Tabs
@@ -54,11 +54,11 @@ func New(theme *material.Theme) *Requests {
 		restContainer: NewRestContainer(theme),
 	}
 
-	req.treeView = widgets.NewTreeViewV2([]*widgets.TreeNodeV2{
+	req.treeView = widgets.NewTreeViewV2([]*widgets.TreeNode{
 		{
 			Text:       "Users",
 			Identifier: "users",
-			Children: []*widgets.TreeNodeV2{
+			Children: []*widgets.TreeNode{
 				{
 					Text:       "Register user",
 					Identifier: "register_user",
@@ -78,6 +78,9 @@ func New(theme *material.Theme) *Requests {
 			Identifier: "posts",
 		},
 	})
+
+	req.treeView.ParentMenuOptions = []string{"Delete", "-", "Duplicate"}
+	req.treeView.ChildMenuOptions = []string{"Delete", "Duplicate", "Move"}
 
 	//rq := widgets.NewNode("Users", false)
 	//rq.AddChild(widgets.NewNode("Register user", false))
