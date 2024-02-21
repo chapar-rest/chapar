@@ -18,8 +18,7 @@ import (
 type Envs struct {
 	addEnvButton widget.Clickable
 	searchBox    *widgets.TextField
-	//treeView     *widgets.TreeView
-	treeView *widgets.TreeView
+	treeView     *widgets.TreeView
 
 	split        widgets.SplitView
 	tabs         *widgets.Tabs
@@ -65,8 +64,6 @@ func New(theme *material.Theme) (*Envs, error) {
 		treeViewNodes = append(treeViewNodes, node)
 	}
 
-	// treeView := widgets.NewTreeView()
-
 	e := &Envs{
 		data:      data,
 		searchBox: search,
@@ -83,18 +80,7 @@ func New(theme *material.Theme) (*Envs, error) {
 		openedTabs: make([]*openedTab, 0),
 	}
 
-	//for _, env := range data {
-	//	if env.MetaData.ID == "" {
-	//		env.MetaData.ID = uuid.NewString()
-	//	}
-	//
-	//	node := widgets.NewNode(env.MetaData.Name, false)
-	//	node.OnDoubleClick(e.onItemDoubleClick)
-	//	node.SetIdentifier(env.MetaData.ID)
-	//	treeView.AddNode(node, nil)
-	//}
-
-	e.treeView.ParentMenuOptions = []string{"Delete", "Duplicate"}
+	e.treeView.ParentMenuOptions = []string{"Duplicate", "Delete", "Rename"}
 	e.treeView.OnDoubleClick(e.onItemDoubleClick)
 
 	e.searchBox.SetOnTextChange(func(text string) {
@@ -157,11 +143,6 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeNode) {
 
 func (e *Envs) addNewEmptyEnv() {
 	env := domain.NewEnvironment("New Environment")
-	//treeViewNode := widgets.NewNode(env.MetaData.Name, false)
-	//treeViewNode.OnDoubleClick(e.onItemDoubleClick)
-	//treeViewNode.SetIdentifier(env.MetaData.ID)
-	//e.treeView.AddNode(treeViewNode, nil)
-
 	node := &widgets.TreeNode{
 		Text:       env.MetaData.Name,
 		Identifier: env.MetaData.ID,
@@ -189,12 +170,10 @@ func (e *Envs) addNewEmptyEnv() {
 func (e *Envs) onTabClose(t *widgets.Tab) {
 	for _, ot := range e.openedTabs {
 		if ot.env.MetaData.ID == t.Identifier {
-
 			// can we close the tab?
 			if !ot.container.OnClose() {
 				return
 			}
-
 			ot.closed = true
 			break
 		}
