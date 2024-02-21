@@ -23,6 +23,8 @@ type TreeView struct {
 	ChildMenuOptions  []string
 	ParentMenuOptions []string
 
+	onMenuItemClick func(tr *TreeNode, item string)
+
 	filterText    string
 	filteredNodes []*TreeNode
 
@@ -38,10 +40,10 @@ type TreeNode struct {
 	menuContextArea component.ContextArea
 	menu            component.MenuState
 	menuOptions     []string
+	menuClickables  []*widget.Clickable
 
 	menuInit bool
-
-	isChild bool
+	isChild  bool
 
 	lastClickAt time.Time
 }
@@ -57,16 +59,29 @@ func NewTreeViewV2(nodes []*TreeNode) *TreeView {
 	}
 }
 
-func (t *TreeView) OnDoubleClick(f func(tr *TreeNode)) {
-	t.onDoubleClick = f
+func (t *TreeView) OnDoubleClick(fn func(tr *TreeNode)) {
+	t.onDoubleClick = fn
 }
 
 func (tr *TreeNode) SetIdentifier(identifier string) {
 	tr.Identifier = identifier
 }
 
+func (t *TreeView) SetOnMenuItemClick(fn func(tr *TreeNode, item string)) {
+	t.onMenuItemClick = fn
+}
+
 func (t *TreeView) AddNode(node *TreeNode) {
 	t.nodes = append(t.nodes, node)
+}
+
+func (t *TreeView) RemoveNode(identifier string) {
+	for i, n := range t.nodes {
+		if n.Identifier == identifier {
+			t.nodes = append(t.nodes[:i], t.nodes[i+1:]...)
+			return
+		}
+	}
 }
 
 func (t *TreeView) Filter(text string) {
@@ -207,17 +222,29 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 				}
 
 				out := make([]func(gtx layout.Context) layout.Dimensions, 0, len(options))
-				for _, opt := range options {
+				node.menuClickables = make([]*widget.Clickable, 0, len(options))
+				for i, opt := range options {
 					opt := opt
+					i := i
+					node.menuClickables = append(node.menuClickables, new(widget.Clickable))
+
 					if opt == "-" {
 						out = append(out, component.Divider(theme).Layout)
 						continue
 					}
 
-					out = append(out, component.MenuItem(theme, &widget.Clickable{}, opt).Layout)
+					out = append(out, component.MenuItem(theme, node.menuClickables[i], opt).Layout)
 				}
 				return out
 			}(),
+		}
+	}
+
+	for i := range node.menuClickables {
+		if node.menuClickables[i].Clicked(gtx) {
+			if t.onMenuItemClick != nil {
+				t.onMenuItemClick(node, t.ParentMenuOptions[i])
+			}
 		}
 	}
 
@@ -234,6 +261,7 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 				return t.LayoutTreeNode(gtx, theme, child)
 			}))
 	}
+
 	return component.Discloser(theme, &node.DiscloserState).Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Dp(16.4)

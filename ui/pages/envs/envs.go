@@ -1,6 +1,7 @@
 package envs
 
 import (
+	"fmt"
 	"image/color"
 
 	"gioui.org/op"
@@ -20,9 +21,8 @@ type Envs struct {
 	searchBox    *widgets.TextField
 	treeView     *widgets.TreeView
 
-	split        widgets.SplitView
-	tabs         *widgets.Tabs
-	envContainer *envContainer
+	split widgets.SplitView
+	tabs  *widgets.Tabs
 
 	data []*domain.Environment
 
@@ -80,8 +80,17 @@ func New(theme *material.Theme) (*Envs, error) {
 		openedTabs: make([]*openedTab, 0),
 	}
 
-	e.treeView.ParentMenuOptions = []string{"Duplicate", "Delete", "Rename"}
+	e.treeView.ParentMenuOptions = []string{"Duplicate", "Delete"}
 	e.treeView.OnDoubleClick(e.onItemDoubleClick)
+	e.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
+		if item == "Duplicate" {
+			e.duplicateEnv(tr.Identifier)
+		}
+
+		if item == "Delete" {
+			e.deleteEnv(tr.Identifier)
+		}
+	})
 
 	e.searchBox.SetOnTextChange(func(text string) {
 		if e.data == nil {
@@ -137,6 +146,43 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeNode) {
 			i := e.tabs.AddTab(tab)
 			e.selectedIndex = i
 			e.tabs.SetSelected(i)
+
+			break
+		}
+	}
+}
+
+func (e *Envs) duplicateEnv(identifier string) {
+	for _, env := range e.data {
+		if env.MetaData.ID == identifier {
+			newEnv := env.Clone()
+			newEnv.MetaData.ID = uuid.NewString()
+			newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
+			e.data = append(e.data, newEnv)
+
+			node := &widgets.TreeNode{
+				Text:       newEnv.MetaData.Name,
+				Identifier: newEnv.MetaData.ID,
+			}
+			e.treeView.AddNode(node)
+			if err := loader.UpdateEnvironment(newEnv); err != nil {
+				fmt.Println("failed to update environment", err)
+			}
+			break
+		}
+	}
+}
+
+func (e *Envs) deleteEnv(identifier string) {
+	for i, env := range e.data {
+		if env.MetaData.ID == identifier {
+			e.data = append(e.data[:i], e.data[i+1:]...)
+			e.treeView.RemoveNode(identifier)
+
+			if err := loader.DeleteEnvironment(env); err != nil {
+				fmt.Println("failed to delete environment", err)
+			}
+			break
 		}
 	}
 }

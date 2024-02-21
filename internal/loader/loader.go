@@ -105,6 +105,10 @@ func GetRequestsDir() (string, error) {
 	return requestsDir, nil
 }
 
+func DeleteEnvironment(env *domain.Environment) error {
+	return os.Remove(env.FilePath)
+}
+
 func ReadEnvironmentsData() ([]*domain.Environment, error) {
 	dir, err := GetEnvDir()
 	if err != nil {
