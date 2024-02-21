@@ -18,7 +18,8 @@ import (
 type Envs struct {
 	addEnvButton widget.Clickable
 	searchBox    *widgets.TextField
-	treeView     *widgets.TreeView
+	//treeView     *widgets.TreeView
+	treeView *widgets.TreeView
 
 	split        widgets.SplitView
 	tabs         *widgets.Tabs
@@ -34,7 +35,7 @@ type Envs struct {
 type openedTab struct {
 	env       *domain.Environment
 	tab       *widgets.Tab
-	listItem  *widgets.TreeViewNode
+	listItem  *widgets.TreeNode
 	container *envContainer
 
 	closed  bool
@@ -51,13 +52,26 @@ func New(theme *material.Theme) (*Envs, error) {
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(widgets.Gray600)
 
-	treeView := widgets.NewTreeView()
+	treeViewNodes := make([]*widgets.TreeNode, 0)
+	for _, env := range data {
+		if env.MetaData.ID == "" {
+			env.MetaData.ID = uuid.NewString()
+		}
+
+		node := &widgets.TreeNode{
+			Text:       env.MetaData.Name,
+			Identifier: env.MetaData.ID,
+		}
+		treeViewNodes = append(treeViewNodes, node)
+	}
+
+	// treeView := widgets.NewTreeView()
 
 	e := &Envs{
 		data:      data,
 		searchBox: search,
 		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
-		treeView:  treeView,
+		treeView:  widgets.NewTreeViewV2(treeViewNodes),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),
@@ -69,16 +83,19 @@ func New(theme *material.Theme) (*Envs, error) {
 		openedTabs: make([]*openedTab, 0),
 	}
 
-	for _, env := range data {
-		if env.MetaData.ID == "" {
-			env.MetaData.ID = uuid.NewString()
-		}
+	//for _, env := range data {
+	//	if env.MetaData.ID == "" {
+	//		env.MetaData.ID = uuid.NewString()
+	//	}
+	//
+	//	node := widgets.NewNode(env.MetaData.Name, false)
+	//	node.OnDoubleClick(e.onItemDoubleClick)
+	//	node.SetIdentifier(env.MetaData.ID)
+	//	treeView.AddNode(node, nil)
+	//}
 
-		node := widgets.NewNode(env.MetaData.Name, false)
-		node.OnDoubleClick(e.onItemDoubleClick)
-		node.SetIdentifier(env.MetaData.ID)
-		treeView.AddNode(node, nil)
-	}
+	e.treeView.ParentMenuOptions = []string{"Delete", "Duplicate"}
+	e.treeView.OnDoubleClick(e.onItemDoubleClick)
 
 	e.searchBox.SetOnTextChange(func(text string) {
 		if e.data == nil {
@@ -106,7 +123,7 @@ func (e *Envs) onTitleChanged(id, title string) {
 	}
 }
 
-func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
+func (e *Envs) onItemDoubleClick(tr *widgets.TreeNode) {
 	// if env is already opened, just switch to it
 	for i, ot := range e.openedTabs {
 		if ot.env.MetaData.ID == tr.Identifier {
@@ -140,10 +157,16 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeViewNode) {
 
 func (e *Envs) addNewEmptyEnv() {
 	env := domain.NewEnvironment("New Environment")
-	treeViewNode := widgets.NewNode(env.MetaData.Name, false)
-	treeViewNode.OnDoubleClick(e.onItemDoubleClick)
-	treeViewNode.SetIdentifier(env.MetaData.ID)
-	e.treeView.AddNode(treeViewNode, nil)
+	//treeViewNode := widgets.NewNode(env.MetaData.Name, false)
+	//treeViewNode.OnDoubleClick(e.onItemDoubleClick)
+	//treeViewNode.SetIdentifier(env.MetaData.ID)
+	//e.treeView.AddNode(treeViewNode, nil)
+
+	node := &widgets.TreeNode{
+		Text:       env.MetaData.Name,
+		Identifier: env.MetaData.ID,
+	}
+	e.treeView.AddNode(node)
 
 	tab := &widgets.Tab{Title: env.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 	tab.SetOnClose(e.onTabClose)
@@ -152,7 +175,7 @@ func (e *Envs) addNewEmptyEnv() {
 	ot := &openedTab{
 		env:       env,
 		tab:       tab,
-		listItem:  treeViewNode,
+		listItem:  node,
 		container: newEnvContainer(env.Clone()),
 	}
 	ot.container.SetOnTitleChanged(e.onTitleChanged)
