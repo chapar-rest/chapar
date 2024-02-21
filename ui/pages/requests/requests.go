@@ -15,9 +15,7 @@ type Requests struct {
 	addRequestButton widget.Clickable
 	importButton     widget.Clickable
 	searchBox        *widgets.TextField
-	// requestsTree     *widgets.TreeView
-
-	treeView *widgets.TreeView
+	treeView         *widgets.TreeView
 
 	split         widgets.SplitView
 	tabs          *widgets.Tabs
@@ -42,7 +40,6 @@ func New(theme *material.Theme) *Requests {
 	req := &Requests{
 		searchBox: search,
 		tabs:      widgets.NewTabs(tabItems, onTabsChange),
-		//requestsTree: widgets.NewTreeView(),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),
@@ -79,15 +76,8 @@ func New(theme *material.Theme) *Requests {
 		},
 	})
 
-	req.treeView.ParentMenuOptions = []string{"Delete", "-", "Duplicate"}
-	req.treeView.ChildMenuOptions = []string{"Delete", "Duplicate", "Move"}
-
-	//rq := widgets.NewNode("Users", false)
-	//rq.AddChild(widgets.NewNode("Register user", false))
-	//rq.AddChild(widgets.NewNode("Delete user", false))
-	//rq.AddChild(widgets.NewNode("Update user", false))
-	//req.requestsTree.AddNode(rq, nil)
-
+	req.treeView.ParentMenuOptions = []string{"Duplicate", "Rename", "Delete"}
+	req.treeView.ChildMenuOptions = []string{"Move", "Duplicate", "Rename", "Delete"}
 	return req
 }
 
