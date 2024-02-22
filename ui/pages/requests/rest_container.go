@@ -4,23 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/color"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"gioui.org/font"
-
-	"github.com/mirzakhany/chapar/internal/notify"
-
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/dustin/go-humanize"
+	"github.com/mirzakhany/chapar/internal/notify"
 	"github.com/mirzakhany/chapar/internal/rest"
 	"github.com/mirzakhany/chapar/ui/widgets"
-	"golang.design/x/clipboard"
 )
 
 type RestContainer struct {
@@ -105,9 +105,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		},
 		jsonViewer: widgets.NewJsonViewer(),
 
-		//copyClickable: widget.Clickable),
-		//saveClickable: new(widget.Clickable),
-
 		queryParams: widgets.NewKeyValue(
 			widgets.NewKeyValueItem("", "", "", false),
 		),
@@ -139,16 +136,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		IconPosition:    widgets.FlatButtonIconEnd,
 		SpaceBetween:    unit.Dp(5),
 	}
-
-	//r.saveResponseButton = &widgets.FlatButton{
-	//	Text:            "Save",
-	//	BackgroundColor: theme.Palette.Bg,
-	//	TextColor:       theme.Palette.Fg,
-	//	MinWidth:        unit.Dp(75),
-	//	Icon:            widgets.CopyIcon,
-	//	IconPosition:    widgets.FlatButtonIconEnd,
-	//	SpaceBetween:    unit.Dp(5),
-	//}
 
 	r.requestBodyBinary.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
 
@@ -306,13 +293,16 @@ func (r *RestContainer) prepareBody() ([]byte, string) {
 	return nil, ""
 }
 
-func (r *RestContainer) responseCopy() {
+func (r *RestContainer) copyResponseToClipboard(gtx layout.Context) {
 	switch r.responseTabs.Selected() {
 	case 0:
 		if r.result == "" {
 			return
 		}
-		clipboard.Write(clipboard.FmtText, []byte(r.result))
+
+		gtx.Execute(clipboard.WriteCmd{
+			Data: io.NopCloser(strings.NewReader(r.result)),
+		})
 		notify.Send("Response copied to clipboard", time.Second*3)
 	case 1:
 		if len(r.responseHeaders) == 0 {
@@ -324,7 +314,9 @@ func (r *RestContainer) responseCopy() {
 			headers += fmt.Sprintf("%s: %s\n", h.Key, h.Value)
 		}
 
-		clipboard.Write(clipboard.FmtText, []byte(headers))
+		gtx.Execute(clipboard.WriteCmd{
+			Data: io.NopCloser(strings.NewReader(headers)),
+		})
 		notify.Send("Response headers copied to clipboard", time.Second*3)
 	case 2:
 		if len(r.responseCookies) == 0 {
@@ -335,7 +327,10 @@ func (r *RestContainer) responseCopy() {
 		for _, c := range r.responseCookies {
 			cookies += fmt.Sprintf("%s: %s\n", c.Key, c.Value)
 		}
-		clipboard.Write(clipboard.FmtText, []byte(cookies))
+
+		gtx.Execute(clipboard.WriteCmd{
+			Data: io.NopCloser(strings.NewReader(cookies)),
+		})
 		notify.Send("Response cookies copied to clipboard", time.Second*3)
 	}
 }
@@ -693,7 +688,7 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 	}
 
 	if r.copyResponseButton.Clickable.Clicked(gtx) {
-		r.responseCopy()
+		r.copyResponseToClipboard(gtx)
 	}
 
 	return layout.Flex{
