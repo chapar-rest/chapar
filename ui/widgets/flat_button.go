@@ -37,8 +37,6 @@ type FlatButton struct {
 
 	BackgroundPadding unit.Dp
 	ContentPadding    unit.Dp
-
-	OnClicked func()
 }
 
 func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween unit.Dp) {

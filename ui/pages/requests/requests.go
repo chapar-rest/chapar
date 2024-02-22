@@ -83,10 +83,10 @@ func New(theme *material.Theme) *Requests {
 
 func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return material.Button(theme, &r.addRequestButton, "Add").Layout(gtx)
 						}),
@@ -103,7 +103,7 @@ func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimens
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(10), Right: 0}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return r.treeView.Layout(gtx, theme)
 				})
 			}),

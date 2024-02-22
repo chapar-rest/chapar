@@ -3,7 +3,6 @@ package requests
 import (
 	"encoding/json"
 	"fmt"
-	"image"
 	"image/color"
 	"net/http"
 	"net/url"
@@ -22,10 +21,6 @@ import (
 	"github.com/mirzakhany/chapar/internal/rest"
 	"github.com/mirzakhany/chapar/ui/widgets"
 	"golang.design/x/clipboard"
-)
-
-var (
-	requestTabsInset = layout.Inset{Left: unit.Dp(5), Top: unit.Dp(3)}
 )
 
 type RestContainer struct {
@@ -49,11 +44,11 @@ type RestContainer struct {
 
 	jsonViewer *widgets.JsonViewer
 
-	copyClickable      *widget.Clickable
-	saveClickable      *widget.Clickable
+	// copyClickable *widget.Clickable
+	// saveClickable      *widget.Clickable
 	copyResponseButton *widgets.FlatButton
-	saveResponseButton *widgets.FlatButton
-	responseTabs       *widgets.Tabs
+	// saveResponseButton *widgets.FlatButton
+	responseTabs *widgets.Tabs
 
 	// Request
 	requestBody         *widgets.CodeEditor
@@ -110,8 +105,8 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		},
 		jsonViewer: widgets.NewJsonViewer(),
 
-		copyClickable: new(widget.Clickable),
-		saveClickable: new(widget.Clickable),
+		//copyClickable: widget.Clickable),
+		//saveClickable: new(widget.Clickable),
 
 		queryParams: widgets.NewKeyValue(
 			widgets.NewKeyValueItem("", "", "", false),
@@ -145,15 +140,15 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		SpaceBetween:    unit.Dp(5),
 	}
 
-	r.saveResponseButton = &widgets.FlatButton{
-		Text:            "Save",
-		BackgroundColor: theme.Palette.Bg,
-		TextColor:       theme.Palette.Fg,
-		MinWidth:        unit.Dp(75),
-		Icon:            widgets.CopyIcon,
-		IconPosition:    widgets.FlatButtonIconEnd,
-		SpaceBetween:    unit.Dp(5),
-	}
+	//r.saveResponseButton = &widgets.FlatButton{
+	//	Text:            "Save",
+	//	BackgroundColor: theme.Palette.Bg,
+	//	TextColor:       theme.Palette.Fg,
+	//	MinWidth:        unit.Dp(75),
+	//	Icon:            widgets.CopyIcon,
+	//	IconPosition:    widgets.FlatButtonIconEnd,
+	//	SpaceBetween:    unit.Dp(5),
+	//}
 
 	r.requestBodyBinary.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
 
@@ -194,17 +189,12 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		widgets.NewDropDownOption("SSH Tunnel"),
 		widgets.NewDropDownOption("Kubectl Tunnel"),
 	)
-	r.preRequestDropDown.SetSize(image.Point{X: 230})
-	r.preRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
 	r.postRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
 		widgets.NewDropDownOption("Python Script"),
 		widgets.NewDropDownOption("SSH Script"),
 	)
-
-	r.postRequestDropDown.SetSize(image.Point{X: 230})
-	r.postRequestDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
 
 	r.requestBodyDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -215,9 +205,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 		widgets.NewDropDownOption("Binary"),
 		widgets.NewDropDownOption("Urlencoded"),
 	)
-	r.requestBodyDropDown.SetSize(image.Point{X: 230})
-	r.requestBodyDropDown.SetBorder(widgets.Gray400, unit.Dp(1), unit.Dp(4))
-
 	r.address.SingleLine = true
 	r.address.SetText("https://jsonplaceholder.typicode.com/comments")
 
@@ -494,14 +481,10 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, theme.TextSize, "Request body").Layout(gtx)
-					})
+					return material.Label(theme, theme.TextSize, "Request body").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return r.requestBodyDropDown.Layout(gtx, theme)
-					})
+					return r.requestBodyDropDown.Layout(gtx, theme)
 				}),
 			)
 		}),
@@ -525,9 +508,7 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 						Alignment: layout.Start,
 					}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return r.formDataParams.WithAddLayout(gtx, "", "", theme)
-							})
+							return r.formDataParams.WithAddLayout(gtx, "", "", theme)
 						}),
 					)
 				case 5: // binary
@@ -538,9 +519,7 @@ func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Th
 						Alignment: layout.Start,
 					}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return r.urlEncodedParams.WithAddLayout(gtx, "", "", theme)
-							})
+							return r.urlEncodedParams.WithAddLayout(gtx, "", "", theme)
 						}),
 					)
 				default:
@@ -559,14 +538,10 @@ func (r *RestContainer) requestPostReqLayout(gtx layout.Context, theme *material
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, theme.TextSize, "Action to do after request").Layout(gtx)
-					})
+					return material.Label(theme, theme.TextSize, "Action to do after request").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return r.postRequestDropDown.Layout(gtx, theme)
-					})
+					return r.postRequestDropDown.Layout(gtx, theme)
 				}),
 			)
 		}),
@@ -595,14 +570,10 @@ func (r *RestContainer) requestPreReqLayout(gtx layout.Context, theme *material.
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, theme.TextSize, "Action to do before request").Layout(gtx)
-					})
+					return material.Label(theme, theme.TextSize, "Action to do before request").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return r.preRequestDropDown.Layout(gtx, theme)
-					})
+					return r.preRequestDropDown.Layout(gtx, theme)
 				}),
 			)
 		}),
@@ -629,15 +600,11 @@ func (r *RestContainer) paramsLayout(gtx layout.Context, theme *material.Theme) 
 		Alignment: layout.Start,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.queryParams.WithAddLayout(gtx, "Query", "", theme)
-			})
+			return r.queryParams.WithAddLayout(gtx, "Query", "", theme)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(15)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.pathParams.WithAddLayout(gtx, "Path", "path params inside bracket, for example: {id}", theme)
-			})
+			return r.pathParams.WithAddLayout(gtx, "Path", "path params inside bracket, for example: {id}", theme)
 		}),
 	)
 }
@@ -648,9 +615,7 @@ func (r *RestContainer) requestBodyFormDataLayout(gtx layout.Context, theme *mat
 		Alignment: layout.Start,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.queryParams.WithAddLayout(gtx, "Query", "", theme)
-			})
+			return r.queryParams.WithAddLayout(gtx, "Query", "", theme)
 		}),
 	)
 }
@@ -664,33 +629,21 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 			return r.requestTabs.Layout(gtx, theme)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			switch r.requestTabs.Selected() {
-			case 0:
-				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.paramsLayout(gtx, theme)
-				//})
-			case 1:
-				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.requestBodyLayout(gtx, theme)
-				//})
-			case 2:
-				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return requestTabsInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				switch r.requestTabs.Selected() {
+				case 0:
+					return r.paramsLayout(gtx, theme)
+				case 1:
+					return r.requestBodyLayout(gtx, theme)
+				case 2:
 					return r.headers.WithAddLayout(gtx, "Headers", "", theme)
-				})
-				//})
-			case 3:
-				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.requestPreReqLayout(gtx, theme)
-				//})
-
-			case 4:
-				//return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.requestPostReqLayout(gtx, theme)
-				//})
-			}
-
-			return layout.Dimensions{}
+				case 3:
+					return r.requestPreReqLayout(gtx, theme)
+				case 4:
+					return r.requestPostReqLayout(gtx, theme)
+				}
+				return layout.Dimensions{}
+			})
 		}),
 	)
 }
@@ -739,7 +692,7 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 		return r.messageLayout(gtx, theme, "No response available yet ;)")
 	}
 
-	if r.copyClickable.Clicked(gtx) {
+	if r.copyResponseButton.Clickable.Clicked(gtx) {
 		r.responseCopy()
 	}
 
@@ -750,7 +703,7 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 			return r.responseTabs.Layout(gtx, theme)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						l := material.LabelStyle{
@@ -766,10 +719,10 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return r.copyResponseButton.Layout(gtx, theme)
 				}),
-				layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.saveResponseButton.Layout(gtx, theme)
-				}),
+				//layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+				//layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				//	return r.saveResponseButton.Layout(gtx, theme)
+				//}),
 			)
 		}),
 		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
