@@ -118,3 +118,18 @@ var MoreVertIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.NavigationMoreVert)
 	return icon
 }()
+
+var LogsIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionSubject)
+	return icon
+}()
+
+var ConsoleIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.HardwareDesktopMac)
+	return icon
+}()
+
+var TunnelIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionSwapVerticalCircle)
+	return icon
+}()

@@ -31,6 +31,9 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
 			{Icon: widgets.MenuIcon, Text: "Envs"},
 			{Icon: widgets.FileFolderIcon, Text: "Proto"},
+			{Icon: widgets.TunnelIcon, Text: "Tunnels"},
+			{Icon: widgets.ConsoleIcon, Text: "Console"},
+			{Icon: widgets.LogsIcon, Text: "Logs"},
 			{Icon: widgets.SettingsIcon, Text: "Settings"},
 		},
 		list: &widget.List{
@@ -53,7 +56,7 @@ func (s *Sidebar) makeButtons(theme *material.Theme) {
 			IconPosition:      widgets.FlatButtonIconTop,
 			SpaceBetween:      unit.Dp(5),
 			MinWidth:          unit.Dp(60),
-			BackgroundPadding: unit.Dp(3),
+			BackgroundPadding: unit.Dp(1),
 			BackgroundColor:   theme.Palette.Bg,
 			TextColor:         theme.Palette.Fg,
 			ContentPadding:    unit.Dp(5),
@@ -76,14 +79,12 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 
 				return btn.Layout(gtx, theme)
 			}),
-			layout.Rigid(layout.Spacer{Height: 3}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if i == len(s.Buttons)-1 {
 					return layout.Dimensions{}
 				}
 				return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
 			}),
-			layout.Rigid(layout.Spacer{Height: 3}.Layout),
 		)
 	})
 
