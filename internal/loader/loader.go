@@ -140,6 +140,37 @@ func ReadEnvironmentsData() ([]*domain.Environment, error) {
 	return out, nil
 }
 
+func ReadRequestsData() ([]*domain.Request, error) {
+	dir, err := GetRequestsDir()
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*domain.Request, 0)
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		filePath := path.Join(dir, file.Name())
+
+		req, err := LoadFromYaml[domain.Request](filePath)
+		if err != nil {
+			return nil, err
+		}
+		req.FilePath = filePath
+		out = append(out, req)
+	}
+
+	return out, nil
+
+}
+
 func getNewFileName(name string) (string, error) {
 	dir, err := GetEnvDir()
 	if err != nil {

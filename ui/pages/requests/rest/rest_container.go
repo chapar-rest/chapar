@@ -1,4 +1,4 @@
-package restcontainer
+package rest
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-type RestContainer struct {
+type Container struct {
 	// Request Bar
 	methodDropDown *widgets.DropDown
 	addressMutex   *sync.Mutex
@@ -74,8 +74,8 @@ type keyValue struct {
 	valueSelectable *widget.Selectable
 }
 
-func NewRestContainer(theme *material.Theme) *RestContainer {
-	r := &RestContainer{
+func NewRestContainer(theme *material.Theme) *Container {
+	r := &Container{
 		split: widgets.SplitView{
 			Ratio:         0,
 			BarWidth:      unit.Dp(2),
@@ -193,7 +193,7 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	return r
 }
 
-func (r *RestContainer) copyResponseToClipboard(gtx layout.Context) {
+func (r *Container) copyResponseToClipboard(gtx layout.Context) {
 	switch r.responseTabs.Selected() {
 	case 0:
 		if r.result == "" {
@@ -235,7 +235,7 @@ func (r *RestContainer) copyResponseToClipboard(gtx layout.Context) {
 	}
 }
 
-func (r *RestContainer) onQueryParamChange(items []*widgets.KeyValueItem) {
+func (r *Container) onQueryParamChange(items []*widgets.KeyValueItem) {
 	if r.updateQueryParams {
 		r.updateQueryParams = false
 		return
@@ -293,7 +293,7 @@ func (r *RestContainer) onQueryParamChange(items []*widgets.KeyValueItem) {
 	r.addressMutex.Unlock()
 }
 
-func (r *RestContainer) addressChanged() {
+func (r *Container) addressChanged() {
 	// Parse the existing URL
 	parsedURL, err := url.Parse(r.address.Text())
 	if err != nil {
@@ -316,7 +316,7 @@ func (r *RestContainer) addressChanged() {
 	r.queryParams.SetItems(items)
 }
 
-func (r *RestContainer) paramsLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Container) paramsLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,
@@ -331,7 +331,7 @@ func (r *RestContainer) paramsLayout(gtx layout.Context, theme *material.Theme) 
 	)
 }
 
-func (r *RestContainer) requestBodyFormDataLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Container) requestBodyFormDataLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,
@@ -342,7 +342,7 @@ func (r *RestContainer) requestBodyFormDataLayout(gtx layout.Context, theme *mat
 	)
 }
 
-func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Container) requestLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,
@@ -370,7 +370,7 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 	)
 }
 
-func (r *RestContainer) messageLayout(gtx layout.Context, theme *material.Theme, message string) layout.Dimensions {
+func (r *Container) messageLayout(gtx layout.Context, theme *material.Theme, message string) layout.Dimensions {
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		l := material.LabelStyle{
 			Text:     message,
@@ -383,7 +383,7 @@ func (r *RestContainer) messageLayout(gtx layout.Context, theme *material.Theme,
 	})
 }
 
-func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Container) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{

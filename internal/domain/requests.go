@@ -32,7 +32,7 @@ const (
 type Request struct {
 	ApiVersion string      `yaml:"apiVersion"`
 	Kind       string      `yaml:"kind"`
-	Meta       MetaData    `yaml:"metadata"`
+	MetaData   RequestMeta `yaml:"metadata"`
 	Spec       RequestSpec `yaml:"spec"`
 	FilePath   string      `yaml:"-"`
 }

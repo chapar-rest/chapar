@@ -48,7 +48,7 @@ type TreeNode struct {
 	lastClickAt time.Time
 }
 
-func NewTreeViewV2(nodes []*TreeNode) *TreeView {
+func NewTreeView(nodes []*TreeNode) *TreeView {
 	return &TreeView{
 		list: widget.List{
 			List: layout.List{
