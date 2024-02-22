@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 
 	"github.com/mirzakhany/chapar/internal/domain"
@@ -205,4 +206,13 @@ func SaveToYaml[T any](filename string, data *T) error {
 		return err
 	}
 	return nil
+}
+
+// AddSuffixBeforeExt to add a suffix before the file extension
+func AddSuffixBeforeExt(filePath, suffix string) string {
+	dir, file := filepath.Split(filePath)
+	extension := filepath.Ext(file)
+	baseName := file[:len(file)-len(extension)]
+	newBaseName := baseName + suffix + extension
+	return filepath.Join(dir, newBaseName)
 }

@@ -158,6 +158,8 @@ func (e *Envs) duplicateEnv(identifier string) {
 			newEnv := env.Clone()
 			newEnv.MetaData.ID = uuid.NewString()
 			newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
+			// add copy to file name
+			newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
 			e.data = append(e.data, newEnv)
 
 			node := &widgets.TreeNode{
