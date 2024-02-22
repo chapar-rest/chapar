@@ -1,25 +1,20 @@
-package requests
+package restcontainer
 
 import (
-	"encoding/json"
 	"fmt"
 	"image/color"
 	"io"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
-	"gioui.org/font"
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/dustin/go-humanize"
 	"github.com/mirzakhany/chapar/internal/notify"
-	"github.com/mirzakhany/chapar/internal/rest"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -198,101 +193,6 @@ func NewRestContainer(theme *material.Theme) *RestContainer {
 	return r
 }
 
-func (r *RestContainer) Submit() {
-	method := r.methodDropDown.GetSelected().Text
-	address := r.address.Text()
-	headers := make(map[string]string)
-	for _, h := range r.headers.GetItems() {
-		if h.Key == "" || !h.Active || h.Value == "" {
-			continue
-		}
-		headers[h.Key] = h.Value
-	}
-
-	body, contentType := r.prepareBody()
-	headers["Content-Type"] = contentType
-
-	r.resultStatus = ""
-	r.sendButton.Text = "Cancel"
-	r.loading = true
-	r.resultUpdated = false
-	defer func() {
-		r.sendButton.Text = "Send"
-		r.loading = false
-		r.resultUpdated = false
-	}()
-
-	res, err := rest.DoRequest(&rest.Request{
-		URL:     address,
-		Method:  method,
-		Headers: headers,
-		Body:    body,
-	})
-	if err != nil {
-		r.result = err.Error()
-		return
-	}
-
-	dataStr := string(res.Body)
-	if rest.IsJSON(dataStr) {
-		var data map[string]interface{}
-		if err := json.Unmarshal(res.Body, &data); err != nil {
-			r.result = err.Error()
-			return
-		}
-		var err error
-		dataStr, err = rest.PrettyJSON(res.Body)
-		if err != nil {
-			r.result = err.Error()
-			return
-		}
-	}
-
-	// format response status
-	r.resultStatus = fmt.Sprintf("%d %s, %s, %s", res.StatusCode, http.StatusText(res.StatusCode), res.TimePassed, humanize.Bytes(uint64(len(res.Body))))
-	r.responseHeaders = make([]keyValue, 0)
-	for k, v := range res.Headers {
-		r.responseHeaders = append(r.responseHeaders, keyValue{
-			Key:             k,
-			Value:           v,
-			keySelectable:   &widget.Selectable{},
-			valueSelectable: &widget.Selectable{},
-		})
-	}
-
-	// response cookies
-	r.responseCookies = make([]keyValue, 0)
-	for _, c := range res.Cookies {
-		r.responseCookies = append(r.responseCookies, keyValue{
-			Key:             c.Name,
-			Value:           c.Value,
-			keySelectable:   &widget.Selectable{},
-			valueSelectable: &widget.Selectable{},
-		})
-	}
-
-	r.result = dataStr
-}
-
-func (r *RestContainer) prepareBody() ([]byte, string) {
-	switch r.requestBodyDropDown.SelectedIndex() {
-	case 0: // none
-		return nil, ""
-	case 1: // json
-		return []byte(r.requestBody.Code()), "application/json"
-	case 2, 3: // text, xml
-		return []byte(r.requestBody.Code()), "application/text"
-	case 4: // form data
-		return nil, "application/form-data"
-	case 5: // binary
-		return nil, "application/octet-stream"
-	case 6: // urlencoded
-		return nil, "application/x-www-form-urlencoded"
-	}
-
-	return nil, ""
-}
-
 func (r *RestContainer) copyResponseToClipboard(gtx layout.Context) {
 	switch r.responseTabs.Selected() {
 	case 0:
@@ -416,179 +316,6 @@ func (r *RestContainer) addressChanged() {
 	r.queryParams.SetItems(items)
 }
 
-func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	border := widget.Border{
-		Color:        widgets.Gray400,
-		Width:        unit.Dp(1),
-		CornerRadius: unit.Dp(4),
-	}
-
-	for {
-		event, ok := r.address.Update(gtx)
-		if !ok {
-			break
-		}
-		if _, ok := event.(widget.ChangeEvent); ok {
-			if !r.updateAddress {
-				r.addressChanged()
-			} else {
-				r.updateAddress = false
-			}
-		}
-	}
-
-	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{
-			Axis:      layout.Horizontal,
-			Alignment: layout.Middle,
-			Spacing:   layout.SpaceEnd,
-		}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return r.methodDropDown.Layout(gtx, theme)
-			}),
-			widgets.VerticalLine(40.0),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					r.addressMutex.Lock()
-					defer r.addressMutex.Unlock()
-					return material.Editor(theme, r.address, "https://example.com").Layout(gtx)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					if r.sendClickable.Clicked(gtx) {
-						go r.Submit()
-					}
-
-					gtx.Constraints.Min.X = gtx.Dp(80)
-					return r.sendButton.Layout(gtx)
-				})
-			}),
-		)
-	})
-}
-
-func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis:      layout.Vertical,
-		Alignment: layout.Start,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Request body").Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.requestBodyDropDown.Layout(gtx, theme)
-				}),
-			)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				switch r.requestBodyDropDown.SelectedIndex() {
-				case 1, 2, 3: // json, text, xml
-					hint := ""
-					if r.requestBodyDropDown.SelectedIndex() == 1 {
-						hint = "Enter json"
-					} else if r.requestBodyDropDown.SelectedIndex() == 2 {
-						hint = "Enter text"
-					} else if r.requestBodyDropDown.SelectedIndex() == 3 {
-						hint = "Enter xml"
-					}
-
-					return r.requestBody.Layout(gtx, theme, hint)
-				case 4: // form data
-					return layout.Flex{
-						Axis:      layout.Vertical,
-						Alignment: layout.Start,
-					}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return r.formDataParams.WithAddLayout(gtx, "", "", theme)
-						}),
-					)
-				case 5: // binary
-					return r.requestBodyBinary.Layout(gtx, theme)
-				case 6: // urlencoded
-					return layout.Flex{
-						Axis:      layout.Vertical,
-						Alignment: layout.Start,
-					}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return r.urlEncodedParams.WithAddLayout(gtx, "", "", theme)
-						}),
-					)
-				default:
-					return layout.Dimensions{}
-				}
-			})
-		}),
-	)
-}
-
-func (r *RestContainer) requestPostReqLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis:      layout.Vertical,
-		Alignment: layout.Start,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Action to do after request").Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.postRequestDropDown.Layout(gtx, theme)
-				}),
-			)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			hint := ""
-			if r.postRequestDropDown.SelectedIndex() == 1 {
-				hint = "Python script"
-			} else if r.postRequestDropDown.SelectedIndex() == 2 {
-				hint = "SSH script"
-			} else {
-				return layout.Dimensions{}
-			}
-
-			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.postRequestBody.Layout(gtx, theme, hint)
-			})
-		}),
-	)
-}
-
-func (r *RestContainer) requestPreReqLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis:      layout.Vertical,
-		Alignment: layout.Start,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Action to do before request").Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.preRequestDropDown.Layout(gtx, theme)
-				}),
-			)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			hint := ""
-			if r.preRequestDropDown.SelectedIndex() == 1 {
-				hint = "Python script"
-			} else if r.preRequestDropDown.SelectedIndex() == 2 {
-				hint = "SSH script"
-			} else {
-				return layout.Dimensions{}
-			}
-
-			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.preRequestBody.Layout(gtx, theme, hint)
-			})
-		}),
-	)
-}
-
 func (r *RestContainer) paramsLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
@@ -643,32 +370,6 @@ func (r *RestContainer) requestLayout(gtx layout.Context, theme *material.Theme)
 	)
 }
 
-func (r *RestContainer) responseKeyValue(gtx layout.Context, theme *material.Theme, state *widget.List, itemType string, items []keyValue) layout.Dimensions {
-	if len(items) == 0 {
-		return r.messageLayout(gtx, theme, fmt.Sprintf("No %s available", itemType))
-	}
-
-	return material.List(theme, state).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					l := material.Label(theme, theme.TextSize, items[i].Key+":")
-					l.Font.Weight = font.Bold
-					l.State = items[i].keySelectable
-					return l.Layout(gtx)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					l := material.Label(theme, theme.TextSize, items[i].Value)
-					l.State = items[i].valueSelectable
-					return l.Layout(gtx)
-				})
-			}),
-		)
-	})
-}
-
 func (r *RestContainer) messageLayout(gtx layout.Context, theme *material.Theme, message string) layout.Dimensions {
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		l := material.LabelStyle{
@@ -680,60 +381,6 @@ func (r *RestContainer) messageLayout(gtx layout.Context, theme *material.Theme,
 		l.Font.Typeface = theme.Face
 		return l.Layout(gtx)
 	})
-}
-
-func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	if r.result == "" {
-		return r.messageLayout(gtx, theme, "No response available yet ;)")
-	}
-
-	if r.copyResponseButton.Clickable.Clicked(gtx) {
-		r.copyResponseToClipboard(gtx)
-	}
-
-	return layout.Flex{
-		Axis: layout.Vertical,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return r.responseTabs.Layout(gtx, theme)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.LabelStyle{
-							Text:     r.resultStatus,
-							Color:    widgets.LightGreen,
-							TextSize: theme.TextSize,
-							Shaper:   theme.Shaper,
-						}
-						l.Font.Typeface = theme.Face
-						return l.Layout(gtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.copyResponseButton.Layout(gtx, theme)
-				}),
-				//layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-				//layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				//	return r.saveResponseButton.Layout(gtx, theme)
-				//}),
-			)
-		}),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			switch r.responseTabs.Selected() {
-			case 1:
-				return r.responseKeyValue(gtx, theme, r.responseHeadersList, "headers", r.responseHeaders)
-			case 2:
-				return r.responseKeyValue(gtx, theme, r.responseCookiesList, "cookies", r.responseCookies)
-			default:
-				return layout.Inset{Left: unit.Dp(5), Bottom: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.jsonViewer.Layout(gtx, theme)
-				})
-			}
-		}),
-	)
 }
 
 func (r *RestContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

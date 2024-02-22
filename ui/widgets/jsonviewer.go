@@ -46,29 +46,31 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 	border := widget.Border{
 		Color:        Gray400,
 		Width:        unit.Dp(1),
-		CornerRadius: unit.Dp(0),
+		CornerRadius: unit.Dp(4),
 	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return material.List(theme, j.list).Layout(gtx, len(j.lines), func(gtx layout.Context, i int) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(theme, theme.TextSize, fmt.Sprintf("%d", i+1))
-						l.Font.Weight = font.Medium
-						l.Color = Gray800
-						l.Alignment = text.End
-						return l.Layout(gtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(theme, theme.TextSize, j.lines[i])
-						l.State = j.selectables[i]
-						return l.Layout(gtx)
-					})
-				}),
-			)
+		return layout.UniformInset(3).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return material.List(theme, j.list).Layout(gtx, len(j.lines), func(gtx layout.Context, i int) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(theme, theme.TextSize, fmt.Sprintf("%d", i+1))
+							l.Font.Weight = font.Medium
+							l.Color = Gray800
+							l.Alignment = text.End
+							return l.Layout(gtx)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.Label(theme, theme.TextSize, j.lines[i])
+							l.State = j.selectables[i]
+							return l.Layout(gtx)
+						})
+					}),
+				)
+			})
 		})
 	})
 }

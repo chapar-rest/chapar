@@ -37,8 +37,7 @@ type openedTab struct {
 	listItem  *widgets.TreeNode
 	container *envContainer
 
-	closed  bool
-	isDirty bool
+	closed bool
 }
 
 func New(theme *material.Theme) (*Envs, error) {

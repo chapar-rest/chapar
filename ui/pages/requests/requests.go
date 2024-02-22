@@ -8,6 +8,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/pages/requests/restcontainer"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -19,7 +20,7 @@ type Requests struct {
 
 	split         widgets.SplitView
 	tabs          *widgets.Tabs
-	restContainer *RestContainer
+	restContainer *restcontainer.RestContainer
 }
 
 func New(theme *material.Theme) *Requests {
@@ -48,7 +49,7 @@ func New(theme *material.Theme) *Requests {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		restContainer: NewRestContainer(theme),
+		restContainer: restcontainer.NewRestContainer(theme),
 	}
 
 	req.treeView = widgets.NewTreeViewV2([]*widgets.TreeNode{
