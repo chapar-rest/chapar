@@ -1,4 +1,4 @@
-package restcontainer
+package rest
 
 import (
 	"gioui.org/layout"
@@ -6,7 +6,7 @@ import (
 	"gioui.org/widget/material"
 )
 
-func (r *RestContainer) requestBodyLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Container) requestBodyLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,

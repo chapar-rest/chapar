@@ -1,4 +1,4 @@
-package restcontainer
+package rest
 
 import (
 	"gioui.org/layout"
@@ -8,7 +8,7 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-func (r *RestContainer) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Container) requestBar(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	border := widget.Border{
 		Color:        widgets.Gray400,
 		Width:        unit.Dp(1),

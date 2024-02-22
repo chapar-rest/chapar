@@ -67,7 +67,7 @@ func New(theme *material.Theme) (*Envs, error) {
 		data:      data,
 		searchBox: search,
 		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
-		treeView:  widgets.NewTreeViewV2(treeViewNodes),
+		treeView:  widgets.NewTreeView(treeViewNodes),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),

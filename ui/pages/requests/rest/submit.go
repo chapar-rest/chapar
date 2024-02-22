@@ -1,4 +1,4 @@
-package restcontainer
+package rest
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 	"github.com/mirzakhany/chapar/internal/rest"
 )
 
-func (r *RestContainer) Submit() {
+func (r *Container) Submit() {
 	method := r.methodDropDown.GetSelected().Text
 	address := r.address.Text()
 	headers := make(map[string]string)
@@ -86,7 +86,7 @@ func (r *RestContainer) Submit() {
 	r.result = dataStr
 }
 
-func (r *RestContainer) prepareBody() ([]byte, string) {
+func (r *Container) prepareBody() ([]byte, string) {
 	switch r.requestBodyDropDown.SelectedIndex() {
 	case 0: // none
 		return nil, ""

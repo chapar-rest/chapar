@@ -1,4 +1,4 @@
-package restcontainer
+package rest
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Container) responseLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if r.result == "" {
 		return r.messageLayout(gtx, theme, "No response available yet ;)")
 	}
@@ -61,7 +61,7 @@ func (r *RestContainer) responseLayout(gtx layout.Context, theme *material.Theme
 	)
 }
 
-func (r *RestContainer) responseKeyValue(gtx layout.Context, theme *material.Theme, state *widget.List, itemType string, items []keyValue) layout.Dimensions {
+func (r *Container) responseKeyValue(gtx layout.Context, theme *material.Theme, state *widget.List, itemType string, items []keyValue) layout.Dimensions {
 	if len(items) == 0 {
 		return r.messageLayout(gtx, theme, fmt.Sprintf("No %s available", itemType))
 	}
