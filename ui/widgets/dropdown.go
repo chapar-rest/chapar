@@ -56,6 +56,19 @@ func (o *DropDownOption) DefaultSelected() *DropDownOption {
 	return o
 }
 
+func (c *DropDown) SetSelected(index int) {
+	c.selectedOptionIndex = index
+}
+
+func (c *DropDown) SetSelectedByValue(value string) {
+	for i, opt := range c.options {
+		if opt.Text == value {
+			c.selectedOptionIndex = i
+			break
+		}
+	}
+}
+
 func NewDropDown(options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		menuContextArea: component.ContextArea{

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 
+	"gioui.org/op"
+
 	"github.com/google/uuid"
 
 	"github.com/mirzakhany/chapar/internal/loader"
@@ -19,6 +21,8 @@ import (
 )
 
 type Requests struct {
+	theme *material.Theme
+
 	addRequestButton widget.Clickable
 	importButton     widget.Clickable
 	searchBox        *widgets.TextField
@@ -63,20 +67,12 @@ func New(theme *material.Theme) (*Requests, error) {
 			Text:       req.MetaData.Name,
 			Identifier: req.MetaData.ID,
 		}
+
 		treeViewNodes = append(treeViewNodes, node)
 	}
 
-	//tabItems := []*widgets.Tab{
-	//	{Title: "Register user", Closable: true, CloseClickable: &widget.Clickable{}},
-	//	{Title: "Delete user", Closable: true, CloseClickable: &widget.Clickable{}},
-	//	{Title: "Update user", Closable: true, CloseClickable: &widget.Clickable{}},
-	//}
-
-	//onTabsChange := func(index int) {
-	//	fmt.Println("selected tab", index)
-	//}
-
 	req := &Requests{
+		theme:     theme,
 		data:      data,
 		searchBox: search,
 		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
@@ -89,43 +85,18 @@ func New(theme *material.Theme) (*Requests, error) {
 			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
 			BarColorHover: theme.Palette.ContrastBg,
 		},
+		openedTabs: make([]*openedTab, 0),
 	}
-	//
-	//req.treeView = widgets.NewTreeView([]*widgets.TreeNode{
-	//	{
-	//		Text:       "Users",
-	//		Identifier: "users",
-	//		Children: []*widgets.TreeNode{
-	//			{
-	//				Text:       "Register user",
-	//				Identifier: "register_user",
-	//			},
-	//			{
-	//				Text:       "Delete user",
-	//				Identifier: "delete_user",
-	//			},
-	//			{
-	//				Text:       "Update user",
-	//				Identifier: "update_user",
-	//			},
-	//		},
-	//	},
-	//	{
-	//		Text:       "Posts",
-	//		Identifier: "posts",
-	//	},
-	//})
-
 	req.treeView.ParentMenuOptions = []string{"Duplicate", "Rename", "Delete"}
 	req.treeView.ChildMenuOptions = []string{"Move", "Duplicate", "Rename", "Delete"}
 	req.treeView.OnDoubleClick(req.onItemDoubleClick)
 	req.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
 		if item == "Duplicate" {
-			req.duplicateEnv(tr.Identifier)
+			req.duplicateReq(tr.Identifier)
 		}
 
 		if item == "Delete" {
-			req.deleteEnv(tr.Identifier)
+			req.deleteReq(tr.Identifier)
 		}
 	})
 
@@ -138,6 +109,19 @@ func New(theme *material.Theme) (*Requests, error) {
 	})
 
 	return req, nil
+}
+
+func (r *Requests) onTabClose(t *widgets.Tab) {
+	for _, ot := range r.openedTabs {
+		if ot.req.MetaData.ID == t.Identifier {
+			// can we close the tab?
+			if !ot.container.OnClose() {
+				return
+			}
+			ot.closed = true
+			break
+		}
+	}
 }
 
 func (r *Requests) onTitleChanged(id, title string) {
@@ -175,7 +159,7 @@ func (r *Requests) onItemDoubleClick(tr *widgets.TreeNode) {
 				req:       req,
 				tab:       tab,
 				listItem:  tr,
-				container: newEnvContainer(req.Clone()),
+				container: rest.NewRestContainer(r.theme, req.Clone()),
 			}
 			ot.container.SetOnTitleChanged(r.onTitleChanged)
 			r.openedTabs = append(r.openedTabs, ot)
@@ -189,37 +173,37 @@ func (r *Requests) onItemDoubleClick(tr *widgets.TreeNode) {
 	}
 }
 
-func (r *Requests) duplicateEnv(identifier string) {
-	for _, env := range e.data {
-		if env.MetaData.ID == identifier {
-			newEnv := env.Clone()
-			newEnv.MetaData.ID = uuid.NewString()
-			newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
+func (r *Requests) duplicateReq(identifier string) {
+	for _, req := range r.data {
+		if req.MetaData.ID == identifier {
+			newReq := req.Clone()
+			newReq.MetaData.ID = uuid.NewString()
+			newReq.MetaData.Name = newReq.MetaData.Name + " (copy)"
 			// add copy to file name
-			newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
-			e.data = append(e.data, newEnv)
+			newReq.FilePath = loader.AddSuffixBeforeExt(newReq.FilePath, "-copy")
+			r.data = append(r.data, newReq)
 
 			node := &widgets.TreeNode{
-				Text:       newEnv.MetaData.Name,
-				Identifier: newEnv.MetaData.ID,
+				Text:       newReq.MetaData.Name,
+				Identifier: newReq.MetaData.ID,
 			}
-			e.treeView.AddNode(node)
-			if err := loader.UpdateEnvironment(newEnv); err != nil {
-				fmt.Println("failed to update environment", err)
+			r.treeView.AddNode(node)
+			if err := loader.UpdateRequest(newReq); err != nil {
+				fmt.Println("failed to update request", err)
 			}
 			break
 		}
 	}
 }
 
-func (r *Requests) deleteEnv(identifier string) {
-	for i, env := range e.data {
-		if env.MetaData.ID == identifier {
-			e.data = append(e.data[:i], e.data[i+1:]...)
-			e.treeView.RemoveNode(identifier)
+func (r *Requests) deleteReq(identifier string) {
+	for i, req := range r.data {
+		if req.MetaData.ID == identifier {
+			r.data = append(r.data[:i], r.data[i+1:]...)
+			r.treeView.RemoveNode(identifier)
 
-			if err := loader.DeleteEnvironment(env); err != nil {
-				fmt.Println("failed to delete environment", err)
+			if err := loader.DeleteRequest(req); err != nil {
+				fmt.Println("failed to delete request", err)
 			}
 			break
 		}
@@ -262,12 +246,51 @@ func (r *Requests) container(gtx layout.Context, theme *material.Theme) layout.D
 			return r.tabs.Layout(gtx, theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return r.restContainer.Layout(gtx, theme)
+			if r.selectedIndex > len(r.openedTabs)-1 {
+				return layout.Dimensions{}
+			}
+			ct := r.openedTabs[r.selectedIndex].container
+			r.openedTabs[r.selectedIndex].tab.SetDirty(ct.IsDataChanged())
+
+			return ct.Layout(gtx, theme)
 		}),
 	)
 }
 
 func (r *Requests) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	// update tabs with new items
+	tabItems := make([]*widgets.Tab, 0)
+	openItems := make([]*openedTab, 0)
+	for _, ot := range r.openedTabs {
+		if !ot.closed {
+			tabItems = append(tabItems, ot.tab)
+			openItems = append(openItems, ot)
+		}
+	}
+
+	r.tabs.SetTabs(tabItems)
+	r.openedTabs = openItems
+	selectTab := r.tabs.Selected()
+	gtx.Execute(op.InvalidateCmd{})
+
+	// is selected tab is closed:
+	// if its the last tab and there is another tab before it, select the previous one
+	// if its the first tab and there is another tab after it, select the next one
+	// if its the only tab, select it
+
+	if selectTab > len(openItems)-1 {
+		if len(openItems) > 0 {
+			r.tabs.SetSelected(len(openItems) - 1)
+		} else {
+			selectTab = 0
+			r.tabs.SetSelected(0)
+		}
+	}
+
+	if r.selectedIndex != selectTab {
+		r.selectedIndex = selectTab
+	}
+
 	return r.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return r.list(gtx, theme)

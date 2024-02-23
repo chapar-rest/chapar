@@ -110,6 +110,10 @@ func DeleteEnvironment(env *domain.Environment) error {
 	return os.Remove(env.FilePath)
 }
 
+func DeleteRequest(env *domain.Request) error {
+	return os.Remove(env.FilePath)
+}
+
 func ReadEnvironmentsData() ([]*domain.Environment, error) {
 	dir, err := GetEnvDir()
 	if err != nil {
@@ -163,6 +167,8 @@ func ReadRequestsData() ([]*domain.Request, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		fmt.Printf("req: %+v\n", req)
 		req.FilePath = filePath
 		out = append(out, req)
 	}
@@ -212,6 +218,20 @@ func UpdateEnvironment(env *domain.Environment) error {
 	}
 
 	return SaveToYaml(env.FilePath, env)
+}
+
+func UpdateRequest(req *domain.Request) error {
+	if req.FilePath == "" {
+		// this is a new request
+		fileName, err := getNewFileName(req.MetaData.Name)
+		if err != nil {
+			return err
+		}
+
+		req.FilePath = fileName
+	}
+
+	return SaveToYaml(req.FilePath, req)
 }
 
 func LoadFromYaml[T any](filename string) (*T, error) {

@@ -38,7 +38,8 @@ type Request struct {
 }
 
 type RequestMeta struct {
-	MetaData
+	ID   string `yaml:"id"`
+	Name string `yaml:"name"`
 	Type string `yaml:"type"`
 }
 
@@ -129,4 +130,21 @@ type SShTunnel struct {
 	TargetPort int `yaml:"targetPort"`
 
 	Flags []string `yaml:"flags"`
+}
+
+func (r *Request) Clone() *Request {
+	clone := *r
+	clone.Spec = *r.Spec.Clone()
+	return &clone
+}
+
+func (r *RequestSpec) Clone() *RequestSpec {
+	clone := *r
+	if r.GRPC != nil {
+		clone.GRPC = r.GRPC.Clone()
+	}
+	if r.HTTP != nil {
+		clone.HTTP = r.HTTP.Clone()
+	}
+	return &clone
 }
