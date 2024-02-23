@@ -53,7 +53,10 @@ func New() (*UI, error) {
 	ui.header = NewHeader(ui.Theme)
 	ui.sideBar = NewSidebar(ui.Theme)
 
-	ui.requestsPage = requests.New(ui.Theme)
+	ui.requestsPage, err = requests.New(ui.Theme)
+	if err != nil {
+		return nil, err
+	}
 	ui.envsPage, err = envs.New(ui.Theme)
 	if err != nil {
 		return nil, err

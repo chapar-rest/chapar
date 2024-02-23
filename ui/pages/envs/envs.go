@@ -227,10 +227,6 @@ func (e *Envs) onTabClose(t *widgets.Tab) {
 	}
 }
 
-func (e *Envs) SetData(data []*domain.Environment) {
-	e.data = data
-}
-
 func (e *Envs) container(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

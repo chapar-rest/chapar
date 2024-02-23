@@ -9,16 +9,31 @@ import (
 	"sync"
 	"time"
 
+	"gioui.org/io/event"
+	"gioui.org/io/key"
+	"gioui.org/op/clip"
+
+	"github.com/mirzakhany/chapar/internal/bus"
+	"github.com/mirzakhany/chapar/internal/loader"
+
+	"github.com/mirzakhany/chapar/internal/domain"
+
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/notify"
+	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Container struct {
+	req   *domain.Request
+	title *widgets.EditableLabel
+
+	saveButton *widget.Clickable
+
 	// Request Bar
 	methodDropDown *widgets.DropDown
 	addressMutex   *sync.Mutex
@@ -64,6 +79,13 @@ type Container struct {
 	headers           *widgets.KeyValue
 
 	split widgets.SplitView
+
+	dataChanged bool
+
+	onTitleChanged func(id, title string)
+	onDataChanged  func(id string, values []domain.KeyValue)
+
+	prompt *widgets.Prompt
 }
 
 type keyValue struct {
@@ -74,8 +96,10 @@ type keyValue struct {
 	valueSelectable *widget.Selectable
 }
 
-func NewRestContainer(theme *material.Theme) *Container {
+func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	r := &Container{
+		req:   req,
+		title: widgets.NewEditableLabel(""),
 		split: widgets.SplitView{
 			Ratio:         0,
 			BarWidth:      unit.Dp(2),
@@ -120,6 +144,9 @@ func NewRestContainer(theme *material.Theme) *Container {
 		),
 
 		addressMutex: &sync.Mutex{},
+
+		saveButton: new(widget.Clickable),
+		prompt:     widgets.NewPrompt("Save", "This request value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s", widgets.ModalTypeWarn, "Yes", "No"),
 	}
 
 	r.copyResponseButton = &widgets.FlatButton{
@@ -190,7 +217,98 @@ func NewRestContainer(theme *material.Theme) *Container {
 	r.address.SingleLine = true
 	r.address.SetText("https://jsonplaceholder.typicode.com/comments")
 
+	r.prompt.WithRememberBool()
+	r.Load(req)
+
 	return r
+}
+
+func (r *Container) SetOnTitleChanged(f func(string, string)) {
+	r.onTitleChanged = f
+}
+
+func (r *Container) SetOnDataChanged(f func(string, []domain.KeyValue)) {
+	r.onDataChanged = f
+}
+
+func (r *Container) IsDataChanged() bool {
+	return r.dataChanged
+}
+
+func (r *Container) Load(e *domain.Request) {
+	r.req = e
+	r.title.SetText(e.MetaData.Name)
+	r.address.SetText(e.Spec.HTTP.URL)
+	r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
+
+	// load url params
+	r.headers.SetItems(keyValueFromParams(e.Spec.HTTP.Body.Headers))
+	// TODO fix query params
+	r.queryParams.SetItems(keyValueFromParams(e.Spec.HTTP.Body.QueryParams))
+	r.pathParams.SetItems(keyValueFromParams(e.Spec.HTTP.Body.PathParams))
+	//items := make([]*widgets.KeyValueItem, 0, len(e.Spec.Values))
+	//for _, vv := range e.Spec.Values {
+	//	items = append(items, widgets.NewKeyValueItem(vv.Key, vv.Value, vv.ID, vv.Enable))
+	//}
+	//
+	//r.items.SetItems(items)
+}
+
+func keyValueFromParams(params []domain.KeyValue) []*widgets.KeyValueItem {
+	items := make([]*widgets.KeyValueItem, 0, len(params))
+	for _, vv := range params {
+		items = append(items, widgets.NewKeyValueItem(vv.Key, vv.Value, vv.ID, vv.Enable))
+	}
+
+	return items
+}
+
+// OnClose is called when the tab is closed
+// it returns true if the tab can be closed
+func (r *Container) OnClose() bool {
+	if r.dataChanged {
+		r.showNotSavedWarning()
+		return false
+	}
+
+	return true
+}
+
+func (r *Container) showError(err string) {
+	r.prompt.Type = widgets.ModalTypeErr
+	r.prompt.Content = err
+	r.prompt.SetOptions("I see")
+	r.prompt.WithoutRememberBool()
+	r.prompt.SetOnSubmit(nil)
+	r.prompt.Show()
+}
+
+func (r *Container) showNotSavedWarning() {
+	r.prompt.Type = widgets.ModalTypeWarn
+	r.prompt.Content = "This request value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s"
+	r.prompt.SetOptions("Yes", "No")
+	r.prompt.WithRememberBool()
+	r.prompt.SetOnSubmit(r.onPromptSubmit)
+	r.prompt.Show()
+}
+
+func (r *Container) onPromptSubmit(selectedOption string, remember bool) {
+	if selectedOption == "Yes" {
+		r.save()
+		r.prompt.Hide()
+	}
+}
+
+func (r *Container) save() {
+	if r.dataChanged {
+		// 	r.populateItems()
+		if err := loader.UpdateRequest(r.req); err != nil {
+			r.showError(fmt.Sprintf("failed to update request: %s", err))
+		} else {
+			r.dataChanged = false
+			bus.Publish(state.RequestsChanged, nil)
+		}
+	}
 }
 
 func (r *Container) copyResponseToClipboard(gtx layout.Context) {
@@ -384,40 +502,80 @@ func (r *Container) messageLayout(gtx layout.Context, theme *material.Theme, mes
 }
 
 func (r *Container) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{
-				Left:   unit.Dp(10),
-				Top:    unit.Dp(10),
-				Bottom: unit.Dp(5),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Label(theme, theme.TextSize, "Create user").Layout(gtx)
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return r.requestBar(gtx, theme)
-			})
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return r.split.Layout(gtx,
-				func(gtx layout.Context) layout.Dimensions {
-					return r.requestLayout(gtx, theme)
-				},
-				func(gtx layout.Context) layout.Dimensions {
-					if r.loading {
-						return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
-					} else {
-						// update only once
-						if !r.resultUpdated {
-							r.jsonViewer.SetData(r.result)
-							r.resultUpdated = true
-						}
-					}
+	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+	event.Op(gtx.Ops, r)
+	for {
+		keyEvent, ok := gtx.Event(
+			key.Filter{
+				Required: key.ModShortcut,
+				Name:     "S",
+			},
+		)
+		if !ok {
+			break
+		}
 
-					return r.responseLayout(gtx, theme)
-				},
-			)
-		}),
-	)
+		if ev, ok := keyEvent.(key.Event); ok {
+			if ev.Name == "S" && ev.Modifiers.Contain(key.ModShortcut) && ev.State == key.Press {
+				r.save()
+			}
+		}
+	}
+	area.Pop()
+
+	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return r.prompt.Layout(gtx, theme)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{
+					Top:    unit.Dp(5),
+					Bottom: unit.Dp(15),
+				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return r.title.Layout(gtx, theme)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if r.dataChanged {
+								if r.saveButton.Clicked(gtx) {
+									r.save()
+								}
+
+								return widgets.SaveButtonLayout(gtx, theme, r.saveButton)
+							} else {
+								return layout.Dimensions{}
+							}
+						}),
+					)
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return r.requestBar(gtx, theme)
+				})
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return r.split.Layout(gtx,
+					func(gtx layout.Context) layout.Dimensions {
+						return r.requestLayout(gtx, theme)
+					},
+					func(gtx layout.Context) layout.Dimensions {
+						if r.loading {
+							return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
+						} else {
+							// update only once
+							if !r.resultUpdated {
+								r.jsonViewer.SetData(r.result)
+								r.resultUpdated = true
+							}
+						}
+
+						return r.responseLayout(gtx, theme)
+					},
+				)
+			}),
+		)
+	})
 }
