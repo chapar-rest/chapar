@@ -175,6 +175,6 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				)
 			})
 		}),
-		HorizontalFullLine(),
+		DrawLineFlex(Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 	)
 }

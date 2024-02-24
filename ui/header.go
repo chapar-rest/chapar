@@ -15,7 +15,7 @@ type Header struct {
 	envDropDown *widgets.DropDown
 }
 
-func NewHeader(theme *material.Theme) *Header {
+func NewHeader() *Header {
 	h := &Header{
 		selectedEnv: "No Environment",
 	}
@@ -75,6 +75,6 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 			gtx.Constraints.Min.Y = gtx.Dp(200)
 			return headerBar
 		}),
-		widgets.HorizontalFullLine(),
+		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
 	)
 }

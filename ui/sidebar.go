@@ -58,7 +58,7 @@ func (s *Sidebar) makeButtons(theme *material.Theme) {
 			MinWidth:          unit.Dp(60),
 			BackgroundPadding: unit.Dp(1),
 			BackgroundColor:   theme.Palette.Bg,
-			TextColor:         theme.Palette.Fg,
+			TextColor:         widgets.Gray700,
 			ContentPadding:    unit.Dp(5),
 		})
 	}
@@ -77,6 +77,12 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 					s.selectedIndex = i
 				}
 
+				if s.selectedIndex == i {
+					btn.TextColor = theme.Palette.ContrastFg
+				} else {
+					btn.TextColor = widgets.Gray700
+				}
+
 				return btn.Layout(gtx, theme)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -92,6 +98,6 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return dims
 		}),
-		widgets.VerticalFullLine(),
+		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1)),
 	)
 }
