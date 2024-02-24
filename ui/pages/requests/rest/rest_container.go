@@ -54,11 +54,8 @@ type Container struct {
 
 	jsonViewer *widgets.JsonViewer
 
-	// copyClickable *widget.Clickable
-	// saveClickable      *widget.Clickable
 	copyResponseButton *widgets.FlatButton
-	// saveResponseButton *widgets.FlatButton
-	responseTabs *widgets.Tabs
+	responseTabs       *widgets.Tabs
 
 	// Request
 	requestBody         *widgets.CodeEditor
@@ -238,20 +235,24 @@ func (r *Container) IsDataChanged() bool {
 func (r *Container) Load(e *domain.Request) {
 	r.req = e
 	r.title.SetText(e.MetaData.Name)
-	r.address.SetText(e.Spec.HTTP.URL)
-	r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
 
-	// load url params
+	// format url with query params. it will update the query params list as well
+	finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, keyValueFromParams(e.Spec.HTTP.Body.QueryParams))
+	if err != nil {
+		fmt.Println("Error parsing URL:", err)
+		return
+	}
+
+	r.address.SetText(finalURL)
+	r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
 	r.headers.SetItems(keyValueFromParams(e.Spec.HTTP.Body.Headers))
-	// TODO fix query params
-	r.queryParams.SetItems(keyValueFromParams(e.Spec.HTTP.Body.QueryParams))
 	r.pathParams.SetItems(keyValueFromParams(e.Spec.HTTP.Body.PathParams))
-	//items := make([]*widgets.KeyValueItem, 0, len(e.Spec.Values))
-	//for _, vv := range e.Spec.Values {
-	//	items = append(items, widgets.NewKeyValueItem(vv.Key, vv.Value, vv.ID, vv.Enable))
-	//}
-	//
-	//r.items.SetItems(items)
+	r.requestBodyDropDown.SetSelectedByValue(e.Spec.HTTP.Body.BodyType)
+	r.requestBody.SetCode(e.Spec.HTTP.Body.Body)
+	r.preRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PreRequest.Type)
+	r.preRequestBody.SetCode(e.Spec.HTTP.Body.PreRequest.Script)
+	r.postRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PostRequest.Type)
+	r.postRequestBody.SetCode(e.Spec.HTTP.Body.PostRequest.Script)
 }
 
 func keyValueFromParams(params []domain.KeyValue) []*widgets.KeyValueItem {
@@ -364,18 +365,34 @@ func (r *Container) onQueryParamChange(items []*widgets.KeyValueItem) {
 		return
 	}
 
-	// Parse the existing URL
-	parsedURL, err := url.Parse(addr)
+	finalURL, err := updateURLWithQueryParams(addr, items)
 	if err != nil {
 		fmt.Println("Error parsing URL:", err)
 		return
+	}
+
+	r.addressMutex.Lock()
+	r.updateAddress = true
+
+	_, coll := r.address.CaretPos()
+	r.address.SetText(finalURL)
+	r.address.SetCaret(coll, coll+1)
+
+	r.addressMutex.Unlock()
+}
+
+func updateURLWithQueryParams(addr string, params []*widgets.KeyValueItem) (string, error) {
+	// Parse the existing URL
+	parsedURL, err := url.Parse(addr)
+	if err != nil {
+		return "", err
 	}
 
 	// Parse the query parameters from the URL
 	queryParams := parsedURL.Query()
 
 	// Iterate over the items and update the query parameters
-	for _, item := range items {
+	for _, item := range params {
 		if item.Active && item.Key != "" && item.Value != "" {
 			// Set the parameter only if both key and value are non-empty
 			queryParams.Set(item.Key, item.Value)
@@ -388,7 +405,7 @@ func (r *Container) onQueryParamChange(items []*widgets.KeyValueItem) {
 	// delete items that are not exit in items
 	for k := range queryParams {
 		found := false
-		for _, item := range items {
+		for _, item := range params {
 			if item.Active && item.Key == k {
 				found = true
 				break
@@ -400,15 +417,7 @@ func (r *Container) onQueryParamChange(items []*widgets.KeyValueItem) {
 	}
 
 	parsedURL.RawQuery = queryParams.Encode()
-	finalURL := parsedURL.String()
-	r.addressMutex.Lock()
-	r.updateAddress = true
-
-	_, coll := r.address.CaretPos()
-	r.address.SetText(finalURL)
-	r.address.SetCaret(coll, coll+1)
-
-	r.addressMutex.Unlock()
+	return parsedURL.String(), nil
 }
 
 func (r *Container) addressChanged() {
@@ -523,59 +532,58 @@ func (r *Container) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 	}
 	area.Pop()
 
-	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return r.prompt.Layout(gtx, theme)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{
-					Top:    unit.Dp(5),
-					Bottom: unit.Dp(15),
-				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return r.title.Layout(gtx, theme)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if r.dataChanged {
-								if r.saveButton.Clicked(gtx) {
-									r.save()
-								}
-
-								return widgets.SaveButtonLayout(gtx, theme, r.saveButton)
-							} else {
-								return layout.Dimensions{}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return r.prompt.Layout(gtx, theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{
+				Top:    unit.Dp(15),
+				Bottom: unit.Dp(15),
+				Left:   unit.Dp(5),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return r.title.Layout(gtx, theme)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if r.dataChanged {
+							if r.saveButton.Clicked(gtx) {
+								r.save()
 							}
-						}),
-					)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.requestBar(gtx, theme)
-				})
-			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.split.Layout(gtx,
-					func(gtx layout.Context) layout.Dimensions {
-						return r.requestLayout(gtx, theme)
-					},
-					func(gtx layout.Context) layout.Dimensions {
-						if r.loading {
-							return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
+
+							return widgets.SaveButtonLayout(gtx, theme, r.saveButton)
 						} else {
-							// update only once
-							if !r.resultUpdated {
-								r.jsonViewer.SetData(r.result)
-								r.resultUpdated = true
-							}
+							return layout.Dimensions{}
 						}
-
-						return r.responseLayout(gtx, theme)
-					},
+					}),
 				)
-			}),
-		)
-	})
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return r.requestBar(gtx, theme)
+			})
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return r.split.Layout(gtx,
+				func(gtx layout.Context) layout.Dimensions {
+					return r.requestLayout(gtx, theme)
+				},
+				func(gtx layout.Context) layout.Dimensions {
+					if r.loading {
+						return material.Label(theme, theme.TextSize, "Loading...").Layout(gtx)
+					} else {
+						// update only once
+						if !r.resultUpdated {
+							r.jsonViewer.SetData(r.result)
+							r.resultUpdated = true
+						}
+					}
+
+					return r.responseLayout(gtx, theme)
+				},
+			)
+		}),
+	)
 }
