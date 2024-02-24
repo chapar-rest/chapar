@@ -50,7 +50,7 @@ func New() (*UI, error) {
 	ui.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
 
 	ui.Theme.TextSize = unit.Sp(14)
-	ui.header = NewHeader(ui.Theme)
+	ui.header = NewHeader()
 	ui.sideBar = NewSidebar(ui.Theme)
 
 	ui.requestsPage, err = requests.New(ui.Theme)
