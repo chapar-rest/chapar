@@ -33,12 +33,11 @@ func (r *Container) requestBar(gtx layout.Context, theme *material.Theme) layout
 		return layout.Flex{
 			Axis:      layout.Horizontal,
 			Alignment: layout.Middle,
-			Spacing:   layout.SpaceEnd,
 		}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.methodDropDown.Layout(gtx, theme)
 			}),
-			widgets.VerticalLine(40.0),
+			widgets.DrawLineFlex(widgets.Gray300, unit.Dp(20), unit.Dp(1)),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					r.addressMutex.Lock()
@@ -47,14 +46,12 @@ func (r *Container) requestBar(gtx layout.Context, theme *material.Theme) layout
 				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					if r.sendClickable.Clicked(gtx) {
-						go r.Submit()
-					}
+				if r.sendClickable.Clicked(gtx) {
+					go r.Submit()
+				}
 
-					gtx.Constraints.Min.X = gtx.Dp(80)
-					return r.sendButton.Layout(gtx)
-				})
+				gtx.Constraints.Min.X = gtx.Dp(80)
+				return r.sendButton.Layout(gtx)
 			}),
 		)
 	})

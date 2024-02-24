@@ -168,7 +168,6 @@ func ReadRequestsData() ([]*domain.Request, error) {
 			return nil, err
 		}
 
-		fmt.Printf("req: %+v\n", req)
 		req.FilePath = filePath
 		out = append(out, req)
 	}
