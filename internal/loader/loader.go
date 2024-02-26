@@ -176,12 +176,7 @@ func ReadRequestsData() ([]*domain.Request, error) {
 
 }
 
-func getNewFileName(name string) (string, error) {
-	dir, err := GetEnvDir()
-	if err != nil {
-		return "", err
-	}
-
+func getNewFileName(dir, name string) (string, error) {
 	fileName := path.Join(dir, name+".yaml")
 
 	// if its already exists, add a number to the end of the name
@@ -208,7 +203,12 @@ func getNewFileName(name string) (string, error) {
 func UpdateEnvironment(env *domain.Environment) error {
 	if env.FilePath == "" {
 		// this is a new environment
-		fileName, err := getNewFileName(env.MetaData.Name)
+		dir, err := GetEnvDir()
+		if err != nil {
+			return err
+		}
+
+		fileName, err := getNewFileName(dir, env.MetaData.Name)
 		if err != nil {
 			return err
 		}
@@ -221,8 +221,12 @@ func UpdateEnvironment(env *domain.Environment) error {
 
 func UpdateRequest(req *domain.Request) error {
 	if req.FilePath == "" {
+		dir, err := GetRequestsDir()
+		if err != nil {
+			return err
+		}
 		// this is a new request
-		fileName, err := getNewFileName(req.MetaData.Name)
+		fileName, err := getNewFileName(dir, req.MetaData.Name)
 		if err != nil {
 			return err
 		}

@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/google/uuid"
+
 const (
 	RequestTypeHTTP = "http"
 	RequestTypeGRPC = "grpc"
@@ -147,4 +149,27 @@ func (r *RequestSpec) Clone() *RequestSpec {
 		clone.HTTP = r.HTTP.Clone()
 	}
 	return &clone
+}
+
+func NewRequest(name string) *Request {
+	return &Request{
+		ApiVersion: ApiVersion,
+		Kind:       KindRequest,
+		MetaData: RequestMeta{
+			ID:   uuid.NewString(),
+			Name: name,
+			Type: RequestTypeHTTP,
+		},
+		Spec: RequestSpec{
+			HTTP: &HTTPRequestSpec{
+				Method: RequestMethodGET,
+				URL:    "https://example.com",
+				Body: HTTPRequest{
+					Headers: []KeyValue{
+						{Key: "Content-Type", Value: "application/json"},
+					},
+				},
+			},
+		},
+	}
 }

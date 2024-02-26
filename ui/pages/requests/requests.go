@@ -210,6 +210,32 @@ func (r *Requests) deleteReq(identifier string) {
 	}
 }
 
+func (r *Requests) addNewEmptyReq() {
+	req := domain.NewRequest("New Request")
+	node := &widgets.TreeNode{
+		Text:       req.MetaData.Name,
+		Identifier: req.MetaData.ID,
+	}
+	r.treeView.AddNode(node)
+
+	tab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+	tab.SetOnClose(r.onTabClose)
+	tab.SetIdentifier(req.MetaData.ID)
+
+	ot := &openedTab{
+		req:       req,
+		tab:       tab,
+		listItem:  node,
+		container: rest.NewRestContainer(r.theme, req.Clone()),
+	}
+	ot.container.SetOnTitleChanged(r.onTitleChanged)
+	r.openedTabs = append(r.openedTabs, ot)
+
+	i := r.tabs.AddTab(tab)
+	r.selectedIndex = i
+	r.tabs.SetSelected(i)
+}
+
 func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
@@ -217,6 +243,10 @@ func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimens
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if r.addRequestButton.Clicked(gtx) {
+								r.addNewEmptyReq()
+							}
+
 							return material.Button(theme, &r.addRequestButton, "Add").Layout(gtx)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),

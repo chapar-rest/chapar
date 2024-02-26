@@ -67,17 +67,3 @@ func (e *Environment) Clone() *Environment {
 
 	return clone
 }
-
-func CompareEnvValues(a, b []KeyValue) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i, v := range a {
-		if !CompareEnvValue(v, b[i]) {
-			return false
-		}
-	}
-
-	return true
-}

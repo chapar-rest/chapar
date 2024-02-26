@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mirzakhany/chapar/ui/converter"
+
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/op/clip"
@@ -146,6 +148,28 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		prompt:     widgets.NewPrompt("Save", "This request value is changed, do you wanna save it before closing it?\nHint: you always can save the changes with ctrl+s", widgets.ModalTypeWarn, "Yes", "No"),
 	}
 
+	r.title.SetOnChanged(func(text string) {
+		if r.req == nil {
+			return
+		}
+
+		if r.req.MetaData.Name == text {
+			return
+		}
+
+		// save changes to the request
+		r.req.MetaData.Name = text
+		if err := loader.UpdateRequest(r.req); err != nil {
+			r.showError(fmt.Sprintf("failed to update request: %s", err))
+			return
+		}
+
+		if r.onTitleChanged != nil {
+			r.onTitleChanged(r.req.MetaData.ID, text)
+			bus.Publish(state.RequestsChanged, nil)
+		}
+	})
+
 	r.copyResponseButton = &widgets.FlatButton{
 		Text:            "Copy",
 		BackgroundColor: theme.Palette.Bg,
@@ -237,7 +261,7 @@ func (r *Container) Load(e *domain.Request) {
 	r.title.SetText(e.MetaData.Name)
 
 	// format url with query params. it will update the query params list as well
-	finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, keyValueFromParams(e.Spec.HTTP.Body.QueryParams))
+	finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.QueryParams))
 	if err != nil {
 		fmt.Println("Error parsing URL:", err)
 		return
@@ -245,23 +269,14 @@ func (r *Container) Load(e *domain.Request) {
 
 	r.address.SetText(finalURL)
 	r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
-	r.headers.SetItems(keyValueFromParams(e.Spec.HTTP.Body.Headers))
-	r.pathParams.SetItems(keyValueFromParams(e.Spec.HTTP.Body.PathParams))
+	r.headers.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.Headers))
+	r.pathParams.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.PathParams))
 	r.requestBodyDropDown.SetSelectedByValue(e.Spec.HTTP.Body.BodyType)
 	r.requestBody.SetCode(e.Spec.HTTP.Body.Body)
 	r.preRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PreRequest.Type)
 	r.preRequestBody.SetCode(e.Spec.HTTP.Body.PreRequest.Script)
 	r.postRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PostRequest.Type)
 	r.postRequestBody.SetCode(e.Spec.HTTP.Body.PostRequest.Script)
-}
-
-func keyValueFromParams(params []domain.KeyValue) []*widgets.KeyValueItem {
-	items := make([]*widgets.KeyValueItem, 0, len(params))
-	for _, vv := range params {
-		items = append(items, widgets.NewKeyValueItem(vv.Key, vv.Value, vv.ID, vv.Enable))
-	}
-
-	return items
 }
 
 // OnClose is called when the tab is closed
@@ -302,7 +317,7 @@ func (r *Container) onPromptSubmit(selectedOption string, remember bool) {
 
 func (r *Container) save() {
 	if r.dataChanged {
-		// 	r.populateItems()
+		r.populateItems()
 		if err := loader.UpdateRequest(r.req); err != nil {
 			r.showError(fmt.Sprintf("failed to update request: %s", err))
 		} else {
@@ -310,6 +325,20 @@ func (r *Container) save() {
 			bus.Publish(state.RequestsChanged, nil)
 		}
 	}
+}
+
+func (r *Container) populateItems() {
+	r.req.Spec.HTTP.Body.Headers = converter.KeyValueFromWidgetItems(r.headers.GetItems())
+	r.req.Spec.HTTP.Body.QueryParams = converter.KeyValueFromWidgetItems(r.queryParams.GetItems())
+	r.req.Spec.HTTP.Body.PathParams = converter.KeyValueFromWidgetItems(r.pathParams.GetItems())
+	r.req.Spec.HTTP.Body.BodyType = r.requestBodyDropDown.GetSelected().Text
+	r.req.Spec.HTTP.Body.Body = r.requestBody.Code()
+	r.req.Spec.HTTP.Body.PreRequest.Type = r.preRequestDropDown.GetSelected().Text
+	r.req.Spec.HTTP.Body.PreRequest.Script = r.preRequestBody.Code()
+	r.req.Spec.HTTP.Body.PostRequest.Type = r.postRequestDropDown.GetSelected().Text
+	r.req.Spec.HTTP.Body.PostRequest.Script = r.postRequestBody.Code()
+	r.req.Spec.HTTP.Method = r.methodDropDown.GetSelected().Text
+	r.req.Spec.HTTP.URL = r.address.Text()
 }
 
 func (r *Container) copyResponseToClipboard(gtx layout.Context) {

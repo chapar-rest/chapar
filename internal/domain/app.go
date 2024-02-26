@@ -22,3 +22,17 @@ type KeyValue struct {
 	Value  string `yaml:"value"`
 	Enable bool   `yaml:"enable"`
 }
+
+func CompareKeyValues(a, b []KeyValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, v := range a {
+		if !CompareEnvValue(v, b[i]) {
+			return false
+		}
+	}
+
+	return true
+}

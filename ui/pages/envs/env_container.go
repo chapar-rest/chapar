@@ -137,7 +137,7 @@ func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
 		})
 	}
 
-	if domain.CompareEnvValues(r.env.Spec.Values, newEnvValues) {
+	if domain.CompareKeyValues(r.env.Spec.Values, newEnvValues) {
 		r.dataChanged = false
 		return
 	}
