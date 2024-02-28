@@ -12,14 +12,13 @@ func (r *Container) requestPreReqLayout(gtx layout.Context, theme *material.Them
 		Alignment: layout.Start,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Action to do before request").Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.preRequestDropDown.Layout(gtx, theme)
-				}),
-			)
+			return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return r.preRequestDropDown.Layout(gtx, theme)
+					}),
+				)
+			})
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			hint := ""
@@ -30,8 +29,7 @@ func (r *Container) requestPreReqLayout(gtx layout.Context, theme *material.Them
 			} else {
 				return layout.Dimensions{}
 			}
-
-			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return r.preRequestBody.Layout(gtx, theme, hint)
 			})
 		}),

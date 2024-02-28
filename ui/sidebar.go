@@ -54,9 +54,11 @@ func (s *Sidebar) makeButtons(theme *material.Theme) {
 			Icon:              b.Icon,
 			Text:              b.Text,
 			IconPosition:      widgets.FlatButtonIconTop,
+			Clickable:         &widget.Clickable{},
 			SpaceBetween:      unit.Dp(5),
-			MinWidth:          unit.Dp(60),
 			BackgroundPadding: unit.Dp(1),
+			CornerRadius:      0,
+			MinWidth:          unit.Dp(60),
 			BackgroundColor:   theme.Palette.Bg,
 			TextColor:         widgets.Gray700,
 			ContentPadding:    unit.Dp(5),
@@ -69,6 +71,7 @@ func (s *Sidebar) SelectedIndex() int {
 }
 
 func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	gtx.Constraints.Max.X = gtx.Dp(70)
 	dims := s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {

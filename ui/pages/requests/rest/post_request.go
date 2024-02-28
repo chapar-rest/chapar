@@ -12,14 +12,13 @@ func (r *Container) requestPostReqLayout(gtx layout.Context, theme *material.The
 		Alignment: layout.Start,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Action to do after request").Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.postRequestDropDown.Layout(gtx, theme)
-				}),
-			)
+			return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return r.postRequestDropDown.Layout(gtx, theme)
+					}),
+				)
+			})
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			hint := ""
@@ -31,7 +30,7 @@ func (r *Container) requestPostReqLayout(gtx layout.Context, theme *material.The
 				return layout.Dimensions{}
 			}
 
-			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return r.postRequestBody.Layout(gtx, theme, hint)
 			})
 		}),

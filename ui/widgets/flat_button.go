@@ -4,6 +4,10 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/op"
+
+	"gioui.org/io/semantic"
+
 	"gioui.org/io/input"
 
 	"gioui.org/layout"
@@ -28,13 +32,14 @@ type FlatButton struct {
 
 	label widget.Label
 
-	Clickable widget.Clickable
+	Clickable *widget.Clickable
 
 	MinWidth        unit.Dp
 	BackgroundColor color.NRGBA
 	TextColor       color.NRGBA
 	Text            string
 
+	CornerRadius      int
 	BackgroundPadding unit.Dp
 	ContentPadding    unit.Dp
 }
@@ -89,10 +94,12 @@ func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 
 	return f.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(f.BackgroundPadding).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			semantic.Button.Add(gtx.Ops)
 			return layout.Background{}.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(f.MinWidth)
-					defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 4).Push(gtx.Ops).Pop()
+					// gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, f.CornerRadius).Push(gtx.Ops).Pop()
 					background := f.BackgroundColor
 					if gtx.Source == (input.Source{}) {
 						background = Disabled(f.BackgroundColor)
@@ -100,6 +107,7 @@ func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 						background = Hovered(f.BackgroundColor)
 					}
 					paint.Fill(gtx.Ops, background)
+					gtx.Execute(op.InvalidateCmd{})
 					return layout.Dimensions{Size: gtx.Constraints.Min}
 				},
 				func(gtx layout.Context) layout.Dimensions {

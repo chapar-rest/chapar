@@ -12,17 +12,16 @@ func (r *Container) requestBodyLayout(gtx layout.Context, theme *material.Theme)
 		Alignment: layout.Start,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, "Request body").Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.requestBodyDropDown.Layout(gtx, theme)
-				}),
-			)
+			return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return r.requestBodyDropDown.Layout(gtx, theme)
+					}),
+				)
+			})
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				switch r.requestBodyDropDown.SelectedIndex() {
 				case 1, 2, 3: // json, text, xml
 					hint := ""

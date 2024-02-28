@@ -66,6 +66,7 @@ type Container struct {
 	resultStatus        string
 	requestTabs         *widgets.Tabs
 	preRequestDropDown  *widgets.DropDown
+	authDropDown        *widgets.DropDown
 	preRequestBody      *widgets.CodeEditor
 	postRequestDropDown *widgets.DropDown
 	postRequestBody     *widgets.CodeEditor
@@ -80,6 +81,10 @@ type Container struct {
 	split widgets.SplitView
 
 	dataChanged bool
+
+	basicAuthUsername *widget.Editor
+	basicAuthPassword *widget.Editor
+	bearerTokenEditor *widget.Editor
 
 	onTitleChanged func(id, title string)
 	onDataChanged  func(id string, values []domain.KeyValue)
@@ -106,6 +111,10 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		address:           new(widget.Editor),
+		basicAuthPassword: new(widget.Editor),
+		basicAuthUsername: new(widget.Editor),
+		bearerTokenEditor: new(widget.Editor),
+
 		requestBody:       widgets.NewCodeEditor(""),
 		preRequestBody:    widgets.NewCodeEditor(""),
 		postRequestBody:   widgets.NewCodeEditor(""),
@@ -199,6 +208,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	r.requestTabs = widgets.NewTabs([]*widgets.Tab{
 		{Title: "Params"},
 		{Title: "Body"},
+		{Title: "Auth"},
 		{Title: "Headers"},
 		{Title: "Pre-req"},
 		{Title: "Post-req"},
@@ -219,8 +229,15 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("HEAD"),
 		widgets.NewDropDownOption("OPTION"),
 	)
-
 	r.methodDropDown.SetOnValueChanged(r.onDropDownChanged)
+
+	r.authDropDown = widgets.NewDropDown(
+		widgets.NewDropDownOption("None"),
+		widgets.NewDropDownOption("Basic"),
+		widgets.NewDropDownOption("Bearer"),
+	)
+
+	r.authDropDown.SetOnValueChanged(r.onDropDownChanged)
 
 	r.preRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -552,10 +569,12 @@ func (r *Container) requestLayout(gtx layout.Context, theme *material.Theme) lay
 				case 1:
 					return r.requestBodyLayout(gtx, theme)
 				case 2:
-					return r.headers.WithAddLayout(gtx, "Headers", "", theme)
+					return r.authLayout(gtx, theme)
 				case 3:
-					return r.requestPreReqLayout(gtx, theme)
+					return r.headers.WithAddLayout(gtx, "Headers", "", theme)
 				case 4:
+					return r.requestPreReqLayout(gtx, theme)
+				case 5:
 					return r.requestPostReqLayout(gtx, theme)
 				}
 				return layout.Dimensions{}
