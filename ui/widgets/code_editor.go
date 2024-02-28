@@ -21,6 +21,8 @@ type CodeEditor struct {
 
 	lines []string
 	list  *widget.List
+
+	onChange func(text string)
 }
 
 func NewCodeEditor(code string) *CodeEditor {
@@ -39,6 +41,10 @@ func NewCodeEditor(code string) *CodeEditor {
 	c.editor.SetText(code)
 	c.lines = strings.Split(code, "\n")
 	return c
+}
+
+func (c *CodeEditor) SetOnChanged(f func(text string)) {
+	c.onChange = f
 }
 
 func (c *CodeEditor) SetCode(code string) {
@@ -80,6 +86,10 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 	if ev, ok := c.editor.Update(gtx); ok {
 		if _, ok := ev.(widget.ChangeEvent); ok {
 			c.lines = strings.Split(c.editor.Text(), "\n")
+
+			if c.onChange != nil {
+				c.onChange(c.editor.Text())
+			}
 		}
 	}
 

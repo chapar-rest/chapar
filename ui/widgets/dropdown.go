@@ -28,6 +28,8 @@ type DropDown struct {
 	borderColor  color.NRGBA
 	borderWidth  unit.Dp
 	cornerRadius unit.Dp
+
+	onValueChange func(value string)
 }
 
 type DropDownOption struct {
@@ -58,6 +60,10 @@ func (o *DropDownOption) DefaultSelected() *DropDownOption {
 
 func (c *DropDown) SetSelected(index int) {
 	c.selectedOptionIndex = index
+}
+
+func (c *DropDown) SetOnValueChanged(f func(value string)) {
+	c.onValueChange = f
 }
 
 func (c *DropDown) SetSelectedByValue(value string) {
@@ -177,6 +183,10 @@ func (c *DropDown) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 		for opt.clickable.Clicked(gtx) {
 			c.isOpen = false
 			c.selectedOptionIndex = i
+
+			if c.onValueChange != nil {
+				c.onValueChange(c.options[i].Text)
+			}
 		}
 	}
 

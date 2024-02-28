@@ -3,6 +3,8 @@ package envs
 import (
 	"fmt"
 
+	"github.com/mirzakhany/chapar/ui/converter"
+
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -127,16 +129,7 @@ func (r *envContainer) onPromptSubmit(selectedOption string, remember bool) {
 }
 
 func (r *envContainer) onItemsChange(items []*widgets.KeyValueItem) {
-	newEnvValues := make([]domain.KeyValue, 0, len(items))
-	for _, vv := range items {
-		newEnvValues = append(newEnvValues, domain.KeyValue{
-			ID:     vv.Identifier,
-			Key:    vv.Key,
-			Value:  vv.Value,
-			Enable: vv.Active,
-		})
-	}
-
+	newEnvValues := converter.KeyValueFromWidgetItems(items)
 	if domain.CompareKeyValues(r.env.Spec.Values, newEnvValues) {
 		r.dataChanged = false
 		return
@@ -163,10 +156,6 @@ func (r *envContainer) populateItems() {
 
 func (r *envContainer) SetOnTitleChanged(f func(string, string)) {
 	r.onTitleChanged = f
-}
-
-func (r *envContainer) SetOnDataChanged(f func(string, []domain.KeyValue)) {
-	r.onDataChanged = f
 }
 
 func (r *envContainer) IsDataChanged() bool {
@@ -230,7 +219,7 @@ func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return r.title.Layout(gtx, theme)
 								}),
