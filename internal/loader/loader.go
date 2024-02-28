@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/mirzakhany/chapar/internal/domain"
 	"gopkg.in/yaml.v2"
 )
 
@@ -74,108 +73,6 @@ func CreateConfigDir() (string, error) {
 	return dir, nil
 }
 
-func GetEnvDir() (string, error) {
-	dir, err := CreateConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	envDir := path.Join(dir, envDir)
-	if _, err := os.Stat(envDir); os.IsNotExist(err) {
-		if err := os.Mkdir(envDir, 0755); err != nil {
-			return "", err
-		}
-	}
-
-	return envDir, nil
-}
-
-func GetRequestsDir() (string, error) {
-	dir, err := CreateConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	requestsDir := path.Join(dir, requestsDir)
-	if _, err := os.Stat(requestsDir); os.IsNotExist(err) {
-		if err := os.Mkdir(requestsDir, 0755); err != nil {
-			return "", err
-		}
-	}
-
-	return requestsDir, nil
-}
-
-func DeleteEnvironment(env *domain.Environment) error {
-	return os.Remove(env.FilePath)
-}
-
-func DeleteRequest(env *domain.Request) error {
-	return os.Remove(env.FilePath)
-}
-
-func ReadEnvironmentsData() ([]*domain.Environment, error) {
-	dir, err := GetEnvDir()
-	if err != nil {
-		return nil, err
-	}
-
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]*domain.Environment, 0)
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
-		filePath := path.Join(dir, file.Name())
-
-		env, err := LoadFromYaml[domain.Environment](filePath)
-		if err != nil {
-			return nil, err
-		}
-		env.FilePath = filePath
-		out = append(out, env)
-	}
-
-	return out, nil
-}
-
-func ReadRequestsData() ([]*domain.Request, error) {
-	dir, err := GetRequestsDir()
-	if err != nil {
-		return nil, err
-	}
-
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]*domain.Request, 0)
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
-		filePath := path.Join(dir, file.Name())
-
-		req, err := LoadFromYaml[domain.Request](filePath)
-		if err != nil {
-			return nil, err
-		}
-
-		req.FilePath = filePath
-		out = append(out, req)
-	}
-
-	return out, nil
-
-}
-
 func getNewFileName(dir, name string) (string, error) {
 	fileName := path.Join(dir, name+".yaml")
 
@@ -198,43 +95,6 @@ func getNewFileName(dir, name string) (string, error) {
 	}
 
 	return "", errors.New("file already exists")
-}
-
-func UpdateEnvironment(env *domain.Environment) error {
-	if env.FilePath == "" {
-		// this is a new environment
-		dir, err := GetEnvDir()
-		if err != nil {
-			return err
-		}
-
-		fileName, err := getNewFileName(dir, env.MetaData.Name)
-		if err != nil {
-			return err
-		}
-
-		env.FilePath = fileName
-	}
-
-	return SaveToYaml(env.FilePath, env)
-}
-
-func UpdateRequest(req *domain.Request) error {
-	if req.FilePath == "" {
-		dir, err := GetRequestsDir()
-		if err != nil {
-			return err
-		}
-		// this is a new request
-		fileName, err := getNewFileName(dir, req.MetaData.Name)
-		if err != nil {
-			return err
-		}
-
-		req.FilePath = fileName
-	}
-
-	return SaveToYaml(req.FilePath, req)
 }
 
 func LoadFromYaml[T any](filename string) (*T, error) {

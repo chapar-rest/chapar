@@ -2,8 +2,6 @@ package domain
 
 import "github.com/google/uuid"
 
-const EnvKind = "Environment"
-
 type Environment struct {
 	ApiVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
@@ -31,7 +29,7 @@ func (e *EnvSpec) Clone() EnvSpec {
 func NewEnvironment(name string) *Environment {
 	return &Environment{
 		ApiVersion: ApiVersion,
-		Kind:       EnvKind,
+		Kind:       KindEnv,
 		MetaData: MetaData{
 			ID:   uuid.NewString(),
 			Name: name,
