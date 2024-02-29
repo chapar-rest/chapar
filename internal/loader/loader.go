@@ -14,8 +14,9 @@ import (
 const (
 	configDir = "chapar"
 
-	envDir      = "envs"
-	requestsDir = "requests"
+	envDir         = "envs"
+	collectionsDir = "collections"
+	requestsDir    = "requests"
 )
 
 func GetConfigDir() (string, error) {

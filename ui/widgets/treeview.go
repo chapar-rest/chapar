@@ -75,11 +75,27 @@ func (t *TreeView) AddNode(node *TreeNode) {
 	t.nodes = append(t.nodes, node)
 }
 
+func (t *TreeView) AddChildNode(parentIdentifier string, node *TreeNode) {
+	for _, n := range t.nodes {
+		if n.Identifier == parentIdentifier {
+			n.Children = append(n.Children, node)
+			return
+		}
+	}
+}
+
 func (t *TreeView) RemoveNode(identifier string) {
 	for i, n := range t.nodes {
 		if n.Identifier == identifier {
 			t.nodes = append(t.nodes[:i], t.nodes[i+1:]...)
 			return
+		}
+
+		for j, c := range n.Children {
+			if c.Identifier == identifier {
+				n.Children = append(n.Children[:j], n.Children[j+1:]...)
+				return
+			}
 		}
 	}
 }
@@ -208,6 +224,11 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 // LayoutTreeNode recursively lays out a tree of widgets described by
 // TreeNodes.
 func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, node *TreeNode) layout.Dimensions {
+	options := t.ParentMenuOptions
+	if node.isChild {
+		options = t.ChildMenuOptions
+	}
+
 	if !node.menuInit {
 		node.menuInit = true
 		node.menuContextArea = component.ContextArea{
@@ -216,10 +237,6 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 		}
 		node.menu = component.MenuState{
 			Options: func() []func(gtx layout.Context) layout.Dimensions {
-				options := t.ParentMenuOptions
-				if node.isChild {
-					options = t.ChildMenuOptions
-				}
 
 				out := make([]func(gtx layout.Context) layout.Dimensions, 0, len(options))
 				node.menuClickables = make([]*widget.Clickable, 0, len(options))
@@ -243,7 +260,7 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 	for i := range node.menuClickables {
 		if node.menuClickables[i].Clicked(gtx) {
 			if t.onMenuItemClick != nil {
-				t.onMenuItemClick(node, t.ParentMenuOptions[i])
+				t.onMenuItemClick(node, options[i])
 			}
 		}
 	}

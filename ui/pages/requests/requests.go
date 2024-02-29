@@ -32,7 +32,9 @@ type Requests struct {
 	split widgets.SplitView
 	tabs  *widgets.Tabs
 
-	data       []*domain.Request
+	collections []*domain.Collection
+
+	//data       []*domain.Request
 	openedTabs []*openedTab
 
 	selectedIndex int
@@ -47,8 +49,33 @@ type openedTab struct {
 	closed bool
 }
 
+func (r *Requests) findRequestByID(id string) (*domain.Request, int) {
+	for i, collection := range r.collections {
+		for _, req := range collection.Spec.Requests {
+			if req.MetaData.ID == id {
+				return req, i
+			}
+		}
+	}
+	return nil, -1
+}
+
+func (r *Requests) findRequestInTab(id string) (*openedTab, int) {
+	for i, ot := range r.openedTabs {
+		if ot.req.MetaData.ID == id {
+			return ot, i
+		}
+	}
+	return nil, -1
+}
+
 func New(theme *material.Theme) (*Requests, error) {
-	data, err := loader.ReadRequestsData()
+	//data, err := loader.ReadRequestsData()
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	collections, err := loader.LoadCollections()
 	if err != nil {
 		return nil, err
 	}
@@ -58,22 +85,33 @@ func New(theme *material.Theme) (*Requests, error) {
 	search.SetBorderColor(widgets.Gray600)
 
 	treeViewNodes := make([]*widgets.TreeNode, 0)
-	for _, req := range data {
-		if req.MetaData.ID == "" {
-			req.MetaData.ID = uuid.NewString()
+	for _, collection := range collections {
+		parentNode := &widgets.TreeNode{
+			Text:       collection.MetaData.Name,
+			Identifier: collection.MetaData.ID,
+			Children:   make([]*widgets.TreeNode, 0),
 		}
 
-		node := &widgets.TreeNode{
-			Text:       req.MetaData.Name,
-			Identifier: req.MetaData.ID,
+		for _, req := range collection.Spec.Requests {
+			if req.MetaData.ID == "" {
+				req.MetaData.ID = uuid.NewString()
+			}
+
+			node := &widgets.TreeNode{
+				Text:       req.MetaData.Name,
+				Identifier: req.MetaData.ID,
+			}
+
+			parentNode.Children = append(parentNode.Children, node)
 		}
 
-		treeViewNodes = append(treeViewNodes, node)
+		treeViewNodes = append(treeViewNodes, parentNode)
 	}
 
 	req := &Requests{
-		theme:     theme,
-		data:      data,
+		theme:       theme,
+		collections: collections,
+		//data:        data,
 		searchBox: search,
 		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:  widgets.NewTreeView(treeViewNodes),
@@ -101,7 +139,7 @@ func New(theme *material.Theme) (*Requests, error) {
 	})
 
 	req.searchBox.SetOnTextChange(func(text string) {
-		if req.data == nil {
+		if req.collections == nil {
 			return
 		}
 
@@ -112,111 +150,104 @@ func New(theme *material.Theme) (*Requests, error) {
 }
 
 func (r *Requests) onTabClose(t *widgets.Tab) {
-	for _, ot := range r.openedTabs {
-		if ot.req.MetaData.ID == t.Identifier {
-			// can we close the tab?
-			if !ot.container.OnClose() {
-				return
-			}
-			ot.closed = true
-			break
+	tab, _ := r.findRequestInTab(t.Identifier)
+	if tab != nil {
+		if !tab.container.OnClose() {
+			return
 		}
+		tab.closed = true
 	}
 }
 
 func (r *Requests) onTitleChanged(id, title string) {
 	// find the opened tab and mark it as dirty
-	for _, ot := range r.openedTabs {
-		if ot.req.MetaData.ID == id {
-			// is name changed?
-			if ot.req.MetaData.Name != title {
-				// Update the tree view item and the tab title
-				ot.req.MetaData.Name = title
-				ot.tab.Title = title
-				ot.listItem.Text = title
-			}
+	tab, _ := r.findRequestInTab(id)
+	if tab != nil {
+		if tab.req.MetaData.Name != title {
+			// Update the tree view item and the tab title
+			tab.req.MetaData.Name = title
+			tab.tab.Title = title
+			tab.listItem.Text = title
 		}
 	}
 }
 
 func (r *Requests) onItemDoubleClick(tr *widgets.TreeNode) {
 	// if request is already opened, just switch to it
-	for i, ot := range r.openedTabs {
-		if ot.req.MetaData.ID == tr.Identifier {
-			r.selectedIndex = i
-			r.tabs.SetSelected(i)
-			return
-		}
+	tab, index := r.findRequestInTab(tr.Identifier)
+	if tab != nil {
+		r.selectedIndex = index
+		r.tabs.SetSelected(index)
+		return
 	}
 
-	for _, req := range r.data {
-		if req.MetaData.ID == tr.Identifier {
-			tab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
-			tab.SetOnClose(r.onTabClose)
-			tab.SetIdentifier(req.MetaData.ID)
+	req, _ := r.findRequestByID(tr.Identifier)
+	if req != nil {
+		tab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+		tab.SetOnClose(r.onTabClose)
+		tab.SetIdentifier(req.MetaData.ID)
 
-			ot := &openedTab{
-				req:       req,
-				tab:       tab,
-				listItem:  tr,
-				container: rest.NewRestContainer(r.theme, req.Clone()),
-			}
-			ot.container.SetOnTitleChanged(r.onTitleChanged)
-			r.openedTabs = append(r.openedTabs, ot)
-
-			i := r.tabs.AddTab(tab)
-			r.selectedIndex = i
-			r.tabs.SetSelected(i)
-
-			break
+		ot := &openedTab{
+			req:       req,
+			tab:       tab,
+			listItem:  tr,
+			container: rest.NewRestContainer(r.theme, req.Clone()),
 		}
+		ot.container.SetOnTitleChanged(r.onTitleChanged)
+		r.openedTabs = append(r.openedTabs, ot)
+
+		i := r.tabs.AddTab(tab)
+		r.selectedIndex = i
+		r.tabs.SetSelected(i)
 	}
 }
 
 func (r *Requests) duplicateReq(identifier string) {
-	for _, req := range r.data {
-		if req.MetaData.ID == identifier {
-			newReq := req.Clone()
-			newReq.MetaData.ID = uuid.NewString()
-			newReq.MetaData.Name = newReq.MetaData.Name + " (copy)"
-			// add copy to file name
-			newReq.FilePath = loader.AddSuffixBeforeExt(newReq.FilePath, "-copy")
-			r.data = append(r.data, newReq)
+	req, i := r.findRequestByID(identifier)
+	if req != nil {
+		newReq := req.Clone()
+		newReq.MetaData.ID = uuid.NewString()
+		newReq.MetaData.Name = newReq.MetaData.Name + " (copy)"
+		// add copy to file name
+		newReq.FilePath = loader.AddSuffixBeforeExt(newReq.FilePath, "-copy")
+		r.collections[i].Spec.Requests = append(r.collections[i].Spec.Requests, newReq)
 
-			node := &widgets.TreeNode{
-				Text:       newReq.MetaData.Name,
-				Identifier: newReq.MetaData.ID,
-			}
-			r.treeView.AddNode(node)
-			if err := loader.UpdateRequest(newReq); err != nil {
-				fmt.Println("failed to update request", err)
-			}
-			break
+		node := &widgets.TreeNode{
+			Text:       newReq.MetaData.Name,
+			Identifier: newReq.MetaData.ID,
+		}
+		r.treeView.AddNode(node)
+		if err := loader.UpdateRequest(newReq); err != nil {
+			fmt.Println("failed to update request", err)
 		}
 	}
+
 }
 
 func (r *Requests) deleteReq(identifier string) {
-	for i, req := range r.data {
-		if req.MetaData.ID == identifier {
-			r.data = append(r.data[:i], r.data[i+1:]...)
-			r.treeView.RemoveNode(identifier)
-
-			if err := loader.DeleteRequest(req); err != nil {
-				fmt.Println("failed to delete request", err)
-			}
-			break
+	req, i := r.findRequestByID(identifier)
+	if req != nil {
+		if err := loader.DeleteRequest(req); err != nil {
+			fmt.Println("failed to delete request", err)
 		}
+
+		r.collections[i].RemoveRequest(req)
+		r.treeView.RemoveNode(identifier)
 	}
 }
 
-func (r *Requests) addNewEmptyReq() {
+func (r *Requests) addNewEmptyReq(collectionID string) {
 	req := domain.NewRequest("New Request")
 	node := &widgets.TreeNode{
 		Text:       req.MetaData.Name,
 		Identifier: req.MetaData.ID,
 	}
-	r.treeView.AddNode(node)
+
+	if collectionID == "" {
+		r.treeView.AddNode(node)
+	} else {
+		r.treeView.AddChildNode(collectionID, node)
+	}
 
 	tab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 	tab.SetOnClose(r.onTabClose)
@@ -244,7 +275,7 @@ func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimens
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if r.addRequestButton.Clicked(gtx) {
-								r.addNewEmptyReq()
+								r.addNewEmptyReq("")
 							}
 
 							return material.Button(theme, &r.addRequestButton, "Add").Layout(gtx)

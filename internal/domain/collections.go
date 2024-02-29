@@ -10,7 +10,7 @@ type Collection struct {
 }
 
 type ColSpec struct {
-	Requests []Request `yaml:"requests"`
+	Requests []*Request `yaml:"requests"`
 }
 
 func (c *Collection) Clone() *Collection {
@@ -19,7 +19,7 @@ func (c *Collection) Clone() *Collection {
 		Kind:       c.Kind,
 		MetaData:   c.MetaData,
 		Spec: ColSpec{
-			Requests: make([]Request, len(c.Spec.Requests)),
+			Requests: make([]*Request, len(c.Spec.Requests)),
 		},
 		FilePath: c.FilePath,
 	}
@@ -40,8 +40,30 @@ func NewCollection(name string) *Collection {
 			Name: name,
 		},
 		Spec: ColSpec{
-			Requests: make([]Request, 0),
+			Requests: make([]*Request, 0),
 		},
 		FilePath: "",
 	}
+}
+
+func (c *Collection) AddRequest(req *Request) {
+	c.Spec.Requests = append(c.Spec.Requests, req)
+}
+
+func (c *Collection) RemoveRequest(req *Request) {
+	for i, r := range c.Spec.Requests {
+		if r.MetaData.ID == req.MetaData.ID {
+			c.Spec.Requests = append(c.Spec.Requests[:i], c.Spec.Requests[i+1:]...)
+			return
+		}
+	}
+}
+
+func (c *Collection) FindRequestByID(id string) *Request {
+	for _, r := range c.Spec.Requests {
+		if r.MetaData.ID == id {
+			return r
+		}
+	}
+	return nil
 }
