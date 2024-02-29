@@ -47,7 +47,7 @@ func (r *Container) Submit() {
 
 	dataStr := string(res.Body)
 	if rest.IsJSON(dataStr) {
-		var data map[string]interface{}
+		var data interface{}
 		if err := json.Unmarshal(res.Body, &data); err != nil {
 			r.result = err.Error()
 			return
