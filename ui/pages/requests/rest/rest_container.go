@@ -195,6 +195,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		TextColor:       theme.Palette.Fg,
 		MinWidth:        unit.Dp(75),
 		Icon:            widgets.CopyIcon,
+		Clickable:       new(widget.Clickable),
 		IconPosition:    widgets.FlatButtonIconEnd,
 		SpaceBetween:    unit.Dp(5),
 	}
