@@ -13,13 +13,7 @@ func ReadPreferencesData() (*domain.Preferences, error) {
 	}
 
 	filePath := path.Join(dir, "preferences.yaml")
-
-	pref, err := LoadFromYaml[domain.Preferences](filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return pref, nil
+	return LoadFromYaml[domain.Preferences](filePath)
 }
 
 func UpdatePreferences(pref *domain.Preferences) error {
