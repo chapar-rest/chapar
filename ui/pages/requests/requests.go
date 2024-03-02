@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/internal/logger"
+
 	"gioui.org/op"
 
 	"github.com/google/uuid"
@@ -70,15 +72,12 @@ func (r *Requests) findRequestInTab(id string) (*openedTab, int) {
 }
 
 func New(theme *material.Theme) (*Requests, error) {
-	//data, err := loader.ReadRequestsData()
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	collections, err := loader.LoadCollections()
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Info("collections loaded")
 
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
@@ -218,7 +217,7 @@ func (r *Requests) duplicateReq(identifier string) {
 		}
 		r.treeView.AddNode(node)
 		if err := loader.UpdateRequest(newReq); err != nil {
-			fmt.Println("failed to update request", err)
+			logger.Error(fmt.Sprintf("failed to update request, err %v", err))
 		}
 	}
 
@@ -228,7 +227,7 @@ func (r *Requests) deleteReq(identifier string) {
 	req, i := r.findRequestByID(identifier)
 	if req != nil {
 		if err := loader.DeleteRequest(req); err != nil {
-			fmt.Println("failed to delete request", err)
+			logger.Error(fmt.Sprintf("failed to delete request, err %v", err))
 		}
 
 		r.collections[i].RemoveRequest(req)

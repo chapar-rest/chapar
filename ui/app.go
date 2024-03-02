@@ -4,6 +4,10 @@ import (
 	"image"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/internal/bus"
+
+	"github.com/mirzakhany/chapar/ui/pages/console"
+
 	"github.com/mirzakhany/chapar/ui/pages/envs"
 
 	"gioui.org/app"
@@ -30,6 +34,7 @@ type UI struct {
 
 	requestsPage *requests.Requests
 	envsPage     *envs.Envs
+	consolePage  *console.Console
 
 	notification *widgets.Notification
 }
@@ -42,6 +47,8 @@ func New() (*UI, error) {
 		return nil, err
 	}
 
+	bus.Init()
+
 	ui.Theme = material.NewTheme()
 	ui.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	// set foreground color
@@ -50,6 +57,8 @@ func New() (*UI, error) {
 	ui.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
 
 	ui.Theme.TextSize = unit.Sp(14)
+	// console need to be initialized before other pages as its listening for logs
+	ui.consolePage = console.New()
 	ui.header = NewHeader()
 	ui.sideBar = NewSidebar(ui.Theme)
 
@@ -57,13 +66,13 @@ func New() (*UI, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	ui.envsPage, err = envs.New(ui.Theme)
 	if err != nil {
 		return nil, err
 	}
 
 	ui.notification = &widgets.Notification{}
-
 	return ui, nil
 }
 
@@ -111,6 +120,8 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 								return u.requestsPage.Layout(gtx, u.Theme)
 							case 1:
 								return u.envsPage.Layout(gtx, u.Theme)
+							case 4:
+								return u.consolePage.Layout(gtx, u.Theme)
 							}
 							return layout.Dimensions{}
 						}),
@@ -122,22 +133,4 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
 		}),
 	)
-}
-
-func (u *UI) LayoutHeader(gtx layout.Context) layout.Dimensions {
-	inset := layout.UniformInset(unit.Dp(15))
-	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.H6(u.Theme, "Chapar").Layout(gtx)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Body1(u.Theme, "0.0.1").Layout(gtx)
-				})
-			}),
-		)
-	})
 }

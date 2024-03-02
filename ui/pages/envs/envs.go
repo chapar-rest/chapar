@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/internal/logger"
+
 	"gioui.org/op"
 
 	"gioui.org/layout"
@@ -45,6 +47,8 @@ func New(theme *material.Theme) (*Envs, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Info("environments loaded")
 
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
@@ -167,7 +171,7 @@ func (e *Envs) duplicateEnv(identifier string) {
 			}
 			e.treeView.AddNode(node)
 			if err := loader.UpdateEnvironment(newEnv); err != nil {
-				fmt.Println("failed to update environment", err)
+				logger.Error(fmt.Sprintf("failed to update environment, err %v", err))
 			}
 			break
 		}
@@ -181,7 +185,7 @@ func (e *Envs) deleteEnv(identifier string) {
 			e.treeView.RemoveNode(identifier)
 
 			if err := loader.DeleteEnvironment(env); err != nil {
-				fmt.Println("failed to delete environment", err)
+				logger.Error(fmt.Sprintf("failed to delete environment, err %v", err))
 			}
 			break
 		}
