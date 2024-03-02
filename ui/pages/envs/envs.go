@@ -168,8 +168,9 @@ func (e *Envs) duplicateEnv(identifier string) {
 			e.data = append(e.data, newEnv)
 
 			node := &widgets.TreeNode{
-				Text:       newEnv.MetaData.Name,
-				Identifier: newEnv.MetaData.ID,
+				Text:        newEnv.MetaData.Name,
+				Identifier:  newEnv.MetaData.ID,
+				MenuOptions: menuItems,
 			}
 			e.treeView.AddNode(node)
 			if err := loader.UpdateEnvironment(newEnv); err != nil {
@@ -197,8 +198,9 @@ func (e *Envs) deleteEnv(identifier string) {
 func (e *Envs) addNewEmptyEnv() {
 	env := domain.NewEnvironment("New Environment")
 	node := &widgets.TreeNode{
-		Text:       env.MetaData.Name,
-		Identifier: env.MetaData.ID,
+		Text:        env.MetaData.Name,
+		Identifier:  env.MetaData.ID,
+		MenuOptions: menuItems,
 	}
 	e.treeView.AddNode(node)
 
