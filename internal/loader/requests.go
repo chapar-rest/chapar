@@ -27,7 +27,7 @@ func DeleteRequest(env *domain.Request) error {
 	return os.Remove(env.FilePath)
 }
 
-func ReadRequestsData() ([]*domain.Request, error) {
+func LoadRequests() ([]*domain.Request, error) {
 	dir, err := GetRequestsDir()
 	if err != nil {
 		return nil, err

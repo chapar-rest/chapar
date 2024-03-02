@@ -34,9 +34,11 @@ type Requests struct {
 	split widgets.SplitView
 	tabs  *widgets.Tabs
 
+	// collections represents the collections of requests
 	collections []*domain.Collection
+	// requests represents the standalone requests that are not in any collection
+	requests []*domain.Request
 
-	//data       []*domain.Request
 	openedTabs []*openedTab
 
 	selectedIndex int
@@ -51,38 +53,66 @@ type openedTab struct {
 	closed bool
 }
 
-func (r *Requests) findRequestByID(id string) (*domain.Request, int) {
-	for i, collection := range r.collections {
-		for _, req := range collection.Spec.Requests {
-			if req.MetaData.ID == id {
-				return req, i
-			}
-		}
-	}
-	return nil, -1
-}
-
-func (r *Requests) findRequestInTab(id string) (*openedTab, int) {
-	for i, ot := range r.openedTabs {
-		if ot.req.MetaData.ID == id {
-			return ot, i
-		}
-	}
-	return nil, -1
-}
-
 func New(theme *material.Theme) (*Requests, error) {
 	collections, err := loader.LoadCollections()
 	if err != nil {
+		logger.Error(fmt.Sprintf("failed to load collections, err %v", err))
 		return nil, err
 	}
 
-	logger.Info("collections loaded")
+	requests, err := loader.LoadRequests()
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to load requests, err %v", err))
+		return nil, err
+	}
+
+	logger.Info("collections and requests are loaded")
 
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(widgets.Gray600)
 
+	req := &Requests{
+		theme:       theme,
+		collections: collections,
+		requests:    requests,
+		searchBox:   search,
+		tabs:        widgets.NewTabs([]*widgets.Tab{}, nil),
+		treeView:    widgets.NewTreeView(prepareTreeView(collections, requests)),
+		split: widgets.SplitView{
+			Ratio:         -0.64,
+			MinLeftSize:   unit.Dp(250),
+			MaxLeftSize:   unit.Dp(800),
+			BarWidth:      unit.Dp(2),
+			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
+			BarColorHover: theme.Palette.ContrastBg,
+		},
+		openedTabs: make([]*openedTab, 0),
+	}
+	req.treeView.ParentMenuOptions = []string{"Duplicate", "Rename", "Delete"}
+	req.treeView.ChildMenuOptions = []string{"Move", "Duplicate", "Rename", "Delete"}
+	req.treeView.OnDoubleClick(req.onItemDoubleClick)
+	req.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
+		if item == "Duplicate" {
+			req.duplicateReq(tr.Identifier)
+		}
+
+		if item == "Delete" {
+			req.deleteReq(tr.Identifier)
+		}
+	})
+	req.searchBox.SetOnTextChange(func(text string) {
+		if req.collections == nil {
+			return
+		}
+
+		req.treeView.Filter(text)
+	})
+
+	return req, nil
+}
+
+func prepareTreeView(collections []*domain.Collection, requests []*domain.Request) []*widgets.TreeNode {
 	treeViewNodes := make([]*widgets.TreeNode, 0)
 	for _, collection := range collections {
 		parentNode := &widgets.TreeNode{
@@ -107,45 +137,44 @@ func New(theme *material.Theme) (*Requests, error) {
 		treeViewNodes = append(treeViewNodes, parentNode)
 	}
 
-	req := &Requests{
-		theme:       theme,
-		collections: collections,
-		//data:        data,
-		searchBox: search,
-		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
-		treeView:  widgets.NewTreeView(treeViewNodes),
-		split: widgets.SplitView{
-			Ratio:         -0.64,
-			MinLeftSize:   unit.Dp(250),
-			MaxLeftSize:   unit.Dp(800),
-			BarWidth:      unit.Dp(2),
-			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
-			BarColorHover: theme.Palette.ContrastBg,
-		},
-		openedTabs: make([]*openedTab, 0),
+	for _, req := range requests {
+		node := &widgets.TreeNode{
+			Text:       req.MetaData.Name,
+			Identifier: req.MetaData.ID,
+		}
+
+		treeViewNodes = append(treeViewNodes, node)
 	}
-	req.treeView.ParentMenuOptions = []string{"Duplicate", "Rename", "Delete"}
-	req.treeView.ChildMenuOptions = []string{"Move", "Duplicate", "Rename", "Delete"}
-	req.treeView.OnDoubleClick(req.onItemDoubleClick)
-	req.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
-		if item == "Duplicate" {
-			req.duplicateReq(tr.Identifier)
+
+	return treeViewNodes
+}
+
+func (r *Requests) findRequestByID(id string) (*domain.Request, int) {
+	for i, collection := range r.collections {
+		for _, req := range collection.Spec.Requests {
+			if req.MetaData.ID == id {
+				return req, i
+			}
 		}
+	}
 
-		if item == "Delete" {
-			req.deleteReq(tr.Identifier)
+	for _, req := range r.requests {
+		if req.MetaData.ID == id {
+			// -1 means this is a standalone request
+			return req, -1
 		}
-	})
+	}
 
-	req.searchBox.SetOnTextChange(func(text string) {
-		if req.collections == nil {
-			return
+	return nil, -1
+}
+
+func (r *Requests) findRequestInTab(id string) (*openedTab, int) {
+	for i, ot := range r.openedTabs {
+		if ot.req.MetaData.ID == id {
+			return ot, i
 		}
-
-		req.treeView.Filter(text)
-	})
-
-	return req, nil
+	}
+	return nil, -1
 }
 
 func (r *Requests) onTabClose(t *widgets.Tab) {
@@ -209,18 +238,23 @@ func (r *Requests) duplicateReq(identifier string) {
 		newReq.MetaData.Name = newReq.MetaData.Name + " (copy)"
 		// add copy to file name
 		newReq.FilePath = loader.AddSuffixBeforeExt(newReq.FilePath, "-copy")
-		r.collections[i].Spec.Requests = append(r.collections[i].Spec.Requests, newReq)
 
 		node := &widgets.TreeNode{
 			Text:       newReq.MetaData.Name,
 			Identifier: newReq.MetaData.ID,
 		}
-		r.treeView.AddNode(node)
+		if i == -1 {
+			r.requests = append(r.requests, newReq)
+			r.treeView.AddNode(node)
+		} else {
+			r.collections[i].Spec.Requests = append(r.collections[i].Spec.Requests, newReq)
+			r.treeView.AddChildNode(r.collections[i].MetaData.ID, node)
+		}
+
 		if err := loader.UpdateRequest(newReq); err != nil {
 			logger.Error(fmt.Sprintf("failed to update request, err %v", err))
 		}
 	}
-
 }
 
 func (r *Requests) deleteReq(identifier string) {
@@ -228,9 +262,20 @@ func (r *Requests) deleteReq(identifier string) {
 	if req != nil {
 		if err := loader.DeleteRequest(req); err != nil {
 			logger.Error(fmt.Sprintf("failed to delete request, err %v", err))
+			return
 		}
 
-		r.collections[i].RemoveRequest(req)
+		if i == -1 {
+			// TODO make it a function
+			for j, item := range r.requests {
+				if item.MetaData.ID == req.MetaData.ID {
+					r.requests = append(r.requests[:j], r.requests[j+1:]...)
+					break
+				}
+			}
+		} else {
+			r.collections[i].RemoveRequest(req)
+		}
 		r.treeView.RemoveNode(identifier)
 	}
 }
