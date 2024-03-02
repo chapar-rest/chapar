@@ -4,20 +4,15 @@ import (
 	"fmt"
 	"image/color"
 
-	"github.com/mirzakhany/chapar/internal/logger"
-
-	"gioui.org/op"
-
-	"github.com/google/uuid"
-
-	"github.com/mirzakhany/chapar/internal/loader"
-
-	"github.com/mirzakhany/chapar/internal/domain"
-
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/google/uuid"
+	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/internal/loader"
+	"github.com/mirzakhany/chapar/internal/logger"
 	"github.com/mirzakhany/chapar/ui/pages/requests/rest"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -48,7 +43,7 @@ type openedTab struct {
 	req       *domain.Request
 	tab       *widgets.Tab
 	listItem  *widgets.TreeNode
-	container *rest.Container
+	container Container
 
 	closed bool
 }
@@ -102,10 +97,9 @@ func New(theme *material.Theme) (*Requests, error) {
 		}
 	})
 	req.searchBox.SetOnTextChange(func(text string) {
-		if req.collections == nil {
+		if req.collections == nil && req.requests == nil {
 			return
 		}
-
 		req.treeView.Filter(text)
 	})
 
