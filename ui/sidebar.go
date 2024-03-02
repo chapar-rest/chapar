@@ -33,7 +33,7 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 			{Icon: widgets.FileFolderIcon, Text: "Proto"},
 			{Icon: widgets.TunnelIcon, Text: "Tunnels"},
 			{Icon: widgets.ConsoleIcon, Text: "Console"},
-			{Icon: widgets.LogsIcon, Text: "Logs"},
+			//{Icon: widgets.LogsIcon, Text: "Logs"},
 			{Icon: widgets.SettingsIcon, Text: "Settings"},
 		},
 		list: &widget.List{

@@ -75,3 +75,35 @@ func UpdateRequest(req *domain.Request) error {
 
 	return SaveToYaml(req.FilePath, req)
 }
+
+func GetNewFilePath(name, collectionName string) (string, error) {
+	var dir string
+	var err error
+
+	if collectionName != "" {
+		dir, err = GetCollectionsDir()
+		if err != nil {
+			return "", err
+		}
+		// if collection dir not found, create it
+		dir = path.Join(dir, collectionName)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			if err := os.Mkdir(dir, 0755); err != nil {
+				return "", err
+			}
+		}
+
+	} else {
+		dir, err = GetRequestsDir()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	fileName, err := getNewFileName(dir, name)
+	if err != nil {
+		return "", err
+	}
+
+	return fileName, nil
+}

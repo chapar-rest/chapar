@@ -99,6 +99,10 @@ func New(theme *material.Theme) (*Requests, error) {
 		if item == "Delete" {
 			req.deleteReq(tr.Identifier)
 		}
+
+		if item == "Add Request" {
+			req.addNewEmptyReq(tr.Identifier)
+		}
 	})
 	req.searchBox.SetOnTextChange(func(text string) {
 		if req.collections == nil && req.requests == nil {
@@ -165,6 +169,14 @@ func (r *Requests) findRequestByID(id string) (*domain.Request, int) {
 		}
 	}
 
+	return nil, -1
+}
+func (r *Requests) findCollectionByID(id string) (*domain.Collection, int) {
+	for i, collection := range r.collections {
+		if collection.MetaData.ID == id {
+			return collection, i
+		}
+	}
 	return nil, -1
 }
 
@@ -283,13 +295,27 @@ func (r *Requests) deleteReq(identifier string) {
 func (r *Requests) addNewEmptyReq(collectionID string) {
 	req := domain.NewRequest("New Request")
 	node := &widgets.TreeNode{
-		Text:       req.MetaData.Name,
-		Identifier: req.MetaData.ID,
+		Text:        req.MetaData.Name,
+		Identifier:  req.MetaData.ID,
+		MenuOptions: requestMenuItems,
 	}
 
 	if collectionID == "" {
 		r.treeView.AddNode(node)
 	} else {
+		collection, _ := r.findCollectionByID(collectionID)
+		if collection == nil {
+			logger.Error(fmt.Sprintf("collection with id %s not found", collectionID))
+			return
+		}
+		collection.Spec.Requests = append(collection.Spec.Requests, req)
+		newFilePath, err := loader.GetNewFilePath(req.MetaData.Name, collection.MetaData.Name)
+		if err != nil {
+			logger.Error(fmt.Sprintf("failed to get new file path, err %v", err))
+			return
+		}
+
+		req.FilePath = newFilePath
 		r.treeView.AddChildNode(collectionID, node)
 	}
 
