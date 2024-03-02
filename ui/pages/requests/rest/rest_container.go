@@ -9,11 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mirzakhany/chapar/ui/converter"
+	"github.com/mirzakhany/chapar/ui/keys"
 
-	"gioui.org/io/event"
-	"gioui.org/io/key"
-	"gioui.org/op/clip"
+	"github.com/mirzakhany/chapar/ui/converter"
 
 	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/loader"
@@ -201,9 +199,6 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	}
 
 	r.requestBodyBinary.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
-
-	search := widgets.NewTextField("", "Search...")
-	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
 	r.sendButton = material.Button(theme, &r.sendClickable, "Send")
 	r.requestTabs = widgets.NewTabs([]*widgets.Tab{
@@ -598,26 +593,7 @@ func (r *Container) messageLayout(gtx layout.Context, theme *material.Theme, mes
 }
 
 func (r *Container) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-	event.Op(gtx.Ops, r)
-	for {
-		keyEvent, ok := gtx.Event(
-			key.Filter{
-				Required: key.ModShortcut,
-				Name:     "S",
-			},
-		)
-		if !ok {
-			break
-		}
-
-		if ev, ok := keyEvent.(key.Event); ok {
-			if ev.Name == "S" && ev.Modifiers.Contain(key.ModShortcut) && ev.State == key.Press {
-				r.save()
-			}
-		}
-	}
-	area.Pop()
+	keys.OnSaveCommand(gtx, r, r.save)
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

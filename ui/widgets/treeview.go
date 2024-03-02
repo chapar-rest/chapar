@@ -75,10 +75,16 @@ func (t *TreeView) AddNode(node *TreeNode) {
 	t.nodes = append(t.nodes, node)
 }
 
-func (t *TreeView) AddChildNode(parentIdentifier string, node *TreeNode) {
+func (tr *TreeNode) AddChildNode(child *TreeNode) {
+	child.isChild = true
+	tr.Children = append(tr.Children, child)
+}
+
+func (t *TreeView) AddChildNode(parentIdentifier string, child *TreeNode) {
 	for _, n := range t.nodes {
 		if n.Identifier == parentIdentifier {
-			n.Children = append(n.Children, node)
+			child.isChild = true
+			n.Children = append(n.Children, child)
 			return
 		}
 	}

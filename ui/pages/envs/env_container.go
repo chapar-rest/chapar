@@ -3,12 +3,11 @@ package envs
 import (
 	"fmt"
 
+	"github.com/mirzakhany/chapar/ui/keys"
+
 	"github.com/mirzakhany/chapar/ui/converter"
 
-	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
-	"gioui.org/op/clip"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -186,26 +185,7 @@ func (r *envContainer) save() {
 }
 
 func (r *envContainer) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-	event.Op(gtx.Ops, r)
-	for {
-		keyEvent, ok := gtx.Event(
-			key.Filter{
-				Required: key.ModShortcut,
-				Name:     "S",
-			},
-		)
-		if !ok {
-			break
-		}
-
-		if ev, ok := keyEvent.(key.Event); ok {
-			if ev.Name == "S" && ev.Modifiers.Contain(key.ModShortcut) && ev.State == key.Press {
-				r.save()
-			}
-		}
-	}
-	area.Pop()
+	keys.OnSaveCommand(gtx, r, r.save)
 
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,

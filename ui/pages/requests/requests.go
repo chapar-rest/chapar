@@ -84,7 +84,7 @@ func New(theme *material.Theme) (*Requests, error) {
 		},
 		openedTabs: make([]*openedTab, 0),
 	}
-	req.treeView.ParentMenuOptions = []string{"Duplicate", "Rename", "Delete"}
+	req.treeView.ParentMenuOptions = []string{"Detail", "Rename", "Delete"}
 	req.treeView.ChildMenuOptions = []string{"Move", "Duplicate", "Rename", "Delete"}
 	req.treeView.OnDoubleClick(req.onItemDoubleClick)
 	req.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
@@ -124,8 +124,7 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 				Text:       req.MetaData.Name,
 				Identifier: req.MetaData.ID,
 			}
-
-			parentNode.Children = append(parentNode.Children, node)
+			parentNode.AddChildNode(node)
 		}
 
 		treeViewNodes = append(treeViewNodes, parentNode)

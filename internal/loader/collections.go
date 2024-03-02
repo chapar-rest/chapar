@@ -116,3 +116,22 @@ func GetCollectionsDir() (string, error) {
 
 	return cdir, nil
 }
+
+func UpdateCollection(collection *domain.Collection) error {
+	if collection.FilePath == "" {
+		// this is a new collection
+		dir, err := GetCollectionsDir()
+		if err != nil {
+			return err
+		}
+
+		fileName, err := getNewFileName(dir, collection.MetaData.Name)
+		if err != nil {
+			return err
+		}
+
+		collection.FilePath = fileName
+	}
+
+	return SaveToYaml(collection.FilePath, collection)
+}
