@@ -20,9 +20,6 @@ type TreeView struct {
 	nodes []*TreeNode
 	list  widget.List
 
-	ChildMenuOptions  []string
-	ParentMenuOptions []string
-
 	onMenuItemClick func(tr *TreeNode, item string)
 
 	filterText    string
@@ -36,10 +33,10 @@ type TreeNode struct {
 	Identifier     string
 	Children       []*TreeNode
 	DiscloserState component.DiscloserState
+	MenuOptions    []string
 
 	menuContextArea component.ContextArea
 	menu            component.MenuState
-	menuOptions     []string
 	menuClickables  []*widget.Clickable
 
 	menuInit bool
@@ -230,11 +227,6 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 // LayoutTreeNode recursively lays out a tree of widgets described by
 // TreeNodes.
 func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, node *TreeNode) layout.Dimensions {
-	options := t.ParentMenuOptions
-	if node.isChild {
-		options = t.ChildMenuOptions
-	}
-
 	if !node.menuInit {
 		node.menuInit = true
 		node.menuContextArea = component.ContextArea{
@@ -244,9 +236,9 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 		node.menu = component.MenuState{
 			Options: func() []func(gtx layout.Context) layout.Dimensions {
 
-				out := make([]func(gtx layout.Context) layout.Dimensions, 0, len(options))
-				node.menuClickables = make([]*widget.Clickable, 0, len(options))
-				for i, opt := range options {
+				out := make([]func(gtx layout.Context) layout.Dimensions, 0, len(node.MenuOptions))
+				node.menuClickables = make([]*widget.Clickable, 0, len(node.MenuOptions))
+				for i, opt := range node.MenuOptions {
 					opt := opt
 					i := i
 					node.menuClickables = append(node.menuClickables, new(widget.Clickable))
@@ -266,7 +258,7 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 	for i := range node.menuClickables {
 		if node.menuClickables[i].Clicked(gtx) {
 			if t.onMenuItemClick != nil {
-				t.onMenuItemClick(node, options[i])
+				t.onMenuItemClick(node, node.MenuOptions[i])
 			}
 		}
 	}

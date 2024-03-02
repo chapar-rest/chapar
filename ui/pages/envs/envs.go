@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"image/color"
 
-	"github.com/mirzakhany/chapar/internal/logger"
-
-	"gioui.org/op"
-
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
+	"github.com/mirzakhany/chapar/internal/logger"
 	"github.com/mirzakhany/chapar/ui/widgets"
+)
+
+var (
+	menuItems = []string{"Duplicate", "Delete"}
 )
 
 type Envs struct {
@@ -61,8 +63,9 @@ func New(theme *material.Theme) (*Envs, error) {
 		}
 
 		node := &widgets.TreeNode{
-			Text:       env.MetaData.Name,
-			Identifier: env.MetaData.ID,
+			Text:        env.MetaData.Name,
+			Identifier:  env.MetaData.ID,
+			MenuOptions: menuItems,
 		}
 		treeViewNodes = append(treeViewNodes, node)
 	}
@@ -83,7 +86,6 @@ func New(theme *material.Theme) (*Envs, error) {
 		openedTabs: make([]*openedTab, 0),
 	}
 
-	e.treeView.ParentMenuOptions = []string{"Duplicate", "Delete"}
 	e.treeView.OnDoubleClick(e.onItemDoubleClick)
 	e.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
 		if item == "Duplicate" {

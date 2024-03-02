@@ -17,6 +17,11 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
+var (
+	collectionMenuItems = []string{"Add Request", "View", "Delete"}
+	requestMenuItems    = []string{"View", "Duplicate", "Delete"}
+)
+
 type Requests struct {
 	theme *material.Theme
 
@@ -84,8 +89,7 @@ func New(theme *material.Theme) (*Requests, error) {
 		},
 		openedTabs: make([]*openedTab, 0),
 	}
-	req.treeView.ParentMenuOptions = []string{"Detail", "Rename", "Delete"}
-	req.treeView.ChildMenuOptions = []string{"Move", "Duplicate", "Rename", "Delete"}
+
 	req.treeView.OnDoubleClick(req.onItemDoubleClick)
 	req.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
 		if item == "Duplicate" {
@@ -110,9 +114,10 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 	treeViewNodes := make([]*widgets.TreeNode, 0)
 	for _, collection := range collections {
 		parentNode := &widgets.TreeNode{
-			Text:       collection.MetaData.Name,
-			Identifier: collection.MetaData.ID,
-			Children:   make([]*widgets.TreeNode, 0),
+			Text:        collection.MetaData.Name,
+			Identifier:  collection.MetaData.ID,
+			Children:    make([]*widgets.TreeNode, 0),
+			MenuOptions: collectionMenuItems,
 		}
 
 		for _, req := range collection.Spec.Requests {
@@ -121,8 +126,9 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 			}
 
 			node := &widgets.TreeNode{
-				Text:       req.MetaData.Name,
-				Identifier: req.MetaData.ID,
+				Text:        req.MetaData.Name,
+				Identifier:  req.MetaData.ID,
+				MenuOptions: requestMenuItems,
 			}
 			parentNode.AddChildNode(node)
 		}
@@ -132,8 +138,9 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 
 	for _, req := range requests {
 		node := &widgets.TreeNode{
-			Text:       req.MetaData.Name,
-			Identifier: req.MetaData.ID,
+			Text:        req.MetaData.Name,
+			Identifier:  req.MetaData.ID,
+			MenuOptions: requestMenuItems,
 		}
 
 		treeViewNodes = append(treeViewNodes, node)
