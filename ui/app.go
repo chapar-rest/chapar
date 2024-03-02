@@ -112,7 +112,7 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 							case 1:
 								return u.envsPage.Layout(gtx, u.Theme)
 							}
-							return u.requestsPage.Layout(gtx, u.Theme)
+							return layout.Dimensions{}
 						}),
 					)
 				}),
@@ -127,7 +127,7 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 func (u *UI) LayoutHeader(gtx layout.Context) layout.Dimensions {
 	inset := layout.UniformInset(unit.Dp(15))
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return material.H6(u.Theme, "Chapar").Layout(gtx)
