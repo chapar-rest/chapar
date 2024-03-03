@@ -1,31 +1,32 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
 
 	"gioui.org/app"
 	"gioui.org/unit"
 	"github.com/mirzakhany/chapar/ui"
+	mainApp "github.com/mirzakhany/chapar/ui/app"
 )
 
 func main() {
-	appUI, err := ui.New()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	a := ui.NewApplication(ctx)
+	mainUI, err := mainApp.New(a)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	go func() {
-		// create main window
-		w := app.NewWindow(
-			app.Title("Chapar"),
-			app.Size(unit.Dp(1200), unit.Dp(800)),
-		)
-		if err := appUI.Run(w); err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
+		a.NewWindow("Chapar", mainUI, app.Size(unit.Dp(1200), unit.Dp(800)))
+		a.Wait()
 		os.Exit(0)
 	}()
+
 	app.Main()
 }

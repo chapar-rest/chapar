@@ -1,4 +1,4 @@
-package ui
+package fonts
 
 import (
 	"embed"
@@ -11,7 +11,7 @@ import (
 //go:embed fonts/*
 var fonts embed.FS
 
-func prepareFonts() ([]font.FontFace, error) {
+func Prepare() ([]font.FontFace, error) {
 	var fontFaces []font.FontFace
 	robotoRegularTTF, err := getFont("Roboto-Regular.ttf")
 	if err != nil {

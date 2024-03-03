@@ -1,14 +1,8 @@
-package ui
+package app
 
 import (
 	"image"
 	"image/color"
-
-	"github.com/mirzakhany/chapar/internal/bus"
-
-	"github.com/mirzakhany/chapar/ui/pages/console"
-
-	"github.com/mirzakhany/chapar/ui/pages/envs"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -18,7 +12,12 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/notify"
+	"github.com/mirzakhany/chapar/ui"
+	"github.com/mirzakhany/chapar/ui/fonts"
+	"github.com/mirzakhany/chapar/ui/pages/console"
+	"github.com/mirzakhany/chapar/ui/pages/envs"
 	"github.com/mirzakhany/chapar/ui/pages/requests"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -27,6 +26,7 @@ type C = layout.Context
 type D = layout.Dimensions
 
 type UI struct {
+	app   *ui.Application
 	Theme *material.Theme
 
 	sideBar *Sidebar
@@ -35,48 +35,52 @@ type UI struct {
 	requestsPage *requests.Requests
 	envsPage     *envs.Envs
 	consolePage  *console.Console
-
 	notification *widgets.Notification
+
+	tipsOpen bool
 }
 
 // New creates a new UI using the Go Fonts.
-func New() (*UI, error) {
-	ui := &UI{}
-	fontCollection, err := prepareFonts()
+func New(app *ui.Application) (*UI, error) {
+	u := &UI{
+		app: app,
+	}
+	fontCollection, err := fonts.Prepare()
 	if err != nil {
 		return nil, err
 	}
 
 	bus.Init()
 
-	ui.Theme = material.NewTheme()
-	ui.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
+	u.Theme = material.NewTheme()
+	u.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	// set foreground color
-	ui.Theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
+	u.Theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
 	// set background color
-	ui.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
+	u.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
 
-	ui.Theme.TextSize = unit.Sp(14)
+	u.Theme.TextSize = unit.Sp(14)
 	// console need to be initialized before other pages as its listening for logs
-	ui.consolePage = console.New()
-	ui.header = NewHeader()
-	ui.sideBar = NewSidebar(ui.Theme)
+	u.consolePage = console.New()
+	u.header = NewHeader()
+	u.sideBar = NewSidebar(u.Theme)
 
-	ui.requestsPage, err = requests.New(ui.Theme)
+	u.requestsPage, err = requests.New(u.Theme)
 	if err != nil {
 		return nil, err
 	}
 
-	ui.envsPage, err = envs.New(ui.Theme)
+	u.envsPage, err = envs.New(u.Theme)
 	if err != nil {
 		return nil, err
 	}
 
-	ui.notification = &widgets.Notification{}
-	return ui, nil
+	u.notification = &widgets.Notification{}
+
+	return u, nil
 }
 
-func (u *UI) Run(w *app.Window) error {
+func (u *UI) Run(w *ui.Window) error {
 	// ops are the operations from the UI
 	var ops op.Ops
 
