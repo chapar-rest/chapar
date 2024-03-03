@@ -4,6 +4,12 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/ui/pages/requests/collection"
+
+	"gioui.org/io/pointer"
+
+	"gioui.org/x/component"
+
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -26,9 +32,17 @@ var (
 type Requests struct {
 	theme *material.Theme
 
-	addRequestButton widget.Clickable
-	importButton     widget.Clickable
-	searchBox        *widgets.TextField
+	addRequestButton   widget.Clickable
+	addMenuContextArea component.ContextArea
+	addMenu            component.MenuState
+
+	menuInit             bool
+	addHttpRequestButton widget.Clickable
+	addGrpcRequestButton widget.Clickable
+	addCollectionButton  widget.Clickable
+
+	importButton widget.Clickable
+	searchBox    *widgets.TextField
 
 	treeView *widgets.TreeView
 
@@ -46,10 +60,11 @@ type Requests struct {
 }
 
 type openedTab struct {
-	req       *domain.Request
-	tab       *widgets.Tab
-	listItem  *widgets.TreeNode
-	container Container
+	req        *domain.Request
+	collection *domain.Collection
+	tab        *widgets.Tab
+	listItem   *widgets.TreeNode
+	container  Container
 
 	closed bool
 }
@@ -89,6 +104,10 @@ func New(theme *material.Theme) (*Requests, error) {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		openedTabs: make([]*openedTab, 0),
+		addMenuContextArea: component.ContextArea{
+			Activation:       pointer.ButtonPrimary,
+			AbsolutePosition: true,
+		},
 	}
 
 	req.treeView.OnDoubleClick(req.onItemDoubleClick)
@@ -293,6 +312,36 @@ func (r *Requests) deleteReq(identifier string) {
 	}
 }
 
+func (r *Requests) addEmptyCollection() {
+	newCollection := domain.NewCollection("New Collection")
+	node := &widgets.TreeNode{
+		Text:        newCollection.MetaData.Name,
+		Identifier:  newCollection.MetaData.ID,
+		Children:    make([]*widgets.TreeNode, 0),
+		MenuOptions: collectionMenuItems,
+	}
+	r.collections = append(r.collections, newCollection)
+	r.treeView.AddNode(node)
+
+	tab := &widgets.Tab{Title: newCollection.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+	tab.SetOnClose(r.onTabClose)
+	tab.SetIdentifier(newCollection.MetaData.ID)
+	tab.SetDirty(true) // new request is dirty by default and not saved yet
+
+	ot := &openedTab{
+		collection: newCollection,
+		tab:        tab,
+		listItem:   node,
+		container:  collection.New(newCollection.Clone()),
+	}
+	ot.container.SetOnTitleChanged(r.onTitleChanged)
+	r.openedTabs = append(r.openedTabs, ot)
+
+	i := r.tabs.AddTab(tab)
+	r.selectedIndex = i
+	r.tabs.SetSelected(i)
+}
+
 func (r *Requests) addNewEmptyReq(collectionID string) {
 	req := domain.NewRequest("New Request")
 	node := &widgets.TreeNode{
@@ -301,7 +350,7 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 		MenuOptions: requestMenuItems,
 	}
 
-	var collection *domain.Collection
+	var targetCollection *domain.Collection
 	if collectionID != "" {
 		c, _ := r.findCollectionByID(collectionID)
 		if c == nil {
@@ -314,7 +363,7 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 			return
 		}
 
-		collection = c
+		targetCollection = c
 		req.FilePath = newFilePath
 
 	}
@@ -327,7 +376,7 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 		r.requests = append(r.requests, req)
 		r.treeView.AddNode(node)
 	} else {
-		collection.Spec.Requests = append(collection.Spec.Requests, req)
+		targetCollection.Spec.Requests = append(targetCollection.Spec.Requests, req)
 		r.treeView.AddChildNode(collectionID, node)
 	}
 
@@ -351,17 +400,51 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 }
 
 func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	if !r.menuInit {
+		r.menuInit = true
+		r.addMenu = component.MenuState{
+			Options: []func(gtx layout.Context) layout.Dimensions{
+				component.MenuItem(theme, &r.addHttpRequestButton, "HTTP Request").Layout,
+				component.MenuItem(theme, &r.addGrpcRequestButton, "GRPC Request").Layout,
+				component.Divider(theme).Layout,
+				component.MenuItem(theme, &r.addCollectionButton, "Collection").Layout,
+			},
+		}
+	}
+
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if r.addRequestButton.Clicked(gtx) {
-								r.addNewEmptyReq("")
-							}
+							gtx.Constraints.Min.X = 0
+							return layout.Stack{}.Layout(gtx,
+								layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+									if r.addHttpRequestButton.Clicked(gtx) {
+										r.addNewEmptyReq("")
+									}
 
-							return material.Button(theme, &r.addRequestButton, "Add").Layout(gtx)
+									if r.addCollectionButton.Clicked(gtx) {
+										r.addEmptyCollection()
+									}
+
+									return material.Button(theme, &r.addRequestButton, "Add").Layout(gtx)
+								}),
+								layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+									return r.addMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										offset := layout.Inset{
+											Top:  unit.Dp(float32(80)/gtx.Metric.PxPerDp + 1),
+											Left: unit.Dp(4),
+										}
+										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+											gtx.Constraints.Min.X = 0
+											return component.Menu(theme, &r.addMenu).Layout(gtx)
+										})
+									})
+								}),
+							)
+
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
