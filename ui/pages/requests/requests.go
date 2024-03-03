@@ -224,20 +224,20 @@ func (r *Requests) onItemDoubleClick(tr *widgets.TreeNode) {
 
 	req, _ := r.findRequestByID(tr.Identifier)
 	if req != nil {
-		tab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
-		tab.SetOnClose(r.onTabClose)
-		tab.SetIdentifier(req.MetaData.ID)
+		newTab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+		newTab.SetOnClose(r.onTabClose)
+		newTab.SetIdentifier(req.MetaData.ID)
 
 		ot := &openedTab{
 			req:       req,
-			tab:       tab,
+			tab:       newTab,
 			listItem:  tr,
 			container: rest.NewRestContainer(r.theme, req.Clone()),
 		}
 		ot.container.SetOnTitleChanged(r.onTitleChanged)
 		r.openedTabs = append(r.openedTabs, ot)
 
-		i := r.tabs.AddTab(tab)
+		i := r.tabs.AddTab(newTab)
 		r.selectedIndex = i
 		r.tabs.SetSelected(i)
 	}
@@ -301,28 +301,40 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 		MenuOptions: requestMenuItems,
 	}
 
-	if collectionID == "" {
-		r.treeView.AddNode(node)
-	} else {
-		collection, _ := r.findCollectionByID(collectionID)
-		if collection == nil {
+	var collection *domain.Collection
+	if collectionID != "" {
+		c, _ := r.findCollectionByID(collectionID)
+		if c == nil {
 			logger.Error(fmt.Sprintf("collection with id %s not found", collectionID))
 			return
 		}
-		collection.Spec.Requests = append(collection.Spec.Requests, req)
-		newFilePath, err := loader.GetNewFilePath(req.MetaData.Name, collection.MetaData.Name)
+		newFilePath, err := loader.GetNewFilePath(req.MetaData.Name, c.MetaData.Name)
 		if err != nil {
 			logger.Error(fmt.Sprintf("failed to get new file path, err %v", err))
 			return
 		}
 
+		collection = c
 		req.FilePath = newFilePath
+
+	}
+
+	if err := loader.UpdateRequest(req); err != nil {
+		logger.Error(fmt.Sprintf("failed to update request, err %v", err))
+	}
+
+	if collectionID == "" {
+		r.requests = append(r.requests, req)
+		r.treeView.AddNode(node)
+	} else {
+		collection.Spec.Requests = append(collection.Spec.Requests, req)
 		r.treeView.AddChildNode(collectionID, node)
 	}
 
 	tab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 	tab.SetOnClose(r.onTabClose)
 	tab.SetIdentifier(req.MetaData.ID)
+	tab.SetDirty(true) // new request is dirty by default and not saved yet
 
 	ot := &openedTab{
 		req:       req,
@@ -399,6 +411,7 @@ func (r *Requests) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 	tabItems := make([]*widgets.Tab, 0)
 	openItems := make([]*openedTab, 0)
 	for _, ot := range r.openedTabs {
+		ot := ot
 		if !ot.closed {
 			tabItems = append(tabItems, ot.tab)
 			openItems = append(openItems, ot)
