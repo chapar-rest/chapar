@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/ui/pages/tips"
+
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -377,6 +379,11 @@ func (r *Requests) container(gtx layout.Context, theme *material.Theme) layout.D
 			return r.tabs.Layout(gtx, theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if len(r.openedTabs) == 0 {
+				tipes := tips.New()
+				return tipes.Layout(gtx, theme)
+			}
+
 			if r.selectedIndex > len(r.openedTabs)-1 {
 				return layout.Dimensions{}
 			}
