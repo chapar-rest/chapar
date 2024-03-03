@@ -9,21 +9,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mirzakhany/chapar/ui/keys"
-
-	"github.com/mirzakhany/chapar/ui/converter"
-
-	"github.com/mirzakhany/chapar/internal/bus"
-	"github.com/mirzakhany/chapar/internal/loader"
-
-	"github.com/mirzakhany/chapar/internal/domain"
-
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/bus"
+	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/internal/notify"
+	"github.com/mirzakhany/chapar/ui/converter"
+	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )

@@ -4,10 +4,9 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/op"
-
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -134,7 +133,7 @@ func (c *DropDown) SetBorder(color color.NRGBA, width unit.Dp, cornerRadius unit
 func (c *DropDown) box(gtx layout.Context, theme *material.Theme, text string, minWidth int) layout.Dimensions {
 	borderColor := c.borderColor
 	if c.isOpen {
-		borderColor = theme.Palette.ContrastBg
+		borderColor = theme.Palette.ContrastFg
 	}
 
 	border := widget.Border{

@@ -4,10 +4,9 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-
-	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"

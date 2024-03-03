@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"image/color"
 
-	"github.com/mirzakhany/chapar/ui/pages/tips"
-
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -15,6 +13,7 @@ import (
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/internal/logger"
+	"github.com/mirzakhany/chapar/ui/pages/tips"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 

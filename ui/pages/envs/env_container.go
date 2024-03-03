@@ -3,10 +3,6 @@ package envs
 import (
 	"fmt"
 
-	"github.com/mirzakhany/chapar/ui/keys"
-
-	"github.com/mirzakhany/chapar/ui/converter"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -14,6 +10,8 @@ import (
 	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
+	"github.com/mirzakhany/chapar/ui/converter"
+	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )

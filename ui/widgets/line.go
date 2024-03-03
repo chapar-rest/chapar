@@ -4,12 +4,10 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-
 	"gioui.org/unit"
-
-	"gioui.org/layout"
 )
 
 func DrawLineFlex(background color.NRGBA, height, width unit.Dp) layout.FlexChild {

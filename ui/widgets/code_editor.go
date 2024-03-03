@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"gioui.org/io/key"
-
 	"gioui.org/font"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"

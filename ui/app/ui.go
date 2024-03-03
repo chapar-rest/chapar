@@ -22,9 +22,6 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-type C = layout.Context
-type D = layout.Dimensions
-
 type UI struct {
 	app   *ui.Application
 	Theme *material.Theme

@@ -4,13 +4,10 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/op"
-
-	"gioui.org/io/semantic"
-
 	"gioui.org/io/input"
-
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"

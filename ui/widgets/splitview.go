@@ -5,13 +5,11 @@ import (
 	"image/color"
 
 	"gioui.org/io/event"
-
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 )
 

@@ -17,7 +17,6 @@ const (
 
 type TextField struct {
 	textEditor widget.Editor
-	textField  material.EditorStyle
 	Icon       *widget.Icon
 
 	IconPosition int
@@ -70,8 +69,8 @@ func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 	}
 
 	borderColor := t.borderColor
-	if gtx.Focused(t.textField) {
-		borderColor = theme.Palette.ContrastBg
+	if gtx.Source.Focused(&t.textEditor) {
+		borderColor = theme.Palette.ContrastFg
 	}
 
 	cornerRadius := unit.Dp(4)

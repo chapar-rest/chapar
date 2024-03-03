@@ -5,16 +5,13 @@ import (
 	"image/color"
 
 	"gioui.org/io/input"
-
 	"gioui.org/io/semantic"
-
-	"gioui.org/widget/material"
-
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 )
 
 type IconButton struct {

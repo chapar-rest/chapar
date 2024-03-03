@@ -5,12 +5,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/uuid"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/google/uuid"
 )
 
 type KeyValue struct {

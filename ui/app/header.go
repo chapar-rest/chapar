@@ -55,14 +55,14 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 		bus.Publish(state.SelectedEnvChanged, h.selectedEnv)
 	}
 
-	headerBar := inset.Layout(gtx, func(gtx C) D {
+	headerBar := inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-			layout.Rigid(func(gtx C) D {
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return material.H6(theme, "Chapar").Layout(gtx)
 				})
 			}),
-			layout.Rigid(func(gtx C) D {
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return h.envDropDown.Layout(gtx, theme)
 				})
@@ -71,7 +71,7 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 	})
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx C) D {
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = gtx.Dp(200)
 			return headerBar
 		}),
