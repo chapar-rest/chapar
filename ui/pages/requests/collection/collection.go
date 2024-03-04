@@ -49,6 +49,7 @@ func New(collection *domain.Collection) *Collection {
 		c.collection.MetaData.Name = text
 		if err := loader.UpdateCollection(c.collection); err != nil {
 			c.showError(fmt.Sprintf("failed to update environment: %s", err))
+			fmt.Println("failed to update collection: ", err)
 			return
 		}
 

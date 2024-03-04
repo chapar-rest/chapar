@@ -129,10 +129,13 @@ func UpdateCollection(collection *domain.Collection) error {
 		return err
 	}
 
-	// rename the directory to the new name
-	if collection.MetaData.Name != path.Base(filepath.Dir(collection.FilePath)) {
-		newDirName := path.Join(path.Dir(collection.FilePath), collection.MetaData.Name)
-		if err := os.Rename(filepath.Dir(collection.FilePath), newDirName); err != nil {
+	// Get the directory name
+	dirName := path.Dir(collection.FilePath)
+	// Change the directory name to the collection name
+	if collection.MetaData.Name != path.Base(dirName) {
+		// replace last part of the path with the new name
+		newDirName := path.Join(path.Dir(dirName), collection.MetaData.Name)
+		if err := os.Rename(dirName, newDirName); err != nil {
 			return err
 		}
 		collection.FilePath = filepath.Join(newDirName, "_collection.yaml")

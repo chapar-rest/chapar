@@ -112,16 +112,15 @@ func New(theme *material.Theme) (*Requests, error) {
 
 	req.treeView.OnDoubleClick(req.onItemDoubleClick)
 	req.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
-		if item == "Duplicate" {
+		switch item {
+		case "Duplicate":
 			req.duplicateReq(tr.Identifier)
-		}
-
-		if item == "Delete" {
+		case "Delete":
 			req.deleteReq(tr.Identifier)
-		}
-
-		if item == "Add Request" {
+		case "Add Request":
 			req.addNewEmptyReq(tr.Identifier)
+		case "View":
+			req.viewCollectionDetail(tr)
 		}
 	})
 	req.searchBox.SetOnTextChange(func(text string) {
@@ -136,15 +135,15 @@ func New(theme *material.Theme) (*Requests, error) {
 
 func prepareTreeView(collections []*domain.Collection, requests []*domain.Request) []*widgets.TreeNode {
 	treeViewNodes := make([]*widgets.TreeNode, 0)
-	for _, collection := range collections {
+	for _, cl := range collections {
 		parentNode := &widgets.TreeNode{
-			Text:        collection.MetaData.Name,
-			Identifier:  collection.MetaData.ID,
+			Text:        cl.MetaData.Name,
+			Identifier:  cl.MetaData.ID,
 			Children:    make([]*widgets.TreeNode, 0),
 			MenuOptions: collectionMenuItems,
 		}
 
-		for _, req := range collection.Spec.Requests {
+		for _, req := range cl.Spec.Requests {
 			if req.MetaData.ID == "" {
 				req.MetaData.ID = uuid.NewString()
 			}
@@ -248,6 +247,36 @@ func (r *Requests) onTitleChanged(id, title string) {
 			collectionTab.tab.Title = title
 			collectionTab.listItem.Text = title
 		}
+	}
+}
+
+func (r *Requests) viewCollectionDetail(tr *widgets.TreeNode) {
+	// if request is already opened, just switch to it
+	tab, index := r.findCollectionInTab(tr.Identifier)
+	if tab != nil {
+		r.selectedIndex = index
+		r.tabs.SetSelected(index)
+		return
+	}
+
+	cl, _ := r.findCollectionByID(tr.Identifier)
+	if cl != nil {
+		newTab := &widgets.Tab{Title: cl.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+		newTab.SetOnClose(r.onTabClose)
+		newTab.SetIdentifier(cl.MetaData.ID)
+
+		ot := &openedTab{
+			collection: cl,
+			tab:        newTab,
+			listItem:   tr,
+			container:  collection.New(cl.Clone()),
+		}
+		ot.container.SetOnTitleChanged(r.onTitleChanged)
+		r.openedTabs = append(r.openedTabs, ot)
+
+		i := r.tabs.AddTab(newTab)
+		r.selectedIndex = i
+		r.tabs.SetSelected(i)
 	}
 }
 
