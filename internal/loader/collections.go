@@ -1,7 +1,6 @@
 package loader
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -124,12 +123,21 @@ func UpdateCollection(collection *domain.Collection) error {
 		if err != nil {
 			return err
 		}
-
-		fmt.Println(dirName)
-
 		collection.FilePath = filepath.Join(dirName, "_collection.yaml")
-		fmt.Println(collection.FilePath)
 	}
 
-	return SaveToYaml(collection.FilePath, collection)
+	if err := SaveToYaml(collection.FilePath, collection); err != nil {
+		return err
+	}
+
+	// rename the directory to the new name
+	if collection.MetaData.Name != path.Base(filepath.Dir(collection.FilePath)) {
+		newDirName := path.Join(path.Dir(collection.FilePath), collection.MetaData.Name)
+		if err := os.Rename(filepath.Dir(collection.FilePath), newDirName); err != nil {
+			return err
+		}
+		collection.FilePath = filepath.Join(newDirName, "_collection.yaml")
+	}
+
+	return nil
 }

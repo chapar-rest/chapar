@@ -73,7 +73,19 @@ func UpdateRequest(req *domain.Request) error {
 		req.FilePath = fileName
 	}
 
-	return SaveToYaml(req.FilePath, req)
+	if err := SaveToYaml(req.FilePath, req); err != nil {
+		return err
+	}
+
+	// rename the file to the new name
+	if req.MetaData.Name != path.Base(req.FilePath) {
+		newFilePath := path.Join(path.Dir(req.FilePath), req.MetaData.Name+".yaml")
+		if err := os.Rename(req.FilePath, newFilePath); err != nil {
+			return err
+		}
+		req.FilePath = newFilePath
+	}
+	return nil
 }
 
 func GetNewFilePath(name, collectionName string) (string, error) {

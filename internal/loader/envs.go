@@ -73,5 +73,18 @@ func UpdateEnvironment(env *domain.Environment) error {
 		env.FilePath = fileName
 	}
 
-	return SaveToYaml(env.FilePath, env)
+	if err := SaveToYaml(env.FilePath, env); err != nil {
+		return err
+	}
+
+	// rename the file to the new name
+	if env.MetaData.Name != path.Base(env.FilePath) {
+		newFilePath := path.Join(path.Dir(env.FilePath), env.MetaData.Name+".yaml")
+		if err := os.Rename(env.FilePath, newFilePath); err != nil {
+			return err
+		}
+		env.FilePath = newFilePath
+	}
+
+	return nil
 }
