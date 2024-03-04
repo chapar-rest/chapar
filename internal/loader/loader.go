@@ -131,3 +131,37 @@ func AddSuffixBeforeExt(filePath, suffix string) string {
 	newBaseName := baseName + suffix + extension
 	return filepath.Join(dir, newBaseName)
 }
+
+func getNewCollectionDirName(name string) (string, error) {
+	collectionDir, err := GetCollectionsDir()
+	if err != nil {
+		return "", err
+	}
+
+	dir := path.Join(collectionDir, name)
+	_, err = os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if err := os.Mkdir(dir, 0755); err != nil {
+				return "", err
+			}
+			return dir, nil
+		}
+
+		i := 0
+		for {
+			dirName := path.Join(collectionDir, fmt.Sprintf("%s-%d", name, i))
+			if _, err := os.Stat(dirName); err != nil {
+				if os.IsNotExist(err) {
+					if err := os.Mkdir(dir, 0755); err != nil {
+						return "", err
+					}
+					return dirName, nil
+				}
+			}
+			i++
+		}
+
+	}
+	return dir, nil
+}

@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -119,18 +120,15 @@ func GetCollectionsDir() (string, error) {
 
 func UpdateCollection(collection *domain.Collection) error {
 	if collection.FilePath == "" {
-		// this is a new collection
-		dir, err := GetCollectionsDir()
+		dirName, err := getNewCollectionDirName(collection.MetaData.Name)
 		if err != nil {
 			return err
 		}
 
-		fileName, err := getNewFileName(dir, collection.MetaData.Name)
-		if err != nil {
-			return err
-		}
+		fmt.Println(dirName)
 
-		collection.FilePath = fileName
+		collection.FilePath = filepath.Join(dirName, "_collection.yaml")
+		fmt.Println(collection.FilePath)
 	}
 
 	return SaveToYaml(collection.FilePath, collection)

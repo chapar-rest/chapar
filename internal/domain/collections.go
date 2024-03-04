@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/google/uuid"
+
 type Collection struct {
 	ApiVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
@@ -36,7 +38,7 @@ func NewCollection(name string) *Collection {
 		ApiVersion: ApiVersion,
 		Kind:       KindCollection,
 		MetaData: MetaData{
-			ID:   "collection",
+			ID:   uuid.NewString(),
 			Name: name,
 		},
 		Spec: ColSpec{

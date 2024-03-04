@@ -36,6 +36,28 @@ func New(collection *domain.Collection) *Collection {
 	}
 	c.prompt.WithRememberBool()
 
+	c.title.SetOnChanged(func(text string) {
+		if c.collection == nil {
+			return
+		}
+
+		if c.collection.MetaData.Name == text {
+			return
+		}
+
+		// save changes to the collection
+		c.collection.MetaData.Name = text
+		if err := loader.UpdateCollection(c.collection); err != nil {
+			c.showError(fmt.Sprintf("failed to update environment: %s", err))
+			return
+		}
+
+		if c.onTitleChanged != nil {
+			c.onTitleChanged(c.collection.MetaData.ID, text)
+			bus.Publish(state.CollectionChanged, nil)
+		}
+	})
+
 	return c
 }
 
@@ -121,6 +143,7 @@ func (c *Collection) save() {
 		}
 	}
 }
+
 func (c *Collection) showError(err string) {
 	c.prompt.Type = widgets.ModalTypeErr
 	c.prompt.Content = err

@@ -192,9 +192,9 @@ func (r *Requests) findRequestByID(id string) (*domain.Request, int) {
 	return nil, -1
 }
 func (r *Requests) findCollectionByID(id string) (*domain.Collection, int) {
-	for i, collection := range r.collections {
-		if collection.MetaData.ID == id {
-			return collection, i
+	for i, cl := range r.collections {
+		if cl.MetaData.ID == id {
+			return cl, i
 		}
 	}
 	return nil, -1
@@ -202,7 +202,16 @@ func (r *Requests) findCollectionByID(id string) (*domain.Collection, int) {
 
 func (r *Requests) findRequestInTab(id string) (*openedTab, int) {
 	for i, ot := range r.openedTabs {
-		if ot.req.MetaData.ID == id {
+		if ot.req != nil && ot.req.MetaData.ID == id {
+			return ot, i
+		}
+	}
+	return nil, -1
+}
+
+func (r *Requests) findCollectionInTab(id string) (*openedTab, int) {
+	for i, ot := range r.openedTabs {
+		if ot.collection != nil && ot.collection.MetaData.ID == id {
 			return ot, i
 		}
 	}
@@ -228,6 +237,16 @@ func (r *Requests) onTitleChanged(id, title string) {
 			tab.req.MetaData.Name = title
 			tab.tab.Title = title
 			tab.listItem.Text = title
+		}
+	}
+
+	collectionTab, _ := r.findCollectionInTab(id)
+	if collectionTab != nil {
+		if collectionTab.collection.MetaData.Name != title {
+			// Update the tree view item and the tab title
+			collectionTab.collection.MetaData.Name = title
+			collectionTab.tab.Title = title
+			collectionTab.listItem.Text = title
 		}
 	}
 }
@@ -326,7 +345,6 @@ func (r *Requests) addEmptyCollection() {
 	tab := &widgets.Tab{Title: newCollection.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
 	tab.SetOnClose(r.onTabClose)
 	tab.SetIdentifier(newCollection.MetaData.ID)
-	tab.SetDirty(true) // new request is dirty by default and not saved yet
 
 	ot := &openedTab{
 		collection: newCollection,
