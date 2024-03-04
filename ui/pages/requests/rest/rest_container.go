@@ -25,9 +25,8 @@ import (
 )
 
 type Container struct {
-	req   *domain.Request
-	title *widgets.EditableLabel
-
+	req        *domain.Request
+	title      *widgets.EditableLabel
 	saveButton *widget.Clickable
 
 	// Request Bar
@@ -602,6 +601,13 @@ func (r *Container) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 				Left:   unit.Dp(5),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if r.req.CollectionName != "" {
+							return material.Label(theme, theme.TextSize, r.req.CollectionName+" /").Layout(gtx)
+						} else {
+							return layout.Dimensions{}
+						}
+					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return r.title.Layout(gtx, theme)
 					}),

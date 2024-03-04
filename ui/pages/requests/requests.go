@@ -174,8 +174,8 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 }
 
 func (r *Requests) findRequestByID(id string) (*domain.Request, int) {
-	for i, collection := range r.collections {
-		for _, req := range collection.Spec.Requests {
+	for i, cl := range r.collections {
+		for _, req := range cl.Spec.Requests {
 			if req.MetaData.ID == id {
 				return req, i
 			}

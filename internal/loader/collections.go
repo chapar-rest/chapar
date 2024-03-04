@@ -64,8 +64,7 @@ func loadCollection(collectionPath string) (*domain.Collection, error) {
 	}
 
 	collection := &domain.Collection{}
-	err = yaml.Unmarshal(collectionMetadata, collection)
-	if err != nil {
+	if err = yaml.Unmarshal(collectionMetadata, collection); err != nil {
 		return nil, err
 	}
 
@@ -90,12 +89,12 @@ func loadCollection(collectionPath string) (*domain.Collection, error) {
 		}
 
 		var request = new(domain.Request)
-		err = yaml.Unmarshal(requestData, request)
-		if err != nil {
+		if err = yaml.Unmarshal(requestData, request); err != nil {
 			return nil, err
 		}
 
 		request.FilePath = requestPath
+		request.CollectionName = collection.MetaData.Name
 		collection.Spec.Requests = append(collection.Spec.Requests, request)
 	}
 	return collection, nil
