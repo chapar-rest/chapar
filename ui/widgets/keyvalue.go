@@ -165,7 +165,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *material.Theme, index 
 	border := widget.Border{
 		Color:        Gray300,
 		CornerRadius: 0,
-		Width:        1,
+		Width:        unit.Dp(1),
 	}
 
 	if item.activeBool.Update(gtx) {

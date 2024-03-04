@@ -72,7 +72,6 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.Y = gtx.Dp(200)
 			return headerBar
 		}),
 		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
