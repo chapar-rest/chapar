@@ -225,6 +225,14 @@ func (r *Requests) onTabClose(t *widgets.Tab) {
 		}
 		tab.closed = true
 	}
+
+	collectionTab, _ := r.findCollectionInTab(t.Identifier)
+	if collectionTab != nil {
+		if !collectionTab.container.OnClose() {
+			return
+		}
+		collectionTab.closed = true
+	}
 }
 
 func (r *Requests) onTitleChanged(id, title string) {
