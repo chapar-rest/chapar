@@ -62,6 +62,9 @@ func New(collection *domain.Collection) *Collection {
 	return c
 }
 
+func (c *Collection) SetActiveEnvironment(_ *domain.Environment) {
+}
+
 func (c *Collection) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	keys.OnSaveCommand(gtx, c, c.save)
 

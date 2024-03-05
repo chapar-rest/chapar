@@ -36,14 +36,14 @@ var (
 type Requests struct {
 	theme *material.Theme
 
-	addRequestButton   widget.Clickable
-	addMenuContextArea component.ContextArea
-	addMenu            component.MenuState
+	newRequestButton   widget.Clickable
+	newMenuContextArea component.ContextArea
+	newMenu            component.MenuState
 
 	menuInit             bool
-	addHttpRequestButton widget.Clickable
-	addGrpcRequestButton widget.Clickable
-	addCollectionButton  widget.Clickable
+	newHttpRequestButton widget.Clickable
+	newGrpcRequestButton widget.Clickable
+	newCollectionButton  widget.Clickable
 
 	importButton widget.Clickable
 	searchBox    *widgets.TextField
@@ -110,7 +110,7 @@ func New(theme *material.Theme) (*Requests, error) {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		openedTabs: make([]*openedTab, 0),
-		addMenuContextArea: component.ContextArea{
+		newMenuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
 			AbsolutePosition: true,
 		},
@@ -209,6 +209,9 @@ func (r *Requests) onEnvChange(envID any) {
 		ID:   env.MetaData.ID,
 		Name: env.MetaData.Name,
 	}
+
+	r.openedTabs[r.selectedIndex].container.SetActiveEnvironment(env)
+
 	if err := loader.UpdateRequest(req); err != nil {
 		logger.Error(fmt.Sprintf("failed to update request last used environment: %s", err))
 		return
@@ -546,12 +549,12 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if !r.menuInit {
 		r.menuInit = true
-		r.addMenu = component.MenuState{
+		r.newMenu = component.MenuState{
 			Options: []func(gtx layout.Context) layout.Dimensions{
-				component.MenuItem(theme, &r.addHttpRequestButton, "HTTP Request").Layout,
-				component.MenuItem(theme, &r.addGrpcRequestButton, "GRPC Request").Layout,
+				component.MenuItem(theme, &r.newHttpRequestButton, "HTTP Request").Layout,
+				component.MenuItem(theme, &r.newGrpcRequestButton, "GRPC Request").Layout,
 				component.Divider(theme).Layout,
-				component.MenuItem(theme, &r.addCollectionButton, "Collection").Layout,
+				component.MenuItem(theme, &r.newCollectionButton, "Collection").Layout,
 			},
 		}
 	}
@@ -565,25 +568,25 @@ func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimens
 							gtx.Constraints.Min.X = 0
 							return layout.Stack{}.Layout(gtx,
 								layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-									if r.addHttpRequestButton.Clicked(gtx) {
+									if r.newHttpRequestButton.Clicked(gtx) {
 										r.addNewEmptyReq("")
 									}
 
-									if r.addCollectionButton.Clicked(gtx) {
+									if r.newCollectionButton.Clicked(gtx) {
 										r.addEmptyCollection()
 									}
 
-									return material.Button(theme, &r.addRequestButton, "Add").Layout(gtx)
+									return material.Button(theme, &r.newRequestButton, "New").Layout(gtx)
 								}),
 								layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-									return r.addMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return r.newMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 										offset := layout.Inset{
 											Top:  unit.Dp(float32(80)/gtx.Metric.PxPerDp + 1),
 											Left: unit.Dp(4),
 										}
 										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 											gtx.Constraints.Min.X = 0
-											m := component.Menu(theme, &r.addMenu)
+											m := component.Menu(theme, &r.newMenu)
 											m.SurfaceStyle.Fill = widgets.Gray300
 											return m.Layout(gtx)
 										})

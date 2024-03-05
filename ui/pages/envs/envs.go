@@ -22,7 +22,7 @@ var (
 )
 
 type Envs struct {
-	addEnvButton widget.Clickable
+	newEnvButton widget.Clickable
 	searchBox    *widgets.TextField
 	treeView     *widgets.TreeView
 
@@ -265,11 +265,11 @@ func (e *Envs) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if e.addEnvButton.Clicked(gtx) {
+							if e.newEnvButton.Clicked(gtx) {
 								e.addNewEmptyEnv()
 							}
 
-							return material.Button(theme, &e.addEnvButton, "Add").Layout(gtx)
+							return material.Button(theme, &e.newEnvButton, "New").Layout(gtx)
 						}),
 					)
 				})

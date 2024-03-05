@@ -50,6 +50,7 @@ func (r *Container) requestBar(gtx layout.Context, theme *material.Theme) layout
 					}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.Y = gtx.Dp(20)
+							r.methodDropDown.TextSize = unit.Sp(16)
 							return r.methodDropDown.Layout(gtx, theme)
 						}),
 						widgets.DrawLineFlex(widgets.Gray300, unit.Dp(20), unit.Dp(1)),
@@ -58,7 +59,9 @@ func (r *Container) requestBar(gtx layout.Context, theme *material.Theme) layout
 								r.addressMutex.Lock()
 								defer r.addressMutex.Unlock()
 								gtx.Constraints.Min.Y = gtx.Dp(20)
-								return material.Editor(theme, r.address, "https://example.com").Layout(gtx)
+								editor := material.Editor(theme, r.address, "https://example.com")
+								editor.TextSize = unit.Sp(16)
+								return editor.Layout(gtx)
 							})
 						}),
 					)

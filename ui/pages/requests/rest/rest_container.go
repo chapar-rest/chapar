@@ -29,6 +29,8 @@ type Container struct {
 	title      *widgets.EditableLabel
 	saveButton *widget.Clickable
 
+	activeEnvironment *domain.Environment
+
 	// Request Bar
 	methodDropDown *widgets.DropDown
 	addressMutex   *sync.Mutex
@@ -268,6 +270,10 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 
 func (r *Container) SetOnTitleChanged(f func(string, string)) {
 	r.onTitleChanged = f
+}
+
+func (r *Container) SetActiveEnvironment(env *domain.Environment) {
+	r.activeEnvironment = env
 }
 
 func (r *Container) onTextBodyChanged(newText string) {

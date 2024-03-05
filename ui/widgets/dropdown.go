@@ -24,6 +24,8 @@ type DropDown struct {
 
 	size image.Point
 
+	TextSize unit.Sp
+
 	borderColor  color.NRGBA
 	borderWidth  unit.Dp
 	cornerRadius unit.Dp
@@ -142,6 +144,11 @@ func (c *DropDown) box(gtx layout.Context, theme *material.Theme, text string, m
 		borderColor = theme.Palette.ContrastFg
 	}
 
+	textSize := theme.TextSize
+	if c.TextSize != 0 {
+		textSize = c.TextSize
+	}
+
 	border := widget.Border{
 		Color:        borderColor,
 		Width:        c.borderWidth,
@@ -160,7 +167,7 @@ func (c *DropDown) box(gtx layout.Context, theme *material.Theme, text string, m
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, theme.TextSize, text).Layout(gtx)
+						return material.Label(theme, textSize, text).Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
