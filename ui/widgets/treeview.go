@@ -41,6 +41,7 @@ type TreeNode struct {
 
 	menuInit bool
 	isChild  bool
+	expanded bool
 
 	lastClickAt time.Time
 }
@@ -75,6 +76,15 @@ func (t *TreeView) AddNode(node *TreeNode) {
 func (tr *TreeNode) AddChildNode(child *TreeNode) {
 	child.isChild = true
 	tr.Children = append(tr.Children, child)
+}
+
+func (t *TreeView) ExpandNode(identifier string) {
+	for _, n := range t.nodes {
+		if n.Identifier == identifier {
+			n.expanded = true
+			return
+		}
+	}
 }
 
 func (t *TreeView) AddChildNode(parentIdentifier string, child *TreeNode) {
@@ -183,6 +193,11 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 				continue
 			}
 		}
+	}
+
+	if node.expanded {
+		node.expanded = false
+		node.DiscloserState.Appear(gtx.Now)
 	}
 
 	return t.clickableWrap(gtx, theme, node, func(gtx layout.Context) layout.Dimensions {

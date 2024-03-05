@@ -111,18 +111,7 @@ func New(theme *material.Theme) (*Requests, error) {
 	}
 
 	req.treeView.OnDoubleClick(req.onItemDoubleClick)
-	req.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
-		switch item {
-		case "Duplicate":
-			req.duplicateReq(tr.Identifier)
-		case "Delete":
-			req.deleteReq(tr.Identifier)
-		case "Add Request":
-			req.addNewEmptyReq(tr.Identifier)
-		case "View":
-			req.viewCollectionDetail(tr)
-		}
-	})
+	req.treeView.SetOnMenuItemClick(req.onTreeViewMenuItemClick)
 	req.searchBox.SetOnTextChange(func(text string) {
 		if req.collections == nil && req.requests == nil {
 			return
@@ -170,6 +159,35 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 	}
 
 	return treeViewNodes
+}
+
+func (r *Requests) isTreeNodeACollection(tr *widgets.TreeNode) bool {
+	cl, _ := r.findCollectionByID(tr.Identifier)
+	return cl != nil
+}
+
+func (r *Requests) onTreeViewMenuItemClick(tr *widgets.TreeNode, item string) {
+	if r.isTreeNodeACollection(tr) {
+		// if its a collection
+		switch item {
+		case "Add Request":
+			r.addNewEmptyReq(tr.Identifier)
+		case "View":
+			r.viewCollectionDetail(tr)
+		case "Delete":
+			r.deleteCollection(tr.Identifier)
+		}
+		return
+	}
+
+	switch item {
+	case "Duplicate":
+		r.duplicateReq(tr.Identifier)
+	case "Delete":
+		r.deleteReq(tr.Identifier)
+	case "View":
+		r.onItemDoubleClick(tr)
+	}
 }
 
 func (r *Requests) findRequestByID(id string) (*domain.Request, int) {
@@ -345,6 +363,19 @@ func (r *Requests) duplicateReq(identifier string) {
 	}
 }
 
+func (r *Requests) deleteCollection(identifier string) {
+	c, i := r.findCollectionByID(identifier)
+	if c != nil {
+		if err := loader.DeleteCollection(c); err != nil {
+			logger.Error(fmt.Sprintf("failed to delete collection, err %v", err))
+			return
+		}
+
+		r.collections = append(r.collections[:i], r.collections[i+1:]...)
+		r.treeView.RemoveNode(identifier)
+	}
+}
+
 func (r *Requests) deleteReq(identifier string) {
 	req, i := r.findRequestByID(identifier)
 	if req != nil {
@@ -383,6 +414,10 @@ func (r *Requests) addEmptyCollection() {
 	tab.SetOnClose(r.onTabClose)
 	tab.SetIdentifier(newCollection.MetaData.ID)
 
+	if err := loader.UpdateCollection(newCollection); err != nil {
+		logger.Error(fmt.Sprintf("failed to update collection, err %v", err))
+	}
+
 	ot := &openedTab{
 		collection: newCollection,
 		tab:        tab,
@@ -420,7 +455,6 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 
 		targetCollection = c
 		req.FilePath = newFilePath
-
 	}
 
 	if err := loader.UpdateRequest(req); err != nil {
@@ -433,6 +467,7 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 	} else {
 		targetCollection.Spec.Requests = append(targetCollection.Spec.Requests, req)
 		r.treeView.AddChildNode(collectionID, node)
+		r.treeView.ExpandNode(collectionID)
 	}
 
 	tab := &widgets.Tab{Title: req.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
@@ -494,7 +529,9 @@ func (r *Requests) list(gtx layout.Context, theme *material.Theme) layout.Dimens
 										}
 										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 											gtx.Constraints.Min.X = 0
-											return component.Menu(theme, &r.addMenu).Layout(gtx)
+											m := component.Menu(theme, &r.addMenu)
+											m.SurfaceStyle.Fill = widgets.Gray300
+											return m.Layout(gtx)
 										})
 									})
 								}),

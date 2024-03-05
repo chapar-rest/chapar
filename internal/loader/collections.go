@@ -143,3 +143,7 @@ func UpdateCollection(collection *domain.Collection) error {
 
 	return nil
 }
+
+func DeleteCollection(collection *domain.Collection) error {
+	return os.RemoveAll(path.Dir(collection.FilePath))
+}
