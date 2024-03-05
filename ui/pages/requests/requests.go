@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/ui/state"
+
+	"github.com/mirzakhany/chapar/internal/bus"
+
 	"github.com/mirzakhany/chapar/ui/pages/requests/collection"
 
 	"gioui.org/io/pointer"
@@ -72,12 +76,14 @@ type openedTab struct {
 func New(theme *material.Theme) (*Requests, error) {
 	collections, err := loader.LoadCollections()
 	if err != nil {
+		fmt.Println("LoadCollections", err)
 		logger.Error(fmt.Sprintf("failed to load collections, err %v", err))
 		return nil, err
 	}
 
 	requests, err := loader.LoadRequests()
 	if err != nil {
+		fmt.Println("LoadRequests", err)
 		logger.Error(fmt.Sprintf("failed to load requests, err %v", err))
 		return nil, err
 	}
@@ -119,6 +125,8 @@ func New(theme *material.Theme) (*Requests, error) {
 		req.treeView.Filter(text)
 	})
 
+	bus.Subscribe(state.SelectedEnvChanged, req.onEnvChange)
+
 	return req, nil
 }
 
@@ -159,6 +167,52 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 	}
 
 	return treeViewNodes
+}
+
+func (r *Requests) onEnvChange(envID any) {
+	if envID == nil {
+		return
+	}
+
+	id, ok := envID.(string)
+	if !ok {
+		return
+	}
+
+	// is any tab open?
+	if len(r.openedTabs) == 0 {
+		return
+	}
+
+	// is the selected tab a request?
+	if r.openedTabs[r.selectedIndex].req == nil {
+		return
+	}
+
+	req := r.openedTabs[r.selectedIndex].req
+
+	env, err := loader.FindEnvironmentByID(id)
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to find environment by id: %s", err))
+		return
+	}
+
+	if env == nil {
+		return
+	}
+
+	if req.Spec.HTTP.LastUsedEnvironment.ID == env.MetaData.ID {
+		return
+	}
+
+	req.Spec.HTTP.LastUsedEnvironment = domain.LastUsedEnvironment{
+		ID:   env.MetaData.ID,
+		Name: env.MetaData.Name,
+	}
+	if err := loader.UpdateRequest(req); err != nil {
+		logger.Error(fmt.Sprintf("failed to update request last used environment: %s", err))
+		return
+	}
 }
 
 func (r *Requests) isTreeNodeACollection(tr *widgets.TreeNode) bool {

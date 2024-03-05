@@ -263,7 +263,6 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	r.address.SetText("https://example.com")
 
 	r.Load(req)
-
 	return r
 }
 

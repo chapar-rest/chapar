@@ -32,8 +32,9 @@ type DropDown struct {
 }
 
 type DropDownOption struct {
-	Text      string
-	clickable widget.Clickable
+	Text       string
+	Identifier string
+	clickable  widget.Clickable
 
 	isDivider bool
 	isDefault bool
@@ -50,6 +51,11 @@ func NewDropDownDivider() *DropDownOption {
 	return &DropDownOption{
 		isDivider: true,
 	}
+}
+
+func (o *DropDownOption) WithIdentifier(identifier string) *DropDownOption {
+	o.Identifier = identifier
+	return o
 }
 
 func (o *DropDownOption) DefaultSelected() *DropDownOption {

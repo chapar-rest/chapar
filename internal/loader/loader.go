@@ -106,6 +106,7 @@ func LoadFromYaml[T any](filename string) (*T, error) {
 
 	env := new(T)
 	if err := yaml.Unmarshal(data, env); err != nil {
+		fmt.Println(filename, err)
 		return nil, err
 	}
 	return env, nil

@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/google/uuid"
+
 type Preferences struct {
 	ApiVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
@@ -17,7 +19,7 @@ func NewPreferences() *Preferences {
 		ApiVersion: ApiVersion,
 		Kind:       KindPreferences,
 		MetaData: MetaData{
-			ID:   "preferences",
+			ID:   uuid.NewString(),
 			Name: "Preferences",
 		},
 		Spec: PrefSpec{

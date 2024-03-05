@@ -65,10 +65,15 @@ type HTTPRequestSpec struct {
 	Method string `yaml:"method"`
 	URL    string `yaml:"url"`
 
-	LastUsedEnvironment string `yaml:"lastUsedEnvironment"`
+	LastUsedEnvironment LastUsedEnvironment `yaml:"lastUsedEnvironment"`
 
 	Body      HTTPRequest    `yaml:"body"`
 	Responses []HTTPResponse `yaml:"responses"`
+}
+
+type LastUsedEnvironment struct {
+	ID   string `yaml:"id"`
+	Name string `yaml:"name"`
 }
 
 func (h *HTTPRequestSpec) Clone() *HTTPRequestSpec {

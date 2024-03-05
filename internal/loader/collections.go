@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -65,6 +66,7 @@ func loadCollection(collectionPath string) (*domain.Collection, error) {
 
 	collection := &domain.Collection{}
 	if err = yaml.Unmarshal(collectionMetadata, collection); err != nil {
+		fmt.Println(collectionMetadataPath, err)
 		return nil, err
 	}
 
