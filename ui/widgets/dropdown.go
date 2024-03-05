@@ -218,7 +218,9 @@ func (c *DropDown) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 		})
 	}
 
-	menuDim := component.Menu(theme, &c.menu).Layout(gtx)
+	m := component.Menu(theme, &c.menu)
+	m.SurfaceStyle.Fill = Gray300
+	menuDim := m.Layout(gtx)
 	menuMacroCall := menuMicro.Stop()
 
 	box := c.box(gtx, theme, c.options[c.selectedOptionIndex].Text, minWidth)
