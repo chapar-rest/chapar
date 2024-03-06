@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"image/color"
 	"io"
 	"net/url"
 	"strings"
@@ -102,7 +101,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		split: widgets.SplitView{
 			Ratio:         0,
 			BarWidth:      unit.Dp(2),
-			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
+			BarColor:      widgets.Gray300,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		address:           new(widget.Editor),

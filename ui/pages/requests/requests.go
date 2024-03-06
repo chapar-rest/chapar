@@ -2,7 +2,6 @@ package requests
 
 import (
 	"fmt"
-	"image/color"
 
 	"github.com/mirzakhany/chapar/ui/state"
 
@@ -106,7 +105,7 @@ func New(theme *material.Theme) (*Requests, error) {
 			MinLeftSize:   unit.Dp(250),
 			MaxLeftSize:   unit.Dp(800),
 			BarWidth:      unit.Dp(2),
-			BarColor:      color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff},
+			BarColor:      widgets.Gray300,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		openedTabs: make([]*openedTab, 0),
