@@ -61,6 +61,10 @@ func (t *TreeView) OnDoubleClick(fn func(tr *TreeNode)) {
 	t.onDoubleClick = fn
 }
 
+func (t *TreeView) SetNodes(nodes []*TreeNode) {
+	t.nodes = nodes
+}
+
 func (tr *TreeNode) SetIdentifier(identifier string) {
 	tr.Identifier = identifier
 }

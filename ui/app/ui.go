@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/ui/manager"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -35,12 +37,15 @@ type UI struct {
 	notification *widgets.Notification
 
 	tipsOpen bool
+
+	appManager *manager.Manager
 }
 
 // New creates a new UI using the Go Fonts.
-func New(app *ui.Application) (*UI, error) {
+func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	u := &UI{
-		app: app,
+		app:        app,
+		appManager: appManager,
 	}
 	fontCollection, err := fonts.Prepare()
 	if err != nil {
@@ -59,7 +64,7 @@ func New(app *ui.Application) (*UI, error) {
 	u.Theme.TextSize = unit.Sp(14)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
-	u.header = NewHeader()
+	u.header = NewHeader(appManager)
 	u.sideBar = NewSidebar(u.Theme)
 
 	u.requestsPage, err = requests.New(u.Theme)
@@ -67,7 +72,7 @@ func New(app *ui.Application) (*UI, error) {
 		return nil, err
 	}
 
-	u.envsPage, err = envs.New(u.Theme)
+	u.envsPage, err = envs.New(u.Theme, appManager)
 	if err != nil {
 		return nil, err
 	}

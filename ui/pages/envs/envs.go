@@ -12,6 +12,7 @@ import (
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/internal/logger"
+	"github.com/mirzakhany/chapar/ui/manager"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -33,6 +34,8 @@ type Envs struct {
 	openedTabs []*openedTab
 
 	selectedIndex int
+
+	appManager *manager.Manager
 }
 
 type openedTab struct {
@@ -44,18 +47,12 @@ type openedTab struct {
 	closed bool
 }
 
-func New(theme *material.Theme) (*Envs, error) {
-	data, err := loader.ReadEnvironmentsData()
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Info("environments loaded")
-
+func New(theme *material.Theme, appManager *manager.Manager) (*Envs, error) {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(widgets.Gray600)
 
+	data := appManager.GetEnvironments()
 	treeViewNodes := make([]*widgets.TreeNode, 0)
 	for _, env := range data {
 		if env.MetaData.ID == "" {
@@ -71,10 +68,10 @@ func New(theme *material.Theme) (*Envs, error) {
 	}
 
 	e := &Envs{
-		data:      data,
-		searchBox: search,
-		tabs:      widgets.NewTabs([]*widgets.Tab{}, nil),
-		treeView:  widgets.NewTreeView(treeViewNodes),
+		appManager: appManager,
+		searchBox:  search,
+		tabs:       widgets.NewTabs([]*widgets.Tab{}, nil),
+		treeView:   widgets.NewTreeView(treeViewNodes),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),

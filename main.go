@@ -10,6 +10,7 @@ import (
 	"gioui.org/unit"
 	"github.com/mirzakhany/chapar/ui"
 	mainApp "github.com/mirzakhany/chapar/ui/app"
+	"github.com/mirzakhany/chapar/ui/manager"
 )
 
 func main() {
@@ -17,7 +18,13 @@ func main() {
 	defer stop()
 
 	a := ui.NewApplication(ctx)
-	mainUI, err := mainApp.New(a)
+
+	appManager := manager.New()
+	if err := appManager.LoadData(); err != nil {
+		log.Fatal(err)
+	}
+
+	mainUI, err := mainApp.New(a, appManager)
 	if err != nil {
 		log.Fatal(err)
 	}

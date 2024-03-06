@@ -55,6 +55,30 @@ func (tabs *Tabs) AddTab(tab *Tab) int {
 	return len(tabs.tabs) - 1
 }
 
+func (tabs *Tabs) RemoveTab(tab *Tab) {
+	// if its the last tab and there is another tab before it, select the previous one
+	// if its the first tab and there is another tab after it, select the next one
+	// if its the only tab, select it
+	for i, t := range tabs.tabs {
+		if t == tab {
+			tabs.tabs = append(tabs.tabs[:i], tabs.tabs[i+1:]...)
+			if len(tabs.tabs) == 0 {
+				tabs.selected = 0
+				return
+			}
+
+			if tabs.selected == i {
+				if i > 0 {
+					tabs.selected = i - 1
+				} else {
+					tabs.selected = i
+				}
+			}
+			break
+		}
+	}
+}
+
 func (tabs *Tabs) SetSelected(index int) {
 	tabs.selected = index
 }
