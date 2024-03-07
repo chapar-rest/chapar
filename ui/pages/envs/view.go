@@ -16,10 +16,10 @@ import (
 
 type View struct {
 	newEnvButton widget.Clickable
-	searchBox    *widgets.TextField
 
-	treeViewNodes map[string]*widgets.TreeNode
-	treeView      *widgets.TreeView
+	treeViewSearchBox *widgets.TextField
+	treeViewNodes     map[string]*widgets.TreeNode
+	treeView          *widgets.TreeView
 
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
@@ -58,9 +58,9 @@ func NewView(theme *material.Theme) *View {
 	itemsSearchBox.SetBorderColor(widgets.Gray600)
 
 	v := &View{
-		searchBox: search,
-		tabHeader: widgets.NewTabs([]*widgets.Tab{}, nil),
-		treeView:  widgets.NewTreeView([]*widgets.TreeNode{}),
+		treeViewSearchBox: search,
+		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
+		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),
@@ -86,6 +86,20 @@ func NewView(theme *material.Theme) *View {
 		if v.onTitleChanged != nil {
 			v.onTitleChanged(v.tabHeader.SelectedTab().GetIdentifier(), text)
 		}
+	})
+
+	v.treeViewSearchBox.SetOnTextChange(func(text string) {
+		if len(v.treeViewNodes) == 0 {
+			return
+		}
+		v.treeView.Filter(text)
+	})
+
+	v.itemsSearchBox.SetOnTextChange(func(text string) {
+		if v.items == nil {
+			return
+		}
+		v.items.Filter(text)
 	})
 
 	return v
@@ -125,7 +139,7 @@ func (v *View) SetOnItemsFilter(onItemsFilter func(filter string)) {
 
 func (v *View) SetOnListFilter(onListFilter func(filter string)) {
 	v.onListFilter = onListFilter
-	v.searchBox.SetOnTextChange(onListFilter)
+	v.treeViewSearchBox.SetOnTextChange(onListFilter)
 }
 
 func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.KeyValue)) {
@@ -258,7 +272,6 @@ func (v *View) IsEnvTabOpen(id string) bool {
 
 func (v *View) SwitchToTab(env *domain.Environment) {
 	if _, ok := v.openTabs[env.MetaData.ID]; ok {
-		// v.activeID = env.MetaData.ID
 		v.tabHeader.SetSelectedByID(env.MetaData.ID)
 		v.title.SetText(env.MetaData.Name)
 		v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
@@ -295,7 +308,7 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10), Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return v.searchBox.Layout(gtx, theme)
+					return v.treeViewSearchBox.Layout(gtx, theme)
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
