@@ -24,15 +24,15 @@ type View struct {
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
 
-	openTabs map[string]*widgets.Tab
-
+	openTabs   map[string]*widgets.Tab
+	containers map[string]*container
 	// env container
-	items          *widgets.KeyValue
-	title          *widgets.EditableLabel
-	itemsSearchBox *widgets.TextField
-	saveButton     widget.Clickable
-	prompt         *widgets.Prompt
-	dataChanged    bool
+	// items          *widgets.KeyValue
+	// title          *widgets.EditableLabel
+	// itemsSearchBox *widgets.TextField
+	// saveButton     widget.Clickable
+	// prompt         *widgets.Prompt
+	// dataChanged    bool
 
 	// callbacks
 	onTitleChanged              func(id, title string)
@@ -72,21 +72,22 @@ func NewView(theme *material.Theme) *View {
 
 		treeViewNodes: make(map[string]*widgets.TreeNode),
 		openTabs:      make(map[string]*widgets.Tab),
+		containers:    make(map[string]*container),
 
-		items: widgets.NewKeyValue(
-			widgets.NewKeyValueItem("", "", "", false),
-		),
-		title:          widgets.NewEditableLabel(""),
-		itemsSearchBox: itemsSearchBox,
-		prompt:         widgets.NewPrompt("Save", "", widgets.ModalTypeWarn, "Yes", "No"),
+		// items: widgets.NewKeyValue(
+		//	widgets.NewKeyValueItem("", "", "", false),
+		// ),
+		// title:          widgets.NewEditableLabel(""),
+		// itemsSearchBox: itemsSearchBox,
+		// prompt:         widgets.NewPrompt("Save", "", widgets.ModalTypeWarn, "Yes", "No"),
 	}
-	v.prompt.WithRememberBool()
+	// v.prompt.WithRememberBool()
 
-	v.title.SetOnChanged(func(text string) {
-		if v.onTitleChanged != nil {
-			v.onTitleChanged(v.tabHeader.SelectedTab().GetIdentifier(), text)
-		}
-	})
+	// v.title.SetOnChanged(func(text string) {
+	//	if v.onTitleChanged != nil {
+	//		v.onTitleChanged(v.tabHeader.SelectedTab().GetIdentifier(), text)
+	//	}
+	// })
 
 	v.treeViewSearchBox.SetOnTextChange(func(text string) {
 		if len(v.treeViewNodes) == 0 {
@@ -95,12 +96,12 @@ func NewView(theme *material.Theme) *View {
 		v.treeView.Filter(text)
 	})
 
-	v.itemsSearchBox.SetOnTextChange(func(text string) {
-		if v.items == nil {
-			return
-		}
-		v.items.Filter(text)
-	})
+	// v.itemsSearchBox.SetOnTextChange(func(text string) {
+	//	if v.items == nil {
+	//		return
+	//	}
+	//	v.items.Filter(text)
+	// })
 
 	return v
 }
@@ -125,30 +126,30 @@ func (v *View) PopulateTreeView(envs []*domain.Environment) {
 	v.treeView.SetNodes(treeViewNodes)
 }
 
-func (v *View) SetItems(items []domain.KeyValue) {
-	v.items.SetItems(converter.WidgetItemsFromKeyValue(items))
-}
+//func (v *View) SetItems(items []domain.KeyValue) {
+//	v.items.SetItems(converter.WidgetItemsFromKeyValue(items))
+//}
 
-func (v *View) SetOnItemsFilter(onItemsFilter func(filter string)) {
-	if v.items == nil {
-		return
-	}
-	v.onItemsFilter = onItemsFilter
-	v.itemsSearchBox.SetOnTextChange(onItemsFilter)
-}
-
-func (v *View) SetOnListFilter(onListFilter func(filter string)) {
-	v.onListFilter = onListFilter
-	v.treeViewSearchBox.SetOnTextChange(onListFilter)
-}
+//func (v *View) SetOnItemsFilter(onItemsFilter func(filter string)) {
+//	if v.items == nil {
+//		return
+//	}
+//	v.onItemsFilter = onItemsFilter
+//	v.itemsSearchBox.SetOnTextChange(onItemsFilter)
+//}
+//
+//func (v *View) SetOnListFilter(onListFilter func(filter string)) {
+//	v.onListFilter = onListFilter
+//	v.treeViewSearchBox.SetOnTextChange(onListFilter)
+//}
 
 func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.KeyValue)) {
 	v.onItemsChanged = onItemsChanged
-	v.items.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		if v.onItemsChanged != nil {
-			v.onItemsChanged(v.tabHeader.SelectedTab().GetIdentifier(), converter.KeyValueFromWidgetItems(items))
-		}
-	})
+	//v.items.SetOnChanged(func(items []*widgets.KeyValueItem) {
+	//	if v.onItemsChanged != nil {
+	//		v.onItemsChanged(v.tabHeader.SelectedTab().GetIdentifier(), converter.KeyValueFromWidgetItems(items))
+	//	}
+	//})
 }
 
 func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(id string)) {
@@ -174,9 +175,10 @@ func (v *View) SetOnSave(onSave func(id string)) {
 }
 
 func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string)) {
-	v.title.SetOnChanged(func(text string) {
-		onTitleChanged(v.tabHeader.SelectedTab().GetIdentifier(), text)
-	})
+	v.onTitleChanged = onTitleChanged
+	//v.title.SetOnChanged(func(text string) {
+	//	onTitleChanged(v.tabHeader.SelectedTab().GetIdentifier(), text)
+	//})
 }
 
 func (v *View) SetOnNewEnv(onNewEnv func()) {
@@ -189,12 +191,6 @@ func (v *View) SetOnTabSelected(onTabSelected func(id string)) {
 
 func (v *View) SetOnTabClose(onTabClose func(id string)) {
 	v.onTabClose = onTabClose
-}
-
-func (v *View) LoadEnv(env *domain.Environment) {
-	//v.activeID = env.MetaData.ID
-	v.title.SetText(env.MetaData.Name)
-	v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
 }
 
 func (v *View) UpdateTabTitle(id, title string) {
@@ -212,7 +208,9 @@ func (v *View) UpdateTreeNodeTitle(id, title string) {
 func (v *View) SetTabDirty(id string, dirty bool) {
 	if tab, ok := v.openTabs[id]; ok {
 		tab.SetDirty(dirty)
-		v.dataChanged = dirty
+		if ct, ok := v.containers[id]; ok {
+			ct.DataChanged = dirty
+		}
 	}
 }
 
@@ -226,19 +224,19 @@ func (v *View) AddNewEnv(env *domain.Environment) {
 	v.OpenTab(env)
 }
 
-func (v *View) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
-	v.prompt.Type = modalType
-	v.prompt.Title = title
-	v.prompt.Content = content
-	v.prompt.SetOptions(options...)
-	v.prompt.WithRememberBool()
-	v.prompt.SetOnSubmit(onSubmit)
-	v.prompt.Show()
-}
+//func (v *View) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
+//	ct.Prompt.Type = modalType
+//	ct.Prompt.Title = title
+//	ct.Prompt.Content = content
+//	ct.Prompt.SetOptions(options...)
+//	ct.Prompt.WithRememberBool()
+//	ct.Prompt.SetOnSubmit(onSubmit)
+//	ct.Prompt.Show()
+//}
 
-func (v *View) HidePrompt() {
-	v.prompt.Hide()
-}
+//func (v *View) HidePrompt() {
+//	v.prompt.Hide()
+//}
 
 func (v *View) OpenTab(env *domain.Environment) {
 	tab := &widgets.Tab{
@@ -254,14 +252,43 @@ func (v *View) OpenTab(env *domain.Environment) {
 	}
 	i := v.tabHeader.AddTab(tab)
 	v.openTabs[env.MetaData.ID] = tab
-	v.LoadEnv(env)
+	v.OpenContainer(env)
 	v.tabHeader.SetSelected(i)
+}
+
+func (v *View) OpenContainer(env *domain.Environment) {
+	if _, ok := v.containers[env.MetaData.ID]; ok {
+		return
+	}
+
+	ct := newContainer(env.MetaData.ID, env.MetaData.Name, env.Spec.Values)
+	ct.Title.SetOnChanged(func(text string) {
+		if v.onTitleChanged != nil {
+			v.onTitleChanged(env.MetaData.ID, text)
+		}
+	})
+
+	ct.Items.SetOnChanged(func(items []*widgets.KeyValueItem) {
+		if v.onItemsChanged != nil {
+			v.onItemsChanged(env.MetaData.ID, converter.KeyValueFromWidgetItems(items))
+		}
+	})
+
+	ct.SearchBox.SetOnTextChange(func(text string) {
+		if ct.Items == nil {
+			return
+		}
+		ct.Items.Filter(text)
+	})
+
+	v.containers[env.MetaData.ID] = ct
 }
 
 func (v *View) CloseTab(id string) {
 	if _, ok := v.openTabs[id]; ok {
 		v.tabHeader.RemoveTabByID(id)
 		delete(v.openTabs, id)
+		delete(v.containers, id)
 	}
 }
 
@@ -273,8 +300,9 @@ func (v *View) IsEnvTabOpen(id string) bool {
 func (v *View) SwitchToTab(env *domain.Environment) {
 	if _, ok := v.openTabs[env.MetaData.ID]; ok {
 		v.tabHeader.SetSelectedByID(env.MetaData.ID)
-		v.title.SetText(env.MetaData.Name)
-		v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
+		// v.title.SetText(env.MetaData.Name)
+		// v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
+		// v.OpenContainer(env)
 	}
 }
 
@@ -343,50 +371,13 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 					v.onTabSelected(selectedTab.Identifier)
 					gtx.Execute(op.InvalidateCmd{})
 				}
+
+				if ct, ok := v.containers[selectedTab.Identifier]; ok {
+					return ct.Layout(gtx, theme, selectedTab.Identifier)
+				}
 			}
 
-			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return v.prompt.Layout(gtx, theme)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{
-							Top:    unit.Dp(5),
-							Bottom: unit.Dp(15),
-						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return v.title.Layout(gtx, theme)
-										}),
-										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											if v.dataChanged {
-												if v.saveButton.Clicked(gtx) {
-													if v.onSave != nil {
-														v.onSave(v.tabHeader.SelectedTab().GetIdentifier())
-													}
-												}
-												return widgets.SaveButtonLayout(gtx, theme, &v.saveButton)
-											} else {
-												return layout.Dimensions{}
-											}
-										}),
-									)
-								}),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									gtx.Constraints.Max.X = gtx.Dp(200)
-									return v.itemsSearchBox.Layout(gtx, theme)
-								}),
-							)
-						})
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return v.items.WithAddLayout(gtx, "", "Disabled items have no effect on your requests", theme)
-					}),
-				)
-			})
+			return layout.Dimensions{}
 		}),
 	)
 }

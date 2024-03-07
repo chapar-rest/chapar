@@ -49,6 +49,7 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	c.view.UpdateTreeNodeTitle(env.MetaData.ID, env.MetaData.Name)
 	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
 	c.model.UpdateEnvironment(env)
+	c.saveEnvToDisc(id)
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
@@ -59,10 +60,12 @@ func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
 
 	if c.view.IsEnvTabOpen(id) {
 		c.view.SwitchToTab(env)
+		c.view.OpenContainer(env)
 		return
 	}
 
 	c.view.OpenTab(env)
+	c.view.OpenContainer(env)
 }
 
 func (c *Controller) LoadData() error {
@@ -80,7 +83,9 @@ func (c *Controller) onTabSelected(id string) {
 		return
 	}
 	c.activeTabID = id
-	c.view.SwitchToTab(c.model.GetEnvironment(id))
+	env := c.model.GetEnvironment(id)
+	c.view.SwitchToTab(env)
+	c.view.OpenContainer(env)
 }
 
 func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
@@ -108,6 +113,14 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 }
 
 func (c *Controller) onSave(id string) {
+	c.saveEnvToDisc(id)
+}
+
+func (c *Controller) onTabClose(id string) {
+	c.view.CloseTab(id)
+}
+
+func (c *Controller) saveEnvToDisc(id string) {
 	env := c.model.GetEnvironment(id)
 	if env == nil {
 		return
@@ -117,8 +130,4 @@ func (c *Controller) onSave(id string) {
 		return
 	}
 	c.view.SetTabDirty(id, false)
-}
-
-func (c *Controller) onTabClose(id string) {
-	c.view.CloseTab(id)
 }
