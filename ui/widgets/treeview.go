@@ -25,7 +25,8 @@ type TreeView struct {
 	filterText    string
 	filteredNodes []*TreeNode
 
-	onDoubleClick func(tr *TreeNode)
+	onNodeDoubleClick func(tr *TreeNode)
+	onNodeClick       func(tr *TreeNode)
 }
 
 type TreeNode struct {
@@ -57,8 +58,12 @@ func NewTreeView(nodes []*TreeNode) *TreeView {
 	}
 }
 
-func (t *TreeView) OnDoubleClick(fn func(tr *TreeNode)) {
-	t.onDoubleClick = fn
+func (t *TreeView) OnNodeDoubleClick(fn func(tr *TreeNode)) {
+	t.onNodeDoubleClick = fn
+}
+
+func (t *TreeView) OnNodeClick(fn func(tr *TreeNode)) {
+	t.onNodeClick = fn
 }
 
 func (t *TreeView) SetNodes(nodes []*TreeNode) {
@@ -186,10 +191,14 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 	}
 
 	for node.DiscloserState.Clickable.Clicked(gtx) {
+		if t.onNodeClick != nil {
+			go t.onNodeClick(node)
+		}
+
 		// is this a double click?
 		if time.Since(node.lastClickAt) < 500*time.Millisecond {
-			if t.onDoubleClick != nil {
-				t.onDoubleClick(node)
+			if t.onNodeDoubleClick != nil {
+				go t.onNodeDoubleClick(node)
 			}
 		} else {
 			node.lastClickAt = time.Now()

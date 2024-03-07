@@ -115,7 +115,7 @@ func New(theme *material.Theme) (*Requests, error) {
 		},
 	}
 
-	req.treeView.OnDoubleClick(req.onItemDoubleClick)
+	req.treeView.OnNodeDoubleClick(req.onItemDoubleClick)
 	req.treeView.SetOnMenuItemClick(req.onTreeViewMenuItemClick)
 	req.searchBox.SetOnTextChange(func(text string) {
 		if req.collections == nil && req.requests == nil {

@@ -2,6 +2,7 @@ package envs
 
 import (
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -35,16 +36,17 @@ type View struct {
 	dataChanged    bool
 
 	// callbacks
-	onTitleChanged func(id, title string)
-	onNewEnv       func()
-	onTabClose     func(id string)
-	onListFilter   func(filter string)
-	onItemsFilter  func(filter string)
-	onItemsChanged func(id string, items []domain.KeyValue)
-	onSave         func()
-	// onTreeViewNodeClicked       func(id string)
+	onTitleChanged              func(id, title string)
+	onNewEnv                    func()
+	onTabClose                  func(id string)
+	onListFilter                func(filter string)
+	onItemsFilter               func(filter string)
+	onItemsChanged              func(id string, items []domain.KeyValue)
+	onSave                      func(id string)
+	onTreeViewNodeClicked       func(id string)
 	onTreeViewNodeDoubleClicked func(id string)
 	onTreeViewMenuClicked       func(id string, action string)
+	onTabSelected               func(id string)
 }
 
 func NewView(theme *material.Theme) *View {
@@ -68,6 +70,9 @@ func NewView(theme *material.Theme) *View {
 			BarColor:      widgets.Gray300,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
+
+		treeViewNodes: make(map[string]*widgets.TreeNode),
+		openTabs:      make(map[string]*widgets.Tab),
 
 		items: widgets.NewKeyValue(
 			widgets.NewKeyValueItem("", "", "", false),
@@ -100,6 +105,8 @@ func (v *View) PopulateTreeView(envs []*domain.Environment) {
 			MenuOptions: menuItems,
 		}
 		treeViewNodes = append(treeViewNodes, node)
+
+		v.treeViewNodes[env.MetaData.ID] = node
 	}
 
 	v.treeView.SetNodes(treeViewNodes)
@@ -133,7 +140,7 @@ func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.K
 
 func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(id string)) {
 	v.onTreeViewNodeDoubleClicked = onTreeViewNodeDoubleClicked
-	v.treeView.OnDoubleClick(func(node *widgets.TreeNode) {
+	v.treeView.OnNodeDoubleClick(func(node *widgets.TreeNode) {
 		if v.onTreeViewNodeDoubleClicked != nil {
 			v.onTreeViewNodeDoubleClicked(node.Identifier)
 		}
@@ -149,15 +156,32 @@ func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id string, ac
 	})
 }
 
-func (v *View) SetOnSave(onSave func()) {
+func (v *View) SetOnSave(onSave func(id string)) {
 	v.onSave = onSave
+}
+
+func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string)) {
+	v.title.SetOnChanged(func(text string) {
+		onTitleChanged(v.activeID, text)
+	})
+}
+
+func (v *View) SetOnNewEnv(onNewEnv func()) {
+	v.onNewEnv = onNewEnv
+}
+
+func (v *View) SetOnTabSelected(onTabSelected func(id string)) {
+	v.onTabSelected = onTabSelected
+}
+
+func (v *View) SetOnTabClose(onTabClose func(id string)) {
+	v.onTabClose = onTabClose
 }
 
 func (v *View) LoadEnv(env *domain.Environment) {
 	v.activeID = env.MetaData.ID
 	v.title.SetText(env.MetaData.Name)
 	v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
-	v.OpenTab(env)
 }
 
 func (v *View) UpdateTabTitle(id, title string) {
@@ -172,18 +196,11 @@ func (v *View) UpdateTreeNodeTitle(id, title string) {
 	}
 }
 
-func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string)) {
-	v.title.SetOnChanged(func(text string) {
-		onTitleChanged(v.activeID, text)
-	})
-}
-
-func (v *View) SetOnNewEnv(onNewEnv func()) {
-	v.onNewEnv = onNewEnv
-}
-
-func (v *View) SetOnTabClose(onTabClose func(id string)) {
-	v.onTabClose = onTabClose
+func (v *View) SetTabDirty(id string, dirty bool) {
+	if tab, ok := v.openTabs[id]; ok {
+		tab.SetDirty(dirty)
+		v.dataChanged = dirty
+	}
 }
 
 func (v *View) AddNewEnv(env *domain.Environment) {
@@ -218,24 +235,37 @@ func (v *View) OpenTab(env *domain.Environment) {
 		})
 	}
 	tab.SetIdentifier(env.MetaData.ID)
-	v.tabHeader.AddTab(tab)
-
-	v.activeID = env.MetaData.ID
+	i := v.tabHeader.AddTab(tab)
 	v.openTabs[env.MetaData.ID] = tab
 	v.LoadEnv(env)
+	v.tabHeader.SetSelected(i)
 }
 
 func (v *View) CloseTab(id string) {
-	if tab, ok := v.openTabs[id]; ok {
-		v.tabHeader.RemoveTab(tab)
+	if _, ok := v.openTabs[id]; ok {
+		v.tabHeader.RemoveTabByID(id)
 		delete(v.openTabs, id)
+	}
+}
+
+func (v *View) IsEnvTabOpen(id string) bool {
+	_, ok := v.openTabs[id]
+	return ok
+}
+
+func (v *View) SwitchToTab(env *domain.Environment) {
+	if _, ok := v.openTabs[env.MetaData.ID]; ok {
+		v.activeID = env.MetaData.ID
+		v.tabHeader.SetSelectedByID(env.MetaData.ID)
+		v.title.SetText(env.MetaData.Name)
+		v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
 	}
 }
 
 func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return v.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
-			return v.list(gtx, theme)
+			return v.envList(gtx, theme)
 		},
 		func(gtx layout.Context) layout.Dimensions {
 			return v.containerHolder(gtx, theme)
@@ -243,7 +273,7 @@ func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 	)
 }
 
-func (v *View) list(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -276,7 +306,9 @@ func (v *View) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 
 func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if v.onSave != nil {
-		keys.OnSaveCommand(gtx, v, v.onSave)
+		keys.OnSaveCommand(gtx, v, func() {
+			v.onSave(v.activeID)
+		})
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -287,6 +319,14 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 			if len(v.openTabs) == 0 {
 				t := tips.New()
 				return t.Layout(gtx, theme)
+			}
+
+			selectedTab := v.tabHeader.SelectedTab()
+			if selectedTab != nil && v.activeID != selectedTab.Identifier {
+				if v.onTabSelected != nil {
+					v.onTabSelected(selectedTab.Identifier)
+				}
+				gtx.Execute(op.InvalidateCmd{})
 			}
 
 			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -309,7 +349,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 											if v.dataChanged {
 												if v.saveButton.Clicked(gtx) {
 													if v.onSave != nil {
-														v.onSave()
+														v.onSave(v.activeID)
 													}
 												}
 												return widgets.SaveButtonLayout(gtx, theme, &v.saveButton)
