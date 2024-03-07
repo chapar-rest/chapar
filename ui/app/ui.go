@@ -36,6 +36,8 @@ type UI struct {
 	consolePage  *console.Console
 	notification *widgets.Notification
 
+	environmentsView *envs.View
+
 	tipsOpen bool
 
 	appManager *manager.Manager
@@ -72,10 +74,17 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 		return nil, err
 	}
 
-	u.envsPage, err = envs.New(u.Theme, appManager)
-	if err != nil {
+	u.environmentsView = envs.NewView(u.Theme)
+	envModel := envs.NewModel(appManager)
+	envController := envs.NewController(u.environmentsView, envModel)
+	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
+
+	//u.envsPage, err = envs.New(u.Theme, appManager)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	u.notification = &widgets.Notification{}
 
@@ -125,7 +134,8 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 							case 0:
 								return u.requestsPage.Layout(gtx, u.Theme)
 							case 1:
-								return u.envsPage.Layout(gtx, u.Theme)
+								//return u.envsPage.Layout(gtx, u.Theme)
+								return u.environmentsView.Layout(gtx, u.Theme)
 							case 4:
 								return u.consolePage.Layout(gtx, u.Theme)
 							}

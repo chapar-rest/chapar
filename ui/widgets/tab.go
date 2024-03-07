@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/op"
+
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -28,8 +30,9 @@ type Tab struct {
 	Closable       bool
 	CloseClickable *widget.Clickable
 
-	isDirty bool
-	onClose func(t *Tab)
+	isDirty  bool
+	onClose  func(t *Tab)
+	isClosed bool
 }
 
 func NewTabs(items []*Tab, onSelectedChange func(int)) *Tabs {
@@ -46,6 +49,13 @@ func (tabs *Tabs) Selected() int {
 	return tabs.selected
 }
 
+func (tabs *Tabs) SelectedTab() *Tab {
+	if len(tabs.tabs) == 0 {
+		return nil
+	}
+	return tabs.tabs[tabs.selected]
+}
+
 func (tab *Tab) SetOnClose(f func(t *Tab)) {
 	tab.onClose = f
 }
@@ -55,32 +65,35 @@ func (tabs *Tabs) AddTab(tab *Tab) int {
 	return len(tabs.tabs) - 1
 }
 
-func (tabs *Tabs) RemoveTab(tab *Tab) {
-	// if its the last tab and there is another tab before it, select the previous one
-	// if its the first tab and there is another tab after it, select the next one
-	// if its the only tab, select it
-	for i, t := range tabs.tabs {
-		if t == tab {
-			tabs.tabs = append(tabs.tabs[:i], tabs.tabs[i+1:]...)
-			if len(tabs.tabs) == 0 {
-				tabs.selected = 0
-				return
-			}
+func (tabs *Tabs) RemoveTabByID(id string) {
+	tab := tabs.findTabByID(id)
+	if tab == nil {
+		return
+	}
 
-			if tabs.selected == i {
-				if i > 0 {
-					tabs.selected = i - 1
-				} else {
-					tabs.selected = i
-				}
-			}
-			break
+	tab.isClosed = true
+}
+
+func (tabs *Tabs) findTabByID(id string) *Tab {
+	for _, t := range tabs.tabs {
+		if t.Identifier == id {
+			return t
 		}
 	}
+	return nil
 }
 
 func (tabs *Tabs) SetSelected(index int) {
 	tabs.selected = index
+}
+
+func (tabs *Tabs) SetSelectedByID(id string) {
+	for i, t := range tabs.tabs {
+		if t.Identifier == id {
+			tabs.selected = i
+			return
+		}
+	}
 }
 
 func (tabs *Tabs) SetTabs(items []*Tab) {
@@ -100,6 +113,24 @@ func (tab *Tab) IsDirty() bool {
 }
 
 func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	// update tabs with new items
+	tabItems := make([]*Tab, 0)
+	for _, ot := range tabs.tabs {
+		if !ot.isClosed {
+			tabItems = append(tabItems, ot)
+		}
+	}
+
+	tabs.tabs = tabItems
+	gtx.Execute(op.InvalidateCmd{})
+	if tabs.selected > len(tabs.tabs)-1 {
+		if len(tabs.tabs) > 0 {
+			tabs.selected = len(tabs.tabs) - 1
+		} else {
+			tabs.selected = 0
+		}
+	}
+
 	if len(tabs.tabs) == 1 {
 		tabs.selected = 0
 	}

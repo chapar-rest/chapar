@@ -23,6 +23,7 @@ type KeyValue struct {
 	Enable bool   `yaml:"enable"`
 }
 
+// CompareKeyValues compares two slices of KeyValue and returns true if they are equal
 func CompareKeyValues(a, b []KeyValue) bool {
 	if len(a) != len(b) {
 		return false

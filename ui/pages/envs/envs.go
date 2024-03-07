@@ -83,7 +83,7 @@ func New(theme *material.Theme, appManager *manager.Manager) (*Envs, error) {
 		openedTabs: make([]*openedTab, 0),
 	}
 
-	e.treeView.OnDoubleClick(e.onItemDoubleClick)
+	e.treeView.OnNodeDoubleClick(e.onItemDoubleClick)
 	e.treeView.SetOnMenuItemClick(func(tr *widgets.TreeNode, item string) {
 		if item == "Duplicate" {
 			e.duplicateEnv(tr.Identifier)
@@ -121,6 +121,7 @@ func (e *Envs) onTitleChanged(id, title string) {
 }
 
 func (e *Envs) onItemDoubleClick(tr *widgets.TreeNode) {
+	fmt.Println("onItemDoubleClick")
 	// if env is already opened, just switch to it
 	for i, ot := range e.openedTabs {
 		if ot.env.MetaData.ID == tr.Identifier {
@@ -130,66 +131,70 @@ func (e *Envs) onItemDoubleClick(tr *widgets.TreeNode) {
 		}
 	}
 
-	for _, env := range e.data {
-		if env.MetaData.ID == tr.Identifier {
-			tab := &widgets.Tab{Title: env.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
-			tab.SetOnClose(e.onTabClose)
-			tab.SetIdentifier(env.MetaData.ID)
+	fmt.Println("env is not opened, open it")
 
-			ot := &openedTab{
-				env:       env,
-				tab:       tab,
-				listItem:  tr,
-				container: newEnvContainer(env.Clone()),
-			}
-			ot.container.SetOnTitleChanged(e.onTitleChanged)
-			e.openedTabs = append(e.openedTabs, ot)
-
-			i := e.tabs.AddTab(tab)
-			e.selectedIndex = i
-			e.tabs.SetSelected(i)
-
-			break
-		}
+	env := e.appManager.GetEnvironment(tr.Identifier)
+	if env == nil {
+		return
 	}
+
+	fmt.Println("we found the env", env.MetaData.Name)
+	tab := &widgets.Tab{Title: env.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+	tab.SetOnClose(e.onTabClose)
+	tab.SetIdentifier(env.MetaData.ID)
+
+	ot := &openedTab{
+		env:       env,
+		tab:       tab,
+		listItem:  tr,
+		container: newEnvContainer(env.Clone()),
+	}
+	ot.container.SetOnTitleChanged(e.onTitleChanged)
+	e.openedTabs = append(e.openedTabs, ot)
+
+	i := e.tabs.AddTab(tab)
+	e.selectedIndex = i
+	e.tabs.SetSelected(i)
 }
 
 func (e *Envs) duplicateEnv(identifier string) {
-	for _, env := range e.data {
-		if env.MetaData.ID == identifier {
-			newEnv := env.Clone()
-			newEnv.MetaData.ID = uuid.NewString()
-			newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
-			// add copy to file name
-			newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
-			e.data = append(e.data, newEnv)
-
-			node := &widgets.TreeNode{
-				Text:        newEnv.MetaData.Name,
-				Identifier:  newEnv.MetaData.ID,
-				MenuOptions: menuItems,
-			}
-			e.treeView.AddNode(node)
-			if err := loader.UpdateEnvironment(newEnv); err != nil {
-				logger.Error(fmt.Sprintf("failed to update environment, err %v", err))
-			}
-			break
-		}
+	env := e.appManager.GetEnvironment(identifier)
+	if env == nil {
+		return
 	}
+
+	newEnv := env.Clone()
+	newEnv.MetaData.ID = uuid.NewString()
+	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
+	// add copy to file name
+	newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
+	e.data = append(e.data, newEnv)
+
+	node := &widgets.TreeNode{
+		Text:        newEnv.MetaData.Name,
+		Identifier:  newEnv.MetaData.ID,
+		MenuOptions: menuItems,
+	}
+	e.treeView.AddNode(node)
+	if err := loader.UpdateEnvironment(newEnv); err != nil {
+		logger.Error(fmt.Sprintf("failed to update environment, err %v", err))
+	}
+
+	e.appManager.AddEnvironment(newEnv)
 }
 
 func (e *Envs) deleteEnv(identifier string) {
-	for i, env := range e.data {
-		if env.MetaData.ID == identifier {
-			e.data = append(e.data[:i], e.data[i+1:]...)
-			e.treeView.RemoveNode(identifier)
-
-			if err := loader.DeleteEnvironment(env); err != nil {
-				logger.Error(fmt.Sprintf("failed to delete environment, err %v", err))
-			}
-			break
-		}
+	env := e.appManager.GetEnvironment(identifier)
+	if env == nil {
+		return
 	}
+	e.appManager.DeleteEnvironment(identifier)
+	e.treeView.RemoveNode(identifier)
+	if err := loader.DeleteEnvironment(env); err != nil {
+		logger.Error(fmt.Sprintf("failed to delete environment, err %v", err))
+	}
+
+	e.tabs.RemoveTabByID(identifier)
 }
 
 func (e *Envs) addNewEmptyEnv() {
@@ -286,17 +291,17 @@ func (e *Envs) list(gtx layout.Context, theme *material.Theme) layout.Dimensions
 
 func (e *Envs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	// update tabs with new items
-	tabItems := make([]*widgets.Tab, 0)
+	//tabItems := make([]*widgets.Tab, 0)
 	openItems := make([]*openedTab, 0)
 	for _, ot := range e.openedTabs {
 		if !ot.closed {
-			tabItems = append(tabItems, ot.tab)
+			//	tabItems = append(tabItems, ot.tab)
 			openItems = append(openItems, ot)
 		}
 	}
 
-	e.tabs.SetTabs(tabItems)
-	e.openedTabs = openItems
+	//e.tabs.SetTabs(tabItems)
+	//e.openedTabs = openItems
 	selectTab := e.tabs.Selected()
 	gtx.Execute(op.InvalidateCmd{})
 

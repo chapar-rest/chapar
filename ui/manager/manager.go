@@ -1,9 +1,13 @@
 package manager
 
 import (
+	"errors"
+
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 )
+
+var ErrNotFound = errors.New("ErrNotFound")
 
 type Manager struct {
 	currentActiveEnv *domain.Environment
@@ -33,11 +37,32 @@ func (m *Manager) AddEnvironment(env *domain.Environment) {
 	m.environments[env.MetaData.ID] = env
 }
 
+func (m *Manager) SetEnvironments(envs []*domain.Environment) {
+	for _, env := range envs {
+		m.environments[env.MetaData.ID] = env
+	}
+}
+
 func (m *Manager) GetEnvironment(id string) *domain.Environment {
 	if env, ok := m.environments[id]; ok {
 		return env
 	}
 	return nil
+}
+
+func (m *Manager) GetEnvironmentFromDisc(id string) (*domain.Environment, error) {
+	envs, err := loader.ReadEnvironmentsData()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, env := range envs {
+		if env.MetaData.ID == id {
+			return env, nil
+		}
+	}
+
+	return nil, ErrNotFound
 }
 
 func (m *Manager) GetEnvironments() map[string]*domain.Environment {
