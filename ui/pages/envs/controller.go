@@ -10,6 +10,8 @@ import (
 type Controller struct {
 	view  *View
 	model *Model
+
+	activeTabID string
 }
 
 func NewController(view *View, model *Model) *Controller {
@@ -74,6 +76,10 @@ func (c *Controller) LoadData() error {
 }
 
 func (c *Controller) onTabSelected(id string) {
+	if c.activeTabID == id {
+		return
+	}
+	c.activeTabID = id
 	c.view.SwitchToTab(c.model.GetEnvironment(id))
 }
 

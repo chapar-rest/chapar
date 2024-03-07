@@ -56,6 +56,13 @@ func (tabs *Tabs) SelectedTab() *Tab {
 	return tabs.tabs[tabs.selected]
 }
 
+func (tab *Tab) GetIdentifier() string {
+	if tab == nil {
+		return ""
+	}
+	return tab.Identifier
+}
+
 func (tab *Tab) SetOnClose(f func(t *Tab)) {
 	tab.onClose = f
 }

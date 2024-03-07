@@ -25,7 +25,6 @@ type View struct {
 	tabHeader *widgets.Tabs
 
 	openTabs map[string]*widgets.Tab
-	activeID string
 
 	// env container
 	items          *widgets.KeyValue
@@ -85,7 +84,7 @@ func NewView(theme *material.Theme) *View {
 
 	v.title.SetOnChanged(func(text string) {
 		if v.onTitleChanged != nil {
-			v.onTitleChanged(v.activeID, text)
+			v.onTitleChanged(v.tabHeader.SelectedTab().GetIdentifier(), text)
 		}
 	})
 
@@ -133,7 +132,7 @@ func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.K
 	v.onItemsChanged = onItemsChanged
 	v.items.SetOnChanged(func(items []*widgets.KeyValueItem) {
 		if v.onItemsChanged != nil {
-			v.onItemsChanged(v.activeID, converter.KeyValueFromWidgetItems(items))
+			v.onItemsChanged(v.tabHeader.SelectedTab().GetIdentifier(), converter.KeyValueFromWidgetItems(items))
 		}
 	})
 }
@@ -162,7 +161,7 @@ func (v *View) SetOnSave(onSave func(id string)) {
 
 func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string)) {
 	v.title.SetOnChanged(func(text string) {
-		onTitleChanged(v.activeID, text)
+		onTitleChanged(v.tabHeader.SelectedTab().GetIdentifier(), text)
 	})
 }
 
@@ -179,7 +178,7 @@ func (v *View) SetOnTabClose(onTabClose func(id string)) {
 }
 
 func (v *View) LoadEnv(env *domain.Environment) {
-	v.activeID = env.MetaData.ID
+	//v.activeID = env.MetaData.ID
 	v.title.SetText(env.MetaData.Name)
 	v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
 }
@@ -228,13 +227,17 @@ func (v *View) HidePrompt() {
 }
 
 func (v *View) OpenTab(env *domain.Environment) {
-	tab := &widgets.Tab{Title: env.MetaData.Name, Closable: true, CloseClickable: &widget.Clickable{}}
+	tab := &widgets.Tab{
+		Title:          env.MetaData.Name,
+		Closable:       true,
+		CloseClickable: &widget.Clickable{},
+		Identifier:     env.MetaData.ID,
+	}
 	if v.onTabClose != nil {
 		tab.SetOnClose(func(tab *widgets.Tab) {
 			v.onTabClose(tab.Identifier)
 		})
 	}
-	tab.SetIdentifier(env.MetaData.ID)
 	i := v.tabHeader.AddTab(tab)
 	v.openTabs[env.MetaData.ID] = tab
 	v.LoadEnv(env)
@@ -255,7 +258,7 @@ func (v *View) IsEnvTabOpen(id string) bool {
 
 func (v *View) SwitchToTab(env *domain.Environment) {
 	if _, ok := v.openTabs[env.MetaData.ID]; ok {
-		v.activeID = env.MetaData.ID
+		// v.activeID = env.MetaData.ID
 		v.tabHeader.SetSelectedByID(env.MetaData.ID)
 		v.title.SetText(env.MetaData.Name)
 		v.items.SetItems(converter.WidgetItemsFromKeyValue(env.Spec.Values))
@@ -307,7 +310,7 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
-			v.onSave(v.activeID)
+			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())
 		})
 	}
 
@@ -322,11 +325,11 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 			}
 
 			selectedTab := v.tabHeader.SelectedTab()
-			if selectedTab != nil && v.activeID != selectedTab.Identifier {
+			if selectedTab != nil {
 				if v.onTabSelected != nil {
 					v.onTabSelected(selectedTab.Identifier)
+					gtx.Execute(op.InvalidateCmd{})
 				}
-				gtx.Execute(op.InvalidateCmd{})
 			}
 
 			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -349,7 +352,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 											if v.dataChanged {
 												if v.saveButton.Clicked(gtx) {
 													if v.onSave != nil {
-														v.onSave(v.activeID)
+														v.onSave(v.tabHeader.SelectedTab().GetIdentifier())
 													}
 												}
 												return widgets.SaveButtonLayout(gtx, theme, &v.saveButton)
