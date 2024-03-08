@@ -1,8 +1,6 @@
 package envs
 
 import (
-	"fmt"
-
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -140,7 +138,6 @@ func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(i
 func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id string, action string)) {
 	v.onTreeViewMenuClicked = onTreeViewMenuClicked
 	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
-		fmt.Println("menu clicked", node.Identifier, item)
 		v.onTreeViewMenuClicked(node.Identifier, item)
 	})
 }

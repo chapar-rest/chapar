@@ -21,8 +21,8 @@ func NewController(view *View, model *Model) *Controller {
 		model: model,
 	}
 
-	model.AddEnvChangeListener(c.onEnvChange)
-	view.SetOnNewEnv(c.onNewEnv)
+	model.AddEnvChangeListener(c.onEnvironmentChange)
+	view.SetOnNewEnv(c.onNewEnvironment)
 	view.SetOnTitleChanged(c.onTitleChanged)
 	view.SetOnTreeViewNodeDoubleClicked(c.onTreeViewNodeDoubleClicked)
 	view.SetOnTabSelected(c.onTabSelected)
@@ -33,13 +33,15 @@ func NewController(view *View, model *Model) *Controller {
 	return c
 }
 
-func (c *Controller) onEnvChange(env *domain.Environment) {
+func (c *Controller) onEnvironmentChange(env *domain.Environment) {
 	c.model.UpdateEnvironment(env)
 }
 
-func (c *Controller) onNewEnv() {
+func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
 	c.model.AddEnvironment(env)
+	c.view.AddTreeViewNode(env)
+	c.saveEnvironmentToDisc(env.MetaData.ID)
 }
 
 func (c *Controller) onTitleChanged(id string, title string) {
