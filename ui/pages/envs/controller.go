@@ -3,6 +3,7 @@ package envs
 import (
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 )
@@ -28,6 +29,7 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnItemsChanged(c.onItemsChanged)
 	view.SetOnSave(c.onSave)
 	view.SetOnTabClose(c.onTabClose)
+	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
 	return c
 }
 
@@ -49,7 +51,7 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	c.view.UpdateTreeNodeTitle(env.MetaData.ID, env.MetaData.Name)
 	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
 	c.model.UpdateEnvironment(env)
-	c.saveEnvToDisc(id)
+	c.saveEnvironmentToDisc(id)
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
@@ -113,14 +115,14 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 }
 
 func (c *Controller) onSave(id string) {
-	c.saveEnvToDisc(id)
+	c.saveEnvironmentToDisc(id)
 }
 
 func (c *Controller) onTabClose(id string) {
 	c.view.CloseTab(id)
 }
 
-func (c *Controller) saveEnvToDisc(id string) {
+func (c *Controller) saveEnvironmentToDisc(id string) {
 	env := c.model.GetEnvironment(id)
 	if env == nil {
 		return
@@ -130,4 +132,43 @@ func (c *Controller) saveEnvToDisc(id string) {
 		return
 	}
 	c.view.SetTabDirty(id, false)
+}
+
+func (c *Controller) onTreeViewMenuClicked(id string, action string) {
+	switch action {
+	case Duplicate:
+		c.duplicateEnvironment(id)
+	case Delete:
+		c.deleteEnvironment(id)
+	}
+}
+
+func (c *Controller) duplicateEnvironment(id string) {
+	// read environment from file to make sure we have the latest persisted data
+	envFromFile, err := c.model.GetEnvironmentFromDisc(id)
+	if err != nil {
+		fmt.Println("failed to get environment from file", err)
+		return
+	}
+
+	newEnv := envFromFile.Clone()
+	newEnv.MetaData.ID = uuid.NewString()
+	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
+	newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
+	c.model.AddEnvironment(newEnv)
+	c.view.AddTreeViewNode(newEnv)
+	c.saveEnvironmentToDisc(newEnv.MetaData.ID)
+}
+
+func (c *Controller) deleteEnvironment(id string) {
+	env := c.model.GetEnvironment(id)
+	if env == nil {
+		return
+	}
+	c.model.DeleteEnvironment(id)
+	c.view.RemoveTreeViewNode(id)
+	if err := loader.DeleteEnvironment(env); err != nil {
+		fmt.Println("failed to delete environment", err)
+	}
+	c.view.CloseTab(id)
 }
