@@ -58,6 +58,7 @@ func NewPrompt(title, content, modalType string, options ...string) *Prompt {
 
 func (p *Prompt) SetOptions(options ...string) {
 	p.options = options
+	p.optionsClickables = make([]widget.Clickable, len(options))
 }
 
 func (p *Prompt) Show() {

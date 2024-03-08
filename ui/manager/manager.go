@@ -65,6 +65,15 @@ func (m *Manager) GetEnvironmentFromDisc(id string) (*domain.Environment, error)
 	return nil, ErrNotFound
 }
 
+func (m *Manager) ReloadEnvironmentFromDisc(id string) {
+	env, err := m.GetEnvironmentFromDisc(id)
+	if err != nil {
+		return
+	}
+
+	m.AddEnvironment(env)
+}
+
 func (m *Manager) GetEnvironments() map[string]*domain.Environment {
 	return m.environments
 }
