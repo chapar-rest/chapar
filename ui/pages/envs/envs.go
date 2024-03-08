@@ -17,10 +17,6 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-var (
-	menuItems = []string{"Duplicate", "Delete"}
-)
-
 type Envs struct {
 	newEnvButton widget.Clickable
 	searchBox    *widgets.TextField
