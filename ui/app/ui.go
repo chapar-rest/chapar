@@ -32,7 +32,6 @@ type UI struct {
 	header  *Header
 
 	requestsPage *requests.Requests
-	envsPage     *envs.Envs
 	consolePage  *console.Console
 	notification *widgets.Notification
 
@@ -80,11 +79,6 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
-
-	//u.envsPage, err = envs.New(u.Theme, appManager)
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	u.notification = &widgets.Notification{}
 
