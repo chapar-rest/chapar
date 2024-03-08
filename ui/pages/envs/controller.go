@@ -3,6 +3,8 @@ package envs
 import (
 	"fmt"
 
+	"github.com/mirzakhany/chapar/ui/widgets"
+
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
@@ -121,7 +123,41 @@ func (c *Controller) onSave(id string) {
 }
 
 func (c *Controller) onTabClose(id string) {
-	c.view.CloseTab(id)
+	// is tab data changed?
+	// if yes show prompt
+	// if no close tab
+	env := c.model.GetEnvironment(id)
+	if env == nil {
+		fmt.Println("failed to get environment", id)
+		return
+	}
+
+	envFromFile, err := c.model.GetEnvironmentFromDisc(id)
+	if err != nil {
+		fmt.Println("failed to get environment from file", err)
+		return
+	}
+
+	// if data is not changed close the tab
+	if domain.CompareKeyValues(env.Spec.Values, envFromFile.Spec.Values) {
+		c.view.CloseTab(id)
+		return
+	}
+
+	c.view.ShowPrompt(id, "Save", "Do you want to save the changes?", widgets.ModalTypeWarn,
+		func(selectedOption string, remember bool) {
+			if selectedOption == "Cancel" {
+				c.view.HidePrompt(id)
+				return
+			}
+
+			if selectedOption == "Yes" {
+				c.saveEnvironmentToDisc(id)
+			}
+
+			c.view.CloseTab(id)
+			c.model.ReloadEnvironmentFromDisc(id)
+		}, "Yes", "No", "Cancel")
 }
 
 func (c *Controller) saveEnvironmentToDisc(id string) {
@@ -154,6 +190,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 	}
 
 	newEnv := envFromFile.Clone()
+	// TODO make close function to handle generating new id and setting the file path suffix
 	newEnv.MetaData.ID = uuid.NewString()
 	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
 	newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
