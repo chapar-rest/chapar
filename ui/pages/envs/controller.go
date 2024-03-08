@@ -144,6 +144,8 @@ func (c *Controller) onTabClose(id string) {
 		return
 	}
 
+	// TODO check user preference to remember the choice
+
 	c.view.ShowPrompt(id, "Save", "Do you want to save the changes?", widgets.ModalTypeWarn,
 		func(selectedOption string, remember bool) {
 			if selectedOption == "Cancel" {
@@ -157,7 +159,8 @@ func (c *Controller) onTabClose(id string) {
 
 			c.view.CloseTab(id)
 			c.model.ReloadEnvironmentFromDisc(id)
-		}, "Yes", "No", "Cancel")
+		}, "Yes", "No", "Cancel",
+	)
 }
 
 func (c *Controller) saveEnvironmentToDisc(id string) {

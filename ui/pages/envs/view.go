@@ -349,6 +349,12 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 				}
 
 				if ct, ok := v.containers[selectedTab.Identifier]; ok {
+					if v.onSave != nil {
+						if ct.SaveButton.Clicked(gtx) {
+							v.onSave(selectedTab.Identifier)
+						}
+					}
+
 					return ct.Layout(gtx, theme, selectedTab.Identifier)
 				}
 			}

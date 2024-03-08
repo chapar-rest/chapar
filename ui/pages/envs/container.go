@@ -57,11 +57,6 @@ func (c *container) Layout(gtx layout.Context, theme *material.Theme, selectedID
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									if c.DataChanged {
-										// if c.SaveButton.Clicked(gtx) {
-										//	if c.OnSave != nil {
-										//		c.OnSave(selectedID)
-										//	}
-										// }
 										return widgets.SaveButtonLayout(gtx, theme, &c.SaveButton)
 									} else {
 										return layout.Dimensions{}
