@@ -27,6 +27,11 @@ type Collection struct {
 	prompt *widgets.Prompt
 }
 
+func (c *Collection) SetDirty(dirty bool) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func New(collection *domain.Collection) *Collection {
 	c := &Collection{
 		collection: collection,

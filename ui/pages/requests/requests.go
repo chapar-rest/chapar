@@ -27,11 +27,6 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-var (
-	collectionMenuItems = []string{"Add Request", "View", "Delete"}
-	requestMenuItems    = []string{"View", "Duplicate", "Delete"}
-)
-
 type Requests struct {
 	theme *material.Theme
 

@@ -86,6 +86,11 @@ type Container struct {
 	prompt *widgets.Prompt
 }
 
+func (r *Container) SetDirty(dirty bool) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type keyValue struct {
 	Key   string
 	Value string

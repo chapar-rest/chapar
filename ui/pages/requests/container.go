@@ -10,6 +10,7 @@ type Container interface {
 	Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions
 	SetActiveEnvironment(env *domain.Environment)
 	IsDataChanged() bool
+	SetDirty(dirty bool)
 	SetOnTitleChanged(f func(string, string))
 	OnClose() bool
 }
