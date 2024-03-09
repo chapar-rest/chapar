@@ -131,7 +131,7 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 			Text:        cl.MetaData.Name,
 			Identifier:  cl.MetaData.ID,
 			Children:    make([]*widgets.TreeNode, 0),
-			MenuOptions: collectionMenuItems,
+			MenuOptions: []string{"Add Request", "View", "Delete"},
 		}
 
 		for _, req := range cl.Spec.Requests {
@@ -142,7 +142,7 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 			node := &widgets.TreeNode{
 				Text:        req.MetaData.Name,
 				Identifier:  req.MetaData.ID,
-				MenuOptions: requestMenuItems,
+				MenuOptions: []string{"Duplicate", "Delete", "View"},
 			}
 			parentNode.AddChildNode(node)
 		}
@@ -154,7 +154,7 @@ func prepareTreeView(collections []*domain.Collection, requests []*domain.Reques
 		node := &widgets.TreeNode{
 			Text:        req.MetaData.Name,
 			Identifier:  req.MetaData.ID,
-			MenuOptions: requestMenuItems,
+			MenuOptions: []string{"Duplicate", "Delete", "View"},
 		}
 
 		treeViewNodes = append(treeViewNodes, node)
@@ -304,7 +304,7 @@ func (r *Requests) onTabClose(t *widgets.Tab) {
 	}
 }
 
-func (r *Requests) onTitleChanged(id, title string) {
+func (r *Requests) onTitleChanged(id, title, containerType string) {
 	// find the opened tab and mark it as dirty
 	tab, _ := r.findRequestInTab(id)
 	if tab != nil {
@@ -456,7 +456,7 @@ func (r *Requests) addEmptyCollection() {
 		Text:        newCollection.MetaData.Name,
 		Identifier:  newCollection.MetaData.ID,
 		Children:    make([]*widgets.TreeNode, 0),
-		MenuOptions: collectionMenuItems,
+		MenuOptions: []string{"Add Request", "View", "Delete"},
 	}
 	r.collections = append(r.collections, newCollection)
 	r.treeView.AddNode(node)
@@ -488,7 +488,7 @@ func (r *Requests) addNewEmptyReq(collectionID string) {
 	node := &widgets.TreeNode{
 		Text:        req.MetaData.Name,
 		Identifier:  req.MetaData.ID,
-		MenuOptions: requestMenuItems,
+		MenuOptions: []string{"Duplicate", "Delete", "View"},
 	}
 
 	var targetCollection *domain.Collection

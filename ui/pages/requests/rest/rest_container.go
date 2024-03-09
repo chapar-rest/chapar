@@ -80,7 +80,7 @@ type Container struct {
 	basicAuthPassword *widget.Editor
 	bearerTokenEditor *widget.Editor
 
-	onTitleChanged func(id, title string)
+	onTitleChanged func(id, title, containerType string)
 	onDataChanged  func(id string, values []domain.KeyValue)
 
 	prompt *widgets.Prompt
@@ -183,7 +183,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		}
 
 		if r.onTitleChanged != nil {
-			r.onTitleChanged(r.req.MetaData.ID, text)
+			r.onTitleChanged(r.req.MetaData.ID, text, "request")
 			bus.Publish(state.RequestsChanged, nil)
 		}
 	})
@@ -272,7 +272,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	return r
 }
 
-func (r *Container) SetOnTitleChanged(f func(string, string)) {
+func (r *Container) SetOnTitleChanged(f func(string, string, string)) {
 	r.onTitleChanged = f
 }
 

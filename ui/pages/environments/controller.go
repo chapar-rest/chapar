@@ -3,7 +3,6 @@ package environments
 import (
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/ui/widgets"
@@ -22,7 +21,6 @@ func NewController(view *View, model *Model) *Controller {
 		model: model,
 	}
 
-	model.AddEnvChangeListener(c.onEnvironmentChange)
 	view.SetOnNewEnv(c.onNewEnvironment)
 	view.SetOnTitleChanged(c.onTitleChanged)
 	view.SetOnTreeViewNodeDoubleClicked(c.onTreeViewNodeDoubleClicked)
@@ -32,10 +30,6 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnTabClose(c.onTabClose)
 	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
 	return c
-}
-
-func (c *Controller) onEnvironmentChange(env *domain.Environment) {
-	c.model.UpdateEnvironment(env)
 }
 
 func (c *Controller) onNewEnvironment() {
@@ -192,8 +186,6 @@ func (c *Controller) duplicateEnvironment(id string) {
 	}
 
 	newEnv := envFromFile.Clone()
-	// TODO make close function to handle generating new id and setting the file path suffix
-	newEnv.MetaData.ID = uuid.NewString()
 	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
 	newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
 	c.model.AddEnvironment(newEnv)
