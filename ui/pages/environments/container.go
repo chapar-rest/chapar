@@ -1,4 +1,4 @@
-package envs
+package environments
 
 import (
 	"gioui.org/layout"

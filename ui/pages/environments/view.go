@@ -1,4 +1,4 @@
-package envs
+package environments
 
 import (
 	"gioui.org/layout"
@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/internal/safemap"
 	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
@@ -19,35 +20,29 @@ const (
 	Delete    = "Delete"
 )
 
-var (
-	menuItems = []string{Duplicate, Delete}
-)
-
 type View struct {
 	newEnvButton widget.Clickable
 
 	treeViewSearchBox *widgets.TextField
-	treeViewNodes     map[string]*widgets.TreeNode
 	treeView          *widgets.TreeView
 
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
 
-	openTabs   map[string]*widgets.Tab
-	containers map[string]*container
-
 	// callbacks
 	onTitleChanged              func(id, title string)
 	onNewEnv                    func()
 	onTabClose                  func(id string)
-	onListFilter                func(filter string)
-	onItemsFilter               func(filter string)
 	onItemsChanged              func(id string, items []domain.KeyValue)
 	onSave                      func(id string)
-	onTreeViewNodeClicked       func(id string)
 	onTreeViewNodeDoubleClicked func(id string)
 	onTreeViewMenuClicked       func(id string, action string)
 	onTabSelected               func(id string)
+
+	// state
+	containers    *safemap.Map[*container]
+	openTabs      *safemap.Map[*widgets.Tab]
+	treeViewNodes *safemap.Map[*widgets.TreeNode]
 }
 
 func NewView(theme *material.Theme) *View {
@@ -72,13 +67,13 @@ func NewView(theme *material.Theme) *View {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 
-		treeViewNodes: make(map[string]*widgets.TreeNode),
-		openTabs:      make(map[string]*widgets.Tab),
-		containers:    make(map[string]*container),
+		treeViewNodes: safemap.New[*widgets.TreeNode](),
+		openTabs:      safemap.New[*widgets.Tab](),
+		containers:    safemap.New[*container](),
 	}
 
 	v.treeViewSearchBox.SetOnTextChange(func(text string) {
-		if len(v.treeViewNodes) == 0 {
+		if v.treeViewNodes.Len() == 0 {
 			return
 		}
 		v.treeView.Filter(text)
@@ -96,13 +91,12 @@ func (v *View) PopulateTreeView(envs []*domain.Environment) {
 		node := &widgets.TreeNode{
 			Text:        env.MetaData.Name,
 			Identifier:  env.MetaData.ID,
-			MenuOptions: menuItems,
+			MenuOptions: []string{Duplicate, Delete},
 		}
+
 		treeViewNodes = append(treeViewNodes, node)
-
-		v.treeViewNodes[env.MetaData.ID] = node
+		v.treeViewNodes.Set(env.MetaData.ID, node)
 	}
-
 	v.treeView.SetNodes(treeViewNodes)
 }
 
@@ -114,13 +108,17 @@ func (v *View) AddTreeViewNode(env *domain.Environment) {
 	node := &widgets.TreeNode{
 		Text:        env.MetaData.Name,
 		Identifier:  env.MetaData.ID,
-		MenuOptions: menuItems,
+		MenuOptions: []string{Duplicate, Delete},
 	}
 	v.treeView.AddNode(node)
-	v.treeViewNodes[env.MetaData.ID] = node
+	v.treeViewNodes.Set(env.MetaData.ID, node)
 }
 
 func (v *View) RemoveTreeViewNode(id string) {
+	if _, ok := v.treeViewNodes.Get(id); !ok {
+		return
+	}
+
 	v.treeView.RemoveNode(id)
 }
 
@@ -163,38 +161,28 @@ func (v *View) SetOnTabClose(onTabClose func(id string)) {
 }
 
 func (v *View) UpdateTabTitle(id, title string) {
-	if tab, ok := v.openTabs[id]; ok {
+	if tab, ok := v.openTabs.Get(id); ok {
 		tab.Title = title
 	}
 }
 
 func (v *View) UpdateTreeNodeTitle(id, title string) {
-	if node, ok := v.treeViewNodes[id]; ok {
+	if node, ok := v.treeViewNodes.Get(id); ok {
 		node.Text = title
 	}
 }
 
 func (v *View) SetTabDirty(id string, dirty bool) {
-	if tab, ok := v.openTabs[id]; ok {
+	if tab, ok := v.openTabs.Get(id); ok {
 		tab.SetDirty(dirty)
-		if ct, ok := v.containers[id]; ok {
+		if ct, ok := v.containers.Get(id); ok {
 			ct.DataChanged = dirty
 		}
 	}
 }
 
-func (v *View) AddNewEnv(env *domain.Environment) {
-	node := &widgets.TreeNode{
-		Text:        env.MetaData.Name,
-		Identifier:  env.MetaData.ID,
-		MenuOptions: menuItems,
-	}
-	v.treeView.AddNode(node)
-	v.OpenTab(env)
-}
-
 func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
-	ct, ok := v.containers[id]
+	ct, ok := v.containers.Get(id)
 	if !ok {
 		return
 	}
@@ -209,7 +197,7 @@ func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(se
 }
 
 func (v *View) HidePrompt(id string) {
-	ct, ok := v.containers[id]
+	ct, ok := v.containers.Get(id)
 	if !ok {
 		return
 	}
@@ -230,13 +218,12 @@ func (v *View) OpenTab(env *domain.Environment) {
 		})
 	}
 	i := v.tabHeader.AddTab(tab)
-	v.openTabs[env.MetaData.ID] = tab
-	v.OpenContainer(env)
+	v.openTabs.Set(env.MetaData.ID, tab)
 	v.tabHeader.SetSelected(i)
 }
 
 func (v *View) OpenContainer(env *domain.Environment) {
-	if _, ok := v.containers[env.MetaData.ID]; ok {
+	if _, ok := v.containers.Get(env.MetaData.ID); ok {
 		return
 	}
 
@@ -260,25 +247,25 @@ func (v *View) OpenContainer(env *domain.Environment) {
 		ct.Items.Filter(text)
 	})
 
-	v.containers[env.MetaData.ID] = ct
+	v.containers.Set(env.MetaData.ID, ct)
 }
 
 func (v *View) CloseTab(id string) {
-	if _, ok := v.openTabs[id]; ok {
+	if _, ok := v.openTabs.Get(id); ok {
 		v.tabHeader.RemoveTabByID(id)
-		delete(v.openTabs, id)
-		delete(v.containers, id)
+		v.openTabs.Delete(id)
+		v.containers.Delete(id)
 	}
 }
 
-func (v *View) IsEnvTabOpen(id string) bool {
-	_, ok := v.openTabs[id]
+func (v *View) IsTabOpen(id string) bool {
+	_, ok := v.openTabs.Get(id)
 	return ok
 }
 
-func (v *View) SwitchToTab(env *domain.Environment) {
-	if _, ok := v.openTabs[env.MetaData.ID]; ok {
-		v.tabHeader.SetSelectedByID(env.MetaData.ID)
+func (v *View) SwitchToTab(id string) {
+	if _, ok := v.openTabs.Get(id); ok {
+		v.tabHeader.SetSelectedByID(id)
 	}
 }
 
@@ -336,7 +323,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 			return v.tabHeader.Layout(gtx, theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if len(v.openTabs) == 0 {
+			if v.openTabs.Len() == 0 {
 				t := tips.New()
 				return t.Layout(gtx, theme)
 			}
@@ -348,7 +335,8 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 					gtx.Execute(op.InvalidateCmd{})
 				}
 
-				if ct, ok := v.containers[selectedTab.Identifier]; ok {
+				ct, ok := v.containers.Get(selectedTab.Identifier)
+				if ok {
 					if v.onSave != nil {
 						if ct.SaveButton.Clicked(gtx) {
 							v.onSave(selectedTab.Identifier)

@@ -1,13 +1,12 @@
-package envs
+package environments
 
 import (
 	"fmt"
 
-	"github.com/mirzakhany/chapar/ui/widgets"
-
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
+	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Controller struct {
@@ -64,8 +63,8 @@ func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
 		return
 	}
 
-	if c.view.IsEnvTabOpen(id) {
-		c.view.SwitchToTab(env)
+	if c.view.IsTabOpen(id) {
+		c.view.SwitchToTab(env.MetaData.ID)
 		c.view.OpenContainer(env)
 		return
 	}
@@ -90,7 +89,7 @@ func (c *Controller) onTabSelected(id string) {
 	}
 	c.activeTabID = id
 	env := c.model.GetEnvironment(id)
-	c.view.SwitchToTab(env)
+	c.view.SwitchToTab(env.MetaData.ID)
 	c.view.OpenContainer(env)
 }
 

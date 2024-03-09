@@ -19,7 +19,10 @@ func (c *Collection) Clone() *Collection {
 	clone := &Collection{
 		ApiVersion: c.ApiVersion,
 		Kind:       c.Kind,
-		MetaData:   c.MetaData,
+		MetaData: MetaData{
+			ID:   uuid.NewString(),
+			Name: c.MetaData.Name,
+		},
 		Spec: ColSpec{
 			Requests: make([]*Request, len(c.Spec.Requests)),
 		},
