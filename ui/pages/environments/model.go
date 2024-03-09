@@ -1,4 +1,4 @@
-package envs
+package environments
 
 import (
 	"github.com/mirzakhany/chapar/internal/domain"

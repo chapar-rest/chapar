@@ -20,7 +20,12 @@ func (e *EnvSpec) Clone() EnvSpec {
 	}
 
 	for i, v := range e.Values {
-		clone.Values[i] = v
+		clone.Values[i] = KeyValue{
+			ID:     uuid.NewString(),
+			Key:    v.Key,
+			Value:  v.Value,
+			Enable: v.Enable,
+		}
 	}
 
 	return clone
@@ -58,9 +63,12 @@ func (e *Environment) Clone() *Environment {
 	clone := &Environment{
 		ApiVersion: e.ApiVersion,
 		Kind:       e.Kind,
-		MetaData:   e.MetaData,
-		Spec:       e.Spec.Clone(),
-		FilePath:   e.FilePath,
+		MetaData: MetaData{
+			ID:   uuid.NewString(),
+			Name: e.MetaData.Name,
+		},
+		Spec:     e.Spec.Clone(),
+		FilePath: e.FilePath,
 	}
 
 	return clone

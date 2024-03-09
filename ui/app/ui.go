@@ -4,8 +4,6 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/mirzakhany/chapar/ui/manager"
-
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -18,8 +16,9 @@ import (
 	"github.com/mirzakhany/chapar/internal/notify"
 	"github.com/mirzakhany/chapar/ui"
 	"github.com/mirzakhany/chapar/ui/fonts"
+	"github.com/mirzakhany/chapar/ui/manager"
 	"github.com/mirzakhany/chapar/ui/pages/console"
-	"github.com/mirzakhany/chapar/ui/pages/envs"
+	"github.com/mirzakhany/chapar/ui/pages/environments"
 	"github.com/mirzakhany/chapar/ui/pages/requests"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -35,7 +34,7 @@ type UI struct {
 	consolePage  *console.Console
 	notification *widgets.Notification
 
-	environmentsView *envs.View
+	environmentsView *environments.View
 
 	tipsOpen bool
 
@@ -73,9 +72,9 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 		return nil, err
 	}
 
-	u.environmentsView = envs.NewView(u.Theme)
-	envModel := envs.NewModel(appManager)
-	envController := envs.NewController(u.environmentsView, envModel)
+	u.environmentsView = environments.NewView(u.Theme)
+	envModel := environments.NewModel(appManager)
+	envController := environments.NewController(u.environmentsView, envModel)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
@@ -128,7 +127,6 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 							case 0:
 								return u.requestsPage.Layout(gtx, u.Theme)
 							case 1:
-								//return u.envsPage.Layout(gtx, u.Theme)
 								return u.environmentsView.Layout(gtx, u.Theme)
 							case 4:
 								return u.consolePage.Layout(gtx, u.Theme)

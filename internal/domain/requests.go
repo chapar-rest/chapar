@@ -142,6 +142,7 @@ type SShTunnel struct {
 
 func (r *Request) Clone() *Request {
 	clone := *r
+	clone.MetaData.ID = uuid.NewString()
 	clone.Spec = *r.Spec.Clone()
 	return &clone
 }

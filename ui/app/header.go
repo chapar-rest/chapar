@@ -1,12 +1,11 @@
 package app
 
 import (
-	"github.com/mirzakhany/chapar/ui/manager"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/bus"
+	"github.com/mirzakhany/chapar/ui/manager"
 	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
