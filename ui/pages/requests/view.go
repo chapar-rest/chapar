@@ -49,7 +49,7 @@ type View struct {
 	onNewCollection             func()
 	onTabClose                  func(id string)
 	onTreeViewNodeDoubleClicked func(id string)
-	onTreeViewMenuClicked       func(id string, action, nodeType string)
+	onTreeViewMenuClicked       func(id string, action string)
 	onTabSelected               func(id string)
 	onSave                      func(id string)
 
@@ -151,16 +151,10 @@ func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(i
 	})
 }
 
-func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id, action, nodeType string)) {
+func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id, action string)) {
 	v.onTreeViewMenuClicked = onTreeViewMenuClicked
 	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
-		v.onTreeViewMenuClicked(node.Identifier, item, func() string {
-			if len(node.Children) > 0 {
-				return TypeCollection
-			} else {
-				return TypeRequest
-			}
-		}())
+		v.onTreeViewMenuClicked(node.Identifier, item)
 	})
 }
 
@@ -426,11 +420,15 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 							return layout.Stack{}.Layout(gtx,
 								layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 									if v.newHttpRequestButton.Clicked(gtx) {
-										// v.addNewEmptyReq("")
+										if v.onNewRequest != nil {
+											v.onNewRequest()
+										}
 									}
 
 									if v.newCollectionButton.Clicked(gtx) {
-										// r.addEmptyCollection()
+										if v.onNewCollection != nil {
+											v.onNewCollection()
+										}
 									}
 
 									return material.Button(theme, &v.newRequestButton, "New").Layout(gtx)

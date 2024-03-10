@@ -30,7 +30,6 @@ type UI struct {
 	sideBar *Sidebar
 	header  *Header
 
-	// requestsPage *requests.Requests
 	consolePage  *console.Console
 	notification *widgets.Notification
 

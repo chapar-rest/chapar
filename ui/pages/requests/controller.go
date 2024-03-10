@@ -25,7 +25,7 @@ func NewController(view *View, model *Model) *Controller {
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
-	view.SetOnNewRequest(c.onNewCollection)
+	view.SetOnNewCollection(c.onNewCollection)
 	view.SetOnTitleChanged(c.onTitleChanged)
 	view.SetOnTreeViewNodeDoubleClicked(c.onTreeViewNodeDoubleClicked)
 	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
@@ -166,6 +166,9 @@ func (c *Controller) onNewCollection() {
 	c.model.AddCollection(col)
 	c.view.AddCollectionTreeViewNode(col)
 	c.saveCollectionToDisc(col.MetaData.ID)
+	c.view.OpenTab(col.MetaData.ID, col.MetaData.Name, TypeCollection)
+	c.view.OpenCollectionContainer(col)
+	c.view.SwitchToTab(col.MetaData.ID)
 }
 
 func (c *Controller) saveRequestToDisc(id string) {
@@ -196,12 +199,22 @@ func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
 	c.viewRequest(id)
 }
 
-func (c *Controller) onTreeViewMenuClicked(id, action, nodeType string) {
+func (c *Controller) onTreeViewMenuClicked(id, action string) {
+	nodeType := c.view.GetTreeViewNodeType(id)
+	if nodeType == "" {
+		return
+	}
+
 	switch action {
 	case MenuDuplicate:
 		c.duplicateRequest(id)
 	case MenuDelete:
-		c.delete(id, nodeType)
+		switch nodeType {
+		case TypeRequest:
+			c.deleteRequest(id)
+		case TypeCollection:
+			c.deleteCollection(id)
+		}
 	case MenuAddRequest:
 		c.addRequestToCollection(id)
 	case MenuView:
@@ -288,15 +301,6 @@ func (c *Controller) duplicateRequest(id string) {
 		c.view.AddChildTreeViewNode(reqFromFile.CollectionID, newReq)
 	}
 	c.saveRequestToDisc(newReq.MetaData.ID)
-}
-
-func (c *Controller) delete(id, nodeType string) {
-	switch nodeType {
-	case TypeRequest:
-		c.deleteRequest(id)
-	case TypeCollection:
-		c.deleteCollection(id)
-	}
 }
 
 func (c *Controller) deleteRequest(id string) {
