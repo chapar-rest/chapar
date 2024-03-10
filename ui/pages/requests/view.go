@@ -49,7 +49,7 @@ type View struct {
 	onNewCollection             func()
 	onTabClose                  func(id string)
 	onTreeViewNodeDoubleClicked func(id string)
-	onTreeViewMenuClicked       func(id string, action string)
+	onTreeViewMenuClicked       func(id string, action, nodeType string)
 	onTabSelected               func(id string)
 	onSave                      func(id string)
 
@@ -151,10 +151,16 @@ func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(i
 	})
 }
 
-func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id string, action string)) {
+func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id, action, nodeType string)) {
 	v.onTreeViewMenuClicked = onTreeViewMenuClicked
 	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
-		v.onTreeViewMenuClicked(node.Identifier, item)
+		v.onTreeViewMenuClicked(node.Identifier, item, func() string {
+			if len(node.Children) > 0 {
+				return TypeCollection
+			} else {
+				return TypeRequest
+			}
+		}())
 	})
 }
 

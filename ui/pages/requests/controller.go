@@ -193,31 +193,23 @@ func (c *Controller) saveCollectionToDisc(id string) {
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
-	req := c.model.GetRequest(id)
-	if req == nil {
-		return
-	}
-
-	if c.view.IsTabOpen(id) {
-		c.view.SwitchToTab(req.MetaData.ID)
-		c.view.OpenRequestContainer(req)
-		return
-	}
-
-	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
-	c.view.OpenRequestContainer(req)
+	c.viewRequest(id)
 }
 
-func (c *Controller) onTreeViewMenuClicked(id string, action string) {
+func (c *Controller) onTreeViewMenuClicked(id, action, nodeType string) {
 	switch action {
 	case MenuDuplicate:
 		c.duplicateRequest(id)
 	case MenuDelete:
-		c.delete(id)
+		c.delete(id, nodeType)
 	case MenuAddRequest:
 		c.addRequestToCollection(id)
 	case MenuView:
-		c.viewCollection(id)
+		if nodeType == TypeCollection {
+			c.viewCollection(id)
+		} else {
+			c.viewRequest(id)
+		}
 	}
 }
 
@@ -244,6 +236,22 @@ func (c *Controller) addRequestToCollection(id string) {
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
 	c.view.OpenRequestContainer(req)
 	c.view.SwitchToTab(req.MetaData.ID)
+}
+
+func (c *Controller) viewRequest(id string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	if c.view.IsTabOpen(id) {
+		c.view.SwitchToTab(req.MetaData.ID)
+		c.view.OpenRequestContainer(req)
+		return
+	}
+
+	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
+	c.view.OpenRequestContainer(req)
 }
 
 func (c *Controller) viewCollection(id string) {
@@ -282,13 +290,8 @@ func (c *Controller) duplicateRequest(id string) {
 	c.saveRequestToDisc(newReq.MetaData.ID)
 }
 
-func (c *Controller) delete(id string) {
-	itemType := c.view.GetTreeViewNodeType(id)
-	if itemType == "" {
-		return
-	}
-
-	switch itemType {
+func (c *Controller) delete(id, nodeType string) {
+	switch nodeType {
 	case TypeRequest:
 		c.deleteRequest(id)
 	case TypeCollection:
