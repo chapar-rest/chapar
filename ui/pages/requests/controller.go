@@ -23,8 +23,26 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnNewRequest(c.onNewRequest)
 	view.SetOnNewRequest(c.onNewCollection)
 	view.SetOnTitleChanged(c.onTitleChanged)
+	view.SetOnTreeViewNodeDoubleClicked(c.onTreeViewNodeDoubleClicked)
 
 	return c
+}
+
+func (c *Controller) LoadData() error {
+	collections, err := loader.LoadCollections()
+	if err != nil {
+		return err
+	}
+
+	requests, err := loader.LoadRequests()
+	if err != nil {
+		return err
+	}
+
+	c.model.SetRequests(requests)
+	c.model.SetCollections(collections)
+	c.view.PopulateTreeView(requests, collections)
+	return nil
 }
 
 func (c *Controller) onTitleChanged(id string, title, containerType string) {
@@ -96,4 +114,20 @@ func (c *Controller) saveCollectionToDisc(id string) {
 		return
 	}
 	c.view.SetTabDirty(id, false)
+}
+
+func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	if c.view.IsTabOpen(id) {
+		c.view.SwitchToTab(req.MetaData.ID)
+		c.view.OpenRequestContainer(req)
+		return
+	}
+
+	c.view.OpenRequestTab(req)
+	c.view.OpenRequestContainer(req)
 }

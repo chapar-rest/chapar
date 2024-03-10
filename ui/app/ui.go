@@ -35,6 +35,7 @@ type UI struct {
 	notification *widgets.Notification
 
 	environmentsView *environments.View
+	requestsView     *requests.View
 
 	tipsOpen bool
 
@@ -76,6 +77,13 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	envModel := environments.NewModel(appManager)
 	envController := environments.NewController(u.environmentsView, envModel)
 	if err := envController.LoadData(); err != nil {
+		return nil, err
+	}
+
+	u.requestsView = requests.NewView(u.Theme)
+	reqModel := requests.NewModel(appManager)
+	reqController := requests.NewController(u.requestsView, reqModel)
+	if err := reqController.LoadData(); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +133,8 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							switch u.sideBar.SelectedIndex() {
 							case 0:
-								return u.requestsPage.Layout(gtx, u.Theme)
+								return u.requestsView.Layout(gtx, u.Theme)
+								//return u.requestsPage.Layout(gtx, u.Theme)
 							case 1:
 								return u.environmentsView.Layout(gtx, u.Theme)
 							case 4:

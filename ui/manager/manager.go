@@ -43,6 +43,18 @@ func (m *Manager) SetEnvironments(envs []*domain.Environment) {
 	}
 }
 
+func (m *Manager) SetRequests(requests []*domain.Request) {
+	for _, req := range requests {
+		m.requests[req.MetaData.ID] = req
+	}
+}
+
+func (m *Manager) SetCollections(collections []*domain.Collection) {
+	for _, col := range collections {
+		m.collections[col.MetaData.ID] = col
+	}
+}
+
 func (m *Manager) GetEnvironment(id string) *domain.Environment {
 	if env, ok := m.environments[id]; ok {
 		return env

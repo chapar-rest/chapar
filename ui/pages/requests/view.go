@@ -194,6 +194,57 @@ func (v *View) IsTabOpen(id string) bool {
 	return ok
 }
 
+func (v *View) SwitchToTab(id string) {
+	if _, ok := v.openTabs.Get(id); ok {
+		v.tabHeader.SetSelectedByID(id)
+	}
+}
+
+func (v *View) OpenRequestTab(req *domain.Request) {
+	tab := &widgets.Tab{
+		Title:          req.MetaData.Name,
+		Closable:       true,
+		CloseClickable: &widget.Clickable{},
+		Identifier:     req.MetaData.ID,
+	}
+	if v.onTabClose != nil {
+		tab.SetOnClose(func(tab *widgets.Tab) {
+			v.onTabClose(tab.Identifier)
+		})
+	}
+	i := v.tabHeader.AddTab(tab)
+	v.openTabs.Set(req.MetaData.ID, tab)
+	v.tabHeader.SetSelected(i)
+}
+
+func (v *View) OpenRequestContainer(req *domain.Request) {
+	if _, ok := v.containers.Get(req.MetaData.ID); ok {
+		return
+	}
+
+	//ct := newContainer(env.MetaData.ID, req.MetaData.Name, req.Spec.Values)
+	//ct.Title.SetOnChanged(func(text string) {
+	//	if v.onTitleChanged != nil {
+	//		v.onTitleChanged(env.MetaData.ID, text)
+	//	}
+	//})
+	//
+	//ct.Items.SetOnChanged(func(items []*widgets.KeyValueItem) {
+	//	if v.onItemsChanged != nil {
+	//		v.onItemsChanged(env.MetaData.ID, converter.KeyValueFromWidgetItems(items))
+	//	}
+	//})
+	//
+	//ct.SearchBox.SetOnTextChange(func(text string) {
+	//	if ct.Items == nil {
+	//		return
+	//	}
+	//	ct.Items.Filter(text)
+	//})
+
+	//v.containers.Set(req.MetaData.ID, ct)
+}
+
 func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domain.Collection) {
 	treeViewNodes := make([]*widgets.TreeNode, 0)
 	for _, cl := range collections {
