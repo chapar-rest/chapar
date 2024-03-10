@@ -25,7 +25,7 @@ import (
 
 type Container struct {
 	req        *domain.Request
-	title      *widgets.EditableLabel
+	Title      *widgets.EditableLabel
 	saveButton *widget.Clickable
 
 	activeEnvironment *domain.Environment
@@ -86,9 +86,18 @@ type Container struct {
 	prompt *widgets.Prompt
 }
 
-func (r *Container) SetDirty(dirty bool) {
+func (r *Container) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (r *Container) HidePrompt() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Container) SetDirty(dirty bool) {
+	r.dataChanged = dirty
 }
 
 type keyValue struct {
@@ -102,7 +111,7 @@ type keyValue struct {
 func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	r := &Container{
 		req:   req,
-		title: widgets.NewEditableLabel(""),
+		Title: widgets.NewEditableLabel(""),
 		split: widgets.SplitView{
 			Ratio:         0,
 			BarWidth:      unit.Dp(2),
@@ -166,27 +175,27 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	r.formDataParams.SetOnChanged(r.onKeValuesChanged)
 	r.urlEncodedParams.SetOnChanged(r.onKeValuesChanged)
 
-	r.title.SetOnChanged(func(text string) {
-		if r.req == nil {
-			return
-		}
-
-		if r.req.MetaData.Name == text {
-			return
-		}
-
-		// save changes to the request
-		r.req.MetaData.Name = text
-		if err := loader.UpdateRequest(r.req); err != nil {
-			r.showError(fmt.Sprintf("failed to update request: %s", err))
-			return
-		}
-
-		if r.onTitleChanged != nil {
-			r.onTitleChanged(r.req.MetaData.ID, text, "request")
-			bus.Publish(state.RequestsChanged, nil)
-		}
-	})
+	//r.title.SetOnChanged(func(text string) {
+	//	if r.req == nil {
+	//		return
+	//	}
+	//
+	//	if r.req.MetaData.Name == text {
+	//		return
+	//	}
+	//
+	//	// save changes to the request
+	//	r.req.MetaData.Name = text
+	//	if err := loader.UpdateRequest(r.req); err != nil {
+	//		r.showError(fmt.Sprintf("failed to update request: %s", err))
+	//		return
+	//	}
+	//
+	//	if r.onTitleChanged != nil {
+	//		r.onTitleChanged(r.req.MetaData.ID, text, "request")
+	//		bus.Publish(state.RequestsChanged, nil)
+	//	}
+	//})
 
 	r.copyResponseButton = &widgets.FlatButton{
 		Text:            "Copy",
@@ -306,7 +315,7 @@ func (r *Container) IsDataChanged() bool {
 
 func (r *Container) Load(e *domain.Request) {
 	r.req = e
-	r.title.SetText(e.MetaData.Name)
+	r.Title.SetText(e.MetaData.Name)
 
 	// format url with query params. it will update the query params list as well
 	finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.QueryParams))
@@ -618,7 +627,7 @@ func (r *Container) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 						}
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return r.title.Layout(gtx, theme)
+						return r.Title.Layout(gtx, theme)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if r.dataChanged {

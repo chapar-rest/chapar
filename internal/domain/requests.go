@@ -32,12 +32,14 @@ const (
 )
 
 type Request struct {
-	ApiVersion     string      `yaml:"apiVersion"`
-	Kind           string      `yaml:"kind"`
-	MetaData       RequestMeta `yaml:"metadata"`
-	Spec           RequestSpec `yaml:"spec"`
-	FilePath       string      `yaml:"-"`
-	CollectionName string      `yaml:"-"`
+	ApiVersion string      `yaml:"apiVersion"`
+	Kind       string      `yaml:"kind"`
+	MetaData   RequestMeta `yaml:"metadata"`
+	Spec       RequestSpec `yaml:"spec"`
+	FilePath   string      `yaml:"-"`
+
+	CollectionName string `yaml:"-"`
+	CollectionID   string `yaml:"-"`
 }
 
 type RequestMeta struct {
@@ -179,4 +181,97 @@ func NewRequest(name string) *Request {
 			},
 		},
 	}
+}
+
+func CompareRequests(a, b *Request) bool {
+	if b == nil || a == nil {
+		return false
+	}
+
+	if a.MetaData.ID != b.MetaData.ID || a.MetaData.Name != b.MetaData.Name || a.MetaData.Type != b.MetaData.Type {
+		return false
+	}
+
+	if a.Spec.GRPC != nil && b.Spec.GRPC != nil {
+		return CompareGRPCRequestSpecs(a.Spec.GRPC, b.Spec.GRPC)
+	}
+
+	if a.Spec.HTTP != nil && b.Spec.HTTP != nil {
+		return CompareHTTPRequestSpecs(a.Spec.HTTP, b.Spec.HTTP)
+	}
+
+	return false
+}
+
+func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
+	if a.Host != b.Host || a.Method != b.Method {
+		return false
+	}
+	return true
+}
+
+func CompareHTTPRequestSpecs(a, b *HTTPRequestSpec) bool {
+	if a.Method != b.Method || a.URL != b.URL {
+		return false
+	}
+
+	if !CompareHTTPRequests(a.Body, b.Body) {
+		return false
+	}
+
+	if len(a.Responses) != len(b.Responses) {
+		return false
+	}
+
+	for i, v := range a.Responses {
+		if !CompareHTTPResponses(v, b.Responses[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CompareHTTPRequests(a, b HTTPRequest) bool {
+	if a.Body != b.Body || a.BodyType != b.BodyType {
+		return false
+	}
+
+	if !CompareKeyValues(a.Headers, b.Headers) {
+		return false
+	}
+
+	if !CompareKeyValues(a.PathParams, b.PathParams) {
+		return false
+	}
+
+	if !CompareKeyValues(a.QueryParams, b.QueryParams) {
+		return false
+	}
+
+	if !CompareKeyValues(a.FormBody, b.FormBody) {
+		return false
+	}
+
+	if !CompareKeyValues(a.URLEncoded, b.URLEncoded) {
+		return false
+	}
+
+	return true
+}
+
+func CompareHTTPResponses(a, b HTTPResponse) bool {
+	if a.Body != b.Body {
+		return false
+	}
+
+	if !CompareKeyValues(a.Headers, b.Headers) {
+		return false
+	}
+
+	if !CompareKeyValues(a.Cookies, b.Cookies) {
+		return false
+	}
+
+	return true
 }

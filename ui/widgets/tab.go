@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 
+	"github.com/mirzakhany/chapar/internal/safemap"
+
 	"gioui.org/op"
 
 	"gioui.org/layout"
@@ -33,6 +35,8 @@ type Tab struct {
 	isDirty  bool
 	onClose  func(t *Tab)
 	isClosed bool
+
+	Meta *safemap.Map[string]
 }
 
 func NewTabs(items []*Tab, onSelectedChange func(int)) *Tabs {

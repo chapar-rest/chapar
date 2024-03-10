@@ -30,7 +30,7 @@ type UI struct {
 	sideBar *Sidebar
 	header  *Header
 
-	requestsPage *requests.Requests
+	// requestsPage *requests.Requests
 	consolePage  *console.Console
 	notification *widgets.Notification
 
@@ -68,10 +68,10 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	u.header = NewHeader(appManager)
 	u.sideBar = NewSidebar(u.Theme)
 
-	u.requestsPage, err = requests.New(u.Theme)
-	if err != nil {
-		return nil, err
-	}
+	//u.requestsPage, err = requests.New(u.Theme)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	u.environmentsView = environments.NewView(u.Theme)
 	envModel := environments.NewModel(appManager)
@@ -134,7 +134,6 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 							switch u.sideBar.SelectedIndex() {
 							case 0:
 								return u.requestsView.Layout(gtx, u.Theme)
-								//return u.requestsPage.Layout(gtx, u.Theme)
 							case 1:
 								return u.environmentsView.Layout(gtx, u.Theme)
 							case 4:

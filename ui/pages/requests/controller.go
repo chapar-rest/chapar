@@ -3,6 +3,10 @@ package requests
 import (
 	"fmt"
 
+	"github.com/mirzakhany/chapar/internal/logger"
+
+	"github.com/mirzakhany/chapar/ui/widgets"
+
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 )
@@ -24,6 +28,8 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnNewRequest(c.onNewCollection)
 	view.SetOnTitleChanged(c.onTitleChanged)
 	view.SetOnTreeViewNodeDoubleClicked(c.onTreeViewNodeDoubleClicked)
+	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
+	view.SetOnTabClose(c.onTabClose)
 
 	return c
 }
@@ -47,11 +53,68 @@ func (c *Controller) LoadData() error {
 
 func (c *Controller) onTitleChanged(id string, title, containerType string) {
 	switch containerType {
-	case ContainerTypeRequest:
+	case TypeRequest:
 		c.onRequestTitleChange(id, title)
-	case ContainerTypeCollection:
+	case TypeCollection:
 		c.onCollectionTitleChange(id, title)
 	}
+}
+
+func (c *Controller) onTabClose(id string) {
+	// get Tab to check if it's a request or collection
+	tabType := c.view.GetTabType(id)
+	if tabType == TypeRequest {
+		c.onRequestTabClose(id)
+	}
+
+	if tabType == TypeCollection {
+		c.onCollectionTabClose(id)
+	}
+}
+
+func (c *Controller) onCollectionTabClose(id string) {
+	c.view.CloseTab(id)
+}
+
+func (c *Controller) onRequestTabClose(id string) {
+	// is tab data changed?
+	// if yes show prompt
+	// if no close tab
+	req := c.model.GetRequest(id)
+	if req == nil {
+		fmt.Println("failed to get request", id)
+		return
+	}
+
+	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	if err != nil {
+		fmt.Println("failed to get environment from file", err)
+		return
+	}
+
+	// if data is not changed close the tab
+	if domain.CompareRequests(req, reqFromFile) {
+		c.view.CloseTab(id)
+		return
+	}
+
+	// TODO check user preference to remember the choice
+
+	c.view.ShowPrompt(id, "Save", "Do you want to save the changes?", widgets.ModalTypeWarn,
+		func(selectedOption string, remember bool) {
+			if selectedOption == "Cancel" {
+				c.view.HidePrompt(id)
+				return
+			}
+
+			if selectedOption == "Yes" {
+				c.saveRequestToDisc(id)
+			}
+
+			c.view.CloseTab(id)
+			c.model.ReloadRequestFromDisc(id)
+		}, "Yes", "No", "Cancel",
+	)
 }
 
 func (c *Controller) onRequestTitleChange(id, title string) {
@@ -59,6 +122,11 @@ func (c *Controller) onRequestTitleChange(id, title string) {
 	if req == nil {
 		return
 	}
+
+	if req.MetaData.Name == title {
+		return
+	}
+
 	req.MetaData.Name = title
 	c.view.UpdateTreeNodeTitle(req.MetaData.ID, req.MetaData.Name)
 	c.view.UpdateTabTitle(req.MetaData.ID, req.MetaData.Name)
@@ -71,6 +139,11 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	if col == nil {
 		return
 	}
+
+	if col.MetaData.Name == title {
+		return
+	}
+
 	col.MetaData.Name = title
 	c.view.UpdateTreeNodeTitle(col.MetaData.ID, col.MetaData.Name)
 	c.view.UpdateTabTitle(col.MetaData.ID, col.MetaData.Name)
@@ -83,6 +156,9 @@ func (c *Controller) onNewRequest() {
 	c.model.AddRequest(req)
 	c.view.AddRequestTreeViewNode(req)
 	c.saveRequestToDisc(req.MetaData.ID)
+	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
+	c.view.OpenRequestContainer(req)
+	c.view.SwitchToTab(req.MetaData.ID)
 }
 
 func (c *Controller) onNewCollection() {
@@ -128,6 +204,120 @@ func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
 		return
 	}
 
-	c.view.OpenRequestTab(req)
+	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
 	c.view.OpenRequestContainer(req)
+}
+
+func (c *Controller) onTreeViewMenuClicked(id string, action string) {
+	switch action {
+	case MenuDuplicate:
+		c.duplicateRequest(id)
+	case MenuDelete:
+		c.delete(id)
+	case MenuAddRequest:
+		c.addRequestToCollection(id)
+	case MenuView:
+		c.viewCollection(id)
+	}
+}
+
+func (c *Controller) addRequestToCollection(id string) {
+	req := domain.NewRequest("New Request")
+	col := c.model.GetCollection(id)
+	if col == nil {
+		return
+	}
+
+	newFilePath, err := loader.GetNewFilePath(req.MetaData.Name, col.MetaData.Name)
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to get new file path, err %v", err))
+		return
+	}
+	req.FilePath = newFilePath
+
+	c.model.AddRequest(req)
+	c.model.AddRequestToCollection(col, req)
+	c.saveRequestToDisc(req.MetaData.ID)
+
+	c.view.AddChildTreeViewNode(col.MetaData.ID, req)
+	c.view.ExpandTreeViewNode(col.MetaData.ID)
+	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
+	c.view.OpenRequestContainer(req)
+	c.view.SwitchToTab(req.MetaData.ID)
+}
+
+func (c *Controller) viewCollection(id string) {
+	col := c.model.GetCollection(id)
+	if col == nil {
+		return
+	}
+
+	if c.view.IsTabOpen(id) {
+		c.view.SwitchToTab(col.MetaData.ID)
+		c.view.OpenCollectionContainer(col)
+		return
+	}
+
+	c.view.OpenTab(col.MetaData.ID, col.MetaData.Name, TypeCollection)
+	c.view.OpenCollectionContainer(col)
+}
+
+func (c *Controller) duplicateRequest(id string) {
+	// read request from file to make sure we have the latest persisted data
+	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	if err != nil {
+		fmt.Println("failed to get request from file", err)
+		return
+	}
+
+	newReq := reqFromFile.Clone()
+	newReq.MetaData.Name = newReq.MetaData.Name + " (copy)"
+	newReq.FilePath = loader.AddSuffixBeforeExt(newReq.FilePath, "-copy")
+	c.model.AddRequest(newReq)
+	if reqFromFile.CollectionID == "" {
+		c.view.AddRequestTreeViewNode(newReq)
+	} else {
+		c.view.AddChildTreeViewNode(reqFromFile.CollectionID, newReq)
+	}
+	c.saveRequestToDisc(newReq.MetaData.ID)
+}
+
+func (c *Controller) delete(id string) {
+	itemType := c.view.GetTreeViewNodeType(id)
+	if itemType == "" {
+		return
+	}
+
+	switch itemType {
+	case TypeRequest:
+		c.deleteRequest(id)
+	case TypeCollection:
+		c.deleteCollection(id)
+	}
+}
+
+func (c *Controller) deleteRequest(id string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+	c.model.DeleteRequest(id)
+	c.view.RemoveTreeViewNode(id)
+	if err := loader.DeleteRequest(req); err != nil {
+		fmt.Println("failed to delete request", err)
+	}
+	c.view.CloseTab(id)
+}
+
+func (c *Controller) deleteCollection(id string) {
+	col := c.model.GetCollection(id)
+	if col == nil {
+		return
+	}
+	c.model.DeleteCollection(id)
+	c.view.RemoveTreeViewNode(id)
+	if err := loader.DeleteCollection(col); err != nil {
+		fmt.Println("failed to delete collection", err)
+	}
+	c.view.CloseTab(id)
 }

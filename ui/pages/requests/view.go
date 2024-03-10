@@ -8,9 +8,12 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/safemap"
 	"github.com/mirzakhany/chapar/ui/keys"
+	"github.com/mirzakhany/chapar/ui/pages/requests/collections"
+	"github.com/mirzakhany/chapar/ui/pages/requests/rest"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -23,6 +26,8 @@ const (
 )
 
 type View struct {
+	theme *material.Theme
+
 	// add menu
 	newRequestButton     widget.Clickable
 	newMenuContextArea   component.ContextArea
@@ -60,6 +65,7 @@ func NewView(theme *material.Theme) *View {
 	search.SetBorderColor(widgets.Gray600)
 
 	v := &View{
+		theme:             theme,
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
@@ -95,8 +101,10 @@ func (v *View) AddRequestTreeViewNode(req *domain.Request) {
 		Text:        req.MetaData.Name,
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
+		Meta:        safemap.New[string](),
 	}
 
+	node.Meta.Set(TypeMeta, TypeRequest)
 	v.treeView.AddNode(node)
 	v.treeViewNodes.Set(req.MetaData.ID, node)
 }
@@ -107,8 +115,10 @@ func (v *View) AddCollectionTreeViewNode(collection *domain.Collection) {
 		Identifier:  collection.MetaData.ID,
 		Children:    make([]*widgets.TreeNode, 0),
 		MenuOptions: []string{MenuAddRequest, MenuView, MenuDelete},
+		Meta:        safemap.New[string](),
 	}
 
+	node.Meta.Set(TypeMeta, TypeCollection)
 	v.treeView.AddNode(node)
 	v.treeViewNodes.Set(collection.MetaData.ID, node)
 }
@@ -156,6 +166,15 @@ func (v *View) SetOnSave(onSave func(id string)) {
 	v.onSave = onSave
 }
 
+func (v *View) ExpandTreeViewNode(id string) {
+	node, ok := v.treeViewNodes.Get(id)
+	if !ok {
+		return
+	}
+
+	v.treeView.ExpandNode(node.Identifier)
+}
+
 func (v *View) SetOnTabClose(onTabClose func(id string)) {
 	v.onTabClose = onTabClose
 }
@@ -200,21 +219,47 @@ func (v *View) SwitchToTab(id string) {
 	}
 }
 
-func (v *View) OpenRequestTab(req *domain.Request) {
+func (v *View) OpenTab(id, name, tabType string) {
 	tab := &widgets.Tab{
-		Title:          req.MetaData.Name,
+		Title:          name,
 		Closable:       true,
 		CloseClickable: &widget.Clickable{},
-		Identifier:     req.MetaData.ID,
+		Identifier:     id,
+		Meta:           safemap.New[string](),
 	}
+	tab.Meta.Set(TypeMeta, tabType)
+
 	if v.onTabClose != nil {
 		tab.SetOnClose(func(tab *widgets.Tab) {
 			v.onTabClose(tab.Identifier)
 		})
 	}
+
 	i := v.tabHeader.AddTab(tab)
-	v.openTabs.Set(req.MetaData.ID, tab)
+	v.openTabs.Set(id, tab)
 	v.tabHeader.SetSelected(i)
+}
+
+// TODO consider removing this methods and meta and make on click callback to provide the type
+
+func (v *View) GetTabType(id string) string {
+	if tab, ok := v.openTabs.Get(id); ok {
+		if t, ok := tab.Meta.Get(TypeMeta); ok {
+			return t
+		}
+	}
+
+	return ""
+}
+
+func (v *View) GetTreeViewNodeType(id string) string {
+	if tab, ok := v.treeViewNodes.Get(id); ok {
+		if t, ok := tab.Meta.Get(TypeMeta); ok {
+			return t
+		}
+	}
+
+	return ""
 }
 
 func (v *View) OpenRequestContainer(req *domain.Request) {
@@ -222,27 +267,55 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		return
 	}
 
-	//ct := newContainer(env.MetaData.ID, req.MetaData.Name, req.Spec.Values)
-	//ct.Title.SetOnChanged(func(text string) {
-	//	if v.onTitleChanged != nil {
-	//		v.onTitleChanged(env.MetaData.ID, text)
-	//	}
-	//})
-	//
-	//ct.Items.SetOnChanged(func(items []*widgets.KeyValueItem) {
-	//	if v.onItemsChanged != nil {
-	//		v.onItemsChanged(env.MetaData.ID, converter.KeyValueFromWidgetItems(items))
-	//	}
-	//})
-	//
-	//ct.SearchBox.SetOnTextChange(func(text string) {
-	//	if ct.Items == nil {
-	//		return
-	//	}
-	//	ct.Items.Filter(text)
-	//})
+	ct := rest.NewRestContainer(v.theme, req)
+	ct.Title.SetOnChanged(func(text string) {
+		if v.onTitleChanged != nil {
+			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
+		}
+	})
+	ct.Load(req)
+	v.containers.Set(req.MetaData.ID, ct)
+}
 
-	//v.containers.Set(req.MetaData.ID, ct)
+func (v *View) OpenCollectionContainer(collection *domain.Collection) {
+	if _, ok := v.containers.Get(collection.MetaData.ID); ok {
+		return
+	}
+
+	ct := collections.New(collection)
+	ct.Title.SetOnChanged(func(text string) {
+		if v.onTitleChanged != nil {
+			v.onTitleChanged(collection.MetaData.ID, text, TypeCollection)
+		}
+	})
+
+	v.containers.Set(collection.MetaData.ID, ct)
+}
+
+func (v *View) IsDataChanged(id string) bool {
+	if ct, ok := v.containers.Get(id); ok {
+		return ct.IsDataChanged()
+	}
+
+	return false
+}
+
+func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
+	ct, ok := v.containers.Get(id)
+	if !ok {
+		return
+	}
+
+	ct.ShowPrompt(title, content, modalType, onSubmit, options...)
+}
+
+func (v *View) HidePrompt(id string) {
+	ct, ok := v.containers.Get(id)
+	if !ok {
+		return
+	}
+
+	ct.HidePrompt()
 }
 
 func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domain.Collection) {
@@ -253,14 +326,18 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 			Identifier:  cl.MetaData.ID,
 			Children:    make([]*widgets.TreeNode, 0),
 			MenuOptions: []string{MenuAddRequest, MenuView, MenuDelete},
+			Meta:        safemap.New[string](),
 		}
+		parentNode.Meta.Set(TypeMeta, TypeCollection)
 
 		for _, req := range cl.Spec.Requests {
 			node := &widgets.TreeNode{
 				Text:        req.MetaData.Name,
 				Identifier:  req.MetaData.ID,
 				MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
+				Meta:        safemap.New[string](),
 			}
+			node.Meta.Set(TypeMeta, TypeRequest)
 			parentNode.AddChildNode(node)
 			v.treeViewNodes.Set(req.MetaData.ID, node)
 		}
@@ -274,11 +351,39 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 			Text:        req.MetaData.Name,
 			Identifier:  req.MetaData.ID,
 			MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
+			Meta:        safemap.New[string](),
 		}
+		node.Meta.Set(TypeMeta, TypeRequest)
 		treeViewNodes = append(treeViewNodes, node)
 	}
 
 	v.treeView.SetNodes(treeViewNodes)
+}
+
+func (v *View) AddTreeViewNode(req *domain.Request) {
+	v.addTreeViewNode("", req)
+}
+
+func (v *View) AddChildTreeViewNode(parentID string, req *domain.Request) {
+	v.addTreeViewNode(parentID, req)
+}
+
+func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
+	if req.MetaData.ID == "" {
+		req.MetaData.ID = uuid.NewString()
+	}
+
+	node := &widgets.TreeNode{
+		Text:        req.MetaData.Name,
+		Identifier:  req.MetaData.ID,
+		MenuOptions: []string{MenuDuplicate, MenuDelete},
+	}
+	if parentID == "" {
+		v.treeView.AddNode(node)
+	} else {
+		v.treeView.AddChildNode(parentID, node)
+	}
+	v.treeViewNodes.Set(req.MetaData.ID, node)
 }
 
 func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

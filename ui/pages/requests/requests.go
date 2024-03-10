@@ -3,27 +3,22 @@ package requests
 import (
 	"fmt"
 
-	"github.com/mirzakhany/chapar/ui/state"
-
-	"github.com/mirzakhany/chapar/internal/bus"
-
-	"github.com/mirzakhany/chapar/ui/pages/requests/collection"
-
 	"gioui.org/io/pointer"
-
-	"gioui.org/x/component"
-
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 	"github.com/google/uuid"
+	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/internal/logger"
+	"github.com/mirzakhany/chapar/ui/pages/requests/collections"
 	"github.com/mirzakhany/chapar/ui/pages/requests/rest"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
+	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -68,7 +63,7 @@ type openedTab struct {
 }
 
 func New(theme *material.Theme) (*Requests, error) {
-	collections, err := loader.LoadCollections()
+	cols, err := loader.LoadCollections()
 	if err != nil {
 		fmt.Println("LoadCollections", err)
 		logger.Error(fmt.Sprintf("failed to load collections, err %v", err))
@@ -90,11 +85,11 @@ func New(theme *material.Theme) (*Requests, error) {
 
 	req := &Requests{
 		theme:       theme,
-		collections: collections,
+		collections: cols,
 		requests:    requests,
 		searchBox:   search,
 		tabs:        widgets.NewTabs([]*widgets.Tab{}, nil),
-		treeView:    widgets.NewTreeView(prepareTreeView(collections, requests)),
+		treeView:    widgets.NewTreeView(prepareTreeView(cols, requests)),
 		split: widgets.SplitView{
 			Ratio:         -0.64,
 			MinLeftSize:   unit.Dp(250),
@@ -346,7 +341,7 @@ func (r *Requests) viewCollectionDetail(tr *widgets.TreeNode) {
 			collection: cl,
 			tab:        newTab,
 			listItem:   tr,
-			container:  collection.New(cl.Clone()),
+			container:  collections.New(cl.Clone()),
 		}
 		ot.container.SetOnTitleChanged(r.onTitleChanged)
 		r.openedTabs = append(r.openedTabs, ot)
@@ -473,7 +468,7 @@ func (r *Requests) addEmptyCollection() {
 		collection: newCollection,
 		tab:        tab,
 		listItem:   node,
-		container:  collection.New(newCollection.Clone()),
+		container:  collections.New(newCollection.Clone()),
 	}
 	ot.container.SetOnTitleChanged(r.onTitleChanged)
 	r.openedTabs = append(r.openedTabs, ot)

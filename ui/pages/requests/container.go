@@ -7,8 +7,10 @@ import (
 )
 
 const (
-	ContainerTypeRequest    = "request"
-	ContainerTypeCollection = "collection"
+	TypeRequest    = "request"
+	TypeCollection = "collection"
+
+	TypeMeta = "Type"
 )
 
 type Container interface {
@@ -18,4 +20,6 @@ type Container interface {
 	SetDirty(dirty bool)
 	SetOnTitleChanged(f func(string, string, string))
 	OnClose() bool
+	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string)
+	HidePrompt()
 }

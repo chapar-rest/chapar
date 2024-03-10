@@ -1,4 +1,4 @@
-package collection
+package collections
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ import (
 
 type Collection struct {
 	collection *domain.Collection
-	title      *widgets.EditableLabel
+	Title      *widgets.EditableLabel
 
 	dataChanged    bool
 	onTitleChanged func(id, title, containerType string)
@@ -27,42 +27,51 @@ type Collection struct {
 	prompt *widgets.Prompt
 }
 
-func (c *Collection) SetDirty(dirty bool) {
+func (c *Collection) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (c *Collection) HidePrompt() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *Collection) SetDirty(dirty bool) {
+	c.dataChanged = dirty
 }
 
 func New(collection *domain.Collection) *Collection {
 	c := &Collection{
 		collection: collection,
-		title:      widgets.NewEditableLabel(collection.MetaData.Name),
+		Title:      widgets.NewEditableLabel(collection.MetaData.Name),
 		prompt:     widgets.NewPrompt("", "", ""),
 		saveButton: new(widget.Clickable),
 	}
 	c.prompt.WithRememberBool()
 
-	c.title.SetOnChanged(func(text string) {
-		if c.collection == nil {
-			return
-		}
-
-		if c.collection.MetaData.Name == text {
-			return
-		}
-
-		// save changes to the collection
-		c.collection.MetaData.Name = text
-		if err := loader.UpdateCollection(c.collection); err != nil {
-			c.showError(fmt.Sprintf("failed to update environment: %s", err))
-			fmt.Println("failed to update collection: ", err)
-			return
-		}
-
-		if c.onTitleChanged != nil {
-			c.onTitleChanged(c.collection.MetaData.ID, text, "collection")
-			bus.Publish(state.CollectionChanged, nil)
-		}
-	})
+	//c.title.SetOnChanged(func(text string) {
+	//	if c.collection == nil {
+	//		return
+	//	}
+	//
+	//	if c.collection.MetaData.Name == text {
+	//		return
+	//	}
+	//
+	//	// save changes to the collection
+	//	c.collection.MetaData.Name = text
+	//	if err := loader.UpdateCollection(c.collection); err != nil {
+	//		c.showError(fmt.Sprintf("failed to update environment: %s", err))
+	//		fmt.Println("failed to update collection: ", err)
+	//		return
+	//	}
+	//
+	//	if c.onTitleChanged != nil {
+	//		c.onTitleChanged(c.collection.MetaData.ID, text, "collection")
+	//		bus.Publish(state.CollectionChanged, nil)
+	//	}
+	//})
 
 	return c
 }
@@ -87,7 +96,7 @@ func (c *Collection) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return c.title.Layout(gtx, theme)
+									return c.Title.Layout(gtx, theme)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									if c.dataChanged {
