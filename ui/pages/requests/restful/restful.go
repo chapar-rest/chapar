@@ -15,6 +15,7 @@ type Restful struct {
 	Breadcrumb *component.Breadcrumb
 	AddressBar *component.AddressBar
 	Response   *Response
+	Request    *Request
 
 	split widgets.SplitView
 }
@@ -69,6 +70,7 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		Response: NewResponse(theme),
+		Request:  NewRequest(),
 	}
 }
 
@@ -89,7 +91,7 @@ func (r *Restful) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return r.split.Layout(gtx,
 					func(gtx layout.Context) layout.Dimensions {
-						return material.H6(theme, "Request").Layout(gtx)
+						return r.Request.Layout(gtx, theme)
 					},
 					func(gtx layout.Context) layout.Dimensions {
 						return r.Response.Layout(gtx, theme)
