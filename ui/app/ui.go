@@ -1,7 +1,6 @@
 package app
 
 import (
-	"image"
 	"image/color"
 
 	"gioui.org/app"
@@ -100,6 +99,12 @@ func (u *UI) Run(w *ui.Window) error {
 		// this is sent when the application should re-render.
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
+
+			// set the background color
+			paint.ColorOp{Color: u.Theme.Palette.Bg}.Add(&ops)
+			paint.PaintOp{}.Add(&ops)
+			clip.Rect{Max: gtx.Constraints.Max}.Push(&ops).Pop()
+
 			// render and handle UI.
 			u.Layout(gtx, gtx.Constraints.Max.X)
 			// render and handle the operations from the UI.
@@ -113,10 +118,6 @@ func (u *UI) Run(w *ui.Window) error {
 
 // Layout displays the main program layout.
 func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
-	// Create a full-screen rectangle for the background
-	bgRect := image.Rectangle{Max: gtx.Constraints.Max}
-	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(bgRect).Op())
-
 	return layout.Stack{Alignment: layout.S}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X

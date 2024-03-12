@@ -335,8 +335,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 					gtx.Execute(op.InvalidateCmd{})
 				}
 
-				ct, ok := v.containers.Get(selectedTab.Identifier)
-				if ok {
+				if ct, ok := v.containers.Get(selectedTab.Identifier); ok {
 					if v.onSave != nil {
 						if ct.SaveButton.Clicked(gtx) {
 							v.onSave(selectedTab.Identifier)

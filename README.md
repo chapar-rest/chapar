@@ -4,7 +4,7 @@
 
 # Chapar - Native API Testing Tool
 
-Chapar is an upcoming native API testing tool built with GoLang, designed to simplify and expedite the testing process for developers. While still in its early beta phase, Chapar aims to offer a user-friendly experience with support for both HTTP and gRPC protocols with.
+Chapar is an upcoming native API testing tool built with GoLang, designed to simplify and expedite the testing process for developers. While still in its early beta phase, Chapar aims to offer a user-friendly experience with support for both Restful and gRPC protocols with.
 
 ## What Chapar means?
 Chapar was the institution of the royal mounted couriers in ancient Persia.
@@ -20,7 +20,7 @@ Herodus described the Chapar as follows:
 ### Key Features
 * User-Friendly Interface: Chapar prioritizes ease of use, ensuring developers can quickly get started with testing their API endpoints.
 
-* Protocol Flexibility: Test endpoints with ease, supporting both HTTP and gRPC protocols.
+* Protocol Flexibility: Test endpoints with ease, supporting both Restful and gRPC protocols.
 Fast-Paced Development: Expect regular updates and improvements as Chapar evolves to meet the needs of developers.
 
 * Efficiency: Conduct tests efficiently without sacrificing accuracy or reliability.

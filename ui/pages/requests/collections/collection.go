@@ -20,7 +20,7 @@ type Collection struct {
 	Title      *widgets.EditableLabel
 
 	dataChanged    bool
-	onTitleChanged func(id, title, containerType string)
+	onTitleChanged func(title string)
 	onDataChanged  func(id string, values []domain.KeyValue)
 	saveButton     *widget.Clickable
 
@@ -122,7 +122,7 @@ func (c *Collection) IsDataChanged() bool {
 	return c.dataChanged
 }
 
-func (c *Collection) SetOnTitleChanged(f func(string, string, string)) {
+func (c *Collection) SetOnTitleChanged(f func(string)) {
 	c.onTitleChanged = f
 }
 

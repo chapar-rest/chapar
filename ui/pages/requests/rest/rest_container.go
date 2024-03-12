@@ -551,17 +551,6 @@ func (r *Container) paramsLayout(gtx layout.Context, theme *material.Theme) layo
 	)
 }
 
-func (r *Container) requestBodyFormDataLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis:      layout.Vertical,
-		Alignment: layout.Start,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return r.queryParams.WithAddLayout(gtx, "Query", "", theme)
-		}),
-	)
-}
-
 func (r *Container) requestLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,

@@ -18,7 +18,7 @@ type Container interface {
 	SetActiveEnvironment(env *domain.Environment)
 	IsDataChanged() bool
 	SetDirty(dirty bool)
-	SetOnTitleChanged(f func(string, string, string))
+	SetOnTitleChanged(f func(title string))
 	OnClose() bool
 	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string)
 	HidePrompt()

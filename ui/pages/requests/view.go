@@ -13,7 +13,7 @@ import (
 	"github.com/mirzakhany/chapar/internal/safemap"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/pages/requests/collections"
-	"github.com/mirzakhany/chapar/ui/pages/requests/rest"
+	"github.com/mirzakhany/chapar/ui/pages/requests/restful"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -49,6 +49,7 @@ type View struct {
 	onNewCollection             func()
 	onTabClose                  func(id string)
 	onTreeViewNodeDoubleClicked func(id string)
+	onTreeViewNodeClicked       func(id string)
 	onTreeViewMenuClicked       func(id string, action string)
 	onTabSelected               func(id string)
 	onSave                      func(id string)
@@ -148,6 +149,13 @@ func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(i
 	v.onTreeViewNodeDoubleClicked = onTreeViewNodeDoubleClicked
 	v.treeView.OnNodeDoubleClick(func(node *widgets.TreeNode) {
 		v.onTreeViewNodeDoubleClicked(node.Identifier)
+	})
+}
+
+func (v *View) SetOnTreeViewNodeClicked(onTreeViewNodeClicked func(id string)) {
+	v.onTreeViewNodeClicked = onTreeViewNodeClicked
+	v.treeView.OnNodeClick(func(node *widgets.TreeNode) {
+		v.onTreeViewNodeClicked(node.Identifier)
 	})
 }
 
@@ -267,13 +275,12 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		return
 	}
 
-	ct := rest.NewRestContainer(v.theme, req)
-	ct.Title.SetOnChanged(func(text string) {
+	ct := restful.New(req, v.theme)
+	ct.SetOnTitleChanged(func(text string) {
 		if v.onTitleChanged != nil {
 			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
 		}
 	})
-	ct.Load(req)
 	v.containers.Set(req.MetaData.ID, ct)
 }
 
@@ -402,7 +409,7 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 		v.menuInit = true
 		v.newMenu = component.MenuState{
 			Options: []func(gtx layout.Context) layout.Dimensions{
-				component.MenuItem(theme, &v.newHttpRequestButton, "HTTP Request").Layout,
+				component.MenuItem(theme, &v.newHttpRequestButton, "Restful Request").Layout,
 				component.MenuItem(theme, &v.newGrpcRequestButton, "GRPC Request").Layout,
 				component.Divider(theme).Layout,
 				component.MenuItem(theme, &v.newCollectionButton, "Collection").Layout,
