@@ -31,12 +31,10 @@ func (r *Restful) IsDataChanged() bool {
 }
 
 func (r *Restful) SetDirty(dirty bool) {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (r *Restful) SetOnTitleChanged(f func(title string)) {
-	r.Breadcrumb.Title.SetOnChanged(f)
+	r.Breadcrumb.SetOnTitleChanged(f)
 }
 
 func (r *Restful) OnClose() bool {
@@ -62,7 +60,7 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 	return &Restful{
 		Prompt:     widgets.NewPrompt("", "", ""),
 		Breadcrumb: component.NewBreadcrumb(req.MetaData.Type, req.CollectionName, req.MetaData.Name),
-		AddressBar: component.NewAddressBar(),
+		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
 		split: widgets.SplitView{
 			Ratio:         0,
 			BarWidth:      unit.Dp(2),
@@ -70,7 +68,7 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		Response: NewResponse(theme),
-		Request:  NewRequest(),
+		Request:  NewRequest(req),
 	}
 }
 

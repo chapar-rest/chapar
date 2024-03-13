@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -18,8 +19,8 @@ type Request struct {
 	Auth        *Auth
 }
 
-func NewRequest() *Request {
-	return &Request{
+func NewRequest(req *domain.Request) *Request {
+	r := &Request{
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Params"},
 			{Title: "Body"},
@@ -40,10 +41,18 @@ func NewRequest() *Request {
 			{Text: "Python", IsScript: true, Hint: "Write your post request python script here"},
 			{Text: "Shell Script", IsScript: true, Hint: "Write your post request shell script here"},
 		}),
-		Params:  NewParams(),
-		Headers: NewHeaders(),
+		Params:  NewParams(req.Spec.HTTP.Body.QueryParams, req.Spec.HTTP.Body.PathParams),
+		Headers: NewHeaders(req.Spec.HTTP.Body.Headers),
 		Auth:    NewAuth(),
 	}
+
+	r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Body.PreRequest.Type)
+	r.PreRequest.SetCode(req.Spec.HTTP.Body.PreRequest.Script)
+
+	r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Body.PostRequest.Type)
+	r.PostRequest.SetCode(req.Spec.HTTP.Body.PostRequest.Script)
+
+	return r
 }
 
 func (r *Request) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

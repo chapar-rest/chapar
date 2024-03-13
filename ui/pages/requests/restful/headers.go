@@ -4,6 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -13,9 +15,11 @@ type Headers struct {
 	onChange func()
 }
 
-func NewHeaders() *Headers {
+func NewHeaders(headers []domain.KeyValue) *Headers {
 	return &Headers{
-		values: widgets.NewKeyValue(),
+		values: widgets.NewKeyValue(
+			converter.WidgetItemsFromKeyValue(headers)...,
+		),
 	}
 }
 

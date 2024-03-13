@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"fmt"
+
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -195,6 +197,7 @@ func (v *View) UpdateTabTitle(id, title string) {
 
 func (v *View) UpdateTreeNodeTitle(id, title string) {
 	if node, ok := v.treeViewNodes.Get(id); ok {
+		fmt.Println("updating node title: ", title)
 		node.Text = title
 	}
 }
@@ -362,6 +365,7 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 		}
 		node.Meta.Set(TypeMeta, TypeRequest)
 		treeViewNodes = append(treeViewNodes, node)
+		v.treeViewNodes.Set(req.MetaData.ID, node)
 	}
 
 	v.treeView.SetNodes(treeViewNodes)

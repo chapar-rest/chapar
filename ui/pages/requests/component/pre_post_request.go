@@ -47,6 +47,10 @@ func (p *PrePostRequest) SetOnDropDownChanged(f func(selected string)) {
 	p.onDropDownChanged = f
 }
 
+func (p *PrePostRequest) SetSelectedDropDown(selected string) {
+	p.dropDown.SetSelectedByValue(selected)
+}
+
 func (p *PrePostRequest) SetCode(code string) {
 	p.script.SetCode(code)
 }

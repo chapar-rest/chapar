@@ -4,6 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -14,10 +16,14 @@ type Params struct {
 	onChange func()
 }
 
-func NewParams() *Params {
+func NewParams(queryParams []domain.KeyValue, urlParams []domain.KeyValue) *Params {
 	return &Params{
-		queryParams: widgets.NewKeyValue(),
-		urlParams:   widgets.NewKeyValue(),
+		queryParams: widgets.NewKeyValue(
+			converter.WidgetItemsFromKeyValue(queryParams)...,
+		),
+		urlParams: widgets.NewKeyValue(
+			converter.WidgetItemsFromKeyValue(urlParams)...,
+		),
 	}
 }
 

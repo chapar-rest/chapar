@@ -1,6 +1,8 @@
 package component
 
 import (
+	"strings"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -22,12 +24,14 @@ type AddressBar struct {
 	onSendClicked   func(method, url string)
 }
 
-func NewAddressBar() *AddressBar {
+func NewAddressBar(address, method string) *AddressBar {
 	a := &AddressBar{
 		url:                &widget.Editor{},
 		methodDropDown:     widgets.NewDropDownWithoutBorder(),
 		lastSelectedMethod: "GET",
 	}
+
+	a.url.SetText(address)
 
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 	opts := make([]*widgets.DropDownOption, 0, len(methods))
@@ -35,6 +39,7 @@ func NewAddressBar() *AddressBar {
 		opts = append(opts, widgets.NewDropDownOption(m))
 	}
 	a.methodDropDown.SetOptions(opts...)
+	a.methodDropDown.SetSelectedByValue(strings.ToUpper(method))
 
 	return a
 }
