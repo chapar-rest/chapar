@@ -23,7 +23,7 @@ func NewController(view *View, model *Model) *Controller {
 
 	view.SetOnNewEnv(c.onNewEnvironment)
 	view.SetOnTitleChanged(c.onTitleChanged)
-	view.SetOnTreeViewNodeDoubleClicked(c.onTreeViewNodeDoubleClicked)
+	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeDoubleClicked)
 	view.SetOnTabSelected(c.onTabSelected)
 	view.SetOnItemsChanged(c.onItemsChanged)
 	view.SetOnSave(c.onSave)
