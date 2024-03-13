@@ -15,6 +15,7 @@ type Request struct {
 	PostRequest *component.PrePostRequest
 	Params      *Params
 	Headers     *Headers
+	Auth        *Auth
 }
 
 func NewRequest() *Request {
@@ -41,6 +42,7 @@ func NewRequest() *Request {
 		}),
 		Params:  NewParams(),
 		Headers: NewHeaders(),
+		Auth:    NewAuth(),
 	}
 }
 
@@ -64,6 +66,8 @@ func (r *Request) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 					return r.Params.Layout(gtx, theme)
 				case "Headers":
 					return r.Headers.Layout(gtx, theme)
+				case "Auth":
+					return r.Auth.Layout(gtx, theme)
 				default:
 					return layout.Dimensions{}
 				}
