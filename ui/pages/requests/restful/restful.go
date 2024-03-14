@@ -17,7 +17,15 @@ type Restful struct {
 	Response   *Response
 	Request    *Request
 
-	split widgets.SplitView
+	dataChanged bool
+	split       widgets.SplitView
+
+	onSave func(id string)
+}
+
+func (r *Restful) SetOnDataChanged(f func(id string, data any)) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (r *Restful) SetActiveEnvironment(env *domain.Environment) {
@@ -25,12 +33,8 @@ func (r *Restful) SetActiveEnvironment(env *domain.Environment) {
 	panic("implement me")
 }
 
-func (r *Restful) IsDataChanged() bool {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (r *Restful) SetDirty(dirty bool) {
+	r.dataChanged = dirty
 }
 
 func (r *Restful) SetOnTitleChanged(f func(title string)) {
@@ -40,6 +44,10 @@ func (r *Restful) SetOnTitleChanged(f func(title string)) {
 func (r *Restful) OnClose() bool {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (r *Restful) SetOnSave(f func(id string)) {
+	r.onSave = f
 }
 
 func (r *Restful) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {

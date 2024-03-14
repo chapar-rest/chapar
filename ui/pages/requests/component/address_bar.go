@@ -28,9 +28,10 @@ func NewAddressBar(address, method string) *AddressBar {
 	a := &AddressBar{
 		url:                &widget.Editor{},
 		methodDropDown:     widgets.NewDropDownWithoutBorder(),
-		lastSelectedMethod: "GET",
+		lastSelectedMethod: method,
 	}
 
+	a.url.SingleLine = true
 	a.url.SetText(address)
 
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}

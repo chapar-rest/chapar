@@ -40,6 +40,12 @@ func (f *Form) GetValues() map[string]string {
 	return values
 }
 
+func (f *Form) SetValues(values map[string]string) {
+	for _, field := range f.Fields {
+		field.Editor.SetText(values[field.Label])
+	}
+}
+
 func (f *Form) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	childs := make([]layout.FlexChild, 0)
 	for _, field := range f.Fields {

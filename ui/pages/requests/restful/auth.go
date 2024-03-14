@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -15,8 +16,8 @@ type Auth struct {
 	BasicForm *component.Form
 }
 
-func NewAuth() *Auth {
-	return &Auth{
+func NewAuth(auth *domain.Auth) *Auth {
+	a := &Auth{
 		DropDown: widgets.NewDropDown(
 			widgets.NewDropDownOption("None"),
 			widgets.NewDropDownOption("Basic"),
@@ -31,6 +32,22 @@ func NewAuth() *Auth {
 			{Label: "Password", Value: ""},
 		}),
 	}
+
+	a.DropDown.SetSelectedByValue(auth.Type)
+	if auth.BasicAuth != nil {
+		a.BasicForm.SetValues(map[string]string{
+			"Username": auth.BasicAuth.Username,
+			"Password": auth.BasicAuth.Password,
+		})
+	}
+
+	if auth.TokenAuth != nil {
+		a.TokenForm.SetValues(map[string]string{
+			"Token": auth.TokenAuth.Token,
+		})
+	}
+
+	return a
 }
 
 func (a *Auth) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

@@ -93,11 +93,28 @@ type HTTPRequest struct {
 	FormBody   []KeyValue `yaml:"formBody"`
 	URLEncoded []KeyValue `yaml:"urlEncoded"`
 
+	Auth *Auth `yaml:"auth"`
+
 	// Can be json, xml, or plain text
 	Body string `yaml:"body"`
 
 	PreRequest  PreRequest  `yaml:"preRequest"`
 	PostRequest PostRequest `yaml:"postRequest"`
+}
+
+type Auth struct {
+	Type      string     `yaml:"type"`
+	BasicAuth *BasicAuth `yaml:"basicAuth,omitempty"`
+	TokenAuth *TokenAuth `yaml:"tokenAuth,omitempty"`
+}
+
+type BasicAuth struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+type TokenAuth struct {
+	Token string `yaml:"token"`
 }
 
 type HTTPResponse struct {

@@ -43,7 +43,7 @@ func NewRequest(req *domain.Request) *Request {
 		}),
 		Params:  NewParams(req.Spec.HTTP.Body.QueryParams, req.Spec.HTTP.Body.PathParams),
 		Headers: NewHeaders(req.Spec.HTTP.Body.Headers),
-		Auth:    NewAuth(),
+		Auth:    NewAuth(req.Spec.HTTP.Body.Auth),
 	}
 
 	r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Body.PreRequest.Type)

@@ -27,7 +27,6 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnNewRequest(c.onNewRequest)
 	view.SetOnNewCollection(c.onNewCollection)
 	view.SetOnTitleChanged(c.onTitleChanged)
-	// view.SetOnTreeViewNodeDoubleClicked(c.onTreeViewNodeDoubleClicked)
 	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeDoubleClicked)
 	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
 	view.SetOnTabClose(c.onTabClose)
