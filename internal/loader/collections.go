@@ -44,6 +44,7 @@ func LoadCollections() ([]*domain.Collection, error) {
 		if info.IsDir() {
 			col, err := loadCollection(path)
 			if err != nil {
+				fmt.Println("failed to load collection", path, err)
 				return err
 			}
 			out = append(out, col)

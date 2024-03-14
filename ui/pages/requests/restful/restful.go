@@ -12,38 +12,29 @@ import (
 type Restful struct {
 	Prompt *widgets.Prompt
 
+	Req *domain.Request
+
 	Breadcrumb *component.Breadcrumb
 	AddressBar *component.AddressBar
 	Response   *Response
 	Request    *Request
 
-	dataChanged bool
-	split       widgets.SplitView
+	split widgets.SplitView
 
-	onSave func(id string)
+	onSave        func(id string)
+	onDataChanged func(id string, data any)
 }
 
 func (r *Restful) SetOnDataChanged(f func(id string, data any)) {
-	//TODO implement me
-	panic("implement me")
+	r.onDataChanged = f
 }
 
-func (r *Restful) SetActiveEnvironment(env *domain.Environment) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (r *Restful) SetDirty(dirty bool) {
-	r.dataChanged = dirty
+func (r *Restful) SetDataChanged(changed bool) {
+	r.Breadcrumb.SetDataChanged(changed)
 }
 
 func (r *Restful) SetOnTitleChanged(f func(title string)) {
 	r.Breadcrumb.SetOnTitleChanged(f)
-}
-
-func (r *Restful) OnClose() bool {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (r *Restful) SetOnSave(f func(id string)) {
@@ -65,12 +56,13 @@ func (r *Restful) HidePrompt() {
 }
 
 func New(req *domain.Request, theme *material.Theme) *Restful {
-	return &Restful{
+	r := &Restful{
+		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
-		Breadcrumb: component.NewBreadcrumb(req.MetaData.Type, req.CollectionName, req.MetaData.Name),
+		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.MetaData.Type, req.MetaData.Name),
 		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
 		split: widgets.SplitView{
-			Ratio:         0,
+			Ratio:         0.05,
 			BarWidth:      unit.Dp(2),
 			BarColor:      widgets.Gray300,
 			BarColorHover: theme.Palette.ContrastBg,
@@ -78,6 +70,65 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 		Response: NewResponse(theme),
 		Request:  NewRequest(req),
 	}
+	r.setupHooks()
+
+	return r
+}
+
+func (r *Restful) setupHooks() {
+	r.Breadcrumb.SetOnSave(func(id string) {
+		r.onSave(id)
+	})
+
+	if r.onDataChanged == nil {
+		return
+	}
+
+	r.AddressBar.SetOnMethodChanged(func(method string) {
+		r.Req.Spec.HTTP.Method = method
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.AddressBar.SetOnURLChanged(func(url string) {
+		r.Req.Spec.HTTP.URL = url
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.Params.SetOnChange(func(queryParams []domain.KeyValue, urlParams []domain.KeyValue) {
+		r.Req.Spec.HTTP.Request.QueryParams = queryParams
+		r.Req.Spec.HTTP.Request.PathParams = urlParams
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.Headers.SetOnChange(func(headers []domain.KeyValue) {
+		r.Req.Spec.HTTP.Request.Headers = headers
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.Auth.SetOnChange(func(auth *domain.Auth) {
+		r.Req.Spec.HTTP.Request.Auth = auth
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
+		r.Req.Spec.HTTP.Request.PreRequest.Type = selected
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.PreRequest.SetOnScriptChanged(func(code string) {
+		r.Req.Spec.HTTP.Request.PreRequest.Script = code
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.PostRequest.SetOnDropDownChanged(func(selected string) {
+		r.Req.Spec.HTTP.Request.PostRequest.Type = selected
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.PostRequest.SetOnScriptChanged(func(code string) {
+		r.Req.Spec.HTTP.Request.PostRequest.Script = code
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
 }
 
 func (r *Restful) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

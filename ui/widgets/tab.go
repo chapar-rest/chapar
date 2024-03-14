@@ -32,9 +32,9 @@ type Tab struct {
 	Closable       bool
 	CloseClickable *widget.Clickable
 
-	isDirty  bool
-	onClose  func(t *Tab)
-	isClosed bool
+	isDataChanged bool
+	onClose       func(t *Tab)
+	isClosed      bool
 
 	Meta *safemap.Map[string]
 }
@@ -111,16 +111,16 @@ func (tabs *Tabs) SetTabs(items []*Tab) {
 	tabs.tabs = items
 }
 
-func (tab *Tab) SetDirty(dirty bool) {
-	tab.isDirty = dirty
+func (tab *Tab) SetDataChanged(changed bool) {
+	tab.isDataChanged = changed
 }
 
 func (tab *Tab) SetIdentifier(id string) {
 	tab.Identifier = id
 }
 
-func (tab *Tab) IsDirty() bool {
-	return tab.isDirty
+func (tab *Tab) IsDataChanged() bool {
+	return tab.isDataChanged
 }
 
 func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -192,7 +192,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 										closeIcon := CloseIcon
 										iconSize := unit.Dp(16)
 										padding := unit.Dp(4)
-										if t.isDirty {
+										if t.isDataChanged {
 											// yellow
 											iconColor = color.NRGBA{R: 0xff, G: 0xff, B: 0x00, A: 0xff}
 											closeIcon = CircleIcon

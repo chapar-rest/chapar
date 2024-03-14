@@ -41,7 +41,7 @@ func (c *Collection) HidePrompt() {
 	c.prompt.Hide()
 }
 
-func (c *Collection) SetDirty(dirty bool) {
+func (c *Collection) SetDataChanged(dirty bool) {
 	c.dataChanged = dirty
 }
 

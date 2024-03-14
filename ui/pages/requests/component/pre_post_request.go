@@ -56,29 +56,30 @@ func (p *PrePostRequest) SetCode(code string) {
 }
 
 func (p *PrePostRequest) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis:      layout.Vertical,
-		Alignment: layout.Start,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
+	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{
+			Axis:      layout.Vertical,
+			Alignment: layout.Start,
+		}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return p.dropDown.Layout(gtx, theme)
 					}),
 				)
-			})
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			selectedIndex := p.dropDown.SelectedIndex()
-			selectedItem := p.dropDownItems[selectedIndex]
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				selectedIndex := p.dropDown.SelectedIndex()
+				selectedItem := p.dropDownItems[selectedIndex]
 
-			if selectedItem.IsScript {
-				return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return p.script.Layout(gtx, theme, selectedItem.Hint)
-				})
-			}
-			return layout.Dimensions{}
-		}),
-	)
+				if selectedItem.IsScript {
+					return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return p.script.Layout(gtx, theme, selectedItem.Hint)
+					})
+				}
+				return layout.Dimensions{}
+			}),
+		)
+	})
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/internal/notify"
-	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
@@ -96,7 +95,7 @@ func (r *Container) HidePrompt() {
 	panic("implement me")
 }
 
-func (r *Container) SetDirty(dirty bool) {
+func (r *Container) SetDataChanged(dirty bool) {
 	r.dataChanged = dirty
 }
 
@@ -290,23 +289,23 @@ func (r *Container) SetActiveEnvironment(env *domain.Environment) {
 }
 
 func (r *Container) onTextBodyChanged(newText string) {
-	r.dataChanged = r.req.Spec.HTTP.Body.Body != newText ||
-		r.req.Spec.HTTP.Body.PreRequest.Script != newText ||
-		r.req.Spec.HTTP.Body.PostRequest.Script != newText
+	//r.dataChanged = r.req.Spec.HTTP.Request.Body != newText ||
+	//	r.req.Spec.HTTP.Request.PreRequest.Script != newText ||
+	//	r.req.Spec.HTTP.Request.PostRequest.Script != newText
 }
 
 func (r *Container) onDropDownChanged(selected string) {
-	r.dataChanged = r.req.Spec.HTTP.Method != selected ||
-		r.req.Spec.HTTP.Body.PreRequest.Type != selected ||
-		r.req.Spec.HTTP.Body.PostRequest.Type != selected ||
-		r.req.Spec.HTTP.Body.BodyType != selected
+	//r.dataChanged = r.req.Spec.HTTP.Method != selected ||
+	//	r.req.Spec.HTTP.Request.PreRequest.Type != selected ||
+	//	r.req.Spec.HTTP.Request.PostRequest.Type != selected ||
+	//	r.req.Spec.HTTP.Request.BodyType != selected
 }
 
 func (r *Container) onKeValuesChanged(items []*widgets.KeyValueItem) {
-	r.dataChanged = !(domain.CompareKeyValues(r.req.Spec.HTTP.Body.PathParams, converter.KeyValueFromWidgetItems(items)) ||
-		domain.CompareKeyValues(r.req.Spec.HTTP.Body.Headers, converter.KeyValueFromWidgetItems(items)) ||
-		domain.CompareKeyValues(r.req.Spec.HTTP.Body.FormBody, converter.KeyValueFromWidgetItems(items)) ||
-		domain.CompareKeyValues(r.req.Spec.HTTP.Body.URLEncoded, converter.KeyValueFromWidgetItems(items)))
+	//r.dataChanged = !(domain.CompareKeyValues(r.req.Spec.HTTP.Request.PathParams, converter.KeyValueFromWidgetItems(items)) ||
+	//	domain.CompareKeyValues(r.req.Spec.HTTP.Request.Headers, converter.KeyValueFromWidgetItems(items)) ||
+	//	domain.CompareKeyValues(r.req.Spec.HTTP.Request.FormBody, converter.KeyValueFromWidgetItems(items)) ||
+	//	domain.CompareKeyValues(r.req.Spec.HTTP.Request.URLEncoded, converter.KeyValueFromWidgetItems(items)))
 }
 
 func (r *Container) IsDataChanged() bool {
@@ -317,23 +316,23 @@ func (r *Container) Load(e *domain.Request) {
 	r.req = e
 	r.Title.SetText(e.MetaData.Name)
 
-	// format url with query params. it will update the query params list as well
-	finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.QueryParams))
-	if err != nil {
-		fmt.Println("Error parsing URL:", err)
-		return
-	}
+	//// format url with query params. it will update the query params list as well
+	//finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.QueryParams))
+	//if err != nil {
+	//	fmt.Println("Error parsing URL:", err)
+	//	return
+	//}
 
-	r.address.SetText(finalURL)
-	r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
-	r.headers.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.Headers))
-	r.pathParams.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.PathParams))
-	r.requestBodyDropDown.SetSelectedByValue(e.Spec.HTTP.Body.BodyType)
-	r.requestBody.SetCode(e.Spec.HTTP.Body.Body)
-	r.preRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PreRequest.Type)
-	r.preRequestBody.SetCode(e.Spec.HTTP.Body.PreRequest.Script)
-	r.postRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PostRequest.Type)
-	r.postRequestBody.SetCode(e.Spec.HTTP.Body.PostRequest.Script)
+	//r.address.SetText(finalURL)
+	//r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
+	//r.headers.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.Headers))
+	//r.pathParams.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.PathParams))
+	//r.requestBodyDropDown.SetSelectedByValue(e.Spec.HTTP.Body.BodyType)
+	//r.requestBody.SetCode(e.Spec.HTTP.Body.Body)
+	//r.preRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PreRequest.Type)
+	//r.preRequestBody.SetCode(e.Spec.HTTP.Body.PreRequest.Script)
+	//r.postRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PostRequest.Type)
+	//r.postRequestBody.SetCode(e.Spec.HTTP.Body.PostRequest.Script)
 }
 
 // OnClose is called when the tab is closed
@@ -385,17 +384,17 @@ func (r *Container) save() {
 }
 
 func (r *Container) populateItems() {
-	r.req.Spec.HTTP.Body.Headers = converter.KeyValueFromWidgetItems(r.headers.GetItems())
-	r.req.Spec.HTTP.Body.QueryParams = converter.KeyValueFromWidgetItems(r.queryParams.GetItems())
-	r.req.Spec.HTTP.Body.PathParams = converter.KeyValueFromWidgetItems(r.pathParams.GetItems())
-	r.req.Spec.HTTP.Body.BodyType = r.requestBodyDropDown.GetSelected().Text
-	r.req.Spec.HTTP.Body.Body = r.requestBody.Code()
-	r.req.Spec.HTTP.Body.PreRequest.Type = r.preRequestDropDown.GetSelected().Text
-	r.req.Spec.HTTP.Body.PreRequest.Script = r.preRequestBody.Code()
-	r.req.Spec.HTTP.Body.PostRequest.Type = r.postRequestDropDown.GetSelected().Text
-	r.req.Spec.HTTP.Body.PostRequest.Script = r.postRequestBody.Code()
-	r.req.Spec.HTTP.Method = r.methodDropDown.GetSelected().Text
-	r.req.Spec.HTTP.URL = r.address.Text()
+	//r.req.Spec.HTTP.Body.Headers = converter.KeyValueFromWidgetItems(r.headers.GetItems())
+	//r.req.Spec.HTTP.Body.QueryParams = converter.KeyValueFromWidgetItems(r.queryParams.GetItems())
+	//r.req.Spec.HTTP.Body.PathParams = converter.KeyValueFromWidgetItems(r.pathParams.GetItems())
+	//r.req.Spec.HTTP.Body.BodyType = r.requestBodyDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.Body.Body = r.requestBody.Code()
+	//r.req.Spec.HTTP.Body.PreRequest.Type = r.preRequestDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.Body.PreRequest.Script = r.preRequestBody.Code()
+	//r.req.Spec.HTTP.Body.PostRequest.Type = r.postRequestDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.Body.PostRequest.Script = r.postRequestBody.Code()
+	//r.req.Spec.HTTP.Method = r.methodDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.URL = r.address.Text()
 }
 
 func (r *Container) copyResponseToClipboard(gtx layout.Context) {
@@ -446,9 +445,9 @@ func (r *Container) onQueryParamChange(items []*widgets.KeyValueItem) {
 		return
 	}
 
-	if !domain.CompareKeyValues(r.req.Spec.HTTP.Body.QueryParams, converter.KeyValueFromWidgetItems(items)) {
-		r.dataChanged = true
-	}
+	//if !domain.CompareKeyValues(r.req.Spec.HTTP.Body.QueryParams, converter.KeyValueFromWidgetItems(items)) {
+	//	r.dataChanged = true
+	//}
 
 	addr := r.address.Text()
 	if addr == "" {

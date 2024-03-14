@@ -12,12 +12,17 @@ import (
 type Auth struct {
 	DropDown *widgets.DropDown
 
+	auth *domain.Auth
+
 	TokenForm *component.Form
 	BasicForm *component.Form
+
+	onChange func(auth *domain.Auth)
 }
 
 func NewAuth(auth *domain.Auth) *Auth {
 	a := &Auth{
+		auth: auth,
 		DropDown: widgets.NewDropDown(
 			widgets.NewDropDownOption("None"),
 			widgets.NewDropDownOption("Basic"),
@@ -31,6 +36,10 @@ func NewAuth(auth *domain.Auth) *Auth {
 			{Label: "Username", Value: ""},
 			{Label: "Password", Value: ""},
 		}),
+	}
+
+	if auth == nil {
+		auth = &domain.Auth{}
 	}
 
 	a.DropDown.SetSelectedByValue(auth.Type)
@@ -48,6 +57,26 @@ func NewAuth(auth *domain.Auth) *Auth {
 	}
 
 	return a
+}
+
+func (a *Auth) SetOnChange(f func(auth *domain.Auth)) {
+	a.onChange = f
+
+	a.DropDown.SetOnValueChanged(func(selected string) {
+		a.auth.Type = selected
+		a.onChange(a.auth)
+	})
+
+	a.TokenForm.SetOnChange(func(values map[string]string) {
+		a.auth.TokenAuth.Token = values["Token"]
+		a.onChange(a.auth)
+	})
+
+	a.BasicForm.SetOnChange(func(values map[string]string) {
+		a.auth.BasicAuth.Username = values["Username"]
+		a.auth.BasicAuth.Password = values["Password"]
+		a.onChange(a.auth)
+	})
 }
 
 func (a *Auth) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

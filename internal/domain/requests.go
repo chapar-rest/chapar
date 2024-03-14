@@ -69,7 +69,7 @@ type HTTPRequestSpec struct {
 
 	LastUsedEnvironment LastUsedEnvironment `yaml:"lastUsedEnvironment"`
 
-	Body      HTTPRequest    `yaml:"body"`
+	Request   HTTPRequest    `yaml:"request"`
 	Responses []HTTPResponse `yaml:"responses"`
 }
 
@@ -89,17 +89,21 @@ type HTTPRequest struct {
 	PathParams  []KeyValue `yaml:"pathParams"`
 	QueryParams []KeyValue `yaml:"queryParams"`
 
-	BodyType   string     `yaml:"bodyType"`
-	FormBody   []KeyValue `yaml:"formBody"`
-	URLEncoded []KeyValue `yaml:"urlEncoded"`
+	Body *Body `yaml:"body"`
 
 	Auth *Auth `yaml:"auth"`
 
-	// Can be json, xml, or plain text
-	Body string `yaml:"body"`
-
 	PreRequest  PreRequest  `yaml:"preRequest"`
 	PostRequest PostRequest `yaml:"postRequest"`
+}
+
+type Body struct {
+	Type string `yaml:"type"`
+	// Can be json, xml, or plain text
+	Data string `yaml:"data"`
+
+	FormBody   []KeyValue `yaml:"formBody,omitempty"`
+	URLEncoded []KeyValue `yaml:"urlEncoded,omitempty"`
 }
 
 type Auth struct {
@@ -190,7 +194,7 @@ func NewRequest(name string) *Request {
 			HTTP: &HTTPRequestSpec{
 				Method: RequestMethodGET,
 				URL:    "https://example.com",
-				Body: HTTPRequest{
+				Request: HTTPRequest{
 					Headers: []KeyValue{
 						{Key: "Content-Type", Value: "application/json"},
 					},
@@ -232,7 +236,7 @@ func CompareHTTPRequestSpecs(a, b *HTTPRequestSpec) bool {
 		return false
 	}
 
-	if !CompareHTTPRequests(a.Body, b.Body) {
+	if !CompareHTTPRequests(a.Request, b.Request) {
 		return false
 	}
 
@@ -250,7 +254,7 @@ func CompareHTTPRequestSpecs(a, b *HTTPRequestSpec) bool {
 }
 
 func CompareHTTPRequests(a, b HTTPRequest) bool {
-	if a.Body != b.Body || a.BodyType != b.BodyType {
+	if a.Body != b.Body || a.Body.Type != b.Body.Type {
 		return false
 	}
 
@@ -266,11 +270,11 @@ func CompareHTTPRequests(a, b HTTPRequest) bool {
 		return false
 	}
 
-	if !CompareKeyValues(a.FormBody, b.FormBody) {
+	if !CompareKeyValues(a.Body.FormBody, b.Body.FormBody) {
 		return false
 	}
 
-	if !CompareKeyValues(a.URLEncoded, b.URLEncoded) {
+	if !CompareKeyValues(a.Body.URLEncoded, b.Body.URLEncoded) {
 		return false
 	}
 

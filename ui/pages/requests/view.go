@@ -201,9 +201,9 @@ func (v *View) UpdateTreeNodeTitle(id, title string) {
 
 func (v *View) SetTabDirty(id string, dirty bool) {
 	if tab, ok := v.openTabs.Get(id); ok {
-		tab.SetDirty(dirty)
+		tab.SetDataChanged(dirty)
 		if ct, ok := v.containers.Get(id); ok {
-			ct.SetDirty(dirty)
+			ct.SetDataChanged(dirty)
 		}
 	}
 }

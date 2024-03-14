@@ -6,22 +6,30 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Breadcrumb struct {
+	ID             string
 	ContainerType  string
 	CollectionName string
 	Title          *widgets.EditableLabel
 
+	SaveButton widget.Clickable
+
+	dataChanged    bool
 	onTitleChanged func(title string)
+	onSave         func(id string)
 }
 
-func NewBreadcrumb(containerType, collectionName, title string) *Breadcrumb {
+func NewBreadcrumb(id, name, cType, title string) *Breadcrumb {
 	return &Breadcrumb{
-		ContainerType:  containerType,
-		CollectionName: collectionName,
+		ID:             id,
+		ContainerType:  cType,
+		CollectionName: name,
+		SaveButton:     widget.Clickable{},
 		Title:          widgets.NewEditableLabel(title),
 	}
 }
@@ -29,6 +37,14 @@ func NewBreadcrumb(containerType, collectionName, title string) *Breadcrumb {
 func (b *Breadcrumb) SetOnTitleChanged(f func(title string)) {
 	b.onTitleChanged = f
 	b.Title.SetOnChanged(f)
+}
+
+func (b *Breadcrumb) SetDataChanged(changed bool) {
+	b.dataChanged = changed
+}
+
+func (b *Breadcrumb) SetOnSave(f func(id string)) {
+	b.onSave = f
 }
 
 func (b *Breadcrumb) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -53,6 +69,15 @@ func (b *Breadcrumb) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 	items = append(items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return b.Title.Layout(gtx, theme)
 	}))
+
+	if b.dataChanged && b.onSave != nil {
+		items = append(items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if b.SaveButton.Clicked(gtx) {
+				b.onSave(b.ID)
+			}
+			return widgets.SaveButtonLayout(gtx, theme, &b.SaveButton)
+		}))
+	}
 
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceEnd, Alignment: layout.Middle}.Layout(gtx, items...)
 }

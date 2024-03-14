@@ -14,9 +14,11 @@ type Request struct {
 
 	PreRequest  *component.PrePostRequest
 	PostRequest *component.PrePostRequest
-	Params      *Params
-	Headers     *Headers
-	Auth        *Auth
+
+	Body    *Body
+	Params  *Params
+	Headers *Headers
+	Auth    *Auth
 }
 
 func NewRequest(req *domain.Request) *Request {
@@ -41,16 +43,18 @@ func NewRequest(req *domain.Request) *Request {
 			{Text: "Python", IsScript: true, Hint: "Write your post request python script here"},
 			{Text: "Shell Script", IsScript: true, Hint: "Write your post request shell script here"},
 		}),
-		Params:  NewParams(req.Spec.HTTP.Body.QueryParams, req.Spec.HTTP.Body.PathParams),
-		Headers: NewHeaders(req.Spec.HTTP.Body.Headers),
-		Auth:    NewAuth(req.Spec.HTTP.Body.Auth),
+
+		Body:    NewBody(req.Spec.HTTP.Request.Body),
+		Params:  NewParams(req.Spec.HTTP.Request.QueryParams, req.Spec.HTTP.Request.PathParams),
+		Headers: NewHeaders(req.Spec.HTTP.Request.Headers),
+		Auth:    NewAuth(req.Spec.HTTP.Request.Auth),
 	}
 
-	r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Body.PreRequest.Type)
-	r.PreRequest.SetCode(req.Spec.HTTP.Body.PreRequest.Script)
+	r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
+	r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
 
-	r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Body.PostRequest.Type)
-	r.PostRequest.SetCode(req.Spec.HTTP.Body.PostRequest.Script)
+	r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PostRequest.Type)
+	r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
 
 	return r
 }
@@ -77,6 +81,8 @@ func (r *Request) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 					return r.Headers.Layout(gtx, theme)
 				case "Auth":
 					return r.Auth.Layout(gtx, theme)
+				case "Body":
+					return r.Body.Layout(gtx, theme)
 				default:
 					return layout.Dimensions{}
 				}
