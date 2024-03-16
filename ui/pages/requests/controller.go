@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/mirzakhany/chapar/internal/logger"
@@ -104,7 +105,33 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 
+	// break the reference
+	clone := inComingRequest.Clone()
+
+	req.Spec = clone.Spec
+	c.model.UpdateRequest(req)
+
+	// set tab dirty if the in memory data is different from the file
+	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	if err != nil {
+		fmt.Println("failed to get request from file", err)
+		return
+	}
+
+	prettyPrint(req)
+	prettyPrint(reqFromFile)
+
+	cmp := domain.CompareRequests(req, reqFromFile)
+	fmt.Println("cmp", cmp)
+
+	c.view.SetTabDirty(id, !cmp)
+
 	fmt.Println("data changed")
+}
+
+func prettyPrint(i interface{}) {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	fmt.Println(string(s))
 }
 
 func (c *Controller) onCollectionDataChanged(id string, data any) {

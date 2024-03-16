@@ -27,6 +27,18 @@ func DeleteRequest(env *domain.Request) error {
 	return os.Remove(env.FilePath)
 }
 
+func LoadRequest(filePath string) (*domain.Request, error) {
+	req, err := LoadFromYaml[domain.Request](filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	setRequestDefaultValues(req)
+
+	req.FilePath = filePath
+	return req, nil
+}
+
 func LoadRequests() ([]*domain.Request, error) {
 	dir, err := GetRequestsDir()
 	if err != nil {
@@ -45,17 +57,46 @@ func LoadRequests() ([]*domain.Request, error) {
 		}
 
 		filePath := path.Join(dir, file.Name())
-
-		req, err := LoadFromYaml[domain.Request](filePath)
+		req, err := LoadRequest(filePath)
 		if err != nil {
 			return nil, err
 		}
-
-		req.FilePath = filePath
 		out = append(out, req)
 	}
 
 	return out, nil
+}
+
+func setRequestDefaultValues(r *domain.Request) {
+	if r.MetaData.Type == "" {
+		r.MetaData.Type = domain.KindRequest
+	}
+
+	if r.Spec.HTTP.Method == "" {
+		r.Spec.HTTP.Method = "GET"
+	}
+
+	if r.Spec.HTTP.URL == "" {
+		r.Spec.HTTP.URL = "https://example.com"
+	}
+
+	if r.Spec.HTTP.Request.Auth == (domain.Auth{}) {
+		r.Spec.HTTP.Request.Auth = domain.Auth{
+			Type: "None",
+		}
+	}
+
+	if r.Spec.HTTP.Request.PostRequest == (domain.PostRequest{}) {
+		r.Spec.HTTP.Request.PostRequest = domain.PostRequest{
+			Type: "None",
+		}
+	}
+
+	if r.Spec.HTTP.Request.PreRequest == (domain.PreRequest{}) {
+		r.Spec.HTTP.Request.PreRequest = domain.PreRequest{
+			Type: "None",
+		}
+	}
 }
 
 func UpdateRequest(req *domain.Request) error {

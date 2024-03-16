@@ -106,7 +106,7 @@ func (r *Restful) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
-	r.Request.Auth.SetOnChange(func(auth *domain.Auth) {
+	r.Request.Auth.SetOnChange(func(auth domain.Auth) {
 		r.Req.Spec.HTTP.Request.Auth = auth
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
@@ -131,7 +131,7 @@ func (r *Restful) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
-	r.Request.Body.SetOnChange(func(body *domain.Body) {
+	r.Request.Body.SetOnChange(func(body domain.Body) {
 		r.Req.Spec.HTTP.Request.Body = body
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})

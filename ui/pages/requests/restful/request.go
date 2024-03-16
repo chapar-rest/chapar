@@ -44,23 +44,16 @@ func NewRequest(req *domain.Request) *Request {
 			{Text: "Shell Script", IsScript: true, Hint: "Write your post request shell script here"},
 		}),
 
-		Body:    NewBody(nil),
+		Body:    NewBody(req.Spec.HTTP.Request.Body),
 		Params:  NewParams(nil, nil),
 		Headers: NewHeaders(nil),
-		Auth:    NewAuth(nil),
+		Auth:    NewAuth(req.Spec.HTTP.Request.Auth),
 	}
 
 	if req != nil && req.Spec != (domain.RequestSpec{}) && req.Spec.HTTP != nil && req.Spec.HTTP.Request != nil {
 		r.Params.SetQueryParams(req.Spec.HTTP.Request.QueryParams)
 		r.Params.SetPathParams(req.Spec.HTTP.Request.PathParams)
 		r.Headers.SetHeaders(req.Spec.HTTP.Request.Headers)
-
-		if req.Spec.HTTP.Request.Auth != nil {
-			r.Auth.SetAuth(req.Spec.HTTP.Request.Auth)
-		}
-		if req.Spec.HTTP.Request.Body != nil {
-			r.Body = NewBody(req.Spec.HTTP.Request.Body)
-		}
 
 		if req.Spec.HTTP.Request.PreRequest != (domain.PreRequest{}) {
 			r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)

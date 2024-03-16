@@ -12,16 +12,16 @@ import (
 type Body struct {
 	DropDown *widgets.DropDown
 
-	body *domain.Body
+	body domain.Body
 
 	formData   *widgets.KeyValue
 	urlencoded *widgets.KeyValue
 	script     *widgets.CodeEditor
 
-	onChange func(body *domain.Body)
+	onChange func(body domain.Body)
 }
 
-func NewBody(body *domain.Body) *Body {
+func NewBody(body domain.Body) *Body {
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
@@ -38,15 +38,13 @@ func NewBody(body *domain.Body) *Body {
 		script:     widgets.NewCodeEditor(""),
 	}
 
-	if body != nil {
-		b.script.SetCode(body.Data)
-		b.DropDown.SetSelectedByValue(body.Type)
-	}
+	b.script.SetCode(body.Data)
+	b.DropDown.SetSelectedByValue(body.Type)
 
 	return b
 }
 
-func (b *Body) SetOnChange(f func(body *domain.Body)) {
+func (b *Body) SetOnChange(f func(body domain.Body)) {
 	b.onChange = f
 
 	b.DropDown.SetOnChanged(func(selected string) {

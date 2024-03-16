@@ -1,7 +1,5 @@
 package domain
 
-import "fmt"
-
 const (
 	ApiVersion = "v1"
 
@@ -28,13 +26,11 @@ type KeyValue struct {
 // CompareKeyValues compares two slices of KeyValue and returns true if they are equal
 func CompareKeyValues(a, b []KeyValue) bool {
 	if len(a) != len(b) {
-		fmt.Println("CompareKeyValues length not equal")
 		return false
 	}
 
 	for i, v := range a {
 		if !CompareEnvValue(v, b[i]) {
-			fmt.Println("CompareKeyValues not equal")
 			return false
 		}
 	}

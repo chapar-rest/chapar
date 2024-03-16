@@ -13,7 +13,7 @@ type Params struct {
 	queryParams *widgets.KeyValue
 	pathParams  *widgets.KeyValue
 
-	onChange func(queryParams []domain.KeyValue, urlParams []domain.KeyValue)
+	onChange func(queryParams []domain.KeyValue, pathParams []domain.KeyValue)
 }
 
 func NewParams(queryParams []domain.KeyValue, pathParams []domain.KeyValue) *Params {
@@ -43,7 +43,7 @@ func (p *Params) SetOnChange(f func(queryParams []domain.KeyValue, pathParams []
 	})
 
 	p.queryParams.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.queryParams.Items))
+		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.pathParams.Items))
 	})
 }
 

@@ -98,9 +98,9 @@ type HTTPRequest struct {
 	PathParams  []KeyValue `yaml:"pathParams"`
 	QueryParams []KeyValue `yaml:"queryParams"`
 
-	Body *Body `yaml:"body"`
+	Body Body `yaml:"body"`
 
-	Auth *Auth `yaml:"auth"`
+	Auth Auth `yaml:"auth"`
 
 	PreRequest  PreRequest  `yaml:"preRequest"`
 	PostRequest PostRequest `yaml:"postRequest"`
@@ -207,14 +207,6 @@ func (r *Request) Clone() *Request {
 
 func (r *HTTPRequest) Clone() *HTTPRequest {
 	clone := *r
-
-	if r.Body != nil {
-		clone.Body = r.Body.Clone()
-	}
-
-	if r.Auth != nil {
-		clone.Auth = r.Auth.Clone()
-	}
 	return &clone
 }
 
@@ -357,15 +349,7 @@ func CompareHTTPRequests(a, b *HTTPRequest) bool {
 	return true
 }
 
-func CompareBody(a, b *Body) bool {
-	if a == nil && b == nil {
-		return true
-	}
-
-	if a == nil || b == nil {
-		return false
-	}
-
+func CompareBody(a, b Body) bool {
 	if a.Type != b.Type || a.Data != b.Data {
 		return false
 	}
@@ -373,15 +357,7 @@ func CompareBody(a, b *Body) bool {
 	return true
 }
 
-func CompareAuth(a, b *Auth) bool {
-	if a == nil && b == nil {
-		return true
-	}
-
-	if a == nil || b == nil {
-
-		return false
-	}
+func CompareAuth(a, b Auth) bool {
 
 	if a.Type != b.Type {
 		return false

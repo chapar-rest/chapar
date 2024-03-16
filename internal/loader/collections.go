@@ -86,19 +86,16 @@ func loadCollection(collectionPath string) (*domain.Collection, error) {
 		}
 
 		requestPath := filepath.Join(collectionPath, file.Name())
-		requestData, err := os.ReadFile(requestPath)
+		req, err := LoadFromYaml[domain.Request](requestPath)
 		if err != nil {
 			return nil, err
 		}
 
-		var request = new(domain.Request)
-		if err = yaml.Unmarshal(requestData, request); err != nil {
-			return nil, err
-		}
+		setRequestDefaultValues(req)
 
-		request.FilePath = requestPath
-		request.CollectionName = collection.MetaData.Name
-		collection.Spec.Requests = append(collection.Spec.Requests, request)
+		req.FilePath = requestPath
+		req.CollectionName = collection.MetaData.Name
+		collection.Spec.Requests = append(collection.Spec.Requests, req)
 	}
 	return collection, nil
 }

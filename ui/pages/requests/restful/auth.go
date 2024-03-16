@@ -12,15 +12,15 @@ import (
 type Auth struct {
 	DropDown *widgets.DropDown
 
-	auth *domain.Auth
+	auth domain.Auth
 
 	TokenForm *component.Form
 	BasicForm *component.Form
 
-	onChange func(auth *domain.Auth)
+	onChange func(auth domain.Auth)
 }
 
-func NewAuth(auth *domain.Auth) *Auth {
+func NewAuth(auth domain.Auth) *Auth {
 	a := &Auth{
 		auth: auth,
 		DropDown: widgets.NewDropDown(
@@ -38,43 +38,35 @@ func NewAuth(auth *domain.Auth) *Auth {
 		}),
 	}
 
-	if auth != nil {
-		a.DropDown.SetSelectedByValue(auth.Type)
+	//if auth != nil {
+	a.DropDown.SetSelectedByValue(auth.Type)
 
-		if auth.BasicAuth != nil {
-			a.BasicForm.SetValues(map[string]string{
-				"Username": auth.BasicAuth.Username,
-				"Password": auth.BasicAuth.Password,
-			})
-		}
-
-		if auth.TokenAuth != nil {
-			a.TokenForm.SetValues(map[string]string{
-				"Token": auth.TokenAuth.Token,
-			})
-		}
+	if auth.BasicAuth != nil {
+		a.BasicForm.SetValues(map[string]string{
+			"Username": auth.BasicAuth.Username,
+			"Password": auth.BasicAuth.Password,
+		})
 	}
+
+	if auth.TokenAuth != nil {
+		a.TokenForm.SetValues(map[string]string{
+			"Token": auth.TokenAuth.Token,
+		})
+	}
+	//}
 
 	return a
 }
 
-func (a *Auth) SetOnChange(f func(auth *domain.Auth)) {
+func (a *Auth) SetOnChange(f func(auth domain.Auth)) {
 	a.onChange = f
 
 	a.DropDown.SetOnChanged(func(selected string) {
-		if a.auth == nil {
-			a.auth = &domain.Auth{}
-		}
-
 		a.auth.Type = selected
 		a.onChange(a.auth)
 	})
 
 	a.TokenForm.SetOnChange(func(values map[string]string) {
-		if a.auth == nil {
-			a.auth = &domain.Auth{}
-		}
-
 		if a.auth.TokenAuth == nil {
 			a.auth.TokenAuth = &domain.TokenAuth{}
 		}
@@ -84,10 +76,6 @@ func (a *Auth) SetOnChange(f func(auth *domain.Auth)) {
 	})
 
 	a.BasicForm.SetOnChange(func(values map[string]string) {
-		if a.auth == nil {
-			a.auth = &domain.Auth{}
-		}
-
 		if a.auth.BasicAuth == nil {
 			a.auth.BasicAuth = &domain.BasicAuth{}
 		}
@@ -98,7 +86,7 @@ func (a *Auth) SetOnChange(f func(auth *domain.Auth)) {
 	})
 }
 
-func (a *Auth) SetAuth(auth *domain.Auth) {
+func (a *Auth) SetAuth(auth domain.Auth) {
 	a.auth = auth
 	a.DropDown.SetSelectedByValue(auth.Type)
 

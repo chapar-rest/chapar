@@ -89,24 +89,7 @@ func (m *Manager) GetRequestFromDisc(id string) (*domain.Request, error) {
 		return nil, ErrNotFound
 	}
 
-	return loader.LoadFromYaml[domain.Request](req.FilePath)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//if nReq.Spec.HTTP.Request == nil {
-	//	nReq.Spec.HTTP.Request = &domain.HTTPRequest{}
-	//}
-	//
-	//if nReq.Spec.HTTP.Request.Body == nil {
-	//	nReq.Spec.HTTP.Request.Body = &domain.Body{}
-	//}
-	//
-	//if nReq.Spec.HTTP.Request.Auth == nil {
-	//	nReq.Spec.HTTP.Request.Auth = &domain.Auth{}
-	//}
-
-	// return nReq, nil
+	return loader.LoadRequest(req.FilePath)
 }
 
 func (m *Manager) ReloadEnvironmentFromDisc(id string) {
