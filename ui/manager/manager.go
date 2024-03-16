@@ -45,7 +45,7 @@ func (m *Manager) SetEnvironments(envs []*domain.Environment) {
 
 func (m *Manager) SetRequests(requests []*domain.Request) {
 	for _, req := range requests {
-		m.requests[req.MetaData.ID] = req
+		m.AddRequest(req)
 	}
 }
 
@@ -130,6 +130,22 @@ func (m *Manager) GetCollections() map[string]*domain.Collection {
 }
 
 func (m *Manager) AddRequest(request *domain.Request) {
+	if request == nil {
+		request = &domain.Request{}
+	}
+
+	if request.Spec.HTTP.Request == nil {
+		request.Spec.HTTP.Request = &domain.HTTPRequest{}
+	}
+
+	if request.Spec.HTTP.Request.Body == nil {
+		request.Spec.HTTP.Request.Body = &domain.Body{}
+	}
+
+	if request.Spec.HTTP.Request.Auth == nil {
+		request.Spec.HTTP.Request.Auth = &domain.Auth{}
+	}
+
 	m.requests[request.MetaData.ID] = request
 }
 

@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"fmt"
+
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -53,6 +55,7 @@ type View struct {
 	onTreeViewMenuClicked       func(id string, action string)
 	onTabSelected               func(id string)
 	onSave                      func(id string)
+	onDataChanged               func(id string, data any, containerType string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -135,6 +138,10 @@ func (v *View) RemoveTreeViewNode(id string) {
 
 func (v *View) SetOnNewRequest(onNewRequest func()) {
 	v.onNewRequest = onNewRequest
+}
+
+func (v *View) SetOnDataChanged(onDataChanged func(id string, data any, containerType string)) {
+	v.onDataChanged = onDataChanged
 }
 
 func (v *View) SetOnNewCollection(onNewCollection func()) {
@@ -275,10 +282,26 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		return
 	}
 
-	ct := restful.New(req, v.theme)
+	fmt.Println("b", &req)
+	clone := req.Clone()
+	clone.MetaData.ID = req.MetaData.ID
+
+	ct := restful.New(clone, v.theme)
 	ct.SetOnTitleChanged(func(text string) {
 		if v.onTitleChanged != nil {
 			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
+		}
+	})
+
+	ct.SetOnSave(func(id string) {
+		if v.onSave != nil {
+			v.onSave(id)
+		}
+	})
+
+	ct.SetOnDataChanged(func(id string, data any) {
+		if v.onDataChanged != nil {
+			v.onDataChanged(id, req, TypeRequest)
 		}
 	})
 

@@ -5,6 +5,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -13,15 +14,14 @@ type Body struct {
 
 	body *domain.Body
 
-	values *widgets.KeyValue
-	script *widgets.CodeEditor
+	formData   *widgets.KeyValue
+	urlencoded *widgets.KeyValue
+	script     *widgets.CodeEditor
+
+	onChange func(body *domain.Body)
 }
 
 func NewBody(body *domain.Body) *Body {
-	if body == nil {
-		body = &domain.Body{}
-	}
-
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
@@ -33,12 +33,37 @@ func NewBody(body *domain.Body) *Body {
 			widgets.NewDropDownOption("Binary"),
 			widgets.NewDropDownOption("Urlencoded"),
 		),
-		values: widgets.NewKeyValue(),
-		script: widgets.NewCodeEditor(body.Data),
+		formData:   widgets.NewKeyValue(),
+		urlencoded: widgets.NewKeyValue(),
+		script:     widgets.NewCodeEditor(body.Data),
 	}
 
 	b.DropDown.SetSelectedByValue(body.Type)
 	return b
+}
+
+func (b *Body) SetOnChange(f func(body *domain.Body)) {
+	b.onChange = f
+
+	b.DropDown.SetOnChanged(func(selected string) {
+		b.body.Type = selected
+		b.onChange(b.body)
+	})
+
+	b.script.SetOnChanged(func(script string) {
+		b.body.Data = script
+		b.onChange(b.body)
+	})
+
+	b.formData.SetOnChanged(func(items []*widgets.KeyValueItem) {
+		b.body.FormBody = converter.KeyValueFromWidgetItems(b.formData.Items)
+		b.onChange(b.body)
+	})
+
+	b.urlencoded.SetOnChanged(func(items []*widgets.KeyValueItem) {
+		b.body.URLEncoded = converter.KeyValueFromWidgetItems(b.urlencoded.Items)
+		b.onChange(b.body)
+	})
 }
 
 func (b *Body) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -65,11 +90,11 @@ func (b *Body) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 					case "XML":
 						return b.script.Layout(gtx, theme, "XML")
 					case "Form data":
-						return b.values.WithAddLayout(gtx, "Form data", "Add form data", theme)
+						return b.formData.WithAddLayout(gtx, "Form data", "Add form data", theme)
 					case "Binary":
 						return b.script.Layout(gtx, theme, "Binary")
 					case "Urlencoded":
-						return b.values.WithAddLayout(gtx, "Urlencoded", "Add urlencoded", theme)
+						return b.urlencoded.WithAddLayout(gtx, "Urlencoded", "Add urlencoded", theme)
 					default:
 						return layout.Dimensions{}
 					}

@@ -27,9 +27,10 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnNewRequest(c.onNewRequest)
 	view.SetOnNewCollection(c.onNewCollection)
 	view.SetOnTitleChanged(c.onTitleChanged)
-	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeDoubleClicked)
+	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeClicked)
 	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
 	view.SetOnTabClose(c.onTabClose)
+	view.SetOnDataChanged(c.onDataChanged)
 
 	return c
 }
@@ -74,6 +75,46 @@ func (c *Controller) onTabClose(id string) {
 
 func (c *Controller) onCollectionTabClose(id string) {
 	c.view.CloseTab(id)
+}
+
+func (c *Controller) onDataChanged(id string, data any, containerType string) {
+	switch containerType {
+	case TypeRequest:
+		c.onRequestDataChanged(id, data)
+	case TypeCollection:
+		c.onCollectionDataChanged(id, data)
+	}
+}
+
+func (c *Controller) onRequestDataChanged(id string, data any) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		fmt.Println("failed to get request", id)
+		return
+	}
+
+	inComingRequest, ok := data.(*domain.Request)
+	if !ok {
+		panic("failed to convert data to Request")
+		return
+	}
+
+	// is data changed?
+	if domain.CompareRequests(req, inComingRequest) {
+		fmt.Println("data not changed- org", req.Spec.HTTP.Request.Body.Type)
+		fmt.Println("data not changed", inComingRequest.Spec.HTTP.Request.Body.Type)
+		return
+	}
+
+	fmt.Println("data changed")
+}
+
+func (c *Controller) onCollectionDataChanged(id string, data any) {
+	col := c.model.GetCollection(id)
+	if col == nil {
+		fmt.Println("failed to get collection", id)
+		return
+	}
 }
 
 func (c *Controller) onRequestTabClose(id string) {
@@ -195,7 +236,7 @@ func (c *Controller) saveCollectionToDisc(id string) {
 	c.view.SetTabDirty(id, false)
 }
 
-func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
+func (c *Controller) onTreeViewNodeClicked(id string) {
 	c.viewRequest(id)
 }
 

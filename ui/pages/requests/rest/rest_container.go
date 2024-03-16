@@ -234,7 +234,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("HEAD"),
 		widgets.NewDropDownOption("OPTION"),
 	)
-	r.methodDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.methodDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.authDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -242,7 +242,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("Bearer"),
 	)
 
-	r.authDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.authDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.preRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -252,14 +252,14 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("Kubectl Tunnel"),
 	)
 
-	r.preRequestDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.preRequestDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.postRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
 		widgets.NewDropDownOption("Python Script"),
 		widgets.NewDropDownOption("SSH Script"),
 	)
-	r.postRequestDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.postRequestDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.requestBodyDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -271,7 +271,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("Urlencoded"),
 	)
 
-	r.requestBodyDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.requestBodyDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.address.SingleLine = true
 	r.address.SetText("https://example.com")

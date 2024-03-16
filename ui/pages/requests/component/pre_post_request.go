@@ -41,10 +41,12 @@ func NewPrePostRequest(options []Option) *PrePostRequest {
 
 func (p *PrePostRequest) SetOnScriptChanged(f func(script string)) {
 	p.onScriptChanged = f
+	p.script.SetOnChanged(p.onScriptChanged)
 }
 
 func (p *PrePostRequest) SetOnDropDownChanged(f func(selected string)) {
 	p.onDropDownChanged = f
+	p.dropDown.SetOnChanged(p.onDropDownChanged)
 }
 
 func (p *PrePostRequest) SetSelectedDropDown(selected string) {

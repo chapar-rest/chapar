@@ -69,7 +69,7 @@ type HTTPRequestSpec struct {
 
 	LastUsedEnvironment LastUsedEnvironment `yaml:"lastUsedEnvironment"`
 
-	Request   HTTPRequest    `yaml:"request"`
+	Request   *HTTPRequest   `yaml:"request"`
 	Responses []HTTPResponse `yaml:"responses"`
 }
 
@@ -194,7 +194,7 @@ func NewRequest(name string) *Request {
 			HTTP: &HTTPRequestSpec{
 				Method: RequestMethodGET,
 				URL:    "https://example.com",
-				Request: HTTPRequest{
+				Request: &HTTPRequest{
 					Headers: []KeyValue{
 						{Key: "Content-Type", Value: "application/json"},
 					},
@@ -253,7 +253,11 @@ func CompareHTTPRequestSpecs(a, b *HTTPRequestSpec) bool {
 	return true
 }
 
-func CompareHTTPRequests(a, b HTTPRequest) bool {
+func CompareHTTPRequests(a, b *HTTPRequest) bool {
+	if b == nil || a == nil {
+		return false
+	}
+
 	if a.Body != b.Body || a.Body.Type != b.Body.Type {
 		return false
 	}
@@ -291,6 +295,24 @@ func CompareHTTPResponses(a, b HTTPResponse) bool {
 	}
 
 	if !CompareKeyValues(a.Cookies, b.Cookies) {
+		return false
+	}
+
+	return true
+}
+
+func IsHTTPRequestEmpty(r HTTPRequest) bool {
+	if r.Body != nil {
+		if r.Body.Data != "" || len(r.Body.FormBody) > 0 || len(r.Body.URLEncoded) > 0 {
+			return false
+		}
+	}
+
+	if len(r.Headers) > 0 || len(r.PathParams) > 0 || len(r.QueryParams) > 0 || r.Auth != nil {
+		return false
+	}
+
+	if r.PreRequest.Type != "" || r.PostRequest.Type != "" {
 		return false
 	}
 

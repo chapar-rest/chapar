@@ -56,7 +56,7 @@ func (a *AddressBar) SetOnURLChanged(onURLChanged func(url string)) {
 
 func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
 	a.onMethodChanged = onMethodChanged
-	a.methodDropDown.SetOnValueChanged(func(selected string) {
+	a.methodDropDown.SetOnChanged(func(selected string) {
 		a.onMethodChanged(selected)
 	})
 }

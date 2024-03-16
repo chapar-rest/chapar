@@ -80,9 +80,10 @@ func (r *Restful) setupHooks() {
 		r.onSave(id)
 	})
 
-	if r.onDataChanged == nil {
-		return
-	}
+	//if r.onDataChanged == nil {
+	//	fmt.Println("onDataChanged is nil")
+	//	return
+	//}
 
 	r.AddressBar.SetOnMethodChanged(func(method string) {
 		r.Req.Spec.HTTP.Method = method
@@ -127,6 +128,11 @@ func (r *Restful) setupHooks() {
 
 	r.Request.PostRequest.SetOnScriptChanged(func(code string) {
 		r.Req.Spec.HTTP.Request.PostRequest.Script = code
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.Body.SetOnChange(func(body *domain.Body) {
+		r.Req.Spec.HTTP.Request.Body = body
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 }

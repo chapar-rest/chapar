@@ -38,10 +38,6 @@ func NewAuth(auth *domain.Auth) *Auth {
 		}),
 	}
 
-	if auth == nil {
-		auth = &domain.Auth{}
-	}
-
 	a.DropDown.SetSelectedByValue(auth.Type)
 	if auth.BasicAuth != nil {
 		a.BasicForm.SetValues(map[string]string{
@@ -62,7 +58,7 @@ func NewAuth(auth *domain.Auth) *Auth {
 func (a *Auth) SetOnChange(f func(auth *domain.Auth)) {
 	a.onChange = f
 
-	a.DropDown.SetOnValueChanged(func(selected string) {
+	a.DropDown.SetOnChanged(func(selected string) {
 		a.auth.Type = selected
 		a.onChange(a.auth)
 	})

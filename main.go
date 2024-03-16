@@ -20,9 +20,9 @@ func main() {
 	a := ui.NewApplication(ctx)
 
 	appManager := manager.New()
-	if err := appManager.LoadData(); err != nil {
-		log.Fatal(err)
-	}
+	//if err := appManager.LoadData(); err != nil {
+	//	log.Fatal(err)
+	//}
 
 	mainUI, err := mainApp.New(a, appManager)
 	if err != nil {
