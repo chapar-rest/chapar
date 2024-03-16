@@ -11,31 +11,39 @@ import (
 
 type Params struct {
 	queryParams *widgets.KeyValue
-	urlParams   *widgets.KeyValue
+	pathParams  *widgets.KeyValue
 
 	onChange func(queryParams []domain.KeyValue, urlParams []domain.KeyValue)
 }
 
-func NewParams(queryParams []domain.KeyValue, urlParams []domain.KeyValue) *Params {
+func NewParams(queryParams []domain.KeyValue, pathParams []domain.KeyValue) *Params {
 	return &Params{
 		queryParams: widgets.NewKeyValue(
 			converter.WidgetItemsFromKeyValue(queryParams)...,
 		),
-		urlParams: widgets.NewKeyValue(
-			converter.WidgetItemsFromKeyValue(urlParams)...,
+		pathParams: widgets.NewKeyValue(
+			converter.WidgetItemsFromKeyValue(pathParams)...,
 		),
 	}
 }
 
-func (p *Params) SetOnChange(f func(queryParams []domain.KeyValue, urlParams []domain.KeyValue)) {
+func (p *Params) SetQueryParams(queryParams []domain.KeyValue) {
+	p.queryParams.SetItems(converter.WidgetItemsFromKeyValue(queryParams))
+}
+
+func (p *Params) SetPathParams(pathParams []domain.KeyValue) {
+	p.pathParams.SetItems(converter.WidgetItemsFromKeyValue(pathParams))
+}
+
+func (p *Params) SetOnChange(f func(queryParams []domain.KeyValue, pathParams []domain.KeyValue)) {
 	p.onChange = f
 
-	p.urlParams.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.urlParams.Items))
+	p.pathParams.SetOnChanged(func(items []*widgets.KeyValueItem) {
+		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.pathParams.Items))
 	})
 
 	p.queryParams.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.urlParams.Items))
+		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.queryParams.Items))
 	})
 }
 
@@ -51,7 +59,7 @@ func (p *Params) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(30)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return p.urlParams.WithAddLayout(gtx, "Path", "path params inside bracket, for example: {id}", theme)
+				return p.pathParams.WithAddLayout(gtx, "Path", "path params inside bracket, for example: {id}", theme)
 			}),
 		)
 	})

@@ -23,6 +23,10 @@ func NewHeaders(headers []domain.KeyValue) *Headers {
 	}
 }
 
+func (h *Headers) SetHeaders(headers []domain.KeyValue) {
+	h.values.SetItems(converter.WidgetItemsFromKeyValue(headers))
+}
+
 func (h *Headers) SetOnChange(f func(values []domain.KeyValue)) {
 	h.onChange = f
 

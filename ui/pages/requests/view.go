@@ -1,8 +1,6 @@
 package requests
 
 import (
-	"fmt"
-
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -282,11 +280,7 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		return
 	}
 
-	fmt.Println("b", &req)
-	clone := req.Clone()
-	clone.MetaData.ID = req.MetaData.ID
-
-	ct := restful.New(clone, v.theme)
+	ct := restful.New(req, v.theme)
 	ct.SetOnTitleChanged(func(text string) {
 		if v.onTitleChanged != nil {
 			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
@@ -300,6 +294,7 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 	})
 
 	ct.SetOnDataChanged(func(id string, data any) {
+
 		if v.onDataChanged != nil {
 			v.onDataChanged(id, req, TypeRequest)
 		}

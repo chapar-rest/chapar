@@ -38,7 +38,70 @@ func NewAuth(auth *domain.Auth) *Auth {
 		}),
 	}
 
+	if auth != nil {
+		a.DropDown.SetSelectedByValue(auth.Type)
+
+		if auth.BasicAuth != nil {
+			a.BasicForm.SetValues(map[string]string{
+				"Username": auth.BasicAuth.Username,
+				"Password": auth.BasicAuth.Password,
+			})
+		}
+
+		if auth.TokenAuth != nil {
+			a.TokenForm.SetValues(map[string]string{
+				"Token": auth.TokenAuth.Token,
+			})
+		}
+	}
+
+	return a
+}
+
+func (a *Auth) SetOnChange(f func(auth *domain.Auth)) {
+	a.onChange = f
+
+	a.DropDown.SetOnChanged(func(selected string) {
+		if a.auth == nil {
+			a.auth = &domain.Auth{}
+		}
+
+		a.auth.Type = selected
+		a.onChange(a.auth)
+	})
+
+	a.TokenForm.SetOnChange(func(values map[string]string) {
+		if a.auth == nil {
+			a.auth = &domain.Auth{}
+		}
+
+		if a.auth.TokenAuth == nil {
+			a.auth.TokenAuth = &domain.TokenAuth{}
+		}
+
+		a.auth.TokenAuth.Token = values["Token"]
+		a.onChange(a.auth)
+	})
+
+	a.BasicForm.SetOnChange(func(values map[string]string) {
+		if a.auth == nil {
+			a.auth = &domain.Auth{}
+		}
+
+		if a.auth.BasicAuth == nil {
+			a.auth.BasicAuth = &domain.BasicAuth{}
+		}
+
+		a.auth.BasicAuth.Username = values["Username"]
+		a.auth.BasicAuth.Password = values["Password"]
+		a.onChange(a.auth)
+	})
+}
+
+func (a *Auth) SetAuth(auth *domain.Auth) {
+	a.auth = auth
 	a.DropDown.SetSelectedByValue(auth.Type)
+
 	if auth.BasicAuth != nil {
 		a.BasicForm.SetValues(map[string]string{
 			"Username": auth.BasicAuth.Username,
@@ -51,28 +114,6 @@ func NewAuth(auth *domain.Auth) *Auth {
 			"Token": auth.TokenAuth.Token,
 		})
 	}
-
-	return a
-}
-
-func (a *Auth) SetOnChange(f func(auth *domain.Auth)) {
-	a.onChange = f
-
-	a.DropDown.SetOnChanged(func(selected string) {
-		a.auth.Type = selected
-		a.onChange(a.auth)
-	})
-
-	a.TokenForm.SetOnChange(func(values map[string]string) {
-		a.auth.TokenAuth.Token = values["Token"]
-		a.onChange(a.auth)
-	})
-
-	a.BasicForm.SetOnChange(func(values map[string]string) {
-		a.auth.BasicAuth.Username = values["Username"]
-		a.auth.BasicAuth.Password = values["Password"]
-		a.onChange(a.auth)
-	})
 }
 
 func (a *Auth) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

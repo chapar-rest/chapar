@@ -101,8 +101,6 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 
 	// is data changed?
 	if domain.CompareRequests(req, inComingRequest) {
-		fmt.Println("data not changed- org", req.Spec.HTTP.Request.Body.Type)
-		fmt.Println("data not changed", inComingRequest.Spec.HTTP.Request.Body.Type)
 		return
 	}
 
@@ -304,8 +302,12 @@ func (c *Controller) viewRequest(id string) {
 		return
 	}
 
+	// make a clone to keep the original request unchanged
+	clone, _ := domain.Clone[domain.Request](req)
+	clone.MetaData.ID = id
+
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
-	c.view.OpenRequestContainer(req)
+	c.view.OpenRequestContainer(clone)
 }
 
 func (c *Controller) viewCollection(id string) {

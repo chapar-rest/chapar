@@ -44,17 +44,34 @@ func NewRequest(req *domain.Request) *Request {
 			{Text: "Shell Script", IsScript: true, Hint: "Write your post request shell script here"},
 		}),
 
-		Body:    NewBody(req.Spec.HTTP.Request.Body),
-		Params:  NewParams(req.Spec.HTTP.Request.QueryParams, req.Spec.HTTP.Request.PathParams),
-		Headers: NewHeaders(req.Spec.HTTP.Request.Headers),
-		Auth:    NewAuth(req.Spec.HTTP.Request.Auth),
+		Body:    NewBody(nil),
+		Params:  NewParams(nil, nil),
+		Headers: NewHeaders(nil),
+		Auth:    NewAuth(nil),
 	}
 
-	r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
-	r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
+	if req != nil && req.Spec != (domain.RequestSpec{}) && req.Spec.HTTP != nil && req.Spec.HTTP.Request != nil {
+		r.Params.SetQueryParams(req.Spec.HTTP.Request.QueryParams)
+		r.Params.SetPathParams(req.Spec.HTTP.Request.PathParams)
+		r.Headers.SetHeaders(req.Spec.HTTP.Request.Headers)
 
-	r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PostRequest.Type)
-	r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
+		if req.Spec.HTTP.Request.Auth != nil {
+			r.Auth.SetAuth(req.Spec.HTTP.Request.Auth)
+		}
+		if req.Spec.HTTP.Request.Body != nil {
+			r.Body = NewBody(req.Spec.HTTP.Request.Body)
+		}
+
+		if req.Spec.HTTP.Request.PreRequest != (domain.PreRequest{}) {
+			r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
+			r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
+		}
+
+		if req.Spec.HTTP.Request.PostRequest != (domain.PostRequest{}) {
+			r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PostRequest.Type)
+			r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
+		}
+	}
 
 	return r
 }

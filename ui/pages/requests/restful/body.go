@@ -35,10 +35,14 @@ func NewBody(body *domain.Body) *Body {
 		),
 		formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
-		script:     widgets.NewCodeEditor(body.Data),
+		script:     widgets.NewCodeEditor(""),
 	}
 
-	b.DropDown.SetSelectedByValue(body.Type)
+	if body != nil {
+		b.script.SetCode(body.Data)
+		b.DropDown.SetSelectedByValue(body.Type)
+	}
+
 	return b
 }
 

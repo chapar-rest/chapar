@@ -90,6 +90,23 @@ func (m *Manager) GetRequestFromDisc(id string) (*domain.Request, error) {
 	}
 
 	return loader.LoadFromYaml[domain.Request](req.FilePath)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//if nReq.Spec.HTTP.Request == nil {
+	//	nReq.Spec.HTTP.Request = &domain.HTTPRequest{}
+	//}
+	//
+	//if nReq.Spec.HTTP.Request.Body == nil {
+	//	nReq.Spec.HTTP.Request.Body = &domain.Body{}
+	//}
+	//
+	//if nReq.Spec.HTTP.Request.Auth == nil {
+	//	nReq.Spec.HTTP.Request.Auth = &domain.Auth{}
+	//}
+
+	// return nReq, nil
 }
 
 func (m *Manager) ReloadEnvironmentFromDisc(id string) {
@@ -134,17 +151,17 @@ func (m *Manager) AddRequest(request *domain.Request) {
 		request = &domain.Request{}
 	}
 
-	if request.Spec.HTTP.Request == nil {
-		request.Spec.HTTP.Request = &domain.HTTPRequest{}
-	}
-
-	if request.Spec.HTTP.Request.Body == nil {
-		request.Spec.HTTP.Request.Body = &domain.Body{}
-	}
-
-	if request.Spec.HTTP.Request.Auth == nil {
-		request.Spec.HTTP.Request.Auth = &domain.Auth{}
-	}
+	//if request.Spec.HTTP.Request == nil {
+	//	request.Spec.HTTP.Request = &domain.HTTPRequest{}
+	//}
+	//
+	//if request.Spec.HTTP.Request.Body == nil {
+	//	request.Spec.HTTP.Request.Body = &domain.Body{}
+	//}
+	//
+	//if request.Spec.HTTP.Request.Auth == nil {
+	//	request.Spec.HTTP.Request.Auth = &domain.Auth{}
+	//}
 
 	m.requests[request.MetaData.ID] = request
 }
