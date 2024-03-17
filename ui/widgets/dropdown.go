@@ -69,7 +69,7 @@ func (c *DropDown) SetSelected(index int) {
 	c.selectedOptionIndex = index
 }
 
-func (c *DropDown) SetOnValueChanged(f func(value string)) {
+func (c *DropDown) SetOnChanged(f func(value string)) {
 	c.onValueChange = f
 }
 

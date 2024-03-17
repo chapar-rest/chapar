@@ -30,14 +30,14 @@ type View struct {
 	tabHeader *widgets.Tabs
 
 	// callbacks
-	onTitleChanged              func(id, title string)
-	onNewEnv                    func()
-	onTabClose                  func(id string)
-	onItemsChanged              func(id string, items []domain.KeyValue)
-	onSave                      func(id string)
-	onTreeViewNodeDoubleClicked func(id string)
-	onTreeViewMenuClicked       func(id string, action string)
-	onTabSelected               func(id string)
+	onTitleChanged        func(id, title string)
+	onNewEnv              func()
+	onTabClose            func(id string)
+	onItemsChanged        func(id string, items []domain.KeyValue)
+	onSave                func(id string)
+	onTreeViewNodeClicked func(id string)
+	onTreeViewMenuClicked func(id string, action string)
+	onTabSelected         func(id string)
 
 	// state
 	containers    *safemap.Map[*container]
@@ -126,10 +126,10 @@ func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.K
 	v.onItemsChanged = onItemsChanged
 }
 
-func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(id string)) {
-	v.onTreeViewNodeDoubleClicked = onTreeViewNodeDoubleClicked
-	v.treeView.OnNodeDoubleClick(func(node *widgets.TreeNode) {
-		v.onTreeViewNodeDoubleClicked(node.Identifier)
+func (v *View) SetOnTreeViewNodeClicked(onTreeViewNodeClicked func(id string)) {
+	v.onTreeViewNodeClicked = onTreeViewNodeClicked
+	v.treeView.OnNodeClick(func(node *widgets.TreeNode) {
+		v.onTreeViewNodeClicked(node.Identifier)
 	})
 }
 
@@ -174,7 +174,7 @@ func (v *View) UpdateTreeNodeTitle(id, title string) {
 
 func (v *View) SetTabDirty(id string, dirty bool) {
 	if tab, ok := v.openTabs.Get(id); ok {
-		tab.SetDirty(dirty)
+		tab.SetDataChanged(dirty)
 		if ct, ok := v.containers.Get(id); ok {
 			ct.DataChanged = dirty
 		}
@@ -335,8 +335,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout
 					gtx.Execute(op.InvalidateCmd{})
 				}
 
-				ct, ok := v.containers.Get(selectedTab.Identifier)
-				if ok {
+				if ct, ok := v.containers.Get(selectedTab.Identifier); ok {
 					if v.onSave != nil {
 						if ct.SaveButton.Clicked(gtx) {
 							v.onSave(selectedTab.Identifier)

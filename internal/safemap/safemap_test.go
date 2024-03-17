@@ -27,6 +27,17 @@ func TestSafeMap(t *testing.T) {
 	if mlen := sm.Len(); mlen != 2 {
 		t.Errorf("Len did not work as expected, got %d, want %d", mlen, 2)
 	}
+
+	// Test Keys
+	keys := sm.Keys()
+	if len(keys) != 2 {
+		t.Errorf("Keys did not work as expected, got %d, want %d", len(keys), 2)
+	}
+
+	// Test Has
+	if !sm.Has("key2") {
+		t.Errorf("Has did not work as expected")
+	}
 }
 
 func TestSafeMap_Concurrency(t *testing.T) {

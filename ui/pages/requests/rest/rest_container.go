@@ -17,7 +17,6 @@ import (
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/loader"
 	"github.com/mirzakhany/chapar/internal/notify"
-	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
@@ -25,7 +24,7 @@ import (
 
 type Container struct {
 	req        *domain.Request
-	title      *widgets.EditableLabel
+	Title      *widgets.EditableLabel
 	saveButton *widget.Clickable
 
 	activeEnvironment *domain.Environment
@@ -80,10 +79,24 @@ type Container struct {
 	basicAuthPassword *widget.Editor
 	bearerTokenEditor *widget.Editor
 
-	onTitleChanged func(id, title string)
+	onTitleChanged func(id, title, containerType string)
 	onDataChanged  func(id string, values []domain.KeyValue)
 
 	prompt *widgets.Prompt
+}
+
+func (r *Container) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Container) HidePrompt() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Container) SetDataChanged(dirty bool) {
+	r.dataChanged = dirty
 }
 
 type keyValue struct {
@@ -97,7 +110,7 @@ type keyValue struct {
 func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	r := &Container{
 		req:   req,
-		title: widgets.NewEditableLabel(""),
+		Title: widgets.NewEditableLabel(""),
 		split: widgets.SplitView{
 			Ratio:         0,
 			BarWidth:      unit.Dp(2),
@@ -161,27 +174,27 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	r.formDataParams.SetOnChanged(r.onKeValuesChanged)
 	r.urlEncodedParams.SetOnChanged(r.onKeValuesChanged)
 
-	r.title.SetOnChanged(func(text string) {
-		if r.req == nil {
-			return
-		}
-
-		if r.req.MetaData.Name == text {
-			return
-		}
-
-		// save changes to the request
-		r.req.MetaData.Name = text
-		if err := loader.UpdateRequest(r.req); err != nil {
-			r.showError(fmt.Sprintf("failed to update request: %s", err))
-			return
-		}
-
-		if r.onTitleChanged != nil {
-			r.onTitleChanged(r.req.MetaData.ID, text)
-			bus.Publish(state.RequestsChanged, nil)
-		}
-	})
+	//r.title.SetOnChanged(func(text string) {
+	//	if r.req == nil {
+	//		return
+	//	}
+	//
+	//	if r.req.MetaData.Name == text {
+	//		return
+	//	}
+	//
+	//	// save changes to the request
+	//	r.req.MetaData.Name = text
+	//	if err := loader.UpdateRequest(r.req); err != nil {
+	//		r.showError(fmt.Sprintf("failed to update request: %s", err))
+	//		return
+	//	}
+	//
+	//	if r.onTitleChanged != nil {
+	//		r.onTitleChanged(r.req.MetaData.ID, text, "request")
+	//		bus.Publish(state.RequestsChanged, nil)
+	//	}
+	//})
 
 	r.copyResponseButton = &widgets.FlatButton{
 		Text:            "Copy",
@@ -221,7 +234,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("HEAD"),
 		widgets.NewDropDownOption("OPTION"),
 	)
-	r.methodDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.methodDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.authDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -229,7 +242,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("Bearer"),
 	)
 
-	r.authDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.authDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.preRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -239,14 +252,14 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("Kubectl Tunnel"),
 	)
 
-	r.preRequestDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.preRequestDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.postRequestDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
 		widgets.NewDropDownOption("Python Script"),
 		widgets.NewDropDownOption("SSH Script"),
 	)
-	r.postRequestDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.postRequestDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.requestBodyDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption("None"),
@@ -258,7 +271,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 		widgets.NewDropDownOption("Urlencoded"),
 	)
 
-	r.requestBodyDropDown.SetOnValueChanged(r.onDropDownChanged)
+	r.requestBodyDropDown.SetOnChanged(r.onDropDownChanged)
 
 	r.address.SingleLine = true
 	r.address.SetText("https://example.com")
@@ -267,7 +280,7 @@ func NewRestContainer(theme *material.Theme, req *domain.Request) *Container {
 	return r
 }
 
-func (r *Container) SetOnTitleChanged(f func(string, string)) {
+func (r *Container) SetOnTitleChanged(f func(string, string, string)) {
 	r.onTitleChanged = f
 }
 
@@ -276,23 +289,23 @@ func (r *Container) SetActiveEnvironment(env *domain.Environment) {
 }
 
 func (r *Container) onTextBodyChanged(newText string) {
-	r.dataChanged = r.req.Spec.HTTP.Body.Body != newText ||
-		r.req.Spec.HTTP.Body.PreRequest.Script != newText ||
-		r.req.Spec.HTTP.Body.PostRequest.Script != newText
+	//r.dataChanged = r.req.Spec.HTTP.Request.Body != newText ||
+	//	r.req.Spec.HTTP.Request.PreRequest.Script != newText ||
+	//	r.req.Spec.HTTP.Request.PostRequest.Script != newText
 }
 
 func (r *Container) onDropDownChanged(selected string) {
-	r.dataChanged = r.req.Spec.HTTP.Method != selected ||
-		r.req.Spec.HTTP.Body.PreRequest.Type != selected ||
-		r.req.Spec.HTTP.Body.PostRequest.Type != selected ||
-		r.req.Spec.HTTP.Body.BodyType != selected
+	//r.dataChanged = r.req.Spec.HTTP.Method != selected ||
+	//	r.req.Spec.HTTP.Request.PreRequest.Type != selected ||
+	//	r.req.Spec.HTTP.Request.PostRequest.Type != selected ||
+	//	r.req.Spec.HTTP.Request.BodyType != selected
 }
 
 func (r *Container) onKeValuesChanged(items []*widgets.KeyValueItem) {
-	r.dataChanged = !(domain.CompareKeyValues(r.req.Spec.HTTP.Body.PathParams, converter.KeyValueFromWidgetItems(items)) ||
-		domain.CompareKeyValues(r.req.Spec.HTTP.Body.Headers, converter.KeyValueFromWidgetItems(items)) ||
-		domain.CompareKeyValues(r.req.Spec.HTTP.Body.FormBody, converter.KeyValueFromWidgetItems(items)) ||
-		domain.CompareKeyValues(r.req.Spec.HTTP.Body.URLEncoded, converter.KeyValueFromWidgetItems(items)))
+	//r.dataChanged = !(domain.CompareKeyValues(r.req.Spec.HTTP.Request.PathParams, converter.KeyValueFromWidgetItems(items)) ||
+	//	domain.CompareKeyValues(r.req.Spec.HTTP.Request.Headers, converter.KeyValueFromWidgetItems(items)) ||
+	//	domain.CompareKeyValues(r.req.Spec.HTTP.Request.FormBody, converter.KeyValueFromWidgetItems(items)) ||
+	//	domain.CompareKeyValues(r.req.Spec.HTTP.Request.URLEncoded, converter.KeyValueFromWidgetItems(items)))
 }
 
 func (r *Container) IsDataChanged() bool {
@@ -301,25 +314,25 @@ func (r *Container) IsDataChanged() bool {
 
 func (r *Container) Load(e *domain.Request) {
 	r.req = e
-	r.title.SetText(e.MetaData.Name)
+	r.Title.SetText(e.MetaData.Name)
 
-	// format url with query params. it will update the query params list as well
-	finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.QueryParams))
-	if err != nil {
-		fmt.Println("Error parsing URL:", err)
-		return
-	}
+	//// format url with query params. it will update the query params list as well
+	//finalURL, err := updateURLWithQueryParams(e.Spec.HTTP.URL, converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.QueryParams))
+	//if err != nil {
+	//	fmt.Println("Error parsing URL:", err)
+	//	return
+	//}
 
-	r.address.SetText(finalURL)
-	r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
-	r.headers.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.Headers))
-	r.pathParams.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.PathParams))
-	r.requestBodyDropDown.SetSelectedByValue(e.Spec.HTTP.Body.BodyType)
-	r.requestBody.SetCode(e.Spec.HTTP.Body.Body)
-	r.preRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PreRequest.Type)
-	r.preRequestBody.SetCode(e.Spec.HTTP.Body.PreRequest.Script)
-	r.postRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PostRequest.Type)
-	r.postRequestBody.SetCode(e.Spec.HTTP.Body.PostRequest.Script)
+	//r.address.SetText(finalURL)
+	//r.methodDropDown.SetSelectedByValue(e.Spec.HTTP.Method)
+	//r.headers.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.Headers))
+	//r.pathParams.SetItems(converter.WidgetItemsFromKeyValue(e.Spec.HTTP.Body.PathParams))
+	//r.requestBodyDropDown.SetSelectedByValue(e.Spec.HTTP.Body.BodyType)
+	//r.requestBody.SetCode(e.Spec.HTTP.Body.Body)
+	//r.preRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PreRequest.Type)
+	//r.preRequestBody.SetCode(e.Spec.HTTP.Body.PreRequest.Script)
+	//r.postRequestDropDown.SetSelectedByValue(e.Spec.HTTP.Body.PostRequest.Type)
+	//r.postRequestBody.SetCode(e.Spec.HTTP.Body.PostRequest.Script)
 }
 
 // OnClose is called when the tab is closed
@@ -371,17 +384,17 @@ func (r *Container) save() {
 }
 
 func (r *Container) populateItems() {
-	r.req.Spec.HTTP.Body.Headers = converter.KeyValueFromWidgetItems(r.headers.GetItems())
-	r.req.Spec.HTTP.Body.QueryParams = converter.KeyValueFromWidgetItems(r.queryParams.GetItems())
-	r.req.Spec.HTTP.Body.PathParams = converter.KeyValueFromWidgetItems(r.pathParams.GetItems())
-	r.req.Spec.HTTP.Body.BodyType = r.requestBodyDropDown.GetSelected().Text
-	r.req.Spec.HTTP.Body.Body = r.requestBody.Code()
-	r.req.Spec.HTTP.Body.PreRequest.Type = r.preRequestDropDown.GetSelected().Text
-	r.req.Spec.HTTP.Body.PreRequest.Script = r.preRequestBody.Code()
-	r.req.Spec.HTTP.Body.PostRequest.Type = r.postRequestDropDown.GetSelected().Text
-	r.req.Spec.HTTP.Body.PostRequest.Script = r.postRequestBody.Code()
-	r.req.Spec.HTTP.Method = r.methodDropDown.GetSelected().Text
-	r.req.Spec.HTTP.URL = r.address.Text()
+	//r.req.Spec.HTTP.Body.Headers = converter.KeyValueFromWidgetItems(r.headers.GetItems())
+	//r.req.Spec.HTTP.Body.QueryParams = converter.KeyValueFromWidgetItems(r.queryParams.GetItems())
+	//r.req.Spec.HTTP.Body.PathParams = converter.KeyValueFromWidgetItems(r.pathParams.GetItems())
+	//r.req.Spec.HTTP.Body.BodyType = r.requestBodyDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.Body.Body = r.requestBody.Code()
+	//r.req.Spec.HTTP.Body.PreRequest.Type = r.preRequestDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.Body.PreRequest.Script = r.preRequestBody.Code()
+	//r.req.Spec.HTTP.Body.PostRequest.Type = r.postRequestDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.Body.PostRequest.Script = r.postRequestBody.Code()
+	//r.req.Spec.HTTP.Method = r.methodDropDown.GetSelected().Text
+	//r.req.Spec.HTTP.URL = r.address.Text()
 }
 
 func (r *Container) copyResponseToClipboard(gtx layout.Context) {
@@ -432,9 +445,9 @@ func (r *Container) onQueryParamChange(items []*widgets.KeyValueItem) {
 		return
 	}
 
-	if !domain.CompareKeyValues(r.req.Spec.HTTP.Body.QueryParams, converter.KeyValueFromWidgetItems(items)) {
-		r.dataChanged = true
-	}
+	//if !domain.CompareKeyValues(r.req.Spec.HTTP.Body.QueryParams, converter.KeyValueFromWidgetItems(items)) {
+	//	r.dataChanged = true
+	//}
 
 	addr := r.address.Text()
 	if addr == "" {
@@ -537,17 +550,6 @@ func (r *Container) paramsLayout(gtx layout.Context, theme *material.Theme) layo
 	)
 }
 
-func (r *Container) requestBodyFormDataLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis:      layout.Vertical,
-		Alignment: layout.Start,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return r.queryParams.WithAddLayout(gtx, "Query", "", theme)
-		}),
-	)
-}
-
 func (r *Container) requestLayout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
@@ -613,7 +615,7 @@ func (r *Container) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 						}
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return r.title.Layout(gtx, theme)
+						return r.Title.Layout(gtx, theme)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if r.dataChanged {

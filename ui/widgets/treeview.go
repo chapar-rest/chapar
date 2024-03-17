@@ -14,6 +14,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/mirzakhany/chapar/internal/safemap"
 )
 
 type TreeView struct {
@@ -45,6 +46,8 @@ type TreeNode struct {
 	expanded bool
 
 	lastClickAt time.Time
+
+	Meta *safemap.Map[string]
 }
 
 func NewTreeView(nodes []*TreeNode) *TreeView {

@@ -73,6 +73,6 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 				)
 			})
 		}),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
+		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 	)
 }

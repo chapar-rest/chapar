@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gioui.org/op"
+
 	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -79,6 +81,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 
 		if e.Name == key.NameTab {
 			c.editor.Insert("    ")
+			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
 

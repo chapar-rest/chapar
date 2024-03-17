@@ -43,6 +43,24 @@ func (m *Manager) SetEnvironments(envs []*domain.Environment) {
 	}
 }
 
+func (m *Manager) SetRequests(requests []*domain.Request) {
+	for _, req := range requests {
+		m.AddRequest(req)
+	}
+}
+
+func (m *Manager) SetCollections(collections []*domain.Collection) {
+	for _, col := range collections {
+		m.collections[col.MetaData.ID] = col
+
+		for _, req := range col.Spec.Requests {
+			req.CollectionName = col.MetaData.Name
+			req.CollectionID = col.MetaData.ID
+			m.requests[req.MetaData.ID] = req
+		}
+	}
+}
+
 func (m *Manager) GetEnvironment(id string) *domain.Environment {
 	if env, ok := m.environments[id]; ok {
 		return env
@@ -65,6 +83,15 @@ func (m *Manager) GetEnvironmentFromDisc(id string) (*domain.Environment, error)
 	return nil, ErrNotFound
 }
 
+func (m *Manager) GetRequestFromDisc(id string) (*domain.Request, error) {
+	req, exist := m.requests[id]
+	if !exist {
+		return nil, ErrNotFound
+	}
+
+	return loader.LoadRequest(req.FilePath)
+}
+
 func (m *Manager) ReloadEnvironmentFromDisc(id string) {
 	env, err := m.GetEnvironmentFromDisc(id)
 	if err != nil {
@@ -72,6 +99,15 @@ func (m *Manager) ReloadEnvironmentFromDisc(id string) {
 	}
 
 	m.AddEnvironment(env)
+}
+
+func (m *Manager) ReloadRequestFromDisc(id string) {
+	env, err := m.GetRequestFromDisc(id)
+	if err != nil {
+		return
+	}
+
+	m.AddRequest(env)
 }
 
 func (m *Manager) GetEnvironments() map[string]*domain.Environment {
@@ -94,6 +130,10 @@ func (m *Manager) GetCollections() map[string]*domain.Collection {
 }
 
 func (m *Manager) AddRequest(request *domain.Request) {
+	if request == nil {
+		request = &domain.Request{}
+	}
+
 	m.requests[request.MetaData.ID] = request
 }
 
@@ -130,6 +170,10 @@ func (m *Manager) UpdateCollection(collection *domain.Collection) {
 
 func (m *Manager) UpdateRequest(request *domain.Request) {
 	m.requests[request.MetaData.ID] = request
+}
+
+func (m *Manager) AddRequestToCollection(collection *domain.Collection, request *domain.Request) {
+	collection.AddRequest(request)
 }
 
 func (m *Manager) Clear() {
