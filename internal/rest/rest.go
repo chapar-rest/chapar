@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
-)
 
-type Request struct {
-	URL     string
-	Method  string
-	Headers map[string]string
-	Body    []byte
-}
+	"github.com/google/uuid"
+
+	"github.com/mirzakhany/chapar/internal/domain"
+)
 
 type Response struct {
 	StatusCode int
@@ -24,44 +24,195 @@ type Response struct {
 	TimePassed time.Duration
 }
 
-func DoRequest(r *Request) (*Response, error) {
-	req, err := http.NewRequest(r.Method, r.URL, bytes.NewReader(r.Body))
-	if err != nil {
-		return nil, err
+func SendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {
+	// prepare request
+	// - apply environment
+	// - apply variables
+	// - apply authentication (if any) if not already applied to the headers
+
+	// clone the request to make sure we don't modify the original request
+	req := r.Clone()
+	env := e.Spec.Clone()
+	applyVariables(req, &env)
+
+	httpReq := &http.Request{
+		Method: req.Method,
+		URL:    &url.URL{Path: req.URL},
 	}
 
-	for k, v := range r.Headers {
-		req.Header.Set(k, v)
+	// apply headers
+	for _, h := range req.Request.Headers {
+		httpReq.Header.Add(h.Key, h.Value)
 	}
 
+	// apply path params as single brace
+	for _, p := range req.Request.PathParams {
+		httpReq.URL.Path = strings.ReplaceAll(httpReq.URL.Path, "{"+p.Key+"}", p.Value)
+	}
+
+	// apply query params
+	query := httpReq.URL.Query()
+	for _, q := range req.Request.QueryParams {
+		query.Add(q.Key, q.Value)
+	}
+
+	httpReq.URL.RawQuery = query.Encode()
+
+	// apply body
+	if req.Request.Body.Data != "" {
+		httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
+	}
+
+	// apply form body
+	if len(req.Request.Body.FormBody) > 0 {
+		form := url.Values{}
+		for _, f := range req.Request.Body.FormBody {
+			form.Add(f.Key, f.Value)
+		}
+		httpReq.PostForm = form
+	}
+
+	// apply url encoded
+	if len(req.Request.Body.URLEncoded) > 0 {
+		form := url.Values{}
+		for _, f := range req.Request.Body.URLEncoded {
+			form.Add(f.Key, f.Value)
+		}
+		httpReq.PostForm = form
+	}
+
+	// apply authentication
+	if req.Request.Auth.TokenAuth.Token != "" {
+		httpReq.Header.Add("Authorization", "Bearer "+req.Request.Auth.TokenAuth.Token)
+	}
+
+	if req.Request.Auth.BasicAuth.Username != "" {
+		httpReq.SetBasicAuth(req.Request.Auth.BasicAuth.Username, req.Request.Auth.BasicAuth.Password)
+	}
+
+	// send request
+	// - measure time
+	// - handle response
+	// - handle error
+	// - handle cookies
+	// - handle redirects
+	// - handle status code
+
+	// send request
 	start := time.Now()
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	timePassed := time.Since(start)
-
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
-	data, err := io.ReadAll(resp.Body)
+	res, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
 
-	headers := make(map[string]string)
-	for k, v := range resp.Header {
-		headers[k] = v[0]
+	// read body
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	return &Response{
-		StatusCode: resp.StatusCode,
-		Headers:    headers,
-		Body:       data,
-		Cookies:    resp.Cookies(),
-		TimePassed: timePassed.Truncate(time.Millisecond),
-	}, nil
+	// measure time
+	elapsed := time.Since(start)
+
+	// handle response
+	response := &Response{
+		StatusCode: res.StatusCode,
+		Headers:    map[string]string{},
+		Cookies:    res.Cookies(),
+		Body:       body,
+		TimePassed: elapsed,
+	}
+
+	// handle headers
+	for k, v := range res.Header {
+		response.Headers[k] = strings.Join(v, ", ")
+	}
+
+	return response, nil
+}
+
+func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HTTPRequestSpec {
+	// apply internal variables to environment
+	// apply environment to request
+	variables := map[string]string{
+		"randomUUID4":   uuid.NewString(),
+		"timeNow":       time.Now().UTC().Format(time.RFC3339),
+		"unixTimestamp": strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	}
+
+	// to through all the variables and replace them in the environment
+	for k, v := range variables {
+		for i, kv := range env.Values {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				env.Values[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+	}
+
+	// add env variables to variables
+	for _, kv := range env.Values {
+		variables[kv.Key] = kv.Value
+	}
+
+	// apply variables to request
+	for k, v := range variables {
+		for i, kv := range req.Request.Headers {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.Headers[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		for i, kv := range req.Request.PathParams {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.PathParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		for i, kv := range req.Request.QueryParams {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.QueryParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		if strings.Contains(req.URL, "{{"+k+"}}") {
+			req.URL = strings.ReplaceAll(req.URL, "{{"+k+"}}", v)
+		}
+
+		if strings.Contains(req.Request.Body.Data, "{{"+k+"}}") {
+			req.Request.Body.Data = strings.ReplaceAll(req.Request.Body.Data, "{{"+k+"}}", v)
+		}
+
+		for i, kv := range req.Request.Body.FormBody {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.Body.FormBody[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		for i, kv := range req.Request.Body.URLEncoded {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.Body.URLEncoded[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		if strings.Contains(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}") {
+			req.Request.Auth.TokenAuth.Token = strings.ReplaceAll(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}", v)
+		}
+
+		if strings.Contains(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}") {
+			req.Request.Auth.BasicAuth.Username = strings.ReplaceAll(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}", v)
+		}
+
+		if strings.Contains(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}") {
+			req.Request.Auth.BasicAuth.Password = strings.ReplaceAll(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}", v)
+		}
+	}
+	return req
 }
 
 func IsJSON(s string) bool {

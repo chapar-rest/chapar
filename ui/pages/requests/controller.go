@@ -32,6 +32,7 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnTabClose(c.onTabClose)
 	view.SetOnDataChanged(c.onDataChanged)
 	view.SetOnSave(c.onSave)
+	view.SetOnSubmit(c.onSubmit)
 
 	return c
 }
@@ -67,6 +68,17 @@ func (c *Controller) onSave(id string) {
 	if tabType == TypeRequest {
 		c.saveRequestToDisc(id)
 	}
+}
+
+func (c *Controller) onSubmit(id, containerType string) {
+	if containerType == TypeRequest {
+		c.onSubmitRequest(id)
+	}
+}
+
+func (c *Controller) onSubmitRequest(id string) {
+	// TODO implement me
+	fmt.Println("submit request", id)
 }
 
 func (c *Controller) onTabClose(id string) {

@@ -64,6 +64,10 @@ func (c *Collection) SetOnTitleChanged(f func(string)) {
 	c.Title.SetOnChanged(f)
 }
 
+func (c *Collection) SetOnSubmit(_ func(string)) {
+	// TODO implement me
+}
+
 func (c *Collection) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if c.onSave != nil {
 		keys.OnSaveCommand(gtx, c, func() {

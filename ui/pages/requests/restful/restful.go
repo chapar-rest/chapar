@@ -23,10 +23,15 @@ type Restful struct {
 
 	onSave        func(id string)
 	onDataChanged func(id string, data any)
+	onSubmit      func(id string)
 }
 
 func (r *Restful) SetOnDataChanged(f func(id string, data any)) {
 	r.onDataChanged = f
+}
+
+func (r *Restful) SetOnSubmit(f func(id string)) {
+	r.onSubmit = f
 }
 
 func (r *Restful) SetDataChanged(changed bool) {
@@ -80,11 +85,6 @@ func (r *Restful) setupHooks() {
 		r.onSave(id)
 	})
 
-	//if r.onDataChanged == nil {
-	//	fmt.Println("onDataChanged is nil")
-	//	return
-	//}
-
 	r.AddressBar.SetOnMethodChanged(func(method string) {
 		r.Req.Spec.HTTP.Method = method
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
@@ -93,6 +93,10 @@ func (r *Restful) setupHooks() {
 	r.AddressBar.SetOnURLChanged(func(url string) {
 		r.Req.Spec.HTTP.URL = url
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.AddressBar.SetOnSubmit(func() {
+		r.onSubmit(r.Req.MetaData.ID)
 	})
 
 	r.Request.Params.SetOnChange(func(queryParams []domain.KeyValue, urlParams []domain.KeyValue) {

@@ -53,6 +53,7 @@ type View struct {
 	onTreeViewMenuClicked       func(id string, action string)
 	onTabSelected               func(id string)
 	onSave                      func(id string)
+	onSubmit                    func(id, containerType string)
 	onDataChanged               func(id string, data any, containerType string)
 
 	// state
@@ -144,6 +145,10 @@ func (v *View) SetOnDataChanged(onDataChanged func(id string, data any, containe
 
 func (v *View) SetOnNewCollection(onNewCollection func()) {
 	v.onNewCollection = onNewCollection
+}
+
+func (v *View) SetOnSubmit(f func(id, containerType string)) {
+	v.onSubmit = f
 }
 
 func (v *View) SetOnTitleChanged(onTitleChanged func(id, title, containerType string)) {
@@ -294,9 +299,14 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 	})
 
 	ct.SetOnDataChanged(func(id string, data any) {
-
 		if v.onDataChanged != nil {
 			v.onDataChanged(id, req, TypeRequest)
+		}
+	})
+
+	ct.SetOnSubmit(func(id string) {
+		if v.onSubmit != nil {
+			v.onSubmit(id, TypeRequest)
 		}
 	})
 
