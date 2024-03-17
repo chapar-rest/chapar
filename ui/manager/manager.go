@@ -134,18 +134,6 @@ func (m *Manager) AddRequest(request *domain.Request) {
 		request = &domain.Request{}
 	}
 
-	//if request.Spec.HTTP.Request == nil {
-	//	request.Spec.HTTP.Request = &domain.HTTPRequest{}
-	//}
-	//
-	//if request.Spec.HTTP.Request.Body == nil {
-	//	request.Spec.HTTP.Request.Body = &domain.Body{}
-	//}
-	//
-	//if request.Spec.HTTP.Request.Auth == nil {
-	//	request.Spec.HTTP.Request.Auth = &domain.Auth{}
-	//}
-
 	m.requests[request.MetaData.ID] = request
 }
 
