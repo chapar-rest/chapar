@@ -1,7 +1,6 @@
 package requests
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/mirzakhany/chapar/internal/logger"
@@ -32,6 +31,7 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
 	view.SetOnTabClose(c.onTabClose)
 	view.SetOnDataChanged(c.onDataChanged)
+	view.SetOnSave(c.onSave)
 
 	return c
 }
@@ -59,6 +59,13 @@ func (c *Controller) onTitleChanged(id string, title, containerType string) {
 		c.onRequestTitleChange(id, title)
 	case TypeCollection:
 		c.onCollectionTitleChange(id, title)
+	}
+}
+
+func (c *Controller) onSave(id string) {
+	tabType := c.view.GetTabType(id)
+	if tabType == TypeRequest {
+		c.saveRequestToDisc(id)
 	}
 }
 
@@ -107,7 +114,6 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 
 	// break the reference
 	clone := inComingRequest.Clone()
-
 	req.Spec = clone.Spec
 	c.model.UpdateRequest(req)
 
@@ -117,21 +123,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		fmt.Println("failed to get request from file", err)
 		return
 	}
-
-	prettyPrint(req)
-	prettyPrint(reqFromFile)
-
-	cmp := domain.CompareRequests(req, reqFromFile)
-	fmt.Println("cmp", cmp)
-
-	c.view.SetTabDirty(id, !cmp)
-
-	fmt.Println("data changed")
-}
-
-func prettyPrint(i interface{}) {
-	s, _ := json.MarshalIndent(i, "", "\t")
-	fmt.Println(string(s))
+	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
 }
 
 func (c *Controller) onCollectionDataChanged(id string, data any) {

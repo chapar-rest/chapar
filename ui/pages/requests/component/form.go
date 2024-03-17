@@ -35,6 +35,10 @@ func (f *Form) SetOnChange(onChange func(values map[string]string)) {
 func (f *Form) GetValues() map[string]string {
 	values := make(map[string]string)
 	for _, field := range f.Fields {
+		if field.Editor == nil {
+			field.Editor = new(widget.Editor)
+		}
+
 		values[field.Label] = field.Editor.Text()
 	}
 	return values
@@ -42,6 +46,10 @@ func (f *Form) GetValues() map[string]string {
 
 func (f *Form) SetValues(values map[string]string) {
 	for _, field := range f.Fields {
+		if field.Editor == nil {
+			field.Editor = new(widget.Editor)
+		}
+
 		field.Editor.SetText(values[field.Label])
 	}
 }
