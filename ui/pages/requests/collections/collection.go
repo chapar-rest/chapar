@@ -1,6 +1,8 @@
 package collections
 
 import (
+	"time"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -66,6 +68,9 @@ func (c *Collection) SetOnTitleChanged(f func(string)) {
 
 func (c *Collection) SetOnSubmit(_ func(string)) {
 	// TODO implement me
+}
+func (c *Collection) SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
+
 }
 
 func (c *Collection) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

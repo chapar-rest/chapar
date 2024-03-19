@@ -66,17 +66,17 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	u.header = NewHeader(appManager)
 	u.sideBar = NewSidebar(u.Theme)
 
-	//u.requestsPage, err = requests.New(u.Theme)
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	u.environmentsView = environments.NewView(u.Theme)
 	envModel := environments.NewModel(appManager)
 	envController := environments.NewController(u.environmentsView, envModel)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
+
+	u.header.LoadEnvs(envModel.GetEnvironments())
+	//bus.Subscribe(state.EnvironmentsChanged, func(a any) {
+	//	u.header.LoadEnvs(envModel.GetEnvironments())
+	//})
 
 	u.requestsView = requests.NewView(u.Theme)
 	reqModel := requests.NewModel(appManager)

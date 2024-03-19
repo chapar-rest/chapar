@@ -22,22 +22,25 @@ type Response struct {
 	Body       []byte
 
 	TimePassed time.Duration
+
+	IsJSON bool
+	JSON   string
 }
 
 func SendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {
 	// prepare request
 	// - apply environment
 	// - apply variables
-	// - apply authentication (if any) if not already applied to the headers
+	// - apply authentication (if any) is not already applied to the headers
 
 	// clone the request to make sure we don't modify the original request
 	req := r.Clone()
-	env := e.Spec.Clone()
-	applyVariables(req, &env)
+	env := e.Clone()
+	applyVariables(req, &env.Spec)
 
-	httpReq := &http.Request{
-		Method: req.Method,
-		URL:    &url.URL{Path: req.URL},
+	httpReq, err := http.NewRequest(req.Method, req.URL, nil)
+	if err != nil {
+		return nil, err
 	}
 
 	// apply headers
@@ -82,12 +85,14 @@ func SendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, e
 	}
 
 	// apply authentication
-	if req.Request.Auth.TokenAuth.Token != "" {
-		httpReq.Header.Add("Authorization", "Bearer "+req.Request.Auth.TokenAuth.Token)
-	}
+	if req.Request.Auth != (domain.Auth{}) {
+		if req.Request.Auth.TokenAuth != nil && req.Request.Auth.TokenAuth.Token != "" {
+			httpReq.Header.Add("Authorization", "Bearer "+req.Request.Auth.TokenAuth.Token)
+		}
 
-	if req.Request.Auth.BasicAuth.Username != "" {
-		httpReq.SetBasicAuth(req.Request.Auth.BasicAuth.Username, req.Request.Auth.BasicAuth.Password)
+		if req.Request.Auth.BasicAuth != nil && req.Request.Auth.BasicAuth.Username != "" && req.Request.Auth.BasicAuth.Password != "" {
+			httpReq.SetBasicAuth(req.Request.Auth.BasicAuth.Username, req.Request.Auth.BasicAuth.Password)
+		}
 	}
 
 	// send request
@@ -121,6 +126,16 @@ func SendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, e
 		Cookies:    res.Cookies(),
 		Body:       body,
 		TimePassed: elapsed,
+		IsJSON:     false,
+	}
+
+	if IsJSON(string(body)) {
+		response.IsJSON = true
+		if js, err := PrettyJSON(body); err != nil {
+			return nil, err
+		} else {
+			response.JSON = js
+		}
 	}
 
 	// handle headers
@@ -200,17 +215,22 @@ func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HT
 			}
 		}
 
-		if strings.Contains(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}") {
-			req.Request.Auth.TokenAuth.Token = strings.ReplaceAll(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}", v)
+		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.TokenAuth != nil {
+			if strings.Contains(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}") {
+				req.Request.Auth.TokenAuth.Token = strings.ReplaceAll(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}", v)
+			}
 		}
 
-		if strings.Contains(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}") {
-			req.Request.Auth.BasicAuth.Username = strings.ReplaceAll(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}", v)
+		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.BasicAuth != nil {
+			if strings.Contains(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}") {
+				req.Request.Auth.BasicAuth.Username = strings.ReplaceAll(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}", v)
+			}
+
+			if strings.Contains(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}") {
+				req.Request.Auth.BasicAuth.Password = strings.ReplaceAll(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}", v)
+			}
 		}
 
-		if strings.Contains(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}") {
-			req.Request.Auth.BasicAuth.Password = strings.ReplaceAll(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}", v)
-		}
 	}
 	return req
 }

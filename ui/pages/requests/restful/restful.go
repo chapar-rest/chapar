@@ -1,6 +1,9 @@
 package restful
 
 import (
+	"fmt"
+	"time"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -40,6 +43,15 @@ func (r *Restful) SetDataChanged(changed bool) {
 
 func (r *Restful) SetOnTitleChanged(f func(title string)) {
 	r.Breadcrumb.SetOnTitleChanged(f)
+}
+
+func (r *Restful) SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
+	fmt.Println("SET HTTP RESPONSE")
+
+	r.Response.SetResponse(response)
+	r.Response.SetHeaders(headers)
+	r.Response.SetCookies(cookies)
+	r.Response.SetStatusParams(statusCode, duration, size)
 }
 
 func (r *Restful) SetOnSave(f func(id string)) {

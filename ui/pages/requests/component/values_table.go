@@ -3,6 +3,8 @@ package component
 import (
 	"fmt"
 
+	"github.com/mirzakhany/chapar/internal/domain"
+
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -34,6 +36,16 @@ func NewValuesTable(Title string, values []KeyValue) *ValuesTable {
 				Axis: layout.Vertical,
 			},
 		},
+	}
+}
+
+func (v *ValuesTable) SetData(values []domain.KeyValue) {
+	v.Values = make([]KeyValue, len(values))
+	for i, kv := range values {
+		v.Values[i] = KeyValue{
+			Key:   kv.Key,
+			Value: kv.Value,
+		}
 	}
 }
 

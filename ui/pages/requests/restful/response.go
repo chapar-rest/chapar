@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mirzakhany/chapar/internal/domain"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -22,13 +24,14 @@ type Response struct {
 	duration     time.Duration
 	responseSize int
 
-	responseHeaders []component.KeyValue
-	responseCookies []component.KeyValue
+	responseHeaders *component.ValuesTable
+	responseCookies *component.ValuesTable
 
 	response       string
 	onCopyResponse func(response string)
 
-	jsonViewer *widgets.JsonViewer
+	isResponseUpdated bool
+	jsonViewer        *widgets.JsonViewer
 }
 
 func NewResponse(theme *material.Theme) *Response {
@@ -48,7 +51,9 @@ func NewResponse(theme *material.Theme) *Response {
 			{Title: "Headers"},
 			{Title: "Cookies"},
 		}, nil),
-		jsonViewer: widgets.NewJsonViewer(),
+		jsonViewer:      widgets.NewJsonViewer(),
+		responseHeaders: component.NewValuesTable("Headers", nil),
+		responseCookies: component.NewValuesTable("Cookies", nil),
 	}
 	return r
 }
@@ -59,6 +64,7 @@ func (r *Response) SetOnCopyResponse(f func(response string)) {
 
 func (r *Response) SetResponse(response string) {
 	r.response = response
+	r.isResponseUpdated = false
 }
 
 func (r *Response) SetStatusParams(code int, duration time.Duration, size int) {
@@ -67,12 +73,12 @@ func (r *Response) SetStatusParams(code int, duration time.Duration, size int) {
 	r.responseSize = size
 }
 
-func (r *Response) SetHeaders(headers []component.KeyValue) {
-	r.responseHeaders = headers
+func (r *Response) SetHeaders(headers []domain.KeyValue) {
+	r.responseHeaders.SetData(headers)
 }
 
-func (r *Response) SetCookies(cookies []component.KeyValue) {
-	r.responseCookies = cookies
+func (r *Response) SetCookies(cookies []domain.KeyValue) {
+	r.responseCookies.SetData(cookies)
 }
 
 func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -115,13 +121,16 @@ func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			switch r.Tabs.Selected() {
 			case 1:
-				kv := component.NewValuesTable("Headers", r.responseHeaders)
-				return kv.Layout(gtx, theme)
+				return r.responseHeaders.Layout(gtx, theme)
 			case 2:
-				kv := component.NewValuesTable("Cookies", r.responseCookies)
-				return kv.Layout(gtx, theme)
+				return r.responseCookies.Layout(gtx, theme)
 			default:
-				return layout.Inset{Left: unit.Dp(5), Right: unit.Dp(5), Bottom: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					if !r.isResponseUpdated {
+						r.jsonViewer.SetData(r.response)
+						r.isResponseUpdated = true
+					}
+
 					return r.jsonViewer.Layout(gtx, theme)
 				})
 			}

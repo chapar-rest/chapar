@@ -1,6 +1,9 @@
 package requests
 
 import (
+	"fmt"
+	"time"
+
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -326,6 +329,13 @@ func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	})
 
 	v.containers.Set(collection.MetaData.ID, ct)
+}
+
+func (v *View) SetHTTPResponse(id, response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
+	fmt.Println("SET HTTP RESPONSE")
+	if ct, ok := v.containers.Get(id); ok {
+		ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
+	}
 }
 
 func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {

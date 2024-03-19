@@ -5,6 +5,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/bus"
+	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/manager"
 	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
@@ -28,14 +29,13 @@ func NewHeader(manager *manager.Manager) *Header {
 		widgets.NewDropDownDivider(),
 	)
 
-	h.loadEnvs(nil)
-	bus.Subscribe(state.EnvironmentsChanged, h.loadEnvs)
+	// h.loadEnvs(nil)
+	// bus.Subscribe(state.EnvironmentsChanged, h.loadEnvs)
 
 	return h
 }
 
-func (h *Header) loadEnvs(_ any) {
-	data := h.manager.GetEnvironments()
+func (h *Header) LoadEnvs(data []*domain.Environment) {
 	options := make([]*widgets.DropDownOption, 0)
 	options = append(options, widgets.NewDropDownOption("No Environment"))
 	options = append(options, widgets.NewDropDownDivider())
