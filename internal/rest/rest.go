@@ -35,8 +35,13 @@ func SendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, e
 
 	// clone the request to make sure we don't modify the original request
 	req := r.Clone()
-	env := e.Clone()
-	applyVariables(req, &env.Spec)
+
+	if e == nil {
+		applyVariables(req, nil)
+	} else {
+		env := e.Clone()
+		applyVariables(req, &env.Spec)
+	}
 
 	httpReq, err := http.NewRequest(req.Method, req.URL, nil)
 	if err != nil {
@@ -155,19 +160,22 @@ func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HT
 		"unixTimestamp": strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	}
 
-	// to through all the variables and replace them in the environment
-	for k, v := range variables {
-		for i, kv := range env.Values {
-			// if value contain the variable in double curly braces then replace it
-			if strings.Contains(kv.Value, "{{"+k+"}}") {
-				env.Values[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+	// apply environment variables if any
+	if env != nil {
+		// to through all the variables and replace them in the environment
+		for k, v := range variables {
+			for i, kv := range env.Values {
+				// if value contain the variable in double curly braces then replace it
+				if strings.Contains(kv.Value, "{{"+k+"}}") {
+					env.Values[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+				}
 			}
 		}
-	}
 
-	// add env variables to variables
-	for _, kv := range env.Values {
-		variables[kv.Key] = kv.Value
+		// add env variables to variables
+		for _, kv := range env.Values {
+			variables[kv.Key] = kv.Value
+		}
 	}
 
 	// apply variables to request

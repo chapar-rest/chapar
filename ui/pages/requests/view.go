@@ -1,7 +1,6 @@
 package requests
 
 import (
-	"fmt"
 	"time"
 
 	"gioui.org/io/pointer"
@@ -332,7 +331,6 @@ func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 }
 
 func (v *View) SetHTTPResponse(id, response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
-	fmt.Println("SET HTTP RESPONSE")
 	if ct, ok := v.containers.Get(id); ok {
 		ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
 	}

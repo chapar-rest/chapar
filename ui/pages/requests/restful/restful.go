@@ -1,7 +1,6 @@
 package restful
 
 import (
-	"fmt"
 	"time"
 
 	"gioui.org/layout"
@@ -46,8 +45,6 @@ func (r *Restful) SetOnTitleChanged(f func(title string)) {
 }
 
 func (r *Restful) SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
-	fmt.Println("SET HTTP RESPONSE")
-
 	r.Response.SetResponse(response)
 	r.Response.SetHeaders(headers)
 	r.Response.SetCookies(cookies)
