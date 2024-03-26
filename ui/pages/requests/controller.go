@@ -2,6 +2,9 @@ package requests
 
 import (
 	"fmt"
+	"net/http"
+
+	"github.com/mirzakhany/chapar/internal/rest"
 
 	"github.com/mirzakhany/chapar/internal/logger"
 
@@ -32,6 +35,7 @@ func NewController(view *View, model *Model) *Controller {
 	view.SetOnTabClose(c.onTabClose)
 	view.SetOnDataChanged(c.onDataChanged)
 	view.SetOnSave(c.onSave)
+	view.SetOnSubmit(c.onSubmit)
 
 	return c
 }
@@ -67,6 +71,43 @@ func (c *Controller) onSave(id string) {
 	if tabType == TypeRequest {
 		c.saveRequestToDisc(id)
 	}
+}
+
+func (c *Controller) onSubmit(id, containerType string) {
+	if containerType == TypeRequest {
+		c.onSubmitRequest(id)
+	}
+}
+
+func (c *Controller) onSubmitRequest(id string) {
+	res, err := rest.SendRequest(c.model.GetRequest(id).Spec.HTTP, c.model.GetCurrentActiveEnv())
+	if err != nil {
+		fmt.Println("failed to send request", err)
+		return
+	}
+
+	resp := string(res.Body)
+	if res.IsJSON {
+		resp = res.JSON
+	}
+
+	c.view.SetHTTPResponse(id, resp, mapToKeyValue(res.Headers), cookieToKeyValue(res.Cookies), res.StatusCode, res.TimePassed, len(res.Body))
+}
+
+func cookieToKeyValue(cookies []*http.Cookie) []domain.KeyValue {
+	var kvs []domain.KeyValue
+	for _, c := range cookies {
+		kvs = append(kvs, domain.KeyValue{Key: c.Name, Value: c.Value})
+	}
+	return kvs
+}
+
+func mapToKeyValue(m map[string]string) []domain.KeyValue {
+	var kvs []domain.KeyValue
+	for k, v := range m {
+		kvs = append(kvs, domain.KeyValue{Key: k, Value: v})
+	}
+	return kvs
 }
 
 func (c *Controller) onTabClose(id string) {

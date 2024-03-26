@@ -1,6 +1,8 @@
 package restful
 
 import (
+	"time"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -21,12 +23,20 @@ type Restful struct {
 
 	split widgets.SplitView
 
+	// TODO use resizer instead of split
+	// resizer *giox.Resize
+
 	onSave        func(id string)
 	onDataChanged func(id string, data any)
+	onSubmit      func(id string)
 }
 
 func (r *Restful) SetOnDataChanged(f func(id string, data any)) {
 	r.onDataChanged = f
+}
+
+func (r *Restful) SetOnSubmit(f func(id string)) {
+	r.onSubmit = f
 }
 
 func (r *Restful) SetDataChanged(changed bool) {
@@ -35,6 +45,13 @@ func (r *Restful) SetDataChanged(changed bool) {
 
 func (r *Restful) SetOnTitleChanged(f func(title string)) {
 	r.Breadcrumb.SetOnTitleChanged(f)
+}
+
+func (r *Restful) SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
+	r.Response.SetResponse(response)
+	r.Response.SetHeaders(headers)
+	r.Response.SetCookies(cookies)
+	r.Response.SetStatusParams(statusCode, duration, size)
 }
 
 func (r *Restful) SetOnSave(f func(id string)) {
@@ -67,6 +84,10 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 			BarColor:      widgets.Gray300,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
+		//resizer: &giox.Resize{
+		//	Axis:  layout.Horizontal,
+		//	Ratio: 0.5,
+		//},
 		Response: NewResponse(theme),
 		Request:  NewRequest(req),
 	}
@@ -80,11 +101,6 @@ func (r *Restful) setupHooks() {
 		r.onSave(id)
 	})
 
-	//if r.onDataChanged == nil {
-	//	fmt.Println("onDataChanged is nil")
-	//	return
-	//}
-
 	r.AddressBar.SetOnMethodChanged(func(method string) {
 		r.Req.Spec.HTTP.Method = method
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
@@ -93,6 +109,10 @@ func (r *Restful) setupHooks() {
 	r.AddressBar.SetOnURLChanged(func(url string) {
 		r.Req.Spec.HTTP.URL = url
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.AddressBar.SetOnSubmit(func() {
+		r.onSubmit(r.Req.MetaData.ID)
 	})
 
 	r.Request.Params.SetOnChange(func(queryParams []domain.KeyValue, urlParams []domain.KeyValue) {
@@ -152,6 +172,17 @@ func (r *Restful) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				return r.AddressBar.Layout(gtx, theme)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				//return r.resizer.Layout(gtx,
+				//	func(gtx layout.Context) layout.Dimensions {
+				//		return r.Request.Layout(gtx, theme)
+				//	},
+				//	func(gtx layout.Context) layout.Dimensions {
+				//		return r.Response.Layout(gtx, theme)
+				//	},
+				//	func(gtx layout.Context) layout.Dimensions {
+				//		return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(gtx.Constraints.Max.X), unit.Dp(2))
+				//	},
+				//)
 				return r.split.Layout(gtx,
 					func(gtx layout.Context) layout.Dimensions {
 						return r.Request.Layout(gtx, theme)

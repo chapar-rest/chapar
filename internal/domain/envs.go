@@ -1,6 +1,8 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
 type Environment struct {
 	ApiVersion string   `yaml:"apiVersion"`

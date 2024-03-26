@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"time"
+
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -8,6 +10,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	giox "gioui.org/x/component"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/safemap"
@@ -30,8 +33,8 @@ type View struct {
 
 	// add menu
 	newRequestButton     widget.Clickable
-	newMenuContextArea   component.ContextArea
-	newMenu              component.MenuState
+	newMenuContextArea   giox.ContextArea
+	newMenu              giox.MenuState
 	menuInit             bool
 	newHttpRequestButton widget.Clickable
 	newGrpcRequestButton widget.Clickable
@@ -53,6 +56,7 @@ type View struct {
 	onTreeViewMenuClicked       func(id string, action string)
 	onTabSelected               func(id string)
 	onSave                      func(id string)
+	onSubmit                    func(id, containerType string)
 	onDataChanged               func(id string, data any, containerType string)
 
 	// state
@@ -144,6 +148,10 @@ func (v *View) SetOnDataChanged(onDataChanged func(id string, data any, containe
 
 func (v *View) SetOnNewCollection(onNewCollection func()) {
 	v.onNewCollection = onNewCollection
+}
+
+func (v *View) SetOnSubmit(f func(id, containerType string)) {
+	v.onSubmit = f
 }
 
 func (v *View) SetOnTitleChanged(onTitleChanged func(id, title, containerType string)) {
@@ -294,9 +302,14 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 	})
 
 	ct.SetOnDataChanged(func(id string, data any) {
-
 		if v.onDataChanged != nil {
 			v.onDataChanged(id, req, TypeRequest)
+		}
+	})
+
+	ct.SetOnSubmit(func(id string) {
+		if v.onSubmit != nil {
+			v.onSubmit(id, TypeRequest)
 		}
 	})
 
@@ -316,6 +329,12 @@ func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	})
 
 	v.containers.Set(collection.MetaData.ID, ct)
+}
+
+func (v *View) SetHTTPResponse(id, response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
+	if ct, ok := v.containers.Get(id); ok {
+		ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
+	}
 }
 
 func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
@@ -467,7 +486,6 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 									})
 								}),
 							)
-
 						}),
 						// layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						// layout.Rigid(func(gtx layout.Context) layout.Dimensions {

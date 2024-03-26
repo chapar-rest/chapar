@@ -110,8 +110,12 @@ func (m *Manager) ReloadRequestFromDisc(id string) {
 	m.AddRequest(env)
 }
 
-func (m *Manager) GetEnvironments() map[string]*domain.Environment {
-	return m.environments
+func (m *Manager) GetEnvironments() []*domain.Environment {
+	envs := make([]*domain.Environment, 0)
+	for _, env := range m.environments {
+		envs = append(envs, env)
+	}
+	return envs
 }
 
 func (m *Manager) AddCollection(collection *domain.Collection) {
