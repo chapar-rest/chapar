@@ -91,51 +91,53 @@ func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 			r.onCopyResponse(r.response)
 		}
 	}
-
-	return layout.Flex{
-		Axis: layout.Vertical,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return r.Tabs.Layout(gtx, theme)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+	inset := layout.Inset{Top: unit.Dp(10)}
+	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{
+			Axis: layout.Vertical,
+		}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return r.Tabs.Layout(gtx, theme)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							l := material.LabelStyle{
+								Text:     formatStatus(r.responseCode, r.duration, uint64(r.responseSize)),
+								Color:    widgets.LightGreen,
+								TextSize: theme.TextSize,
+								Shaper:   theme.Shaper,
+							}
+							l.Font.Typeface = theme.Face
+							return l.Layout(gtx)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return r.copyButton.Layout(gtx, theme)
+					}),
+				)
+			}),
+			widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				switch r.Tabs.Selected() {
+				case 1:
+					return r.responseHeaders.Layout(gtx, theme)
+				case 2:
+					return r.responseCookies.Layout(gtx, theme)
+				default:
 					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						l := material.LabelStyle{
-							Text:     formatStatus(r.responseCode, r.duration, uint64(r.responseSize)),
-							Color:    widgets.LightGreen,
-							TextSize: theme.TextSize,
-							Shaper:   theme.Shaper,
+						if !r.isResponseUpdated {
+							r.jsonViewer.SetData(r.response)
+							r.isResponseUpdated = true
 						}
-						l.Font.Typeface = theme.Face
-						return l.Layout(gtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return r.copyButton.Layout(gtx, theme)
-				}),
-			)
-		}),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			switch r.Tabs.Selected() {
-			case 1:
-				return r.responseHeaders.Layout(gtx, theme)
-			case 2:
-				return r.responseCookies.Layout(gtx, theme)
-			default:
-				return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					if !r.isResponseUpdated {
-						r.jsonViewer.SetData(r.response)
-						r.isResponseUpdated = true
-					}
 
-					return r.jsonViewer.Layout(gtx, theme)
-				})
-			}
-		}),
-	)
+						return r.jsonViewer.Layout(gtx, theme)
+					})
+				}
+			}),
+		)
+	})
 }
 
 func formatStatus(statueCode int, duration time.Duration, size uint64) string {

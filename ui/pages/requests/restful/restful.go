@@ -23,6 +23,9 @@ type Restful struct {
 
 	split widgets.SplitView
 
+	// TODO use resizer instead of split
+	// resizer *giox.Resize
+
 	onSave        func(id string)
 	onDataChanged func(id string, data any)
 	onSubmit      func(id string)
@@ -81,6 +84,10 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 			BarColor:      widgets.Gray300,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
+		//resizer: &giox.Resize{
+		//	Axis:  layout.Horizontal,
+		//	Ratio: 0.5,
+		//},
 		Response: NewResponse(theme),
 		Request:  NewRequest(req),
 	}
@@ -165,6 +172,17 @@ func (r *Restful) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				return r.AddressBar.Layout(gtx, theme)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				//return r.resizer.Layout(gtx,
+				//	func(gtx layout.Context) layout.Dimensions {
+				//		return r.Request.Layout(gtx, theme)
+				//	},
+				//	func(gtx layout.Context) layout.Dimensions {
+				//		return r.Response.Layout(gtx, theme)
+				//	},
+				//	func(gtx layout.Context) layout.Dimensions {
+				//		return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(gtx.Constraints.Max.X), unit.Dp(2))
+				//	},
+				//)
 				return r.split.Layout(gtx,
 					func(gtx layout.Context) layout.Dimensions {
 						return r.Request.Layout(gtx, theme)

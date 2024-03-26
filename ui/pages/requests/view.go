@@ -10,6 +10,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	giox "gioui.org/x/component"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/safemap"
@@ -32,8 +33,8 @@ type View struct {
 
 	// add menu
 	newRequestButton     widget.Clickable
-	newMenuContextArea   component.ContextArea
-	newMenu              component.MenuState
+	newMenuContextArea   giox.ContextArea
+	newMenu              giox.MenuState
 	menuInit             bool
 	newHttpRequestButton widget.Clickable
 	newGrpcRequestButton widget.Clickable
@@ -485,7 +486,6 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 									})
 								}),
 							)
-
 						}),
 						// layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						// layout.Rigid(func(gtx layout.Context) layout.Dimensions {
