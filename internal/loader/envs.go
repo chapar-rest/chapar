@@ -88,18 +88,3 @@ func UpdateEnvironment(env *domain.Environment) error {
 
 	return nil
 }
-
-func FindEnvironmentByID(id string) (*domain.Environment, error) {
-	envs, err := ReadEnvironmentsData()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, env := range envs {
-		if env.MetaData.ID == id {
-			return env, nil
-		}
-	}
-
-	return nil, nil
-}

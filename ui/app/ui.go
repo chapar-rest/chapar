@@ -3,6 +3,12 @@ package app
 import (
 	"image/color"
 
+	"github.com/mirzakhany/chapar/internal/domain"
+
+	"github.com/mirzakhany/chapar/internal/state"
+
+	"github.com/mirzakhany/chapar/internal/repository"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -66,17 +72,20 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	u.header = NewHeader(appManager)
 	u.sideBar = NewSidebar(u.Theme)
 
+	repo := &repository.Filesystem{}
+
+	environmentsState := state.NewEnvironments(repo)
+
 	u.environmentsView = environments.NewView(u.Theme)
-	envModel := environments.NewModel(appManager)
-	envController := environments.NewController(u.environmentsView, envModel)
+	envController := environments.NewController(u.environmentsView, environmentsState)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
 
-	u.header.LoadEnvs(envModel.GetEnvironments())
-	//bus.Subscribe(state.EnvironmentsChanged, func(a any) {
-	//	u.header.LoadEnvs(envModel.GetEnvironments())
-	//})
+	u.header.LoadEnvs(environmentsState.GetEnvironments())
+	environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, action state.Action) {
+		u.header.LoadEnvs(environmentsState.GetEnvironments())
+	})
 
 	u.requestsView = requests.NewView(u.Theme)
 	reqModel := requests.NewModel(appManager)

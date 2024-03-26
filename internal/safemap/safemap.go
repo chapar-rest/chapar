@@ -49,6 +49,20 @@ func (m *Map[T]) Keys() []string {
 	return keys
 }
 
+func (m *Map[T]) Values() []T {
+	if m == nil {
+		return nil
+	}
+
+	m.mux.RLock()
+	values := make([]T, 0, len(m.m))
+	for _, v := range m.m {
+		values = append(values, v)
+	}
+	m.mux.RUnlock()
+	return values
+}
+
 func (m *Map[T]) Has(key string) bool {
 	if m == nil {
 		return false

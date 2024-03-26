@@ -129,10 +129,6 @@ func (m *Manager) GetCollection(id string) *domain.Collection {
 	return nil
 }
 
-func (m *Manager) GetCollections() map[string]*domain.Collection {
-	return m.collections
-}
-
 func (m *Manager) AddRequest(request *domain.Request) {
 	if request == nil {
 		request = &domain.Request{}
@@ -178,41 +174,4 @@ func (m *Manager) UpdateRequest(request *domain.Request) {
 
 func (m *Manager) AddRequestToCollection(collection *domain.Collection, request *domain.Request) {
 	collection.AddRequest(request)
-}
-
-func (m *Manager) Clear() {
-	m.environments = make(map[string]*domain.Environment)
-	m.collections = make(map[string]*domain.Collection)
-	m.requests = make(map[string]*domain.Request)
-}
-
-func (m *Manager) LoadData() error {
-	envs, err := loader.ReadEnvironmentsData()
-	if err != nil {
-		return err
-	}
-
-	for _, env := range envs {
-		m.AddEnvironment(env)
-	}
-
-	collections, err := loader.LoadCollections()
-	if err != nil {
-		return err
-	}
-
-	for _, collection := range collections {
-		m.AddCollection(collection)
-	}
-
-	requests, err := loader.LoadRequests()
-	if err != nil {
-		return err
-	}
-
-	for _, request := range requests {
-		m.AddRequest(request)
-	}
-
-	return nil
 }
