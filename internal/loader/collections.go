@@ -1,12 +1,9 @@
 package loader
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/mirzakhany/chapar/internal/domain"
 )
@@ -21,84 +18,6 @@ import (
 //  	 _collection.yaml  # Metadata file
 //		 request1.yaml
 //       request2.yaml
-
-func LoadCollections() ([]*domain.Collection, error) {
-	dir, err := GetCollectionsDir()
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]*domain.Collection, 0)
-
-	// Walk through the collections directory
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Skip the root directory
-		if path == dir {
-			return nil
-		}
-
-		// If it's a directory, it's a collection
-		if info.IsDir() {
-			col, err := loadCollection(path)
-			if err != nil {
-				fmt.Println("failed to load collection", path, err)
-				return err
-			}
-			out = append(out, col)
-		}
-
-		// Skip further processing since we're only interested in directories here
-		return filepath.SkipDir
-	})
-
-	return out, err
-}
-
-func loadCollection(collectionPath string) (*domain.Collection, error) {
-	// Read the collection metadata
-	collectionMetadataPath := filepath.Join(collectionPath, "_collection.yaml")
-	collectionMetadata, err := os.ReadFile(collectionMetadataPath)
-	if err != nil {
-		return nil, err
-	}
-
-	collection := &domain.Collection{}
-	if err = yaml.Unmarshal(collectionMetadata, collection); err != nil {
-		fmt.Println(collectionMetadataPath, err)
-		return nil, err
-	}
-
-	collection.FilePath = collectionMetadataPath
-	collection.Spec.Requests = make([]*domain.Request, 0)
-
-	// Load requests in the collection
-	files, err := os.ReadDir(collectionPath)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		if file.IsDir() || file.Name() == "_collection.yaml" {
-			continue // Skip directories and the collection metadata file
-		}
-
-		requestPath := filepath.Join(collectionPath, file.Name())
-		req, err := LoadFromYaml[domain.Request](requestPath)
-		if err != nil {
-			return nil, err
-		}
-
-		setRequestDefaultValues(req)
-
-		req.FilePath = requestPath
-		req.CollectionName = collection.MetaData.Name
-		collection.Spec.Requests = append(collection.Spec.Requests, req)
-	}
-	return collection, nil
-}
 
 func GetCollectionsDir() (string, error) {
 	dir, err := CreateConfigDir()

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/loader"
+	"github.com/mirzakhany/chapar/internal/repository"
 	"github.com/mirzakhany/chapar/internal/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -45,11 +45,17 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	if env == nil {
 		return
 	}
+
 	env.MetaData.Name = title
 	c.view.UpdateTreeNodeTitle(env.MetaData.ID, env.MetaData.Name)
 	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
-	c.state.UpdateEnvironment(env)
-	c.saveEnvironmentToDisc(id)
+
+	if err := c.state.UpdateEnvironment(env, false); err != nil {
+		fmt.Println("failed to update environment", err)
+		return
+	}
+
+	c.view.SetTabDirty(id, false)
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
@@ -73,7 +79,7 @@ func (c *Controller) LoadData() error {
 	if err != nil {
 		return err
 	}
-	// c.state.LoadEnvironmentsFromDisk()
+
 	c.view.PopulateTreeView(data)
 	return nil
 }
@@ -100,7 +106,10 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 	}
 
 	env.Spec.Values = items
-	c.state.UpdateEnvironment(env)
+	if err := c.state.UpdateEnvironment(env, true); err != nil {
+		fmt.Println("failed to update environment", err)
+		return
+	}
 
 	// set tab dirty if the in memory data is different from the file
 	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
@@ -160,12 +169,15 @@ func (c *Controller) onTabClose(id string) {
 func (c *Controller) saveEnvironmentToDisc(id string) {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
+		fmt.Println("failed to get environment", id)
 		return
 	}
-	if err := loader.UpdateEnvironment(env); err != nil {
+
+	if err := c.state.UpdateEnvironment(env, false); err != nil {
 		fmt.Println("failed to update environment", err)
 		return
 	}
+
 	c.view.SetTabDirty(id, false)
 }
 
@@ -188,7 +200,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
-	newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
+	newEnv.FilePath = repository.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
 	c.state.AddEnvironment(newEnv)
 	c.view.AddTreeViewNode(newEnv)
 	c.saveEnvironmentToDisc(newEnv.MetaData.ID)
@@ -199,10 +211,12 @@ func (c *Controller) deleteEnvironment(id string) {
 	if env == nil {
 		return
 	}
-	c.state.RemoveEnvironment(env)
-	c.view.RemoveTreeViewNode(id)
-	if err := loader.DeleteEnvironment(env); err != nil {
+
+	if err := c.state.RemoveEnvironment(env, false); err != nil {
 		fmt.Println("failed to delete environment", err)
+		return
 	}
+
+	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
 }

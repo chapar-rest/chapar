@@ -25,6 +25,11 @@ var _ Repository = &Filesystem{}
 type Filesystem struct {
 }
 
+func (f *Filesystem) GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (string, error) {
+	dir := path.Dir(collection.FilePath)
+	return getNewFilePath(dir, name)
+}
+
 func (f *Filesystem) LoadCollections() ([]*domain.Collection, error) {
 	dir, err := f.GetCollectionsDir()
 	if err != nil {
@@ -216,7 +221,13 @@ func (f *Filesystem) LoadEnvironments() ([]*domain.Environment, error) {
 }
 
 func (f *Filesystem) GetEnvironment(filepath string) (*domain.Environment, error) {
-	return LoadFromYaml[domain.Environment](filepath)
+	env, err := LoadFromYaml[domain.Environment](filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	env.FilePath = filepath
+	return env, nil
 }
 
 func (f *Filesystem) GetEnvironmentDir() (string, error) {
@@ -334,6 +345,16 @@ func (f *Filesystem) loadRequest(filePath string) (*domain.Request, error) {
 	return req, nil
 }
 
+func (f *Filesystem) GetRequest(filepath string) (*domain.Request, error) {
+	req, err := LoadFromYaml[domain.Request](filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	req.FilePath = filepath
+	return req, nil
+}
+
 func (f *Filesystem) GetRequestsDir() (string, error) {
 	dir, err := CreateConfigDir()
 	if err != nil {
@@ -389,27 +410,34 @@ func (f *Filesystem) DeleteRequest(request *domain.Request) error {
 }
 
 func getNewFilePath(dir, name string) (string, error) {
-	fileName := path.Join(dir, name+".yaml")
+	fileName := path.Join(dir, name)
+	return generateNewFileName(fileName, "yaml"), nil
+}
 
-	// if its already exists, add a number to the end of the name
-	if _, err := os.Stat(fileName); err != nil {
-		if os.IsNotExist(err) {
-			return fileName, nil
-		}
-
-		i := 0
-		for {
-			fileName = path.Join(dir, name, fmt.Sprintf("%s-%d.yaml", name, i))
-			if _, err := os.Stat(fileName); err != nil {
-				if os.IsNotExist(err) {
-					return fileName, nil
-				}
-			}
-			i++
-		}
+// generateNewFileName takes the original file name and generates a new file name
+// with the first possible numeric postfix if the original file exists.
+func generateNewFileName(filename, ext string) string {
+	if !fileExists(filename + "." + ext) {
+		return filename
 	}
 
-	return "", errors.New("file already exists")
+	// If the file exists, append a number to the filename.
+	for i := 1; ; i++ {
+		newFilename := fmt.Sprintf("%s%d.%s", filename, i, ext)
+		if !fileExists(newFilename) {
+			return newFilename
+		}
+	}
+}
+
+// fileExists checks if a file exists and is not a directory before we
+// try using it to prevent further errors.
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
 
 func GetConfigDir() (string, error) {

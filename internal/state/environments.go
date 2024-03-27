@@ -53,13 +53,20 @@ func (m *Environments) AddEnvironment(environment *domain.Environment) {
 	m.notifyEnvironmentChange(environment, ActionAdd)
 }
 
-func (m *Environments) RemoveEnvironment(environment *domain.Environment) {
+func (m *Environments) RemoveEnvironment(environment *domain.Environment, stateOnly bool) error {
 	if _, ok := m.environments.Get(environment.MetaData.ID); !ok {
-		return
+		return ErrNotFound
+	}
+
+	if !stateOnly {
+		if err := m.repository.DeleteEnvironment(environment); err != nil {
+			return err
+		}
 	}
 
 	m.environments.Delete(environment.MetaData.ID)
 	m.notifyEnvironmentChange(environment, ActionDelete)
+	return nil
 }
 
 func (m *Environments) GetEnvironment(id string) *domain.Environment {
@@ -67,13 +74,21 @@ func (m *Environments) GetEnvironment(id string) *domain.Environment {
 	return env
 }
 
-func (m *Environments) UpdateEnvironment(env *domain.Environment) {
+func (m *Environments) UpdateEnvironment(env *domain.Environment, stateOnly bool) error {
 	if _, ok := m.environments.Get(env.MetaData.ID); !ok {
-		return
+		return ErrNotFound
+	}
+
+	if !stateOnly {
+		if err := m.repository.UpdateEnvironment(env); err != nil {
+			return err
+		}
 	}
 
 	m.environments.Set(env.MetaData.ID, env)
 	m.notifyEnvironmentChange(env, ActionUpdate)
+
+	return nil
 }
 
 func (m *Environments) SetActiveEnvironment(environment *domain.Environment) {

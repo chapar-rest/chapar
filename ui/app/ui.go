@@ -17,7 +17,6 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/notify"
 	"github.com/mirzakhany/chapar/ui"
 	"github.com/mirzakhany/chapar/ui/fonts"
@@ -57,7 +56,9 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 		return nil, err
 	}
 
-	bus.Init()
+	repo := &repository.Filesystem{}
+	environmentsState := state.NewEnvironments(repo)
+	requestsState := state.NewRequests(repo)
 
 	u.Theme = material.NewTheme()
 	u.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
@@ -69,12 +70,8 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	u.Theme.TextSize = unit.Sp(14)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
-	u.header = NewHeader(appManager)
+	u.header = NewHeader(environmentsState)
 	u.sideBar = NewSidebar(u.Theme)
-
-	repo := &repository.Filesystem{}
-
-	environmentsState := state.NewEnvironments(repo)
 
 	u.environmentsView = environments.NewView(u.Theme)
 	envController := environments.NewController(u.environmentsView, environmentsState)
@@ -88,8 +85,7 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	})
 
 	u.requestsView = requests.NewView(u.Theme)
-	reqModel := requests.NewModel(appManager)
-	reqController := requests.NewController(u.requestsView, reqModel)
+	reqController := requests.NewController(u.requestsView, requestsState, environmentsState)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
 	}

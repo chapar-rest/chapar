@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -15,6 +14,7 @@ type Repository interface {
 	UpdateCollection(collection *domain.Collection) error
 	DeleteCollection(collection *domain.Collection) error
 	GetNewCollectionDir(name string) (string, error)
+	GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (string, error)
 
 	LoadEnvironments() ([]*domain.Environment, error)
 	GetEnvironment(filepath string) (*domain.Environment, error)
@@ -27,6 +27,7 @@ type Repository interface {
 	UpdatePreferences(pref *domain.Preferences) error
 
 	LoadRequests() ([]*domain.Request, error)
+	GetRequest(filepath string) (*domain.Request, error)
 	GetRequestsDir() (string, error)
 	UpdateRequest(request *domain.Request) error
 	DeleteRequest(request *domain.Request) error
@@ -41,7 +42,6 @@ func LoadFromYaml[T any](filename string) (*T, error) {
 
 	env := new(T)
 	if err := yaml.Unmarshal(data, env); err != nil {
-		fmt.Println(filename, err)
 		return nil, err
 	}
 	return env, nil

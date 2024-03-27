@@ -4,10 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/manager"
-	"github.com/mirzakhany/chapar/ui/state"
+	"github.com/mirzakhany/chapar/internal/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -15,13 +13,13 @@ type Header struct {
 	selectedEnv string
 	envDropDown *widgets.DropDown
 
-	manager *manager.Manager
+	envState *state.Environments
 }
 
-func NewHeader(manager *manager.Manager) *Header {
+func NewHeader(envState *state.Environments) *Header {
 	h := &Header{
 		selectedEnv: "No Environment",
-		manager:     manager,
+		envState:    envState,
 	}
 
 	h.envDropDown = widgets.NewDropDown(
@@ -52,8 +50,7 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 	if h.envDropDown.GetSelected().Text != h.selectedEnv {
 		h.selectedEnv = h.envDropDown.GetSelected().Text
 		id := h.envDropDown.GetSelected().Identifier
-		bus.Publish(state.SelectedEnvChanged, id)
-		h.manager.SetCurrentActiveEnv(h.manager.GetEnvironment(id))
+		h.envState.SetActiveEnvironment(h.envState.GetEnvironment(id))
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
