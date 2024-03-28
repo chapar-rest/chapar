@@ -13,13 +13,16 @@ type Controller struct {
 	view  *View
 	state *state.Environments
 
+	repo repository.Repository
+
 	activeTabID string
 }
 
-func NewController(view *View, state *state.Environments) *Controller {
+func NewController(view *View, repo repository.Repository, state *state.Environments) *Controller {
 	c := &Controller{
 		view:  view,
 		state: state,
+		repo:  repo,
 	}
 
 	view.SetOnNewEnv(c.onNewEnvironment)
@@ -35,6 +38,18 @@ func NewController(view *View, state *state.Environments) *Controller {
 
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
+
+	filePath, err := c.repo.GetNewEnvironmentFilePath(env.MetaData.Name)
+	if err != nil {
+		fmt.Println("failed to get new environment file path", err)
+		return
+	}
+
+	fmt.Println("filePath", filePath)
+
+	env.FilePath = filePath.Path
+	env.MetaData.Name = filePath.NewName
+
 	c.state.AddEnvironment(env)
 	c.view.AddTreeViewNode(env)
 	c.saveEnvironmentToDisc(env.MetaData.ID)

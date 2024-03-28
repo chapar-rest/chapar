@@ -23,13 +23,16 @@ type Controller struct {
 
 	envState *state.Environments
 
+	repo repository.Repository
+
 	activeTabID string
 }
 
-func NewController(view *View, model *state.Requests, envState *state.Environments) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
+		repo:     repo,
 		envState: envState,
 	}
 
@@ -267,6 +270,16 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 
 func (c *Controller) onNewRequest() {
 	req := domain.NewRequest("New Request")
+
+	newFilePath, err := c.repo.GetNewRequestFilePath(req.MetaData.Name)
+	if err != nil {
+		fmt.Println("failed to get new file path", err)
+		return
+	}
+
+	req.FilePath = newFilePath.Path
+	req.MetaData.Name = newFilePath.NewName
+
 	c.model.AddRequest(req)
 	c.view.AddRequestTreeViewNode(req)
 	c.saveRequestToDisc(req.MetaData.ID)
@@ -277,6 +290,16 @@ func (c *Controller) onNewRequest() {
 
 func (c *Controller) onNewCollection() {
 	col := domain.NewCollection("New Collection")
+
+	dirPath, err := c.repo.GetNewCollectionDir(col.MetaData.Name)
+	if err != nil {
+		fmt.Println("failed to get new collection dir", err)
+		return
+	}
+
+	col.FilePath = dirPath.Path
+	col.MetaData.Name = dirPath.NewName
+
 	c.model.AddCollection(col)
 	c.view.AddCollectionTreeViewNode(col)
 	c.saveCollectionToDisc(col.MetaData.ID)
@@ -347,7 +370,7 @@ func (c *Controller) addRequestToCollection(id string) {
 		return
 	}
 
-	newFilePath, err := c.model.GetCollectionRequestFilePath(col, req.MetaData.Name)
+	newFilePath, err := c.repo.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
 	if err != nil {
 		logger.Error(fmt.Sprintf("failed to get new file path, err %v", err))
 		fmt.Println("failed to get new file path", err)
@@ -356,7 +379,8 @@ func (c *Controller) addRequestToCollection(id string) {
 
 	fmt.Println("newFilePath", newFilePath)
 
-	req.FilePath = newFilePath
+	req.FilePath = newFilePath.Path
+	req.MetaData.Name = newFilePath.NewName
 	req.CollectionID = col.MetaData.ID
 	req.CollectionName = col.MetaData.Name
 

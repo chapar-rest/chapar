@@ -13,15 +13,15 @@ type Repository interface {
 	GetCollectionsDir() (string, error)
 	UpdateCollection(collection *domain.Collection) error
 	DeleteCollection(collection *domain.Collection) error
-	GetNewCollectionDir(name string) (string, error)
-	GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (string, error)
+	GetNewCollectionDir(name string) (*FilePath, error)
+	GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (*FilePath, error)
 
 	LoadEnvironments() ([]*domain.Environment, error)
 	GetEnvironment(filepath string) (*domain.Environment, error)
 	GetEnvironmentDir() (string, error)
 	UpdateEnvironment(env *domain.Environment) error
 	DeleteEnvironment(env *domain.Environment) error
-	GetNewEnvironmentFilePath(name string) (string, error)
+	GetNewEnvironmentFilePath(name string) (*FilePath, error)
 
 	ReadPreferencesData() (*domain.Preferences, error)
 	UpdatePreferences(pref *domain.Preferences) error
@@ -31,7 +31,12 @@ type Repository interface {
 	GetRequestsDir() (string, error)
 	UpdateRequest(request *domain.Request) error
 	DeleteRequest(request *domain.Request) error
-	GetNewRequestFilePath(name string) (string, error)
+	GetNewRequestFilePath(name string) (*FilePath, error)
+}
+
+type FilePath struct {
+	Path    string
+	NewName string
 }
 
 func LoadFromYaml[T any](filename string) (*T, error) {
@@ -66,4 +71,10 @@ func AddSuffixBeforeExt(filePath, suffix string) string {
 	baseName := file[:len(file)-len(extension)]
 	newBaseName := baseName + suffix + extension
 	return filepath.Join(dir, newBaseName)
+}
+
+func GetFileNameWithoutExt(filePath string) string {
+	_, file := filepath.Split(filePath)
+	extension := filepath.Ext(file)
+	return file[:len(file)-len(extension)]
 }

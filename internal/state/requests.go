@@ -105,10 +105,6 @@ func (m *Requests) GetCollection(id string) *domain.Collection {
 	return collection
 }
 
-func (m *Requests) GetCollectionRequestFilePath(collection *domain.Collection, name string) (string, error) {
-	return m.repository.GetCollectionRequestNewFilePath(collection, name)
-}
-
 func (m *Requests) UpdateRequest(request *domain.Request, stateOnly bool) error {
 	if _, ok := m.requests.Get(request.MetaData.ID); !ok {
 		return ErrNotFound

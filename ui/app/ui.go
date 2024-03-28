@@ -74,7 +74,7 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	u.sideBar = NewSidebar(u.Theme)
 
 	u.environmentsView = environments.NewView(u.Theme)
-	envController := environments.NewController(u.environmentsView, environmentsState)
+	envController := environments.NewController(u.environmentsView, repo, environmentsState)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	})
 
 	u.requestsView = requests.NewView(u.Theme)
-	reqController := requests.NewController(u.requestsView, requestsState, environmentsState)
+	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
 	}

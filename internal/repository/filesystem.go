@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/mirzakhany/chapar/internal/domain"
 	"gopkg.in/yaml.v2"
@@ -25,9 +26,9 @@ var _ Repository = &Filesystem{}
 type Filesystem struct {
 }
 
-func (f *Filesystem) GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (string, error) {
+func (f *Filesystem) GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (*FilePath, error) {
 	dir := path.Dir(collection.FilePath)
-	return getNewFilePath(dir, name)
+	return getNewFilePath(dir, name), nil
 }
 
 func (f *Filesystem) LoadCollections() ([]*domain.Collection, error) {
@@ -125,12 +126,24 @@ func (f *Filesystem) GetCollectionsDir() (string, error) {
 }
 
 func (f *Filesystem) UpdateCollection(collection *domain.Collection) error {
-	if collection.FilePath == "" {
-		dirName, err := f.GetNewCollectionDir(collection.MetaData.Name)
-		if err != nil {
-			return err
+	//if collection.FilePath == "" {
+	//	dirName, err := f.GetNewCollectionDir(collection.MetaData.Name)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	collection.FilePath = filepath.Join(dirName, "_collection.yaml")
+	//}
+
+	if !strings.HasSuffix(collection.FilePath, "_collection.yaml") {
+		fmt.Println("collection file path", collection.FilePath)
+		// if directory is not exist, create it
+		if _, err := os.Stat(collection.FilePath); os.IsNotExist(err) {
+			if err := os.MkdirAll(collection.FilePath, 0755); err != nil {
+				return err
+			}
 		}
-		collection.FilePath = filepath.Join(dirName, "_collection.yaml")
+
+		collection.FilePath = filepath.Join(collection.FilePath, "_collection.yaml")
 	}
 
 	if err := SaveToYaml(collection.FilePath, collection); err != nil {
@@ -156,38 +169,30 @@ func (f *Filesystem) DeleteCollection(collection *domain.Collection) error {
 	return os.RemoveAll(path.Dir(collection.FilePath))
 }
 
-func (f *Filesystem) GetNewCollectionDir(name string) (string, error) {
+func (f *Filesystem) GetNewCollectionDir(name string) (*FilePath, error) {
 	collectionDir, err := f.GetCollectionsDir()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	dir := path.Join(collectionDir, name)
-	_, err = os.Stat(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err := os.Mkdir(dir, 0755); err != nil {
-				return "", err
-			}
-			return dir, nil
-		}
-
-		i := 0
-		for {
-			dirName := path.Join(collectionDir, fmt.Sprintf("%s-%d", name, i))
-			if _, err := os.Stat(dirName); err != nil {
-				if os.IsNotExist(err) {
-					if err := os.Mkdir(dir, 0755); err != nil {
-						return "", err
-					}
-					return dirName, nil
-				}
-			}
-			i++
-		}
-
+	if !dirExist(dir) {
+		return &FilePath{
+			Path:    dir,
+			NewName: name,
+		}, nil
 	}
-	return dir, nil
+
+	// If the file exists, append a number to the filename.
+	for i := 1; ; i++ {
+		newDirName := fmt.Sprintf("%s%d", dir, i)
+		if !dirExist(newDirName) {
+			return &FilePath{
+				Path:    newDirName,
+				NewName: fmt.Sprintf("%s%d", name, i),
+			}, nil
+		}
+	}
 }
 
 func (f *Filesystem) LoadEnvironments() ([]*domain.Environment, error) {
@@ -247,14 +252,14 @@ func (f *Filesystem) GetEnvironmentDir() (string, error) {
 }
 
 func (f *Filesystem) UpdateEnvironment(env *domain.Environment) error {
-	if env.FilePath == "" {
-		fileName, err := f.GetNewEnvironmentFilePath(env.MetaData.Name)
-		if err != nil {
-			return err
-		}
-
-		env.FilePath = fileName
-	}
+	//if env.FilePath == "" {
+	//	fileName, err := f.GetNewEnvironmentFilePath(env.MetaData.Name)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	env.FilePath = fileName.Path
+	//}
 
 	if err := SaveToYaml(env.FilePath, env); err != nil {
 		return err
@@ -262,6 +267,7 @@ func (f *Filesystem) UpdateEnvironment(env *domain.Environment) error {
 
 	// rename the file to the new name
 	if env.MetaData.Name != path.Base(env.FilePath) {
+		fmt.Println("renaming file")
 		newFilePath := path.Join(path.Dir(env.FilePath), env.MetaData.Name+".yaml")
 		if err := os.Rename(env.FilePath, newFilePath); err != nil {
 			return err
@@ -272,13 +278,13 @@ func (f *Filesystem) UpdateEnvironment(env *domain.Environment) error {
 	return nil
 }
 
-func (f *Filesystem) GetNewEnvironmentFilePath(name string) (string, error) {
+func (f *Filesystem) GetNewEnvironmentFilePath(name string) (*FilePath, error) {
 	dir, err := f.GetEnvironmentDir()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return getNewFilePath(dir, name)
+	return getNewFilePath(dir, name), nil
 }
 
 func (f *Filesystem) DeleteEnvironment(env *domain.Environment) error {
@@ -379,7 +385,7 @@ func (f *Filesystem) UpdateRequest(request *domain.Request) error {
 			return err
 		}
 
-		request.FilePath = fileName
+		request.FilePath = fileName.Path
 	}
 
 	if err := SaveToYaml(request.FilePath, request); err != nil {
@@ -397,28 +403,34 @@ func (f *Filesystem) UpdateRequest(request *domain.Request) error {
 	return nil
 }
 
-func (f *Filesystem) GetNewRequestFilePath(name string) (string, error) {
+func (f *Filesystem) GetNewRequestFilePath(name string) (*FilePath, error) {
 	dir, err := f.GetRequestsDir()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return getNewFilePath(dir, name)
+	return getNewFilePath(dir, name), nil
 }
 
 func (f *Filesystem) DeleteRequest(request *domain.Request) error {
 	return os.Remove(request.FilePath)
 }
 
-func getNewFilePath(dir, name string) (string, error) {
+func getNewFilePath(dir, name string) *FilePath {
 	fileName := path.Join(dir, name)
-	return generateNewFileName(fileName, "yaml"), nil
+	fmt.Println("filename", fileName)
+	fName := generateNewFileName(fileName, "yaml")
+
+	return &FilePath{
+		Path:    fName,
+		NewName: GetFileNameWithoutExt(fName),
+	}
 }
 
 // generateNewFileName takes the original file name and generates a new file name
 // with the first possible numeric postfix if the original file exists.
 func generateNewFileName(filename, ext string) string {
 	if !fileExists(filename + "." + ext) {
-		return filename
+		return filename + "." + ext
 	}
 
 	// If the file exists, append a number to the filename.
@@ -438,6 +450,14 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func dirExist(dirname string) bool {
+	info, err := os.Stat(dirname)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return info.IsDir()
 }
 
 func GetConfigDir() (string, error) {
