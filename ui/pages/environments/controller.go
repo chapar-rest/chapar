@@ -4,21 +4,25 @@ import (
 	"fmt"
 
 	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/loader"
+	"github.com/mirzakhany/chapar/internal/repository"
+	"github.com/mirzakhany/chapar/internal/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Controller struct {
 	view  *View
-	model *Model
+	state *state.Environments
+
+	repo repository.Repository
 
 	activeTabID string
 }
 
-func NewController(view *View, model *Model) *Controller {
+func NewController(view *View, repo repository.Repository, state *state.Environments) *Controller {
 	c := &Controller{
 		view:  view,
-		model: model,
+		state: state,
+		repo:  repo,
 	}
 
 	view.SetOnNewEnv(c.onNewEnvironment)
@@ -34,25 +38,43 @@ func NewController(view *View, model *Model) *Controller {
 
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
-	c.model.AddEnvironment(env)
+
+	filePath, err := c.repo.GetNewEnvironmentFilePath(env.MetaData.Name)
+	if err != nil {
+		fmt.Println("failed to get new environment file path", err)
+		return
+	}
+
+	fmt.Println("filePath", filePath)
+
+	env.FilePath = filePath.Path
+	env.MetaData.Name = filePath.NewName
+
+	c.state.AddEnvironment(env)
 	c.view.AddTreeViewNode(env)
 	c.saveEnvironmentToDisc(env.MetaData.ID)
 }
 
 func (c *Controller) onTitleChanged(id string, title string) {
-	env := c.model.GetEnvironment(id)
+	env := c.state.GetEnvironment(id)
 	if env == nil {
 		return
 	}
+
 	env.MetaData.Name = title
 	c.view.UpdateTreeNodeTitle(env.MetaData.ID, env.MetaData.Name)
 	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
-	c.model.UpdateEnvironment(env)
-	c.saveEnvironmentToDisc(id)
+
+	if err := c.state.UpdateEnvironment(env, false); err != nil {
+		fmt.Println("failed to update environment", err)
+		return
+	}
+
+	c.view.SetTabDirty(id, false)
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
-	env := c.model.GetEnvironment(id)
+	env := c.state.GetEnvironment(id)
 	if env == nil {
 		return
 	}
@@ -68,11 +90,11 @@ func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
 }
 
 func (c *Controller) LoadData() error {
-	data, err := loader.ReadEnvironmentsData()
+	data, err := c.state.LoadEnvironmentsFromDisk()
 	if err != nil {
 		return err
 	}
-	c.model.SetEnvironments(data)
+
 	c.view.PopulateTreeView(data)
 	return nil
 }
@@ -82,13 +104,13 @@ func (c *Controller) onTabSelected(id string) {
 		return
 	}
 	c.activeTabID = id
-	env := c.model.GetEnvironment(id)
+	env := c.state.GetEnvironment(id)
 	c.view.SwitchToTab(env.MetaData.ID)
 	c.view.OpenContainer(env)
 }
 
 func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
-	env := c.model.GetEnvironment(id)
+	env := c.state.GetEnvironment(id)
 	if env == nil {
 		return
 	}
@@ -99,10 +121,13 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 	}
 
 	env.Spec.Values = items
-	c.model.UpdateEnvironment(env)
+	if err := c.state.UpdateEnvironment(env, true); err != nil {
+		fmt.Println("failed to update environment", err)
+		return
+	}
 
 	// set tab dirty if the in memory data is different from the file
-	envFromFile, err := c.model.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
 		fmt.Println("failed to get environment from file", err)
 		return
@@ -119,13 +144,13 @@ func (c *Controller) onTabClose(id string) {
 	// is tab data changed?
 	// if yes show prompt
 	// if no close tab
-	env := c.model.GetEnvironment(id)
+	env := c.state.GetEnvironment(id)
 	if env == nil {
 		fmt.Println("failed to get environment", id)
 		return
 	}
 
-	envFromFile, err := c.model.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
 		fmt.Println("failed to get environment from file", err)
 		return
@@ -151,20 +176,23 @@ func (c *Controller) onTabClose(id string) {
 			}
 
 			c.view.CloseTab(id)
-			c.model.ReloadEnvironmentFromDisc(id)
+			c.state.ReloadEnvironmentFromDisc(id)
 		}, "Yes", "No", "Cancel",
 	)
 }
 
 func (c *Controller) saveEnvironmentToDisc(id string) {
-	env := c.model.GetEnvironment(id)
+	env := c.state.GetEnvironment(id)
 	if env == nil {
+		fmt.Println("failed to get environment", id)
 		return
 	}
-	if err := loader.UpdateEnvironment(env); err != nil {
+
+	if err := c.state.UpdateEnvironment(env, false); err != nil {
 		fmt.Println("failed to update environment", err)
 		return
 	}
+
 	c.view.SetTabDirty(id, false)
 }
 
@@ -179,7 +207,7 @@ func (c *Controller) onTreeViewMenuClicked(id string, action string) {
 
 func (c *Controller) duplicateEnvironment(id string) {
 	// read environment from file to make sure we have the latest persisted data
-	envFromFile, err := c.model.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
 		fmt.Println("failed to get environment from file", err)
 		return
@@ -187,21 +215,23 @@ func (c *Controller) duplicateEnvironment(id string) {
 
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
-	newEnv.FilePath = loader.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
-	c.model.AddEnvironment(newEnv)
+	newEnv.FilePath = repository.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
+	c.state.AddEnvironment(newEnv)
 	c.view.AddTreeViewNode(newEnv)
 	c.saveEnvironmentToDisc(newEnv.MetaData.ID)
 }
 
 func (c *Controller) deleteEnvironment(id string) {
-	env := c.model.GetEnvironment(id)
+	env := c.state.GetEnvironment(id)
 	if env == nil {
 		return
 	}
-	c.model.DeleteEnvironment(id)
-	c.view.RemoveTreeViewNode(id)
-	if err := loader.DeleteEnvironment(env); err != nil {
+
+	if err := c.state.RemoveEnvironment(env, false); err != nil {
 		fmt.Println("failed to delete environment", err)
+		return
 	}
+
+	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
 }

@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/mirzakhany/chapar/internal/repository"
+
+	"github.com/mirzakhany/chapar/internal/state"
+
 	"github.com/mirzakhany/chapar/internal/rest"
 
 	"github.com/mirzakhany/chapar/internal/logger"
@@ -11,20 +15,25 @@ import (
 	"github.com/mirzakhany/chapar/ui/widgets"
 
 	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/loader"
 )
 
 type Controller struct {
-	model *Model
+	model *state.Requests
 	view  *View
+
+	envState *state.Environments
+
+	repo repository.Repository
 
 	activeTabID string
 }
 
-func NewController(view *View, model *Model) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments) *Controller {
 	c := &Controller{
-		view:  view,
-		model: model,
+		view:     view,
+		model:    model,
+		repo:     repo,
+		envState: envState,
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
@@ -41,18 +50,16 @@ func NewController(view *View, model *Model) *Controller {
 }
 
 func (c *Controller) LoadData() error {
-	collections, err := loader.LoadCollections()
+	collections, err := c.model.LoadCollectionsFromDisk()
 	if err != nil {
 		return err
 	}
 
-	requests, err := loader.LoadRequests()
+	requests, err := c.model.LoadRequestsFromDisk()
 	if err != nil {
 		return err
 	}
 
-	c.model.SetRequests(requests)
-	c.model.SetCollections(collections)
 	c.view.PopulateTreeView(requests, collections)
 	return nil
 }
@@ -80,7 +87,7 @@ func (c *Controller) onSubmit(id, containerType string) {
 }
 
 func (c *Controller) onSubmitRequest(id string) {
-	res, err := rest.SendRequest(c.model.GetRequest(id).Spec.HTTP, c.model.GetCurrentActiveEnv())
+	res, err := rest.SendRequest(c.model.GetRequest(id).Spec.HTTP, c.envState.GetActiveEnvironment())
 	if err != nil {
 		fmt.Println("failed to send request", err)
 		return
@@ -156,7 +163,10 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	// break the reference
 	clone := inComingRequest.Clone()
 	req.Spec = clone.Spec
-	c.model.UpdateRequest(req)
+	if err := c.model.UpdateRequest(req, true); err != nil {
+		fmt.Println("failed to update request", err)
+		return
+	}
 
 	// set tab dirty if the in memory data is different from the file
 	reqFromFile, err := c.model.GetRequestFromDisc(id)
@@ -227,10 +237,14 @@ func (c *Controller) onRequestTitleChange(id, title string) {
 	}
 
 	req.MetaData.Name = title
+
+	if err := c.model.UpdateRequest(req, false); err != nil {
+		fmt.Println("failed to update request", err)
+		return
+	}
+
 	c.view.UpdateTreeNodeTitle(req.MetaData.ID, req.MetaData.Name)
 	c.view.UpdateTabTitle(req.MetaData.ID, req.MetaData.Name)
-	c.model.UpdateRequest(req)
-	c.saveRequestToDisc(id)
 }
 
 func (c *Controller) onCollectionTitleChange(id, title string) {
@@ -244,14 +258,28 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	}
 
 	col.MetaData.Name = title
+
+	if err := c.model.UpdateCollection(col, false); err != nil {
+		fmt.Println("failed to update collection", err)
+		return
+	}
+
 	c.view.UpdateTreeNodeTitle(col.MetaData.ID, col.MetaData.Name)
 	c.view.UpdateTabTitle(col.MetaData.ID, col.MetaData.Name)
-	c.model.UpdateCollection(col)
-	c.saveCollectionToDisc(id)
 }
 
 func (c *Controller) onNewRequest() {
 	req := domain.NewRequest("New Request")
+
+	newFilePath, err := c.repo.GetNewRequestFilePath(req.MetaData.Name)
+	if err != nil {
+		fmt.Println("failed to get new file path", err)
+		return
+	}
+
+	req.FilePath = newFilePath.Path
+	req.MetaData.Name = newFilePath.NewName
+
 	c.model.AddRequest(req)
 	c.view.AddRequestTreeViewNode(req)
 	c.saveRequestToDisc(req.MetaData.ID)
@@ -262,6 +290,16 @@ func (c *Controller) onNewRequest() {
 
 func (c *Controller) onNewCollection() {
 	col := domain.NewCollection("New Collection")
+
+	dirPath, err := c.repo.GetNewCollectionDir(col.MetaData.Name)
+	if err != nil {
+		fmt.Println("failed to get new collection dir", err)
+		return
+	}
+
+	col.FilePath = dirPath.Path
+	col.MetaData.Name = dirPath.NewName
+
 	c.model.AddCollection(col)
 	c.view.AddCollectionTreeViewNode(col)
 	c.saveCollectionToDisc(col.MetaData.ID)
@@ -275,7 +313,7 @@ func (c *Controller) saveRequestToDisc(id string) {
 	if req == nil {
 		return
 	}
-	if err := loader.UpdateRequest(req); err != nil {
+	if err := c.model.UpdateRequest(req, false); err != nil {
 		fmt.Println("failed to update request", err)
 		return
 	}
@@ -287,7 +325,7 @@ func (c *Controller) saveCollectionToDisc(id string) {
 	if col == nil {
 		return
 	}
-	if err := loader.UpdateCollection(col); err != nil {
+	if err := c.model.UpdateCollection(col, false); err != nil {
 		fmt.Println("failed to update collection", err)
 		return
 	}
@@ -332,12 +370,19 @@ func (c *Controller) addRequestToCollection(id string) {
 		return
 	}
 
-	newFilePath, err := loader.GetNewFilePath(req.MetaData.Name, col.MetaData.Name)
+	newFilePath, err := c.repo.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
 	if err != nil {
 		logger.Error(fmt.Sprintf("failed to get new file path, err %v", err))
+		fmt.Println("failed to get new file path", err)
 		return
 	}
-	req.FilePath = newFilePath
+
+	fmt.Println("newFilePath", newFilePath)
+
+	req.FilePath = newFilePath.Path
+	req.MetaData.Name = newFilePath.NewName
+	req.CollectionID = col.MetaData.ID
+	req.CollectionName = col.MetaData.Name
 
 	c.model.AddRequest(req)
 	c.model.AddRequestToCollection(col, req)
@@ -396,7 +441,7 @@ func (c *Controller) duplicateRequest(id string) {
 
 	newReq := reqFromFile.Clone()
 	newReq.MetaData.Name = newReq.MetaData.Name + " (copy)"
-	newReq.FilePath = loader.AddSuffixBeforeExt(newReq.FilePath, "-copy")
+	newReq.FilePath = repository.AddSuffixBeforeExt(newReq.FilePath, "-copy")
 	c.model.AddRequest(newReq)
 	if reqFromFile.CollectionID == "" {
 		c.view.AddRequestTreeViewNode(newReq)
@@ -411,11 +456,12 @@ func (c *Controller) deleteRequest(id string) {
 	if req == nil {
 		return
 	}
-	c.model.DeleteRequest(id)
-	c.view.RemoveTreeViewNode(id)
-	if err := loader.DeleteRequest(req); err != nil {
-		fmt.Println("failed to delete request", err)
+	if err := c.model.RemoveRequest(req, false); err != nil {
+		fmt.Println("failed to remove request", err)
+		return
 	}
+
+	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
 }
 
@@ -424,10 +470,10 @@ func (c *Controller) deleteCollection(id string) {
 	if col == nil {
 		return
 	}
-	c.model.DeleteCollection(id)
-	c.view.RemoveTreeViewNode(id)
-	if err := loader.DeleteCollection(col); err != nil {
-		fmt.Println("failed to delete collection", err)
+	if err := c.model.RemoveCollection(col, false); err != nil {
+		fmt.Println("failed to remove collection", err)
+		return
 	}
+	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
 }

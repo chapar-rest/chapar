@@ -11,11 +11,12 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/internal/bus"
+	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/notify"
+	"github.com/mirzakhany/chapar/internal/repository"
+	"github.com/mirzakhany/chapar/internal/state"
 	"github.com/mirzakhany/chapar/ui"
 	"github.com/mirzakhany/chapar/ui/fonts"
-	"github.com/mirzakhany/chapar/ui/manager"
 	"github.com/mirzakhany/chapar/ui/pages/console"
 	"github.com/mirzakhany/chapar/ui/pages/environments"
 	"github.com/mirzakhany/chapar/ui/pages/requests"
@@ -36,22 +37,21 @@ type UI struct {
 	requestsView     *requests.View
 
 	tipsOpen bool
-
-	appManager *manager.Manager
 }
 
 // New creates a new UI using the Go Fonts.
-func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
+func New(app *ui.Application) (*UI, error) {
 	u := &UI{
-		app:        app,
-		appManager: appManager,
+		app: app,
 	}
 	fontCollection, err := fonts.Prepare()
 	if err != nil {
 		return nil, err
 	}
 
-	bus.Init()
+	repo := &repository.Filesystem{}
+	environmentsState := state.NewEnvironments(repo)
+	requestsState := state.NewRequests(repo)
 
 	u.Theme = material.NewTheme()
 	u.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
@@ -63,24 +63,22 @@ func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
 	u.Theme.TextSize = unit.Sp(14)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
-	u.header = NewHeader(appManager)
+	u.header = NewHeader(environmentsState)
 	u.sideBar = NewSidebar(u.Theme)
 
 	u.environmentsView = environments.NewView(u.Theme)
-	envModel := environments.NewModel(appManager)
-	envController := environments.NewController(u.environmentsView, envModel)
+	envController := environments.NewController(u.environmentsView, repo, environmentsState)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
 
-	u.header.LoadEnvs(envModel.GetEnvironments())
-	//bus.Subscribe(state.EnvironmentsChanged, func(a any) {
-	//	u.header.LoadEnvs(envModel.GetEnvironments())
-	//})
+	u.header.LoadEnvs(environmentsState.GetEnvironments())
+	environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, action state.Action) {
+		u.header.LoadEnvs(environmentsState.GetEnvironments())
+	})
 
 	u.requestsView = requests.NewView(u.Theme)
-	reqModel := requests.NewModel(appManager)
-	reqController := requests.NewController(u.requestsView, reqModel)
+	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
 	}

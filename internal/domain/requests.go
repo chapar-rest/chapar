@@ -513,3 +513,35 @@ func IsHTTPResponseEmpty(r HTTPResponse) bool {
 
 	return true
 }
+
+func (r *Request) SetDefaultValues() {
+	if r.MetaData.Type == "" {
+		r.MetaData.Type = KindRequest
+	}
+
+	if r.Spec.HTTP.Method == "" {
+		r.Spec.HTTP.Method = "GET"
+	}
+
+	if r.Spec.HTTP.URL == "" {
+		r.Spec.HTTP.URL = "https://example.com"
+	}
+
+	if r.Spec.HTTP.Request.Auth == (Auth{}) {
+		r.Spec.HTTP.Request.Auth = Auth{
+			Type: "None",
+		}
+	}
+
+	if r.Spec.HTTP.Request.PostRequest == (PostRequest{}) {
+		r.Spec.HTTP.Request.PostRequest = PostRequest{
+			Type: "None",
+		}
+	}
+
+	if r.Spec.HTTP.Request.PreRequest == (PreRequest{}) {
+		r.Spec.HTTP.Request.PreRequest = PreRequest{
+			Type: "None",
+		}
+	}
+}

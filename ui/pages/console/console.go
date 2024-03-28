@@ -8,9 +8,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/internal/bus"
 	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/state"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -33,7 +31,7 @@ func New() *Console {
 		clearButton: &widget.Clickable{},
 	}
 
-	bus.Subscribe(state.LogSubmitted, c.handleIncomingLog)
+	// bus.Subscribe(state.LogSubmitted, c.handleIncomingLog)
 	return c
 }
 
