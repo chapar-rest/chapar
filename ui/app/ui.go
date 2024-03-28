@@ -3,12 +3,6 @@ package app
 import (
 	"image/color"
 
-	"github.com/mirzakhany/chapar/internal/domain"
-
-	"github.com/mirzakhany/chapar/internal/state"
-
-	"github.com/mirzakhany/chapar/internal/repository"
-
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -17,10 +11,12 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/notify"
+	"github.com/mirzakhany/chapar/internal/repository"
+	"github.com/mirzakhany/chapar/internal/state"
 	"github.com/mirzakhany/chapar/ui"
 	"github.com/mirzakhany/chapar/ui/fonts"
-	"github.com/mirzakhany/chapar/ui/manager"
 	"github.com/mirzakhany/chapar/ui/pages/console"
 	"github.com/mirzakhany/chapar/ui/pages/environments"
 	"github.com/mirzakhany/chapar/ui/pages/requests"
@@ -41,15 +37,12 @@ type UI struct {
 	requestsView     *requests.View
 
 	tipsOpen bool
-
-	appManager *manager.Manager
 }
 
 // New creates a new UI using the Go Fonts.
-func New(app *ui.Application, appManager *manager.Manager) (*UI, error) {
+func New(app *ui.Application) (*UI, error) {
 	u := &UI{
-		app:        app,
-		appManager: appManager,
+		app: app,
 	}
 	fontCollection, err := fonts.Prepare()
 	if err != nil {

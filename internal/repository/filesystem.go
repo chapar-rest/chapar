@@ -126,14 +126,6 @@ func (f *Filesystem) GetCollectionsDir() (string, error) {
 }
 
 func (f *Filesystem) UpdateCollection(collection *domain.Collection) error {
-	//if collection.FilePath == "" {
-	//	dirName, err := f.GetNewCollectionDir(collection.MetaData.Name)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	collection.FilePath = filepath.Join(dirName, "_collection.yaml")
-	//}
-
 	if !strings.HasSuffix(collection.FilePath, "_collection.yaml") {
 		fmt.Println("collection file path", collection.FilePath)
 		// if directory is not exist, create it
