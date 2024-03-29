@@ -47,6 +47,10 @@ func (r *Restful) SetOnTitleChanged(f func(title string)) {
 	r.Breadcrumb.SetOnTitleChanged(f)
 }
 
+func (r *Restful) SetOnCopyResponse(f func(gtx layout.Context, response string)) {
+	r.Response.SetOnCopyResponse(f)
+}
+
 func (r *Restful) SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
 	r.Response.SetResponse(response)
 	r.Response.SetHeaders(headers)
@@ -84,10 +88,6 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 			BarColor:      widgets.Gray300,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
-		//resizer: &giox.Resize{
-		//	Axis:  layout.Horizontal,
-		//	Ratio: 0.5,
-		//},
 		Response: NewResponse(theme),
 		Request:  NewRequest(req),
 	}

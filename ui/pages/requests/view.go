@@ -58,6 +58,7 @@ type View struct {
 	onSave                      func(id string)
 	onSubmit                    func(id, containerType string)
 	onDataChanged               func(id string, data any, containerType string)
+	onCopyResponse              func(gtx layout.Context, response string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -136,6 +137,10 @@ func (v *View) RemoveTreeViewNode(id string) {
 
 	v.treeView.RemoveNode(id)
 	v.treeViewNodes.Delete(id)
+}
+
+func (v *View) SetOnCopyResponse(onCopyResponse func(gtx layout.Context, response string)) {
+	v.onCopyResponse = onCopyResponse
 }
 
 func (v *View) SetOnNewRequest(onNewRequest func()) {
@@ -313,6 +318,12 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		}
 	})
 
+	ct.SetOnCopyResponse(func(gtx layout.Context, response string) {
+		if v.onCopyResponse != nil {
+			v.onCopyResponse(gtx, response)
+		}
+	})
+
 	v.containers.Set(req.MetaData.ID, ct)
 }
 
@@ -333,7 +344,10 @@ func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 
 func (v *View) SetHTTPResponse(id, response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
 	if ct, ok := v.containers.Get(id); ok {
-		ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
+		}
+		//ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
 	}
 }
 

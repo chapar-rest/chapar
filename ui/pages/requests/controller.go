@@ -2,7 +2,16 @@ package requests
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
+	"time"
+
+	"github.com/mirzakhany/chapar/internal/notify"
+
+	"gioui.org/io/clipboard"
+
+	"gioui.org/layout"
 
 	"github.com/mirzakhany/chapar/internal/repository"
 
@@ -45,7 +54,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnDataChanged(c.onDataChanged)
 	view.SetOnSave(c.onSave)
 	view.SetOnSubmit(c.onSubmit)
-
+	view.SetOnCopyResponse(c.onCopyResponse)
 	return c
 }
 
@@ -84,6 +93,14 @@ func (c *Controller) onSubmit(id, containerType string) {
 	if containerType == TypeRequest {
 		c.onSubmitRequest(id)
 	}
+}
+
+func (c *Controller) onCopyResponse(gtx layout.Context, response string) {
+	gtx.Execute(clipboard.WriteCmd{
+		Data: io.NopCloser(strings.NewReader(response)),
+	})
+
+	notify.Send("Response copied to clipboard", 2*time.Second)
 }
 
 func (c *Controller) onSubmitRequest(id string) {
@@ -373,11 +390,8 @@ func (c *Controller) addRequestToCollection(id string) {
 	newFilePath, err := c.repo.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
 	if err != nil {
 		logger.Error(fmt.Sprintf("failed to get new file path, err %v", err))
-		fmt.Println("failed to get new file path", err)
 		return
 	}
-
-	fmt.Println("newFilePath", newFilePath)
 
 	req.FilePath = newFilePath.Path
 	req.MetaData.Name = newFilePath.NewName

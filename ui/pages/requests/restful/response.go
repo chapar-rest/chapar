@@ -28,7 +28,7 @@ type Response struct {
 	responseCookies *component.ValuesTable
 
 	response       string
-	onCopyResponse func(response string)
+	onCopyResponse func(gtx layout.Context, response string)
 
 	isResponseUpdated bool
 	jsonViewer        *widgets.JsonViewer
@@ -58,7 +58,7 @@ func NewResponse(theme *material.Theme) *Response {
 	return r
 }
 
-func (r *Response) SetOnCopyResponse(f func(response string)) {
+func (r *Response) SetOnCopyResponse(f func(gtx layout.Context, response string)) {
 	r.onCopyResponse = f
 }
 
@@ -87,10 +87,9 @@ func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 	}
 
 	if r.copyButton.Clickable.Clicked(gtx) {
-		if r.onCopyResponse != nil {
-			r.onCopyResponse(r.response)
-		}
+		r.onCopyResponse(gtx, r.response)
 	}
+
 	inset := layout.Inset{Top: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{
