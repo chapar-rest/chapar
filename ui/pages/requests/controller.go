@@ -104,6 +104,9 @@ func (c *Controller) onCopyResponse(gtx layout.Context, response string) {
 }
 
 func (c *Controller) onSubmitRequest(id string) {
+	c.view.SetSendingRequestLoading(id)
+	defer c.view.SetSendingRequestLoaded(id)
+
 	res, err := rest.SendRequest(c.model.GetRequest(id).Spec.HTTP, c.envState.GetActiveEnvironment())
 	if err != nil {
 		fmt.Println("failed to send request", err)
@@ -116,6 +119,7 @@ func (c *Controller) onSubmitRequest(id string) {
 	}
 
 	c.view.SetHTTPResponse(id, resp, mapToKeyValue(res.Headers), cookieToKeyValue(res.Cookies), res.StatusCode, res.TimePassed, len(res.Body))
+
 }
 
 func cookieToKeyValue(cookies []*http.Cookie) []domain.KeyValue {

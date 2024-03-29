@@ -27,7 +27,9 @@ type Response struct {
 	responseHeaders *component.ValuesTable
 	responseCookies *component.ValuesTable
 
-	response       string
+	response string
+	message  string
+
 	onCopyResponse func(gtx layout.Context, response string)
 
 	isResponseUpdated bool
@@ -77,11 +79,19 @@ func (r *Response) SetHeaders(headers []domain.KeyValue) {
 	r.responseHeaders.SetData(headers)
 }
 
+func (r *Response) SetMessage(message string) {
+	r.message = message
+}
+
 func (r *Response) SetCookies(cookies []domain.KeyValue) {
 	r.responseCookies.SetData(cookies)
 }
 
 func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	if r.message != "" {
+		return component.Message(gtx, theme, r.message)
+	}
+
 	if r.response == "" {
 		return component.Message(gtx, theme, "No response available yet ;)")
 	}

@@ -58,6 +58,14 @@ func (r *Restful) SetHTTPResponse(response string, headers []domain.KeyValue, co
 	r.Response.SetStatusParams(statusCode, duration, size)
 }
 
+func (r *Restful) ShowSendingRequestLoading() {
+	r.Response.SetMessage("Sending request...")
+}
+
+func (r *Restful) HideSendingRequestLoading() {
+	r.Response.SetMessage("")
+}
+
 func (r *Restful) SetOnSave(f func(id string)) {
 	r.onSave = f
 }
@@ -172,17 +180,6 @@ func (r *Restful) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				return r.AddressBar.Layout(gtx, theme)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				//return r.resizer.Layout(gtx,
-				//	func(gtx layout.Context) layout.Dimensions {
-				//		return r.Request.Layout(gtx, theme)
-				//	},
-				//	func(gtx layout.Context) layout.Dimensions {
-				//		return r.Response.Layout(gtx, theme)
-				//	},
-				//	func(gtx layout.Context) layout.Dimensions {
-				//		return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(gtx.Constraints.Max.X), unit.Dp(2))
-				//	},
-				//)
 				return r.split.Layout(gtx,
 					func(gtx layout.Context) layout.Dimensions {
 						return r.Request.Layout(gtx, theme)

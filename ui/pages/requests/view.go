@@ -327,6 +327,22 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 	v.containers.Set(req.MetaData.ID, ct)
 }
 
+func (v *View) SetSendingRequestLoading(id string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.ShowSendingRequestLoading()
+		}
+	}
+}
+
+func (v *View) SetSendingRequestLoaded(id string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.HideSendingRequestLoading()
+		}
+	}
+}
+
 func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	if _, ok := v.containers.Get(collection.MetaData.ID); ok {
 		return
