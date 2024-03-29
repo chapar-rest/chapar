@@ -66,6 +66,8 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.Label(theme, theme.TextSize, j.lines[i])
 							l.State = j.selectables[i]
+							l.Font.Typeface = "JetBrainsMono"
+							l.TextSize = unit.Sp(12)
 							return l.Layout(gtx)
 						})
 					}),

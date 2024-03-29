@@ -53,11 +53,22 @@ func Prepare() ([]font.FontFace, error) {
 		return nil, err
 	}
 
+	jetBrainsMonoTTF, err := getFont("JetBrainsMono-Regular.ttf")
+	if err != nil {
+		panic(err)
+	}
+
+	jetBrainsMono, err := opentype.Parse(jetBrainsMonoTTF)
+	if err != nil {
+		panic(err)
+	}
+
 	fontFaces = append(fontFaces,
 		font.FontFace{Font: font.Font{}, Face: robotoRegular},
 		font.FontFace{Font: font.Font{Weight: font.Medium}, Face: robotoMedium},
 		font.FontFace{Font: font.Font{Weight: font.Bold}, Face: robotoBold},
 		font.FontFace{Font: font.Font{Typeface: "MaterialIcons"}, Face: materialIcons},
+		font.FontFace{Font: font.Font{Typeface: "JetBrainsMono"}, Face: jetBrainsMono},
 	)
 	return fontFaces, nil
 }
@@ -69,4 +80,18 @@ func getFont(path string) ([]byte, error) {
 	}
 
 	return data, err
+}
+
+func MustGetSpaceMono() font.FontFace {
+	data, err := getFont("SpaceMono-Regular.ttf")
+	if err != nil {
+		panic(err)
+	}
+
+	monoFont, err := opentype.Parse(data)
+	if err != nil {
+		panic(err)
+	}
+
+	return font.FontFace{Font: font.Font{Typeface: "SpaceMono"}, Face: monoFont}
 }

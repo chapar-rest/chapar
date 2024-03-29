@@ -24,6 +24,7 @@ type CodeEditor struct {
 	list  *widget.List
 
 	onChange func(text string)
+	monoFont font.FontFace
 }
 
 func NewCodeEditor(code string) *CodeEditor {
@@ -35,6 +36,7 @@ func NewCodeEditor(code string) *CodeEditor {
 				Axis: layout.Vertical,
 			},
 		},
+		// monoFont: fonts.MustGetSpaceMono(),
 	}
 
 	c.editor.Submit = false
@@ -110,7 +112,9 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme, c.editor, hint).Layout(gtx)
+					ee := material.Editor(theme, c.editor, hint)
+					ee.Font.Typeface = "JetBrainsMono"
+					return ee.Layout(gtx)
 				})
 			}),
 		)
