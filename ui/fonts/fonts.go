@@ -83,7 +83,7 @@ func getFont(path string) ([]byte, error) {
 }
 
 func MustGetMono() font.FontFace {
-	robotoMonoRegularTTF, err := getFont("RobotoMono-Regular.ttf")
+	robotoMonoRegularTTF, err := getFont("SpaceMono-Regular.ttf")
 	if err != nil {
 		panic(err)
 	}
