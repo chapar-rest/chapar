@@ -81,9 +81,10 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 			continue
 		}
 
-		if e.Name == key.NameTab {
+		if e.Name == key.NameTab && e.State == key.Release {
 			c.editor.Insert("    ")
 			gtx.Execute(op.InvalidateCmd{})
+			break
 		}
 	}
 
