@@ -92,13 +92,14 @@ func New(app *ui.Application) (*UI, error) {
 		u.header.LoadEnvs(environmentsState.GetEnvironments())
 	})
 
-	if selectedEnv := environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironmentID); selectedEnv != nil {
+	if selectedEnv := environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironment.ID); selectedEnv != nil {
 		environmentsState.SetActiveEnvironment(selectedEnv)
 		u.header.SetSelectedEnvironment(environmentsState.GetActiveEnvironment())
 	}
 
 	u.header.OnSelectedEnvChanged = func(env *domain.Environment) {
-		preferences.Spec.SelectedEnvironmentID = env.MetaData.ID
+		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
+		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
 		if err := repo.UpdatePreferences(preferences); err != nil {
 			fmt.Println("failed to update preferences: ", err)
 		}
