@@ -14,6 +14,8 @@ type Header struct {
 	envDropDown *widgets.DropDown
 
 	envState *state.Environments
+
+	OnSelectedEnvChanged func(env *domain.Environment)
 }
 
 func NewHeader(envState *state.Environments) *Header {
@@ -26,10 +28,6 @@ func NewHeader(envState *state.Environments) *Header {
 		widgets.NewDropDownOption("No Environment"),
 		widgets.NewDropDownDivider(),
 	)
-
-	// h.loadEnvs(nil)
-	// bus.Subscribe(state.EnvironmentsChanged, h.loadEnvs)
-
 	return h
 }
 
@@ -44,6 +42,11 @@ func (h *Header) LoadEnvs(data []*domain.Environment) {
 	h.envDropDown.SetOptions(options...)
 }
 
+func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
+	h.selectedEnv = env.MetaData.Name
+	h.envDropDown.SetSelectedByValue(env.MetaData.Name)
+}
+
 func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(4)}
 
@@ -51,6 +54,10 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 		h.selectedEnv = h.envDropDown.GetSelected().Text
 		id := h.envDropDown.GetSelected().Identifier
 		h.envState.SetActiveEnvironment(h.envState.GetEnvironment(id))
+
+		if h.OnSelectedEnvChanged != nil {
+			h.OnSelectedEnvChanged(h.envState.GetEnvironment(id))
+		}
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,

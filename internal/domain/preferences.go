@@ -10,8 +10,8 @@ type Preferences struct {
 }
 
 type PrefSpec struct {
-	DarkMode    bool   `yaml:"darkMode"`
-	SelectedEnv string `yaml:"selectedEnv"`
+	DarkMode              bool   `yaml:"darkMode"`
+	SelectedEnvironmentID string `yaml:"selectedEnvironmentID"`
 }
 
 func NewPreferences() *Preferences {
@@ -23,8 +23,8 @@ func NewPreferences() *Preferences {
 			Name: "Preferences",
 		},
 		Spec: PrefSpec{
-			DarkMode:    true,
-			SelectedEnv: "",
+			DarkMode:              true,
+			SelectedEnvironmentID: "",
 		},
 	}
 }

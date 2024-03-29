@@ -1,7 +1,10 @@
 package app
 
 import (
+	"errors"
+	"fmt"
 	"image/color"
+	"os"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -53,6 +56,18 @@ func New(app *ui.Application) (*UI, error) {
 	environmentsState := state.NewEnvironments(repo)
 	requestsState := state.NewRequests(repo)
 
+	preferences, err := repo.ReadPreferencesData()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			preferences = domain.NewPreferences()
+			if err := repo.UpdatePreferences(preferences); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
 	u.Theme = material.NewTheme()
 	u.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	// set foreground color
@@ -77,6 +92,20 @@ func New(app *ui.Application) (*UI, error) {
 		u.header.LoadEnvs(environmentsState.GetEnvironments())
 	})
 
+	if selectedEnv := environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironmentID); selectedEnv != nil {
+		environmentsState.SetActiveEnvironment(selectedEnv)
+		u.header.SetSelectedEnvironment(environmentsState.GetActiveEnvironment())
+	}
+
+	u.header.OnSelectedEnvChanged = func(env *domain.Environment) {
+		preferences.Spec.SelectedEnvironmentID = env.MetaData.ID
+		if err := repo.UpdatePreferences(preferences); err != nil {
+			fmt.Println("failed to update preferences: ", err)
+		}
+
+		environmentsState.SetActiveEnvironment(env)
+	}
+
 	u.requestsView = requests.NewView(u.Theme)
 	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState)
 	if err := reqController.LoadData(); err != nil {
@@ -84,7 +113,6 @@ func New(app *ui.Application) (*UI, error) {
 	}
 
 	u.notification = &widgets.Notification{}
-
 	return u, nil
 }
 

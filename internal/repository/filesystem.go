@@ -19,6 +19,7 @@ const (
 	environmentsDir = "envs"
 	collectionsDir  = "collections"
 	requestsDir     = "requests"
+	preferencesDir  = "preferences"
 )
 
 var _ Repository = &Filesystem{}
@@ -117,17 +118,15 @@ func (f *Filesystem) GetCollectionsDir() (string, error) {
 	}
 
 	cdir := path.Join(dir, collectionsDir)
-	if _, err := os.Stat(cdir); os.IsNotExist(err) {
-		if err := os.Mkdir(cdir, 0755); err != nil {
-			return "", err
-		}
+	if err := makeDir(cdir); err != nil {
+		return "", err
 	}
+
 	return cdir, nil
 }
 
 func (f *Filesystem) UpdateCollection(collection *domain.Collection) error {
 	if !strings.HasSuffix(collection.FilePath, "_collection.yaml") {
-		fmt.Println("collection file path", collection.FilePath)
 		// if directory is not exist, create it
 		if _, err := os.Stat(collection.FilePath); os.IsNotExist(err) {
 			if err := os.MkdirAll(collection.FilePath, 0755); err != nil {
@@ -234,32 +233,20 @@ func (f *Filesystem) GetEnvironmentDir() (string, error) {
 	}
 
 	envDir := path.Join(dir, environmentsDir)
-	if _, err := os.Stat(envDir); os.IsNotExist(err) {
-		if err := os.Mkdir(envDir, 0755); err != nil {
-			return "", err
-		}
+	if err := makeDir(envDir); err != nil {
+		return "", err
 	}
 
 	return envDir, nil
 }
 
 func (f *Filesystem) UpdateEnvironment(env *domain.Environment) error {
-	//if env.FilePath == "" {
-	//	fileName, err := f.GetNewEnvironmentFilePath(env.MetaData.Name)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	env.FilePath = fileName.Path
-	//}
-
 	if err := SaveToYaml(env.FilePath, env); err != nil {
 		return err
 	}
 
 	// rename the file to the new name
 	if env.MetaData.Name != path.Base(env.FilePath) {
-		fmt.Println("renaming file")
 		newFilePath := path.Join(path.Dir(env.FilePath), env.MetaData.Name+".yaml")
 		if err := os.Rename(env.FilePath, newFilePath); err != nil {
 			return err
@@ -288,8 +275,8 @@ func (f *Filesystem) ReadPreferencesData() (*domain.Preferences, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	filePath := path.Join(dir, "preferences.yaml")
+	pdir := path.Join(dir, preferencesDir)
+	filePath := path.Join(pdir, "preferences.yaml")
 	return LoadFromYaml[domain.Preferences](filePath)
 }
 
@@ -299,7 +286,12 @@ func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
 		return err
 	}
 
-	filePath := path.Join(dir, "preferences.yaml")
+	pdir := path.Join(dir, preferencesDir)
+	if err := makeDir(pdir); err != nil {
+		return err
+	}
+
+	filePath := path.Join(pdir, "preferences.yaml")
 	return SaveToYaml[domain.Preferences](filePath, pref)
 }
 
@@ -360,10 +352,8 @@ func (f *Filesystem) GetRequestsDir() (string, error) {
 	}
 
 	rdir := path.Join(dir, requestsDir)
-	if _, err := os.Stat(rdir); os.IsNotExist(err) {
-		if err := os.Mkdir(rdir, 0755); err != nil {
-			return "", err
-		}
+	if err := makeDir(rdir); err != nil {
+		return "", err
 	}
 
 	return rdir, nil
@@ -467,13 +457,20 @@ func CreateConfigDir() (string, error) {
 		return "", err
 	}
 
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.Mkdir(dir, 0755); err != nil {
-			return "", err
-		}
+	if err := makeDir(dir); err != nil {
+		return "", err
 	}
 
 	return dir, nil
+}
+
+func makeDir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.Mkdir(dir, 0755); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func userConfigDir() (string, error) {
