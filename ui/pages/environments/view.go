@@ -22,6 +22,7 @@ const (
 
 type View struct {
 	newEnvButton widget.Clickable
+	importButton widget.Clickable
 
 	treeViewSearchBox *widgets.TextField
 	treeView          *widgets.TreeView
@@ -287,12 +288,16 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
+						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if v.newEnvButton.Clicked(gtx) {
 								if v.onNewEnv != nil {
 									v.onNewEnv()
 								}
 							}
-							return material.Button(theme, &v.newEnvButton, "New").Layout(gtx)
+							return widgets.Button(theme, &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New").Layout(gtx, theme)
 						}),
 					)
 				})

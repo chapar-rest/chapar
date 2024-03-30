@@ -133,3 +133,8 @@ var TunnelIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionSwapVerticalCircle)
 	return icon
 }()
+
+var SendIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ContentSend)
+	return icon
+}()

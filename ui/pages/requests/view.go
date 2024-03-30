@@ -33,6 +33,7 @@ type View struct {
 
 	// add menu
 	newRequestButton     widget.Clickable
+	importButton         widget.Clickable
 	newMenuContextArea   giox.ContextArea
 	newMenu              giox.MenuState
 	menuInit             bool
@@ -507,6 +508,10 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
+						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = 0
 							return layout.Stack{}.Layout(gtx,
 								layout.Stacked(func(gtx layout.Context) layout.Dimensions {
@@ -522,13 +527,13 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 										}
 									}
 
-									return material.Button(theme, &v.newRequestButton, "New").Layout(gtx)
+									return widgets.Button(theme, &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New").Layout(gtx, theme)
 								}),
 								layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 									return v.newMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 										offset := layout.Inset{
-											Top:  unit.Dp(float32(80)/gtx.Metric.PxPerDp + 1),
-											Left: unit.Dp(4),
+											Top:  unit.Dp(float32(70)/gtx.Metric.PxPerDp + 1),
+											Left: unit.Dp(1),
 										}
 										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 											gtx.Constraints.Min.X = 0
@@ -540,10 +545,6 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 								}),
 							)
 						}),
-						// layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-						// layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						//	return material.Button(theme, &v.importButton, "Import").Layout(gtx)
-						// }),
 					)
 				})
 			}),
