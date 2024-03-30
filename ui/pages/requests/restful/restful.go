@@ -170,6 +170,10 @@ func (r *Restful) SetQueryParams(params []domain.KeyValue) {
 	r.Request.Params.SetQueryParams(params)
 }
 
+func (r *Restful) SetPathParams(params []domain.KeyValue) {
+	r.Request.Params.SetPathParams(params)
+}
+
 func (r *Restful) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,

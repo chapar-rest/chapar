@@ -351,6 +351,14 @@ func (v *View) SetQueryParams(id string, params []domain.KeyValue) {
 	}
 }
 
+func (v *View) SetPathParams(id string, params []domain.KeyValue) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPathParams(params)
+		}
+	}
+}
+
 func (v *View) SetURL(id, url string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {

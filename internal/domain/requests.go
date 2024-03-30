@@ -573,6 +573,31 @@ func ParseQueryParams(params string) []KeyValue {
 	return out
 }
 
+func ParsePathParams(params string) []KeyValue {
+	// remove / from the beginning
+	if len(params) > 0 && params[0] == '/' {
+		params = params[1:]
+	}
+
+	// separate the path params
+	pairs := strings.Split(params, "/")
+	if len(params) == 0 {
+		return nil
+	}
+
+	// find path params, which are surrounded by single curly braces and not in query params
+	out := make([]KeyValue, 0)
+	for _, p := range pairs {
+		if strings.Count(p, "{") == 1 && strings.Count(p, "}") == 1 && !strings.Contains(p, "=") {
+			key := strings.Trim(p, "{}")
+			kv := KeyValue{ID: uuid.NewString(), Key: key, Value: "", Enable: true}
+			out = append(out, kv)
+		}
+	}
+
+	return out
+}
+
 func EncodeQueryParams(params []KeyValue) string {
 	if len(params) == 0 {
 		return ""

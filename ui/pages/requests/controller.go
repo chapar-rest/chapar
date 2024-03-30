@@ -190,10 +190,15 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		c.view.SetURL(id, newURL)
 		inComingRequest.Spec.HTTP.URL = newURL
 	} else if urlChanged {
-		// update the address
+		// update query params based on the new url
 		newParams := c.getUrlParams(inComingRequest.Spec.HTTP.URL)
 		c.view.SetQueryParams(id, newParams)
 		inComingRequest.Spec.HTTP.Request.QueryParams = newParams
+
+		// update the path params based on the new url
+		newPathParams := domain.ParsePathParams(inComingRequest.Spec.HTTP.URL)
+		c.view.SetPathParams(id, newPathParams)
+		inComingRequest.Spec.HTTP.Request.PathParams = newPathParams
 	}
 
 	// break the reference
