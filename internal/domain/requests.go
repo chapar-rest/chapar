@@ -547,7 +547,7 @@ func (r *Request) SetDefaultValues() {
 	}
 }
 
-func ParseQueryParams(params string, oldParams []KeyValue) []KeyValue {
+func ParseQueryParams(params string) []KeyValue {
 	// remove ? from the beginning
 	if len(params) > 0 && params[0] == '?' {
 		params = params[1:]
@@ -563,12 +563,29 @@ func ParseQueryParams(params string, oldParams []KeyValue) []KeyValue {
 	out := make([]KeyValue, 0, len(pairs))
 	for _, p := range pairs {
 		pair := strings.Split(p, "=")
-		if len(pair) == 2 {
-			out = append(out, KeyValue{Key: pair[0], Value: pair[1], Enable: true})
-		} else {
-			out = append(out, KeyValue{Key: pair[0], Value: "", Enable: true})
+		if len(pair) != 2 {
+			continue
 		}
+		kv := KeyValue{ID: uuid.NewString(), Key: pair[0], Value: pair[1], Enable: true}
+		out = append(out, kv)
 	}
 
 	return out
+}
+
+func EncodeQueryParams(params []KeyValue) string {
+	if len(params) == 0 {
+		return ""
+	}
+
+	out := make([]string, 0, len(params))
+	for _, p := range params {
+		if p.Key == "" || p.Value == "" {
+			continue
+		}
+
+		out = append(out, p.Key+"="+p.Value)
+	}
+
+	return strings.Join(out, "&")
 }

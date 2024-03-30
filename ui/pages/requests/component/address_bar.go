@@ -65,6 +65,10 @@ func (a *AddressBar) SetOnSubmit(onSubmit func()) {
 	a.onSubmit = onSubmit
 }
 
+func (a *AddressBar) SetURL(url string) {
+	a.url.SetText(url)
+}
+
 func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	borderColor := widgets.Gray400
 	if gtx.Source.Focused(a.url) {

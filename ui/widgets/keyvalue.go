@@ -62,7 +62,7 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 	}
 
 	kv.addButton.OnClick = func() {
-		kv.AddItem(NewKeyValueItem("", "", uuid.NewString(), false))
+		kv.AddItem(NewKeyValueItem("", "", uuid.NewString(), true))
 		kv.triggerChanged()
 	}
 

@@ -30,4 +30,5 @@ type RestContainer interface {
 	ShowSendingRequestLoading()
 	HideSendingRequestLoading()
 	SetQueryParams(params []domain.KeyValue)
+	SetURL(url string)
 }

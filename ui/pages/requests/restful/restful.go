@@ -36,6 +36,10 @@ func (r *Restful) SetOnSubmit(f func(id string)) {
 	r.onSubmit = f
 }
 
+func (r *Restful) SetURL(url string) {
+	r.AddressBar.SetURL(url)
+}
+
 func (r *Restful) SetDataChanged(changed bool) {
 	r.Breadcrumb.SetDataChanged(changed)
 }

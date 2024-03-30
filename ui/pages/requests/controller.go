@@ -181,10 +181,19 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 
-	// did url change?
-	if inComingRequest.Spec.HTTP.URL != req.Spec.HTTP.URL {
-		// update the view
-		c.view.SetQueryParams(id, c.getUrlParams(inComingRequest))
+	queryParamsChanged := !domain.CompareKeyValues(req.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.Request.QueryParams)
+	urlChanged := inComingRequest.Spec.HTTP.URL != req.Spec.HTTP.URL
+
+	// if query params and url are changed, update the url base on the query params
+	if (queryParamsChanged && urlChanged) || queryParamsChanged {
+		newURL := c.getNewURLWithParams(inComingRequest.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.URL)
+		c.view.SetURL(id, newURL)
+		inComingRequest.Spec.HTTP.URL = newURL
+	} else if urlChanged {
+		// update the address
+		newParams := c.getUrlParams(inComingRequest.Spec.HTTP.URL)
+		c.view.SetQueryParams(id, newParams)
+		inComingRequest.Spec.HTTP.Request.QueryParams = newParams
 	}
 
 	// break the reference
@@ -205,18 +214,36 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
 }
 
-func (c *Controller) getUrlParams(req *domain.Request) []domain.KeyValue {
+func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) string {
+	if len(params) == 0 {
+		return url
+	}
+
 	// sync url params with url params editor
-	if req.Spec.HTTP.URL == "" {
+	if url == "" {
+		return ""
+	}
+
+	urlParams := strings.Split(url, "?")
+	if len(urlParams) < 2 {
+		return url + "?" + domain.EncodeQueryParams(params)
+	}
+
+	return urlParams[0] + "?" + domain.EncodeQueryParams(params)
+}
+
+func (c *Controller) getUrlParams(newURL string) []domain.KeyValue {
+	// sync url params with url params editor
+	if newURL == "" {
 		return nil
 	}
 
-	urlParams := strings.Split(req.Spec.HTTP.URL, "?")
+	urlParams := strings.Split(newURL, "?")
 	if len(urlParams) < 2 {
 		return nil
 	}
 
-	return domain.ParseQueryParams(urlParams[1], req.Spec.HTTP.Request.PathParams)
+	return domain.ParseQueryParams(urlParams[1])
 }
 
 func (c *Controller) onCollectionDataChanged(id string) {

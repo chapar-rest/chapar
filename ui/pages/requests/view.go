@@ -351,6 +351,14 @@ func (v *View) SetQueryParams(id string, params []domain.KeyValue) {
 	}
 }
 
+func (v *View) SetURL(id, url string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetURL(url)
+		}
+	}
+}
+
 func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	if _, ok := v.containers.Get(collection.MetaData.ID); ok {
 		return
