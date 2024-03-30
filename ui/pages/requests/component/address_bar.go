@@ -21,8 +21,7 @@ type AddressBar struct {
 
 	onURLChanged    func(url string)
 	onMethodChanged func(method string)
-	//onSendClicked   func(method, url string)
-	onSubmit func()
+	onSubmit        func()
 }
 
 func NewAddressBar(address, method string) *AddressBar {
@@ -65,10 +64,6 @@ func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
 func (a *AddressBar) SetOnSubmit(onSubmit func()) {
 	a.onSubmit = onSubmit
 }
-
-//func (a *AddressBar) SetOnSendClicked(onSendClicked func(method, url string)) {
-//	a.onSendClicked = onSendClicked
-//}
 
 func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	borderColor := widgets.Gray400
@@ -123,7 +118,8 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.Y = gtx.Dp(20)
 								editor := material.Editor(theme, a.url, "https://example.com")
-								editor.TextSize = unit.Sp(16)
+								editor.TextSize = unit.Sp(13)
+								editor.Font.Typeface = "JetBrainsMono"
 								return editor.Layout(gtx)
 							})
 						}),
