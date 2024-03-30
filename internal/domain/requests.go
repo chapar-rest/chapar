@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -544,4 +545,30 @@ func (r *Request) SetDefaultValues() {
 			Type: "None",
 		}
 	}
+}
+
+func ParseQueryParams(params string, oldParams []KeyValue) []KeyValue {
+	// remove ? from the beginning
+	if len(params) > 0 && params[0] == '?' {
+		params = params[1:]
+	}
+
+	// separate the query params
+	pairs := strings.Split(params, "&")
+
+	if len(params) == 0 {
+		return nil
+	}
+
+	out := make([]KeyValue, 0, len(pairs))
+	for _, p := range pairs {
+		pair := strings.Split(p, "=")
+		if len(pair) == 2 {
+			out = append(out, KeyValue{Key: pair[0], Value: pair[1], Enable: true})
+		} else {
+			out = append(out, KeyValue{Key: pair[0], Value: "", Enable: true})
+		}
+	}
+
+	return out
 }

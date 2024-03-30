@@ -343,6 +343,14 @@ func (v *View) SetSendingRequestLoaded(id string) {
 	}
 }
 
+func (v *View) SetQueryParams(id string, params []domain.KeyValue) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetQueryParams(params)
+		}
+	}
+}
+
 func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	if _, ok := v.containers.Get(collection.MetaData.ID); ok {
 		return
@@ -363,7 +371,6 @@ func (v *View) SetHTTPResponse(id, response string, headers []domain.KeyValue, c
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
 		}
-		//ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
 	}
 }
 

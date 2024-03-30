@@ -159,7 +159,7 @@ func (c *Controller) onDataChanged(id string, data any, containerType string) {
 	case TypeRequest:
 		c.onRequestDataChanged(id, data)
 	case TypeCollection:
-		c.onCollectionDataChanged(id, data)
+		c.onCollectionDataChanged(id)
 	}
 }
 
@@ -181,9 +181,16 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 
+	// did url change?
+	if inComingRequest.Spec.HTTP.URL != req.Spec.HTTP.URL {
+		// update the view
+		c.view.SetQueryParams(id, c.getUrlParams(inComingRequest))
+	}
+
 	// break the reference
 	clone := inComingRequest.Clone()
 	req.Spec = clone.Spec
+
 	if err := c.model.UpdateRequest(req, true); err != nil {
 		fmt.Println("failed to update request", err)
 		return
@@ -198,7 +205,21 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
 }
 
-func (c *Controller) onCollectionDataChanged(id string, data any) {
+func (c *Controller) getUrlParams(req *domain.Request) []domain.KeyValue {
+	// sync url params with url params editor
+	if req.Spec.HTTP.URL == "" {
+		return nil
+	}
+
+	urlParams := strings.Split(req.Spec.HTTP.URL, "?")
+	if len(urlParams) < 2 {
+		return nil
+	}
+
+	return domain.ParseQueryParams(urlParams[1], req.Spec.HTTP.Request.PathParams)
+}
+
+func (c *Controller) onCollectionDataChanged(id string) {
 	col := c.model.GetCollection(id)
 	if col == nil {
 		fmt.Println("failed to get collection", id)

@@ -29,4 +29,5 @@ type RestContainer interface {
 	SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int)
 	ShowSendingRequestLoading()
 	HideSendingRequestLoading()
+	SetQueryParams(params []domain.KeyValue)
 }

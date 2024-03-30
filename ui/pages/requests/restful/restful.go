@@ -23,9 +23,6 @@ type Restful struct {
 
 	split widgets.SplitView
 
-	// TODO use resizer instead of split
-	// resizer *giox.Resize
-
 	onSave        func(id string)
 	onDataChanged func(id string, data any)
 	onSubmit      func(id string)
@@ -163,6 +160,10 @@ func (r *Restful) setupHooks() {
 		r.Req.Spec.HTTP.Request.Body = body
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
+}
+
+func (r *Restful) SetQueryParams(params []domain.KeyValue) {
+	r.Request.Params.SetQueryParams(params)
 }
 
 func (r *Restful) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

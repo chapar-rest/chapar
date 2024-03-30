@@ -18,14 +18,6 @@ type PostmanCollection struct {
 	Item []RequestItem `json:"item"`
 }
 
-// KeyValue for headers, pathParams, queryParams, etc.
-type KeyValue struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
-}
-
-// Request, RequestMeta, RequestSpec, and other struct definitions follow your Golang struct definitions...
-
 type RequestItem struct {
 	Name    string `json:"name"`
 	Request struct {
