@@ -19,8 +19,6 @@ import (
 
 	"github.com/mirzakhany/chapar/internal/rest"
 
-	"github.com/mirzakhany/chapar/internal/logger"
-
 	"github.com/mirzakhany/chapar/ui/widgets"
 
 	"github.com/mirzakhany/chapar/internal/domain"
@@ -447,7 +445,7 @@ func (c *Controller) addRequestToCollection(id string) {
 
 	newFilePath, err := c.repo.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
 	if err != nil {
-		logger.Error(fmt.Sprintf("failed to get new file path, err %v", err))
+		fmt.Printf("failed to get new file path, err %v\n", err)
 		return
 	}
 

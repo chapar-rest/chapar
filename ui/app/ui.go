@@ -18,7 +18,6 @@ import (
 	"github.com/mirzakhany/chapar/internal/notify"
 	"github.com/mirzakhany/chapar/internal/repository"
 	"github.com/mirzakhany/chapar/internal/state"
-	"github.com/mirzakhany/chapar/ui"
 	"github.com/mirzakhany/chapar/ui/fonts"
 	"github.com/mirzakhany/chapar/ui/pages/console"
 	"github.com/mirzakhany/chapar/ui/pages/environments"
@@ -27,7 +26,6 @@ import (
 )
 
 type UI struct {
-	app   *ui.Application
 	Theme *material.Theme
 
 	sideBar *Sidebar
@@ -43,10 +41,9 @@ type UI struct {
 }
 
 // New creates a new UI using the Go Fonts.
-func New(app *ui.Application) (*UI, error) {
-	u := &UI{
-		app: app,
-	}
+func New() (*UI, error) {
+	u := &UI{}
+
 	fontCollection, err := fonts.Prepare()
 	if err != nil {
 		return nil, err
@@ -117,7 +114,7 @@ func New(app *ui.Application) (*UI, error) {
 	return u, nil
 }
 
-func (u *UI) Run(w *ui.Window) error {
+func (u *UI) Run(w *app.Window) error {
 	// ops are the operations from the UI
 	var ops op.Ops
 
