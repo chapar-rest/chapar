@@ -43,6 +43,10 @@ func (b *Breadcrumb) SetDataChanged(changed bool) {
 	b.dataChanged = changed
 }
 
+func (b *Breadcrumb) SetContainerType(cType string) {
+	b.ContainerType = cType
+}
+
 func (b *Breadcrumb) SetOnSave(f func(id string)) {
 	b.onSave = f
 }

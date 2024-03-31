@@ -113,6 +113,7 @@ func (r *Restful) setupHooks() {
 	r.AddressBar.SetOnMethodChanged(func(method string) {
 		r.Req.Spec.HTTP.Method = method
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+		r.Breadcrumb.SetContainerType(method)
 	})
 
 	r.AddressBar.SetOnURLChanged(func(url string) {
