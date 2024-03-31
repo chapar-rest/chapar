@@ -82,8 +82,8 @@ func getFont(path string) ([]byte, error) {
 	return data, err
 }
 
-func MustGetSpaceMono() font.FontFace {
-	data, err := getFont("SpaceMono-Regular.ttf")
+func MustGetJetBrainsMono() font.FontFace {
+	data, err := getFont("JetBrainsMono-Regular.ttf")
 	if err != nil {
 		panic(err)
 	}
@@ -93,5 +93,5 @@ func MustGetSpaceMono() font.FontFace {
 		panic(err)
 	}
 
-	return font.FontFace{Font: font.Font{Typeface: "SpaceMono"}, Face: monoFont}
+	return font.FontFace{Font: font.Font{Typeface: "JetBrainsMono"}, Face: monoFont}
 }
