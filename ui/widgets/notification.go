@@ -35,6 +35,11 @@ func (n *Notification) Layout(gtx layout.Context, theme *material.Theme, windowW
 		return layout.Dimensions{}
 	}
 
+	// set max width for the notification
+	gtx.Constraints.Max.X = windowWidth / 4
+	// set max height for the notification
+	gtx.Constraints.Max.Y = gtx.Dp(40)
+
 	macro := op.Record(gtx.Ops)
 	dim := layout.Background{}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
@@ -49,16 +54,10 @@ func (n *Notification) Layout(gtx layout.Context, theme *material.Theme, windowW
 		},
 	)
 	call := macro.Stop()
-	// change the offset to move the notification to the right side of the screen
-	offset := layout.Inset{
-		Top:    0,
-		Left:   unit.Dp(windowWidth/2 - dim.Size.X),
-		Right:  0,
-		Bottom: unit.Dp(40),
-	}
-
-	return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		call.Add(gtx.Ops)
-		return dim
+	return layout.SE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Bottom: unit.Dp(40), Right: unit.Dp(40)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			call.Add(gtx.Ops)
+			return dim
+		})
 	})
 }

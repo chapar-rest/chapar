@@ -143,7 +143,7 @@ func (u *UI) Run(w *app.Window) error {
 // Layout displays the main program layout.
 func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 	return layout.Stack{Alignment: layout.S}.Layout(gtx,
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -169,7 +169,7 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 				}),
 			)
 		}),
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
 		}),
 	)
