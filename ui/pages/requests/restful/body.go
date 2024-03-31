@@ -35,7 +35,7 @@ func NewBody(body domain.Body) *Body {
 		),
 		formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
-		script:     widgets.NewCodeEditor(""),
+		script:     widgets.NewCodeEditor("", "JSON"),
 	}
 
 	b.script.SetCode(body.Data)
@@ -50,6 +50,10 @@ func (b *Body) SetOnChange(f func(body domain.Body)) {
 	b.DropDown.SetOnChanged(func(selected string) {
 		b.body.Type = selected
 		b.onChange(b.body)
+
+		if selected == "JSON" || selected == "XML" {
+			b.script.SetLanguage(selected)
+		}
 	})
 
 	b.script.SetOnChanged(func(script string) {

@@ -5,21 +5,20 @@ import (
 	"image/color"
 	"strings"
 
-	"gioui.org/x/styledtext"
-
-	"gioui.org/op"
-	"gioui.org/x/richtext"
-	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/lexers"
-	"github.com/mirzakhany/chapar/ui/fonts"
-
 	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/richtext"
+	"gioui.org/x/styledtext"
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/mirzakhany/chapar/ui/fonts"
 )
 
 type CodeEditor struct {
@@ -33,14 +32,15 @@ type CodeEditor struct {
 	onChange func(text string)
 	monoFont font.FontFace
 
-	lexer chroma.Lexer
+	lexer     chroma.Lexer
+	codeStyle *chroma.Style
 
 	font font.FontFace
 
 	rhState richtext.InteractiveText
 }
 
-func NewCodeEditor(code string) *CodeEditor {
+func NewCodeEditor(code string, language string) *CodeEditor {
 	c := &CodeEditor{
 		editor: new(widget.Editor),
 		code:   code,
@@ -59,11 +59,17 @@ func NewCodeEditor(code string) *CodeEditor {
 	c.editor.SetText(code)
 	c.lines = strings.Split(code, "\n")
 
-	lexer := lexers.Get("JSON") // Replace "go" with the language of your choice
+	lexer := lexers.Get(language)
 	if lexer == nil {
 		lexer = lexers.Fallback
 	}
 	c.lexer = chroma.Coalesce(lexer)
+
+	style := styles.Get("dracula")
+	if style == nil {
+		style = styles.Fallback
+	}
+	c.codeStyle = style
 
 	return c
 }
@@ -76,6 +82,14 @@ func (c *CodeEditor) SetCode(code string) {
 	c.editor.SetText(code)
 	c.lines = strings.Split(code, "\n")
 	c.code = code
+}
+
+func (c *CodeEditor) SetLanguage(language string) {
+	lexer := lexers.Get(language)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	c.lexer = chroma.Coalesce(lexer)
 }
 
 func (c *CodeEditor) Code() string {
@@ -137,20 +151,18 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Stack{}.Layout(gtx,
-						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-							ee := material.Editor(theme, c.editor, hint)
-							ee.Font = c.font.Font
-							ee.Font.Typeface = "JetBrainsMono"
-							ee.TextSize = unit.Sp(13)
-							return ee.Layout(gtx)
-						}),
-						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-							t := styledtext.Text(theme.Shaper, c.getSpans()...)
-							t.WrapPolicy = styledtext.WrapGraphemes
-							return t.Layout(gtx, nil)
-						}),
-					)
+					ee := material.Editor(theme, c.editor, hint)
+					ee.Font = c.font.Font
+					ee.LineHeight = unit.Sp(14.73)
+					ee.Font.Typeface = "JetBrainsMono"
+					ee.TextSize = unit.Sp(13)
+					// make it almost invisible
+					ee.Color = Hovered(theme.ContrastBg)
+					ee.Layout(gtx)
+
+					t := styledtext.Text(theme.Shaper, c.getSpans()...)
+					t.WrapPolicy = styledtext.WrapGraphemes
+					return t.Layout(gtx, nil)
 				})
 			}),
 		)
@@ -164,40 +176,27 @@ func (c *CodeEditor) getSpans() []styledtext.SpanStyle {
 	}
 	spans := make([]styledtext.SpanStyle, 0)
 	for _, t := range iterator.Tokens() {
-
-		// fmt.Println("TOKEN", t.Type, t.Value)
-		var sColor = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xff} // Default color (black)
-
-		switch t.Type {
-		case chroma.Punctuation:
-			// Color for punctuation (brackets, commas, colons)
-			sColor = color.NRGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff}
-		case chroma.NameTag:
-			// Color for keys
-			sColor = color.NRGBA{R: 0x22, G: 0x8B, B: 0x22, A: 0xff}
-		case chroma.LiteralString:
-			// Color for strings
-			sColor = color.NRGBA{R: 0xDC, G: 0x14, B: 0x3C, A: 0xff}
-		case chroma.LiteralNumber:
-			// Color for numbers
-			sColor = color.NRGBA{R: 0x00, G: 0x00, B: 0x8B, A: 0xff}
-		case chroma.KeywordConstant:
-			// Color for booleans and null
-			sColor = color.NRGBA{R: 0x8B, G: 0x00, B: 0x00, A: 0xff}
-		// ... other token types as needed
-		default:
-			sColor = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xff}
-		}
-
 		// Create your span using the determined color
 		span := styledtext.SpanStyle{
 			Content: t.Value,
 			Size:    unit.Sp(13),
-			Color:   sColor,
+			Color:   c.getTokenColor(t),
 			Font:    c.font.Font,
 		}
 		span.Font.Typeface = "JetBrainsMono"
 		spans = append(spans, span)
 	}
 	return spans
+}
+
+func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
+	st := c.codeStyle.Get(t.Type)
+
+	// Convert the chroma style to a color.NRGBA
+	return color.NRGBA{
+		R: st.Colour.Red(),
+		G: st.Colour.Green(),
+		B: st.Colour.Blue(),
+		A: 0xff,
+	}
 }

@@ -26,7 +26,7 @@ type Option struct {
 func NewPrePostRequest(options []Option) *PrePostRequest {
 	p := &PrePostRequest{
 		dropDown:      widgets.NewDropDown(),
-		script:        widgets.NewCodeEditor(""),
+		script:        widgets.NewCodeEditor("", "Python"),
 		dropDownItems: options,
 	}
 
