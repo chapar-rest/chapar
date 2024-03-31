@@ -1,17 +1,24 @@
 package tips
 
 import (
+	"image"
+
 	"gioui.org/layout"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/assets"
 )
 
 type Tips struct {
 	messages []string
+
+	chaparImage image.Image
 }
 
 func New() *Tips {
-	return &Tips{
+	tips := &Tips{
 		messages: []string{
 			"Welcome to Chapar",
 			"Double Click on any item to open it.",
@@ -21,10 +28,31 @@ func New() *Tips {
 			"Use the sidebar to navigate between different sections",
 		},
 	}
+
+	data, err := assets.LoadImage("chapar.png")
+	if err != nil {
+		panic(err)
+	}
+
+	tips.chaparImage = data
+
+	return tips
 }
 
 func (t *Tips) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	items := make([]layout.FlexChild, 0, len(t.messages))
+
+	items = append(items,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widget.Image{
+				Src:      paint.NewImageOp(t.chaparImage),
+				Fit:      widget.Unscaled,
+				Position: layout.Center,
+				Scale:    1.0,
+			}.Layout(gtx)
+		}),
+	)
+
 	for i, m := range t.messages {
 		m := m
 		i := i
@@ -39,7 +67,7 @@ func (t *Tips) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 	}
 
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Start, Spacing: layout.SpaceBetween}.Layout(gtx,
+		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 			items...,
 		)
 	})

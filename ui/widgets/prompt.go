@@ -39,9 +39,7 @@ type Prompt struct {
 	rememberBool *widget.Bool
 
 	options []Option
-	//optionsClickables []widget.Clickable
-
-	result string
+	result  string
 
 	onSubmit func(selectedOption string, remember bool)
 }
@@ -58,13 +56,11 @@ func NewPrompt(title, content, modalType string, options ...Option) *Prompt {
 		Content: content,
 		Type:    modalType,
 		options: options,
-		//	optionsClickables: make([]widget.Clickable, len(options)),
 	}
 }
 
 func (p *Prompt) SetOptions(options ...Option) {
 	p.options = options
-	//p.optionsClickables = make([]widget.Clickable, len(options))
 }
 
 func (p *Prompt) Show() {
