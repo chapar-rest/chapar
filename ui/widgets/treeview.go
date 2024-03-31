@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"image"
+	"sort"
 	"strings"
 	"time"
 
@@ -51,6 +52,14 @@ type TreeNode struct {
 }
 
 func NewTreeView(nodes []*TreeNode) *TreeView {
+	// sort nodes alphabetically
+	sort.Slice(nodes, func(i, j int) bool {
+		sort.Slice(nodes[i].Children, func(k, l int) bool {
+			return nodes[i].Children[k].Text < nodes[i].Children[l].Text
+		})
+		return nodes[i].Text < nodes[j].Text
+	})
+
 	return &TreeView{
 		list: widget.List{
 			List: layout.List{
