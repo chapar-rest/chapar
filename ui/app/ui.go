@@ -163,8 +163,8 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 								return u.requestsView.Layout(gtx, u.Theme)
 							case 1:
 								return u.environmentsView.Layout(gtx, u.Theme)
-							case 4:
-								return u.consolePage.Layout(gtx, u.Theme)
+								// case 4:
+								//	return u.consolePage.Layout(gtx, u.Theme)
 							}
 							return layout.Dimensions{}
 						}),

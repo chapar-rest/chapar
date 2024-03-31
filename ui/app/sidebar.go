@@ -30,11 +30,11 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 		Buttons: []*SideBarButton{
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
 			{Icon: widgets.MenuIcon, Text: "Envs"},
-			{Icon: widgets.FileFolderIcon, Text: "Proto"},
-			{Icon: widgets.TunnelIcon, Text: "Tunnels"},
-			{Icon: widgets.ConsoleIcon, Text: "Console"},
-			//{Icon: widgets.LogsIcon, Text: "Logs"},
-			{Icon: widgets.SettingsIcon, Text: "Settings"},
+			// {Icon: widgets.FileFolderIcon, Text: "Proto"},
+			// {Icon: widgets.TunnelIcon, Text: "Tunnels"},
+			// {Icon: widgets.ConsoleIcon, Text: "Console"},
+			// {Icon: widgets.LogsIcon, Text: "Logs"},
+			// {Icon: widgets.SettingsIcon, Text: "Settings"},
 		},
 		list: &widget.List{
 			List: layout.List{
