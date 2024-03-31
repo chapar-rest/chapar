@@ -89,7 +89,7 @@ func New(req *domain.Request, theme *material.Theme) *Restful {
 	r := &Restful{
 		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
-		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.MetaData.Type, req.MetaData.Name),
+		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
 		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
 		split: widgets.SplitView{
 			Ratio:         0.05,
