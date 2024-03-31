@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 
@@ -16,10 +17,22 @@ type PostmanCollection struct {
 		Name string `json:"name"`
 	} `json:"info"`
 	Item []RequestItem `json:"item"`
+	Auth *struct {
+		Type   string   `json:"type"`
+		ApiKey []ApiKey `json:"apikey,omitempty"`
+	} `json:"auth"`
+}
+
+type ApiKey struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+	Type  string `json:"type"`
 }
 
 type RequestItem struct {
-	Name    string `json:"name"`
+	Name string `json:"name"`
+	// if request is a folder, it will have an item array
+	Item    []RequestItem `json:"item,omitempty"`
 	Request struct {
 		Method string `json:"method"`
 		Header []struct {
@@ -34,6 +47,18 @@ type RequestItem struct {
 			Raw string `json:"raw"`
 		} `json:"url"`
 	} `json:"request"`
+}
+
+type PostmanEnvironment struct {
+	ID     string                       `json:"id"`
+	Name   string                       `json:"name"`
+	Values []PostmanEnvironmentVariable `json:"values"`
+}
+
+type PostmanEnvironmentVariable struct {
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+	Enabled bool   `json:"enabled"`
 }
 
 // Convert a Postman collection item to our Request structure
@@ -75,47 +100,53 @@ func convertItemToRequest(item RequestItem) *domain.Request {
 	return req
 }
 
-func main() {
-	// Assume the first argument is the path to the Postman JSON file
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run script.go <path_to_postman_collection.json>")
-		os.Exit(1)
-	}
-
-	filePath := os.Args[1]
+func ImportPostmanCollection(filePath string) error {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		fmt.Printf("Error reading file: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	filesystem := &repository.Filesystem{}
-
 	var collection PostmanCollection
 	if err := json.Unmarshal(fileContent, &collection); err != nil {
 		fmt.Printf("Error parsing JSON: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	col := domain.NewCollection(collection.Info.Name)
 	fp, err := filesystem.GetNewCollectionDir(collection.Info.Name)
 	if err != nil {
 		fmt.Printf("Error getting new collection directory: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	col.FilePath = fp.Path
 	col.MetaData.Name = fp.NewName
 
 	if err := filesystem.UpdateCollection(col); err != nil {
 		fmt.Printf("Error saving collection: %v\n", err)
-		os.Exit(1)
+		return err
 	}
+
+	fmt.Println("collection auth", collection.Auth)
 
 	// Convert each item in the collection to our Request structure
 	var requests []*domain.Request
 	for _, item := range collection.Item {
+		if item.Item != nil {
+			// Convert the folder to a collection
+			// This is a simplification, in reality we need to handle nested folders
+			// and convert them to nested collections
+			for _, subItem := range item.Item {
+				requests = append(requests, convertItemToRequest(subItem))
+			}
+			continue
+		}
+
 		requests = append(requests, convertItemToRequest(item))
 	}
+
+	apiKey := findApiKey(collection)
 
 	for _, req := range requests {
 		fp, err := filesystem.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
@@ -124,12 +155,124 @@ func main() {
 			continue
 		}
 
+		if apiKey != nil {
+			req.Spec.HTTP.Request.Auth = domain.Auth{
+				Type:       "API Key",
+				APIKeyAuth: apiKey,
+			}
+		}
+
 		req.FilePath = fp.Path
 		req.MetaData.Name = fp.NewName
 
+		req.SetDefaultValues()
+
 		// Save the request to a file
 		if err := filesystem.UpdateRequest(req); err != nil {
-			fmt.Printf("Error saving request: %v\n", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func findApiKey(coll PostmanCollection) *domain.APIKeyAuth {
+	if coll.Auth == nil {
+		fmt.Printf("auth is nil")
+		return nil
+	}
+
+	var out domain.APIKeyAuth
+
+	if coll.Auth.Type == "apikey" && len(coll.Auth.ApiKey) > 0 {
+		if i, ok := findInApiKey(coll.Auth.ApiKey, func(val ApiKey) bool { return val.Key == "value" }); ok {
+			out.Value = coll.Auth.ApiKey[i].Value
+		}
+
+		if i, ok := findInApiKey(coll.Auth.ApiKey, func(val ApiKey) bool { return val.Key == "key" }); ok {
+			out.Key = coll.Auth.ApiKey[i].Value
+		}
+	}
+
+	if out.Key == "" || out.Value == "" {
+		fmt.Println("fail to find key or value", out)
+		return nil
+	}
+
+	return &out
+}
+
+func findInApiKey(arr []ApiKey, filter func(apiKey ApiKey) bool) (int, bool) {
+	for i, v := range arr {
+		if filter(v) {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func ImportPostmanEnvironment(filePath string) error {
+	fileContent, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Printf("Error reading file: %v\n", err)
+		return err
+	}
+
+	filesystem := &repository.Filesystem{}
+	var env PostmanEnvironment
+	if err := json.Unmarshal(fileContent, &env); err != nil {
+		fmt.Printf("Error parsing JSON: %v\n", err)
+		return err
+	}
+
+	// Convert Postman environment to our Environment structure
+	environment := domain.NewEnvironment(env.Name)
+	fp, err := filesystem.GetNewEnvironmentFilePath(env.Name)
+	if err != nil {
+		fmt.Printf("Error getting new environment file path: %v\n", err)
+		return err
+	}
+
+	environment.FilePath = fp.Path
+	environment.MetaData.Name = fp.NewName
+
+	// Convert each variable in the Postman environment to our KeyValue structure
+	var variables []domain.KeyValue
+	for _, variable := range env.Values {
+		variables = append(variables, domain.KeyValue{
+			ID:     uuid.NewString(),
+			Key:    variable.Key,
+			Value:  variable.Value,
+			Enable: variable.Enabled,
+		})
+	}
+
+	environment.Spec.Values = variables
+
+	if err := filesystem.UpdateEnvironment(environment); err != nil {
+		fmt.Printf("Error saving environment: %v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+var (
+	fileType = flag.String("t", "collection", "type of input file (collection or environment)")
+	filePath = flag.String("p", "example.json", "path to the input file")
+)
+
+func main() {
+	flag.Parse()
+
+	if *fileType == "collection" {
+		if err := ImportPostmanCollection(*filePath); err != nil {
+			fmt.Printf("Error importing Postman collection: %v\n", err)
+			os.Exit(1)
+		}
+	} else if *fileType == "environment" {
+		if err := ImportPostmanEnvironment(*filePath); err != nil {
+			fmt.Printf("Error importing Postman environment	: %v\n", err)
 		}
 	}
 }

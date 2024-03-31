@@ -98,6 +98,10 @@ func SendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, e
 		if req.Request.Auth.BasicAuth != nil && req.Request.Auth.BasicAuth.Username != "" && req.Request.Auth.BasicAuth.Password != "" {
 			httpReq.SetBasicAuth(req.Request.Auth.BasicAuth.Username, req.Request.Auth.BasicAuth.Password)
 		}
+
+		if req.Request.Auth.APIKeyAuth != nil && req.Request.Auth.APIKeyAuth.Key != "" && req.Request.Auth.APIKeyAuth.Value != "" {
+			httpReq.Header.Add(req.Request.Auth.APIKeyAuth.Key, req.Request.Auth.APIKeyAuth.Value)
+		}
 	}
 
 	// send request
@@ -236,6 +240,16 @@ func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HT
 
 			if strings.Contains(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}") {
 				req.Request.Auth.BasicAuth.Password = strings.ReplaceAll(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}", v)
+			}
+		}
+
+		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.APIKeyAuth != nil {
+			if strings.Contains(req.Request.Auth.APIKeyAuth.Key, "{{"+k+"}}") {
+				req.Request.Auth.APIKeyAuth.Key = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Key, "{{"+k+"}}", v)
+			}
+
+			if strings.Contains(req.Request.Auth.APIKeyAuth.Value, "{{"+k+"}}") {
+				req.Request.Auth.APIKeyAuth.Value = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Value, "{{"+k+"}}", v)
 			}
 		}
 

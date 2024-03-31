@@ -122,9 +122,15 @@ func (b *Body) Clone() *Body {
 }
 
 type Auth struct {
-	Type      string     `yaml:"type"`
-	BasicAuth *BasicAuth `yaml:"basicAuth,omitempty"`
-	TokenAuth *TokenAuth `yaml:"tokenAuth,omitempty"`
+	Type       string      `yaml:"type"`
+	BasicAuth  *BasicAuth  `yaml:"basicAuth,omitempty"`
+	TokenAuth  *TokenAuth  `yaml:"tokenAuth,omitempty"`
+	APIKeyAuth *APIKeyAuth `yaml:"apiKey,omitempty"`
+}
+
+type APIKeyAuth struct {
+	Key   string `yaml:"key"`
+	Value string `yaml:"value"`
 }
 
 func (a *Auth) Clone() *Auth {
@@ -135,6 +141,11 @@ func (a *Auth) Clone() *Auth {
 	if a.TokenAuth != nil {
 		clone.TokenAuth = a.TokenAuth.Clone()
 	}
+
+	if a.APIKeyAuth != nil {
+		clone.APIKeyAuth = a.APIKeyAuth.Clone()
+	}
+
 	return &clone
 }
 
@@ -144,6 +155,11 @@ func (a *BasicAuth) Clone() *BasicAuth {
 }
 
 func (a *TokenAuth) Clone() *TokenAuth {
+	clone := *a
+	return &clone
+}
+
+func (a *APIKeyAuth) Clone() *APIKeyAuth {
 	clone := *a
 	return &clone
 }
@@ -372,6 +388,10 @@ func CompareAuth(a, b Auth) bool {
 		return false
 	}
 
+	if !CompareAPIKey(a.APIKeyAuth, b.APIKeyAuth) {
+		return false
+	}
+
 	return true
 }
 
@@ -401,6 +421,22 @@ func CompareTokenAuth(a, b *TokenAuth) bool {
 	}
 
 	if a.Token != b.Token {
+		return false
+	}
+
+	return true
+}
+
+func CompareAPIKey(a, b *APIKeyAuth) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
+	if a.Key != b.Key || a.Value != b.Value {
 		return false
 	}
 

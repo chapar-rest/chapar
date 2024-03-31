@@ -14,8 +14,9 @@ type Auth struct {
 
 	auth domain.Auth
 
-	TokenForm *component.Form
-	BasicForm *component.Form
+	TokenForm  *component.Form
+	BasicForm  *component.Form
+	APIKeyForm *component.Form
 
 	onChange func(auth domain.Auth)
 }
@@ -27,6 +28,7 @@ func NewAuth(auth domain.Auth) *Auth {
 			widgets.NewDropDownOption("None"),
 			widgets.NewDropDownOption("Basic"),
 			widgets.NewDropDownOption("Token"),
+			widgets.NewDropDownOption("API Key"),
 		),
 
 		TokenForm: component.NewForm([]*component.Field{
@@ -36,9 +38,12 @@ func NewAuth(auth domain.Auth) *Auth {
 			{Label: "Username", Value: ""},
 			{Label: "Password", Value: ""},
 		}),
+		APIKeyForm: component.NewForm([]*component.Field{
+			{Label: "Key", Value: ""},
+			{Label: "Value", Value: ""},
+		}),
 	}
 
-	//if auth != nil {
 	a.DropDown.SetSelectedByValue(auth.Type)
 
 	if auth.BasicAuth != nil {
@@ -53,7 +58,13 @@ func NewAuth(auth domain.Auth) *Auth {
 			"Token": auth.TokenAuth.Token,
 		})
 	}
-	//}
+
+	if auth.APIKeyAuth != nil {
+		a.APIKeyForm.SetValues(map[string]string{
+			"Key":   auth.APIKeyAuth.Key,
+			"Value": auth.APIKeyAuth.Value,
+		})
+	}
 
 	return a
 }
@@ -84,6 +95,16 @@ func (a *Auth) SetOnChange(f func(auth domain.Auth)) {
 		a.auth.BasicAuth.Password = values["Password"]
 		a.onChange(a.auth)
 	})
+
+	a.APIKeyForm.SetOnChange(func(values map[string]string) {
+		if a.auth.APIKeyAuth == nil {
+			a.auth.APIKeyAuth = &domain.APIKeyAuth{}
+		}
+
+		a.auth.APIKeyAuth.Key = values["Key"]
+		a.auth.APIKeyAuth.Value = values["Value"]
+		a.onChange(a.auth)
+	})
 }
 
 func (a *Auth) SetAuth(auth domain.Auth) {
@@ -100,6 +121,13 @@ func (a *Auth) SetAuth(auth domain.Auth) {
 	if auth.TokenAuth != nil {
 		a.TokenForm.SetValues(map[string]string{
 			"Token": auth.TokenAuth.Token,
+		})
+	}
+
+	if auth.APIKeyAuth != nil {
+		a.APIKeyForm.SetValues(map[string]string{
+			"Key":   auth.APIKeyAuth.Key,
+			"Value": auth.APIKeyAuth.Value,
 		})
 	}
 }
@@ -124,6 +152,8 @@ func (a *Auth) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 				return a.TokenForm.Layout(gtx, theme)
 			case "Basic":
 				return a.BasicForm.Layout(gtx, theme)
+			case "API Key":
+				return a.APIKeyForm.Layout(gtx, theme)
 			default:
 				return layout.Dimensions{}
 			}
