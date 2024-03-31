@@ -5,11 +5,18 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/repository"
 )
+
+var variablesMap = map[string]string{
+	"{{$guid}}":         "{{randomUUID4}}",
+	"{{$timestamp}}":    "{{unixTimestamp}}",
+	"{{$isoTimestamp}}": "{{timeNow}}",
+}
 
 // PostmanCollection represents the structure of a Postman exported JSON
 type PostmanCollection struct {
@@ -171,9 +178,27 @@ func ImportPostmanCollection(filePath string) error {
 		if err := filesystem.UpdateRequest(req); err != nil {
 			return err
 		}
+
+		// Replace variables in the request file
+		if err := findAndReplaceVariables(req.FilePath); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func findAndReplaceVariables(filename string) error {
+	fileContent, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range variablesMap {
+		fileContent = []byte(strings.ReplaceAll(string(fileContent), k, v))
+	}
+
+	return os.WriteFile(filename, fileContent, 0644)
 }
 
 func findApiKey(coll PostmanCollection) *domain.APIKeyAuth {
@@ -251,6 +276,11 @@ func ImportPostmanEnvironment(filePath string) error {
 
 	if err := filesystem.UpdateEnvironment(environment); err != nil {
 		fmt.Printf("Error saving environment: %v\n", err)
+		return err
+	}
+
+	// Replace variables in the request file
+	if err := findAndReplaceVariables(environment.FilePath); err != nil {
 		return err
 	}
 
