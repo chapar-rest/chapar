@@ -38,27 +38,33 @@ type Prompt struct {
 
 	rememberBool *widget.Bool
 
-	options           []string
-	optionsClickables []widget.Clickable
+	options []Option
+	//optionsClickables []widget.Clickable
 
 	result string
 
 	onSubmit func(selectedOption string, remember bool)
 }
 
-func NewPrompt(title, content, modalType string, options ...string) *Prompt {
+type Option struct {
+	Text   string
+	Button widget.Clickable
+	Icon   *widget.Icon
+}
+
+func NewPrompt(title, content, modalType string, options ...Option) *Prompt {
 	return &Prompt{
-		Title:             title,
-		Content:           content,
-		Type:              modalType,
-		options:           options,
-		optionsClickables: make([]widget.Clickable, len(options)),
+		Title:   title,
+		Content: content,
+		Type:    modalType,
+		options: options,
+		//	optionsClickables: make([]widget.Clickable, len(options)),
 	}
 }
 
-func (p *Prompt) SetOptions(options ...string) {
+func (p *Prompt) SetOptions(options ...Option) {
 	p.options = options
-	p.optionsClickables = make([]widget.Clickable, len(options))
+	//p.optionsClickables = make([]widget.Clickable, len(options))
 }
 
 func (p *Prompt) Show() {
@@ -173,15 +179,19 @@ func (p *Prompt) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 						for i := range p.options {
 							i := i
 
-							if p.optionsClickables[i].Clicked(gtx) {
-								p.result = p.options[i]
+							if p.options[i].Button.Clicked(gtx) {
+								p.result = p.options[i].Text
 								p.submit()
 							}
 
 							items = append(
 								items,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return material.Button(theme, &p.optionsClickables[i], p.options[i]).Layout(gtx)
+									btn := Button(theme, &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
+									btn.Background = White
+									btn.Color = Black
+									return btn.Layout(gtx, theme)
+									// return material.Button(theme, &p.optionsClickables[i], p.options[i]).Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 							)

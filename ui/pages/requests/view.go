@@ -391,7 +391,7 @@ func (v *View) SetHTTPResponse(id, response string, headers []domain.KeyValue, c
 	}
 }
 
-func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
+func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
 	ct, ok := v.containers.Get(id)
 	if !ok {
 		return

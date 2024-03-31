@@ -3,6 +3,8 @@ package requests
 import (
 	"time"
 
+	"github.com/mirzakhany/chapar/ui/widgets"
+
 	"gioui.org/layout"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
@@ -21,7 +23,7 @@ type Container interface {
 	SetOnTitleChanged(f func(title string))
 	SetDataChanged(changed bool)
 	SetOnSave(f func(id string))
-	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string)
+	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option)
 	HidePrompt()
 }
 

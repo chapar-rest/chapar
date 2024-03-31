@@ -71,7 +71,7 @@ func (r *Restful) SetOnSave(f func(id string)) {
 	r.onSave = f
 }
 
-func (r *Restful) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...string) {
+func (r *Restful) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
 	r.Prompt.Type = modalType
 	r.Prompt.Title = title
 	r.Prompt.Content = content
