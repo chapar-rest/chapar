@@ -192,7 +192,7 @@ func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(se
 	ct.Prompt.Title = title
 	ct.Prompt.Content = content
 	ct.Prompt.SetOptions(options...)
-	ct.Prompt.WithRememberBool()
+	ct.Prompt.WithoutRememberBool()
 	ct.Prompt.SetOnSubmit(onSubmit)
 	ct.Prompt.Show()
 }

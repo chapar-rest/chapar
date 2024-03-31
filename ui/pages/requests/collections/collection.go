@@ -32,7 +32,7 @@ func (c *Collection) ShowPrompt(title, content, modalType string, onSubmit func(
 	c.prompt.Title = title
 	c.prompt.Content = content
 	c.prompt.SetOptions(options...)
-	c.prompt.WithRememberBool()
+	c.prompt.WithoutRememberBool()
 	c.prompt.SetOnSubmit(onSubmit)
 	c.prompt.Show()
 }
@@ -56,7 +56,7 @@ func New(collection *domain.Collection) *Collection {
 		prompt:     widgets.NewPrompt("", "", ""),
 		saveButton: new(widget.Clickable),
 	}
-	c.prompt.WithRememberBool()
+	c.prompt.WithoutRememberBool()
 	return c
 }
 

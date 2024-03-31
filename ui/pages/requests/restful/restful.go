@@ -76,7 +76,7 @@ func (r *Restful) ShowPrompt(title, content, modalType string, onSubmit func(sel
 	r.Prompt.Title = title
 	r.Prompt.Content = content
 	r.Prompt.SetOptions(options...)
-	r.Prompt.WithRememberBool()
+	r.Prompt.WithoutRememberBool()
 	r.Prompt.SetOnSubmit(onSubmit)
 	r.Prompt.Show()
 }

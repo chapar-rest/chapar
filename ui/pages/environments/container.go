@@ -34,7 +34,7 @@ func newContainer(id, name string, items []domain.KeyValue) *container {
 		SaveButton: widget.Clickable{},
 		Prompt:     widgets.NewPrompt("Save", "", widgets.ModalTypeWarn),
 	}
-	c.Prompt.WithRememberBool()
+	c.Prompt.WithoutRememberBool()
 	return c
 }
 
