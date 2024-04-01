@@ -6,6 +6,8 @@ import (
 	"image/color"
 	"os"
 
+	"github.com/mirzakhany/chapar/ui/explorer"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -26,7 +28,8 @@ import (
 )
 
 type UI struct {
-	Theme *material.Theme
+	Theme  *material.Theme
+	window *app.Window
 
 	sideBar *Sidebar
 	header  *Header
@@ -41,8 +44,10 @@ type UI struct {
 }
 
 // New creates a new UI using the Go Fonts.
-func New() (*UI, error) {
-	u := &UI{}
+func New(w *app.Window) (*UI, error) {
+	u := &UI{
+		window: w,
+	}
 
 	fontCollection, err := fonts.Prepare()
 	if err != nil {
@@ -65,6 +70,8 @@ func New() (*UI, error) {
 		}
 	}
 
+	explorerController := explorer.NewExplorer(w)
+
 	u.Theme = material.NewTheme()
 	u.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	// set foreground color
@@ -79,7 +86,7 @@ func New() (*UI, error) {
 	u.sideBar = NewSidebar(u.Theme)
 
 	u.environmentsView = environments.NewView(u.Theme)
-	envController := environments.NewController(u.environmentsView, repo, environmentsState)
+	envController := environments.NewController(u.environmentsView, repo, environmentsState, explorerController)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
@@ -114,12 +121,13 @@ func New() (*UI, error) {
 	return u, nil
 }
 
-func (u *UI) Run(w *app.Window) error {
+func (u *UI) Run() error {
+	// expl := explorer.NewExplorer(w)
 	// ops are the operations from the UI
 	var ops op.Ops
 
 	for {
-		switch e := w.NextEvent().(type) {
+		switch e := u.window.NextEvent().(type) {
 		// this is sent when the application should re-render.
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)

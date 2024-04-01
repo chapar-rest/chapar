@@ -33,6 +33,7 @@ type View struct {
 	// callbacks
 	onTitleChanged        func(id, title string)
 	onNewEnv              func()
+	onImportEnv           func()
 	onTabClose            func(id string)
 	onItemsChanged        func(id string, items []domain.KeyValue)
 	onSave                func(id string)
@@ -151,6 +152,10 @@ func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string)) {
 
 func (v *View) SetOnNewEnv(onNewEnv func()) {
 	v.onNewEnv = onNewEnv
+}
+
+func (v *View) SetOnImportEnv(onImportEnv func()) {
+	v.onImportEnv = onImportEnv
 }
 
 func (v *View) SetOnTabSelected(onTabSelected func(id string)) {
@@ -288,6 +293,11 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if v.importButton.Clicked(gtx) {
+								if v.onImportEnv != nil {
+									v.onImportEnv()
+								}
+							}
 							return widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),

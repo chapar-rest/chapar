@@ -3,9 +3,12 @@ package environments
 import (
 	"fmt"
 
+	"github.com/mirzakhany/chapar/ui/importer"
+
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/repository"
 	"github.com/mirzakhany/chapar/internal/state"
+	"github.com/mirzakhany/chapar/ui/explorer"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -15,17 +18,21 @@ type Controller struct {
 
 	repo repository.Repository
 
+	explorer *explorer.Explorer
+
 	activeTabID string
 }
 
-func NewController(view *View, repo repository.Repository, state *state.Environments) *Controller {
+func NewController(view *View, repo repository.Repository, state *state.Environments, explorer *explorer.Explorer) *Controller {
 	c := &Controller{
-		view:  view,
-		state: state,
-		repo:  repo,
+		view:     view,
+		state:    state,
+		repo:     repo,
+		explorer: explorer,
 	}
 
 	view.SetOnNewEnv(c.onNewEnvironment)
+	view.SetOnImportEnv(c.onImportEnvironment)
 	view.SetOnTitleChanged(c.onTitleChanged)
 	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeDoubleClicked)
 	view.SetOnTabSelected(c.onTabSelected)
@@ -53,6 +60,26 @@ func (c *Controller) onNewEnvironment() {
 	c.state.AddEnvironment(env)
 	c.view.AddTreeViewNode(env)
 	c.saveEnvironmentToDisc(env.MetaData.ID)
+}
+
+func (c *Controller) onImportEnvironment() {
+	c.explorer.ChoseFiles(func(result explorer.Result) {
+		if result.Error != nil {
+			fmt.Println("failed to get file", result.Error)
+			return
+		}
+
+		if err := importer.ImportPostmanEnvironment(result.Data); err != nil {
+			fmt.Println("failed to import postman environment", err)
+			return
+		}
+
+		if err := c.LoadData(); err != nil {
+			fmt.Println("failed to load environments", err)
+			return
+		}
+
+	}, "json")
 }
 
 func (c *Controller) onTitleChanged(id string, title string) {
