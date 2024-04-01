@@ -106,16 +106,10 @@ func convertItemToRequest(item RequestItem) *domain.Request {
 	return req
 }
 
-func ImportPostmanCollection(filePath string) error {
-	fileContent, err := os.ReadFile(filePath)
-	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
-		return err
-	}
-
+func ImportPostmanCollection(data []byte) error {
 	filesystem := &repository.Filesystem{}
 	var collection PostmanCollection
-	if err := json.Unmarshal(fileContent, &collection); err != nil {
+	if err := json.Unmarshal(data, &collection); err != nil {
 		fmt.Printf("Error parsing JSON: %v\n", err)
 		return err
 	}
@@ -185,6 +179,16 @@ func ImportPostmanCollection(filePath string) error {
 	}
 
 	return nil
+}
+
+func ImportPostmanCollectionFromFile(filePath string) error {
+	fileContent, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Printf("Error reading file: %v\n", err)
+		return err
+	}
+
+	return ImportPostmanCollection(fileContent)
 }
 
 func findAndReplaceVariables(filename string) error {

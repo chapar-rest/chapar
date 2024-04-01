@@ -50,6 +50,7 @@ type View struct {
 	// callbacks
 	onTitleChanged              func(id, title, containerType string)
 	onNewRequest                func()
+	onImport                    func()
 	onNewCollection             func()
 	onTabClose                  func(id string)
 	onTreeViewNodeDoubleClicked func(id string)
@@ -158,6 +159,10 @@ func (v *View) SetOnNewCollection(onNewCollection func()) {
 
 func (v *View) SetOnSubmit(f func(id, containerType string)) {
 	v.onSubmit = f
+}
+
+func (v *View) SetOnImport(f func()) {
+	v.onImport = f
 }
 
 func (v *View) SetOnTitleChanged(onTitleChanged func(id, title, containerType string)) {
@@ -508,6 +513,11 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if v.importButton.Clicked(gtx) {
+								if v.onImport != nil {
+									v.onImport()
+								}
+							}
 							return widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),

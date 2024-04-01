@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mirzakhany/chapar/ui/explorer"
+	"github.com/mirzakhany/chapar/ui/importer"
+
 	"github.com/mirzakhany/chapar/internal/notify"
 
 	"gioui.org/io/clipboard"
@@ -33,17 +36,22 @@ type Controller struct {
 	repo repository.Repository
 
 	activeTabID string
+
+	explorer *explorer.Explorer
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
 		repo:     repo,
 		envState: envState,
+
+		explorer: explorer,
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
+	view.SetOnImport(c.onImport)
 	view.SetOnNewCollection(c.onNewCollection)
 	view.SetOnTitleChanged(c.onTitleChanged)
 	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeClicked)
@@ -359,6 +367,26 @@ func (c *Controller) onNewRequest() {
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
 	c.view.OpenRequestContainer(req)
 	c.view.SwitchToTab(req.MetaData.ID)
+}
+
+func (c *Controller) onImport() {
+	c.explorer.ChoseFiles(func(result explorer.Result) {
+		if result.Error != nil {
+			fmt.Println("failed to get file", result.Error)
+			return
+		}
+
+		if err := importer.ImportPostmanCollection(result.Data); err != nil {
+			fmt.Println("failed to import postman collection", err)
+			return
+		}
+
+		if err := c.LoadData(); err != nil {
+			fmt.Println("failed to load collections", err)
+			return
+		}
+
+	}, "json")
 }
 
 func (c *Controller) onNewCollection() {
