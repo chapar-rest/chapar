@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 
 	if *fileType == "collection" {
-		if err := importer.ImportPostmanCollection(*filePath); err != nil {
+		if err := importer.ImportPostmanCollectionFromFile(*filePath); err != nil {
 			fmt.Printf("Error importing Postman collection: %v\n", err)
 			os.Exit(1)
 		}
