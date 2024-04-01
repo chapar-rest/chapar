@@ -2,17 +2,23 @@ package widgets
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
-
-	"gioui.org/op"
 
 	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/richtext"
+	"gioui.org/x/styledtext"
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/mirzakhany/chapar/ui/fonts"
 )
 
 type CodeEditor struct {
@@ -25,9 +31,16 @@ type CodeEditor struct {
 
 	onChange func(text string)
 	monoFont font.FontFace
+
+	lexer     chroma.Lexer
+	codeStyle *chroma.Style
+
+	font font.FontFace
+
+	rhState richtext.InteractiveText
 }
 
-func NewCodeEditor(code string) *CodeEditor {
+func NewCodeEditor(code string, language string) *CodeEditor {
 	c := &CodeEditor{
 		editor: new(widget.Editor),
 		code:   code,
@@ -36,13 +49,28 @@ func NewCodeEditor(code string) *CodeEditor {
 				Axis: layout.Vertical,
 			},
 		},
-		// monoFont: fonts.MustGetSpaceMono(),
+		font:    fonts.MustGetJetBrainsMono(),
+		rhState: richtext.InteractiveText{},
 	}
 
 	c.editor.Submit = false
 	c.editor.SingleLine = false
+	c.editor.WrapPolicy = text.WrapGraphemes
 	c.editor.SetText(code)
 	c.lines = strings.Split(code, "\n")
+
+	lexer := lexers.Get(language)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	c.lexer = chroma.Coalesce(lexer)
+
+	style := styles.Get("dracula")
+	if style == nil {
+		style = styles.Fallback
+	}
+	c.codeStyle = style
+
 	return c
 }
 
@@ -53,6 +81,15 @@ func (c *CodeEditor) SetOnChanged(f func(text string)) {
 func (c *CodeEditor) SetCode(code string) {
 	c.editor.SetText(code)
 	c.lines = strings.Split(code, "\n")
+	c.code = code
+}
+
+func (c *CodeEditor) SetLanguage(language string) {
+	lexer := lexers.Get(language)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	c.lexer = chroma.Coalesce(lexer)
 }
 
 func (c *CodeEditor) Code() string {
@@ -94,6 +131,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 
 			if c.onChange != nil {
 				c.onChange(c.editor.Text())
+				c.code = c.editor.Text()
 			}
 		}
 	}
@@ -114,10 +152,51 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					ee := material.Editor(theme, c.editor, hint)
+					ee.Font = c.font.Font
+					ee.LineHeight = unit.Sp(14.73)
 					ee.Font.Typeface = "JetBrainsMono"
-					return ee.Layout(gtx)
+					ee.TextSize = unit.Sp(13)
+					// make it almost invisible
+					ee.Color = Hovered(theme.ContrastBg)
+					ee.Layout(gtx)
+
+					t := styledtext.Text(theme.Shaper, c.getSpans()...)
+					t.WrapPolicy = styledtext.WrapGraphemes
+					return t.Layout(gtx, nil)
 				})
 			}),
 		)
 	})
+}
+
+func (c *CodeEditor) getSpans() []styledtext.SpanStyle {
+	iterator, err := c.lexer.Tokenise(nil, c.code) // sourceCode is a string containing your code
+	if err != nil {
+		panic(err)
+	}
+	spans := make([]styledtext.SpanStyle, 0)
+	for _, t := range iterator.Tokens() {
+		// Create your span using the determined color
+		span := styledtext.SpanStyle{
+			Content: t.Value,
+			Size:    unit.Sp(13),
+			Color:   c.getTokenColor(t),
+			Font:    c.font.Font,
+		}
+		span.Font.Typeface = "JetBrainsMono"
+		spans = append(spans, span)
+	}
+	return spans
+}
+
+func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
+	st := c.codeStyle.Get(t.Type)
+
+	// Convert the chroma style to a color.NRGBA
+	return color.NRGBA{
+		R: st.Colour.Red(),
+		G: st.Colour.Green(),
+		B: st.Colour.Blue(),
+		A: 0xff,
+	}
 }
