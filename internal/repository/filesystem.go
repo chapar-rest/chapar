@@ -9,8 +9,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/mirzakhany/chapar/internal/domain"
 	"gopkg.in/yaml.v2"
+
+	"github.com/mirzakhany/chapar/internal/domain"
 )
 
 const (
@@ -465,12 +466,20 @@ func CreateConfigDir() (string, error) {
 }
 
 func makeDir(dir string) error {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.Mkdir(dir, 0755); err != nil {
-			return err
+	dir = strings.ReplaceAll(dir, "\\", "/")
+	fnMakeDir := func() error { return os.MkdirAll(dir, os.ModePerm) }
+	info, err := os.Stat(dir)
+	switch {
+	case os.IsExist(err):
+		return nil
+	case os.IsNotExist(err):
+		return fnMakeDir()
+	case err == nil:
+		if info.IsDir() {
+			//it is file? todo need more unit test
 		}
 	}
-	return nil
+	return err
 }
 
 func userConfigDir() (string, error) {
