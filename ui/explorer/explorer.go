@@ -38,13 +38,6 @@ func (e *Explorer) ChoseFiles(onResult func(r Result), extensions ...string) {
 			return
 		}
 
-		data, err := io.ReadAll(file)
-		if err != nil {
-			err = fmt.Errorf("failed reading file: %w", err)
-			onResult(Result{Error: err})
-			return
-		}
-
 		defer func(file io.ReadCloser) {
 			err := file.Close()
 			if err != nil {
@@ -53,6 +46,12 @@ func (e *Explorer) ChoseFiles(onResult func(r Result), extensions ...string) {
 			}
 		}(file)
 
+		data, err := io.ReadAll(file)
+		if err != nil {
+			err = fmt.Errorf("failed reading file: %w", err)
+			onResult(Result{Error: err})
+			return
+		}
 		onResult(Result{Data: data, Error: nil})
 	}(onResult)
 }

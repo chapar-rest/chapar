@@ -65,6 +65,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnSave(c.onSave)
 	view.SetOnSubmit(c.onSubmit)
 	view.SetOnCopyResponse(c.onCopyResponse)
+	view.OnSelectBinaryFile(c.onSelectBinaryFile)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	return c
 }

@@ -23,6 +23,7 @@ type Container interface {
 	SetOnSave(f func(id string))
 	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option)
 	HidePrompt()
+	SetOnBinaryFileSelect(f func())
 }
 
 type RestContainer interface {

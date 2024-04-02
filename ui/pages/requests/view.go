@@ -166,6 +166,14 @@ func (v *View) SetOnCopyResponse(onCopyResponse func(gtx layout.Context, respons
 	v.onCopyResponse = onCopyResponse
 }
 
+func (v *View) SetOnBinaryFileSelect(f func()) {
+	for _, c := range v.containers.Values() {
+		if c, ok := c.(RestContainer); ok {
+			c.SetOnBinaryFileSelect(f)
+		}
+	}
+}
+
 func (v *View) SetOnNewRequest(onNewRequest func()) {
 	v.onNewRequest = onNewRequest
 }
