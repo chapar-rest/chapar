@@ -6,6 +6,8 @@ import (
 	"image/color"
 	"os"
 
+	"github.com/mirzakhany/chapar/internal/rest"
+
 	"github.com/mirzakhany/chapar/ui/explorer"
 
 	"gioui.org/app"
@@ -70,6 +72,8 @@ func New(w *app.Window) (*UI, error) {
 		}
 	}
 
+	restService := rest.New(requestsState, environmentsState)
+
 	explorerController := explorer.NewExplorer(w)
 
 	u.Theme = material.NewTheme()
@@ -112,7 +116,7 @@ func New(w *app.Window) (*UI, error) {
 	}
 
 	u.requestsView = requests.NewView(u.Theme)
-	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController)
+	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
 	}

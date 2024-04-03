@@ -32,16 +32,17 @@ func NewRequest(req *domain.Request) *Request {
 			{Title: "Post Request"},
 		}, nil),
 		PreRequest: component.NewPrePostRequest([]component.Option{
-			{Text: "None"},
-			{Text: "Python", IsScript: true, Hint: "Write your pre request python script here"},
-			{Text: "Shell Script", IsScript: true, Hint: "Write your pre request shell script here"},
-			{Text: "Kubectl tunnel", IsScript: false, Hint: "Run kubectl port-forward command"},
-			{Text: "SSH tunnel", IsScript: false, Hint: "Run ssh command"},
+			{Title: "None", Value: domain.PostRequestTypeNone},
+			{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your pre request python script here"},
+			{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
+			{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
+			{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
 		}),
 		PostRequest: component.NewPrePostRequest([]component.Option{
-			{Text: "None"},
-			{Text: "Python", IsScript: true, Hint: "Write your post request python script here"},
-			{Text: "Shell Script", IsScript: true, Hint: "Write your post request shell script here"},
+			{Title: "None", Value: domain.PostRequestTypeNone},
+			{Title: "Set Environment Variable", Value: domain.PostRequestTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
+			{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
+			{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
 		}),
 
 		Body:    NewBody(req.Spec.HTTP.Request.Body),
@@ -63,6 +64,10 @@ func NewRequest(req *domain.Request) *Request {
 		if req.Spec.HTTP.Request.PostRequest != (domain.PostRequest{}) {
 			r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PostRequest.Type)
 			r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
+		}
+
+		if req.Spec.HTTP.Request.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {
+			r.PostRequest.SetPostRequestSetValues(req.Spec.HTTP.Request.PostRequest.PostRequestSet)
 		}
 	}
 

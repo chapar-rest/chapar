@@ -1,8 +1,6 @@
 package requests
 
 import (
-	"time"
-
 	"github.com/mirzakhany/chapar/ui/widgets"
 
 	"gioui.org/layout"
@@ -28,10 +26,14 @@ type Container interface {
 }
 
 type RestContainer interface {
-	SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int)
+	SetHTTPResponse(response domain.HTTPResponseDetail)
+	GetHTTPResponse() *domain.HTTPResponseDetail
+	SetPostRequestSetPreview(preview string)
 	ShowSendingRequestLoading()
 	HideSendingRequestLoading()
 	SetQueryParams(params []domain.KeyValue)
 	SetPathParams(params []domain.KeyValue)
 	SetURL(url string)
+	SetPostRequestSetValues(set domain.PostRequestSet)
+	SetOnPostRequestSetChanged(f func(id, item, from, fromKey string))
 }

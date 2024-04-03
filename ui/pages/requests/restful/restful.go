@@ -1,8 +1,6 @@
 package restful
 
 import (
-	"time"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -26,6 +24,40 @@ type Restful struct {
 	onSave        func(id string)
 	onDataChanged func(id string, data any)
 	onSubmit      func(id string)
+}
+
+func New(req *domain.Request, theme *material.Theme) *Restful {
+	r := &Restful{
+		Req:        req,
+		Prompt:     widgets.NewPrompt("", "", ""),
+		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
+		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
+		split: widgets.SplitView{
+			Ratio:         0.05,
+			BarWidth:      unit.Dp(2),
+			BarColor:      widgets.Gray300,
+			BarColorHover: theme.Palette.ContrastBg,
+		},
+		Response: NewResponse(theme),
+		Request:  NewRequest(req),
+	}
+	r.setupHooks()
+
+	return r
+}
+
+func (r *Restful) SetPostRequestSetValues(set domain.PostRequestSet) {
+	r.Request.PostRequest.SetPostRequestSetValues(set)
+}
+
+func (r *Restful) SetPostRequestSetPreview(preview string) {
+	r.Request.PostRequest.SetPreview(preview)
+}
+
+func (r *Restful) SetOnPostRequestSetChanged(f func(id, item, from, fromKey string)) {
+	r.Request.PostRequest.SetOnPostRequestSetChanged(func(item, from, fromKey string) {
+		f(r.Req.MetaData.ID, item, from, fromKey)
+	})
 }
 
 func (r *Restful) SetOnDataChanged(f func(id string, data any)) {
@@ -52,11 +84,19 @@ func (r *Restful) SetOnCopyResponse(f func(gtx layout.Context, response string))
 	r.Response.SetOnCopyResponse(f)
 }
 
-func (r *Restful) SetHTTPResponse(response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
-	r.Response.SetResponse(response)
-	r.Response.SetHeaders(headers)
-	r.Response.SetCookies(cookies)
-	r.Response.SetStatusParams(statusCode, duration, size)
+func (r *Restful) SetHTTPResponse(detail domain.HTTPResponseDetail) {
+	r.Response.SetResponse(detail.Response)
+	r.Response.SetHeaders(detail.Headers)
+	r.Response.SetCookies(detail.Cookies)
+	r.Response.SetStatusParams(detail.StatusCode, detail.Duration, detail.Size)
+}
+
+func (r *Restful) GetHTTPResponse() *domain.HTTPResponseDetail {
+	return &domain.HTTPResponseDetail{
+		Response: r.Response.response,
+		Headers:  r.Response.responseHeaders.GetData(),
+		Cookies:  r.Response.responseCookies.GetData(),
+	}
 }
 
 func (r *Restful) ShowSendingRequestLoading() {
@@ -83,26 +123,6 @@ func (r *Restful) ShowPrompt(title, content, modalType string, onSubmit func(sel
 
 func (r *Restful) HidePrompt() {
 	r.Prompt.Hide()
-}
-
-func New(req *domain.Request, theme *material.Theme) *Restful {
-	r := &Restful{
-		Req:        req,
-		Prompt:     widgets.NewPrompt("", "", ""),
-		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
-		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
-		split: widgets.SplitView{
-			Ratio:         0.05,
-			BarWidth:      unit.Dp(2),
-			BarColor:      widgets.Gray300,
-			BarColorHover: theme.Palette.ContrastBg,
-		},
-		Response: NewResponse(theme),
-		Request:  NewRequest(req),
-	}
-	r.setupHooks()
-
-	return r
 }
 
 func (r *Restful) setupHooks() {

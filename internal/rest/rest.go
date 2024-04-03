@@ -3,12 +3,15 @@ package rest
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mirzakhany/chapar/internal/state"
 
 	"github.com/google/uuid"
 
@@ -27,7 +30,66 @@ type Response struct {
 	JSON   string
 }
 
-func SendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {
+type Service struct {
+	requests     *state.Requests
+	environments *state.Environments
+}
+
+func New(requests *state.Requests, environments *state.Environments) *Service {
+	return &Service{
+		requests:     requests,
+		environments: environments,
+	}
+}
+
+func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response, error) {
+	r := s.requests.GetRequest(requestID)
+	if r == nil {
+		return nil, fmt.Errorf("request with id %s not found", requestID)
+	}
+
+	e := s.environments.GetEnvironment(activeEnvironmentID)
+	if e == nil {
+		return nil, fmt.Errorf("environment with id %s not found", activeEnvironmentID)
+	}
+
+	response, err := s.sendRequest(r.Spec.HTTP, e)
+	if err != nil {
+		return nil, err
+	}
+
+	// handle post request
+	if r.Spec.HTTP.Request.PostRequest != (domain.PostRequest{}) {
+		if r.Spec.HTTP.Request.PostRequest.Type == domain.PostRequestTypeSetEnv {
+			if r.Spec.HTTP.Request.PostRequest.PostRequestSet.From != domain.PostRequestSetFromResponseBody {
+				return response, nil
+			}
+
+			if response.JSON != "" && response.IsJSON {
+				data, err := GetJSONPATH(response.JSON, r.Spec.HTTP.Request.PostRequest.PostRequestSet.FromKey)
+				if err != nil {
+					return nil, err
+				}
+
+				if data == nil {
+					return response, nil
+				}
+
+				if result, ok := data.(string); ok {
+					e.SetKey(r.Spec.HTTP.Request.PostRequest.PostRequestSet.Target, result)
+
+					if err := s.environments.UpdateEnvironment(e, false); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
+	return response, nil
+}
+
+func (s *Service) sendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {
 	// prepare request
 	// - apply environment
 	// - apply variables

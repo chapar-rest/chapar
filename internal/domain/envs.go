@@ -75,3 +75,19 @@ func (e *Environment) Clone() *Environment {
 
 	return clone
 }
+
+func (e *Environment) SetKey(key string, value string) {
+	for i, v := range e.Spec.Values {
+		if v.Key == key {
+			e.Spec.Values[i].Value = value
+			return
+		}
+	}
+
+	e.Spec.Values = append(e.Spec.Values, KeyValue{
+		ID:     uuid.NewString(),
+		Key:    key,
+		Value:  value,
+		Enable: true,
+	})
+}

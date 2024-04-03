@@ -25,10 +25,10 @@ func NewAuth(auth domain.Auth) *Auth {
 	a := &Auth{
 		auth: auth,
 		DropDown: widgets.NewDropDown(
-			widgets.NewDropDownOption("None"),
-			widgets.NewDropDownOption("Basic"),
-			widgets.NewDropDownOption("Token"),
-			widgets.NewDropDownOption("API Key"),
+			widgets.NewDropDownOption("None").WithValue(domain.AuthTypeNone),
+			widgets.NewDropDownOption("Basic").WithValue(domain.AuthTypeBasic),
+			widgets.NewDropDownOption("Token").WithValue(domain.AuthTypeToken),
+			widgets.NewDropDownOption("API Key").WithValue(domain.AuthTypeAPIKey),
 		),
 
 		TokenForm: component.NewForm([]*component.Field{

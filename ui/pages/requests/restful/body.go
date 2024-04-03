@@ -25,13 +25,13 @@ func NewBody(body domain.Body) *Body {
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
-			widgets.NewDropDownOption("None"),
-			widgets.NewDropDownOption("JSON"),
-			widgets.NewDropDownOption("Text"),
-			widgets.NewDropDownOption("XML"),
-			widgets.NewDropDownOption("Form data"),
-			widgets.NewDropDownOption("Binary"),
-			widgets.NewDropDownOption("Urlencoded"),
+			widgets.NewDropDownOption("None").WithValue(domain.BodyTypeNone),
+			widgets.NewDropDownOption("JSON").WithValue(domain.BodyTypeJSON),
+			widgets.NewDropDownOption("Text").WithValue(domain.BodyTypeText),
+			widgets.NewDropDownOption("XML").WithValue(domain.BodyTypeXML),
+			widgets.NewDropDownOption("Form data").WithValue(domain.BodyTypeFormData),
+			widgets.NewDropDownOption("Binary").WithValue(domain.BodyTypeBinary),
+			widgets.NewDropDownOption("Urlencoded").WithValue(domain.BodyTypeUrlencoded),
 		),
 		formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
@@ -51,7 +51,7 @@ func (b *Body) SetOnChange(f func(body domain.Body)) {
 		b.body.Type = selected
 		b.onChange(b.body)
 
-		if selected == "JSON" || selected == "XML" {
+		if selected == domain.BodyTypeJSON || selected == domain.BodyTypeXML {
 			b.script.SetLanguage(selected)
 		}
 	})
@@ -88,18 +88,18 @@ func (b *Body) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					switch b.DropDown.GetSelected().Text {
-					case "JSON":
+					switch b.DropDown.GetSelected().Value {
+					case domain.BodyTypeJSON:
 						return b.script.Layout(gtx, theme, "JSON")
-					case "Text":
+					case domain.BodyTypeText:
 						return b.script.Layout(gtx, theme, "Text")
-					case "XML":
+					case domain.BodyTypeXML:
 						return b.script.Layout(gtx, theme, "XML")
-					case "Form data":
+					case domain.BodyTypeFormData:
 						return b.formData.WithAddLayout(gtx, "Form data", "Add form data", theme)
-					case "Binary":
+					case domain.BodyTypeBinary:
 						return b.script.Layout(gtx, theme, "Binary")
-					case "Urlencoded":
+					case domain.BodyTypeUrlencoded:
 						return b.urlencoded.WithAddLayout(gtx, "Urlencoded", "Add urlencoded", theme)
 					default:
 						return layout.Dimensions{}

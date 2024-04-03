@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -107,6 +108,24 @@ type HTTPRequest struct {
 	PostRequest PostRequest `yaml:"postRequest"`
 }
 
+//			widgets.NewDropDownOption("None"),
+//			widgets.NewDropDownOption("JSON"),
+//			widgets.NewDropDownOption("Text"),
+//			widgets.NewDropDownOption("XML"),
+//			widgets.NewDropDownOption("Form data"),
+//			widgets.NewDropDownOption("Binary"),
+//			widgets.NewDropDownOption("Urlencoded"),
+
+const (
+	BodyTypeNone       = "none"
+	BodyTypeJSON       = "json"
+	BodyTypeText       = "text"
+	BodyTypeXML        = "xml"
+	BodyTypeFormData   = "formData"
+	BodyTypeBinary     = "binary"
+	BodyTypeUrlencoded = "urlencoded"
+)
+
 type Body struct {
 	Type string `yaml:"type"`
 	// Can be json, xml, or plain text
@@ -120,6 +139,13 @@ func (b *Body) Clone() *Body {
 	clone := *b
 	return &clone
 }
+
+const (
+	AuthTypeNone   = "none"
+	AuthTypeBasic  = "basic"
+	AuthTypeToken  = "token"
+	AuthTypeAPIKey = "apiKey"
+)
 
 type Auth struct {
 	Type       string      `yaml:"type"`
@@ -187,9 +213,32 @@ type PreRequest struct {
 	KubernetesTunnel *KubernetesTunnel `yaml:"kubernetesTunnel,omitempty"`
 }
 
+const (
+	PostRequestTypeNone         = "none"
+	PostRequestTypeSetEnv       = "setEnv"
+	PostRequestTypePythonScript = "pythonScript"
+	PostRequestTypeK8sTunnel    = "k8sTunnel"
+	PostRequestTypeSSHTunnel    = "sshTunnel"
+	PostRequestTypeShellScript  = "shellScript"
+)
+
 type PostRequest struct {
-	Type   string `yaml:"type"`
-	Script string `yaml:"script"`
+	Type           string         `yaml:"type"`
+	Script         string         `yaml:"script"`
+	PostRequestSet PostRequestSet `yaml:"set"`
+}
+
+const (
+	PostRequestSetFromResponseHeader = "responseHeader"
+	PostRequestSetFromResponseBody   = "responseBody"
+	PostRequestSetFromResponseCookie = "responseCookie"
+)
+
+type PostRequestSet struct {
+	Target string `yaml:"target"`
+	// From can be response header, response body or cookies
+	From    string `yaml:"from"`
+	FromKey string `yaml:"fromKey"`
 }
 
 type KubernetesTunnel struct {
@@ -526,6 +575,18 @@ func ComparePostRequest(a, b PostRequest) bool {
 		return false
 	}
 
+	if !ComparePostRequestSet(a.PostRequestSet, b.PostRequestSet) {
+		return false
+	}
+
+	return true
+}
+
+func ComparePostRequestSet(a, b PostRequestSet) bool {
+	if a.Target != b.Target || a.From != b.From || a.FromKey != b.FromKey {
+		return false
+	}
+
 	return true
 }
 
@@ -649,4 +710,13 @@ func EncodeQueryParams(params []KeyValue) string {
 	}
 
 	return strings.Join(out, "&")
+}
+
+type HTTPResponseDetail struct {
+	Response   string
+	Headers    []KeyValue
+	Cookies    []KeyValue
+	StatusCode int
+	Duration   time.Duration
+	Size       int
 }

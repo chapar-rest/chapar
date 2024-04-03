@@ -44,7 +44,7 @@ func (h *Header) LoadEnvs(data []*domain.Environment) {
 
 func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 	h.selectedEnv = env.MetaData.Name
-	h.envDropDown.SetSelectedByValue(env.MetaData.Name)
+	h.envDropDown.SetSelectedByTitle(env.MetaData.Name)
 }
 
 func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

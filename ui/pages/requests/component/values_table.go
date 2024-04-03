@@ -48,6 +48,16 @@ func (v *ValuesTable) SetData(values []domain.KeyValue) {
 		}
 	}
 }
+func (v *ValuesTable) GetData() []domain.KeyValue {
+	values := make([]domain.KeyValue, len(v.Values))
+	for i, kv := range v.Values {
+		values[i] = domain.KeyValue{
+			Key:   kv.Key,
+			Value: kv.Value,
+		}
+	}
+	return values
+}
 
 func (v *ValuesTable) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if len(v.Values) == 0 {

@@ -1,8 +1,6 @@
 package requests
 
 import (
-	"time"
-
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -61,6 +59,7 @@ type View struct {
 	onSubmit                    func(id, containerType string)
 	onDataChanged               func(id string, data any, containerType string)
 	onCopyResponse              func(gtx layout.Context, response string)
+	onOnPostRequestSetChanged   func(id, item, from, fromKey string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -103,6 +102,26 @@ func NewView(theme *material.Theme) *View {
 	})
 
 	return v
+}
+
+func (v *View) SetOnPostRequestSetChanged(f func(id, item, from, fromKey string)) {
+	v.onOnPostRequestSetChanged = f
+}
+
+func (v *View) SetPostRequestSetValues(id string, set domain.PostRequestSet) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPostRequestSetValues(set)
+		}
+	}
+}
+
+func (v *View) SetPostRequestSetPreview(id, preview string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPostRequestSetPreview(preview)
+		}
+	}
 }
 
 func (v *View) AddRequestTreeViewNode(req *domain.Request) {
@@ -330,6 +349,12 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		}
 	})
 
+	ct.SetOnPostRequestSetChanged(func(id, item, from, fromKey string) {
+		if v.onOnPostRequestSetChanged != nil {
+			v.onOnPostRequestSetChanged(id, item, from, fromKey)
+		}
+	})
+
 	v.containers.Set(req.MetaData.ID, ct)
 }
 
@@ -388,12 +413,22 @@ func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	v.containers.Set(collection.MetaData.ID, ct)
 }
 
-func (v *View) SetHTTPResponse(id, response string, headers []domain.KeyValue, cookies []domain.KeyValue, statusCode int, duration time.Duration, size int) {
+func (v *View) SetHTTPResponse(id string, response domain.HTTPResponseDetail) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
-			ct.SetHTTPResponse(response, headers, cookies, statusCode, duration, size)
+			ct.SetHTTPResponse(response)
 		}
 	}
+}
+
+func (v *View) GetHTTPResponse(id string) *domain.HTTPResponseDetail {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			return ct.GetHTTPResponse()
+		}
+	}
+
+	return nil
 }
 
 func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {

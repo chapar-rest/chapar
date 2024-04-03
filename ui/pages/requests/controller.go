@@ -38,9 +38,11 @@ type Controller struct {
 	activeTabID string
 
 	explorer *explorer.Explorer
+
+	restService *rest.Service
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
@@ -48,6 +50,8 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 		envState: envState,
 
 		explorer: explorer,
+
+		restService: restService,
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
@@ -61,6 +65,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnSave(c.onSave)
 	view.SetOnSubmit(c.onSubmit)
 	view.SetOnCopyResponse(c.onCopyResponse)
+	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	return c
 }
 
@@ -77,6 +82,47 @@ func (c *Controller) LoadData() error {
 
 	c.view.PopulateTreeView(requests, collections)
 	return nil
+}
+
+func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	// break the reference
+	clone := req.Clone()
+	req.Spec = clone.Spec
+
+	clone.Spec.HTTP.Request.PostRequest.PostRequestSet = domain.PostRequestSet{
+		Target:  item,
+		From:    from,
+		FromKey: fromKey,
+	}
+	c.onRequestDataChanged(id, clone)
+
+	responseData := c.view.GetHTTPResponse(id)
+	if responseData == nil {
+		return
+	}
+
+	if responseData.Response == "" {
+		return
+	}
+
+	resp, err := rest.GetJSONPATH(responseData.Response, fromKey)
+	if err != nil {
+		fmt.Println("failed to get data from response", err)
+		return
+	}
+
+	if resp == nil {
+		return
+	}
+
+	if result, ok := resp.(string); ok {
+		c.view.SetPostRequestSetPreview(id, result)
+	}
 }
 
 func (c *Controller) onTitleChanged(id string, title, containerType string) {
@@ -113,7 +159,7 @@ func (c *Controller) onSubmitRequest(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	res, err := rest.SendRequest(c.model.GetRequest(id).Spec.HTTP, c.envState.GetActiveEnvironment())
+	res, err := c.restService.SendRequest(id, c.envState.GetActiveEnvironment().MetaData.ID)
 	if err != nil {
 		fmt.Println("failed to send request", err)
 		return
@@ -124,8 +170,14 @@ func (c *Controller) onSubmitRequest(id string) {
 		resp = res.JSON
 	}
 
-	c.view.SetHTTPResponse(id, resp, mapToKeyValue(res.Headers), cookieToKeyValue(res.Cookies), res.StatusCode, res.TimePassed, len(res.Body))
-
+	c.view.SetHTTPResponse(id, domain.HTTPResponseDetail{
+		Response:   resp,
+		Headers:    mapToKeyValue(res.Headers),
+		Cookies:    cookieToKeyValue(res.Cookies),
+		StatusCode: res.StatusCode,
+		Duration:   res.TimePassed,
+		Size:       len(res.Body),
+	})
 }
 
 func cookieToKeyValue(cookies []*http.Cookie) []domain.KeyValue {

@@ -35,6 +35,7 @@ type DropDown struct {
 
 type DropDownOption struct {
 	Text       string
+	Value      string
 	Identifier string
 	clickable  widget.Clickable
 
@@ -60,6 +61,11 @@ func (o *DropDownOption) WithIdentifier(identifier string) *DropDownOption {
 	return o
 }
 
+func (o *DropDownOption) WithValue(value string) *DropDownOption {
+	o.Value = value
+	return o
+}
+
 func (o *DropDownOption) DefaultSelected() *DropDownOption {
 	o.isDefault = true
 	return o
@@ -73,9 +79,18 @@ func (c *DropDown) SetOnChanged(f func(value string)) {
 	c.onValueChange = f
 }
 
+func (c *DropDown) SetSelectedByTitle(title string) {
+	for i, opt := range c.options {
+		if opt.Text == title {
+			c.selectedOptionIndex = i
+			break
+		}
+	}
+}
+
 func (c *DropDown) SetSelectedByValue(value string) {
 	for i, opt := range c.options {
-		if opt.Text == value {
+		if opt.Value == value {
 			c.selectedOptionIndex = i
 			break
 		}
@@ -197,7 +212,11 @@ func (c *DropDown) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 			c.selectedOptionIndex = i
 
 			if c.onValueChange != nil {
-				c.onValueChange(c.options[i].Text)
+				if c.options[i].Value == "" {
+					c.onValueChange(c.options[i].Text)
+				} else {
+					c.onValueChange(c.options[i].Value)
+				}
 			}
 		}
 	}

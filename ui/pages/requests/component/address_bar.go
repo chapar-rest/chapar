@@ -40,13 +40,13 @@ func NewAddressBar(address, method string) *AddressBar {
 		opts = append(opts, widgets.NewDropDownOption(m))
 	}
 	a.methodDropDown.SetOptions(opts...)
-	a.methodDropDown.SetSelectedByValue(strings.ToUpper(method))
+	a.methodDropDown.SetSelectedByTitle(strings.ToUpper(method))
 
 	return a
 }
 
 func (a *AddressBar) SetSelectedMethod(method string) {
-	a.methodDropDown.SetSelectedByValue(method)
+	a.methodDropDown.SetSelectedByTitle(method)
 	a.lastSelectedMethod = method
 }
 
