@@ -465,12 +465,21 @@ func CreateConfigDir() (string, error) {
 }
 
 func makeDir(dir string) error {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.Mkdir(dir, 0755); err != nil {
-			return err
+	dir = filepath.FromSlash(dir)
+	fnMakeDir := func() error { return os.MkdirAll(dir, os.ModePerm) }
+	info, err := os.Stat(dir)
+	switch {
+	case err == nil:
+		if info.IsDir() {
+			return nil // The directory exists
+		} else {
+			return fmt.Errorf("path exists but is not a directory: %s", dir)
 		}
+	case os.IsNotExist(err):
+		return fnMakeDir()
+	default:
+		return err
 	}
-	return nil
 }
 
 func userConfigDir() (string, error) {
