@@ -94,6 +94,8 @@ func NewView(theme *material.Theme) *View {
 		},
 	}
 
+	v.tabHeader.SetMaxTitleWidth(20)
+
 	v.treeViewSearchBox.SetOnTextChange(func(text string) {
 		if v.treeViewNodes.Len() == 0 {
 			return

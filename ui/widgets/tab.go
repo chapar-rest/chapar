@@ -3,6 +3,7 @@ package widgets
 import (
 	"image"
 	"image/color"
+	"unicode"
 
 	"github.com/mirzakhany/chapar/internal/safemap"
 
@@ -21,6 +22,8 @@ type Tabs struct {
 	tabs     []*Tab
 	selected int
 
+	// number of characters to show in the tab title
+	maxTitleWidth    int
 	onSelectedChange func(int)
 }
 
@@ -47,6 +50,10 @@ func NewTabs(items []*Tab, onSelectedChange func(int)) *Tabs {
 	}
 
 	return t
+}
+
+func (tabs *Tabs) SetMaxTitleWidth(maxWidth int) {
+	tabs.maxTitleWidth = maxWidth
 }
 
 func (tabs *Tabs) Selected() int {
@@ -178,7 +185,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 										return layout.UniformInset(unit.Dp(12)).Layout(gtx,
-											material.Label(theme, unit.Sp(13), t.Title).Layout,
+											material.Label(theme, unit.Sp(13), ellipticalTruncate(t.Title, tabs.maxTitleWidth)).Layout,
 										)
 									}),
 									layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
@@ -243,4 +250,23 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 		}),
 		DrawLineFlex(Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 	)
+}
+
+func ellipticalTruncate(text string, maxLen int) string {
+	if maxLen == 0 {
+		return text
+	}
+
+	lastSpaceIx := maxLen
+	l := 0
+	for i, r := range text {
+		if unicode.IsSpace(r) {
+			lastSpaceIx = i
+		}
+		l++
+		if l > maxLen {
+			return text[:lastSpaceIx] + "..."
+		}
+	}
+	return text
 }
