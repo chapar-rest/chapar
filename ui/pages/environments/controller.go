@@ -23,10 +23,10 @@ type Controller struct {
 	activeTabID string
 }
 
-func NewController(view *View, repo repository.Repository, state *state.Environments, explorer *explorer.Explorer) *Controller {
+func NewController(view *View, repo repository.Repository, envState *state.Environments, explorer *explorer.Explorer) *Controller {
 	c := &Controller{
 		view:     view,
-		state:    state,
+		state:    envState,
 		repo:     repo,
 		explorer: explorer,
 	}
@@ -40,6 +40,8 @@ func NewController(view *View, repo repository.Repository, state *state.Environm
 	view.SetOnSave(c.onSave)
 	view.SetOnTabClose(c.onTabClose)
 	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
+	envState.AddEnvironmentChangeListener(c.onEnvironmentChange)
+
 	return c
 }
 
@@ -80,6 +82,23 @@ func (c *Controller) onImportEnvironment() {
 		}
 
 	}, "json")
+}
+
+func (c *Controller) onEnvironmentChange(env *domain.Environment, action state.Action) {
+	switch action {
+	case state.ActionAdd:
+		c.view.AddTreeViewNode(env)
+		c.view.ReloadContainerData(env)
+	case state.ActionUpdate:
+		c.view.UpdateTreeViewNode(env)
+		c.view.ReloadContainerData(env)
+	case state.ActionDelete:
+		c.view.RemoveTreeViewNode(env.MetaData.ID)
+		if c.activeTabID == env.MetaData.ID {
+			c.activeTabID = ""
+			c.view.CloseTab(env.MetaData.ID)
+		}
+	}
 }
 
 func (c *Controller) onTitleChanged(id string, title string) {

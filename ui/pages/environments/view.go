@@ -116,6 +116,12 @@ func (v *View) AddTreeViewNode(env *domain.Environment) {
 	v.treeViewNodes.Set(env.MetaData.ID, node)
 }
 
+func (v *View) UpdateTreeViewNode(env *domain.Environment) {
+	if node, ok := v.treeViewNodes.Get(env.MetaData.ID); ok {
+		node.Text = env.MetaData.Name
+	}
+}
+
 func (v *View) RemoveTreeViewNode(id string) {
 	if _, ok := v.treeViewNodes.Get(id); !ok {
 		return
@@ -254,6 +260,12 @@ func (v *View) OpenContainer(env *domain.Environment) {
 	})
 
 	v.containers.Set(env.MetaData.ID, ct)
+}
+
+func (v *View) ReloadContainerData(env *domain.Environment) {
+	if ct, ok := v.containers.Get(env.MetaData.ID); ok {
+		ct.SetItems(env.Spec.Values)
+	}
 }
 
 func (v *View) CloseTab(id string) {
