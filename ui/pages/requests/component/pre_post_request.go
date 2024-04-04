@@ -187,7 +187,7 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *material.Theme) l
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				lb := &widgets.LabeledInput{
-					Label:          "From",
+					Label:          "Path/Key",
 					SpaceBetween:   5,
 					MinEditorWidth: unit.Dp(150),
 					MinLabelWidth:  unit.Dp(80),
@@ -197,18 +197,14 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *material.Theme) l
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{
-				Axis:      layout.Horizontal,
-				Alignment: layout.Middle,
-			}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = gtx.Dp(85)
-					return material.Label(theme, theme.TextSize, "Preview").Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme, theme.TextSize, p.setEnvForm.preview).Layout(gtx)
-				}),
-			)
+			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Label(theme, theme.TextSize, "Preview:").Layout(gtx)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Label(theme, theme.TextSize, p.setEnvForm.preview).Layout(gtx)
+			})
 		}),
 	)
 }
