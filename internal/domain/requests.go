@@ -159,11 +159,12 @@ type APIKeyAuth struct {
 	Value string `yaml:"value"`
 }
 
-func (a *Auth) Clone() *Auth {
+func (a *Auth) Clone() Auth {
 	clone := *a
 	if a.BasicAuth != nil {
 		clone.BasicAuth = a.BasicAuth.Clone()
 	}
+
 	if a.TokenAuth != nil {
 		clone.TokenAuth = a.TokenAuth.Clone()
 	}
@@ -172,22 +173,27 @@ func (a *Auth) Clone() *Auth {
 		clone.APIKeyAuth = a.APIKeyAuth.Clone()
 	}
 
-	return &clone
+	return clone
 }
 
 func (a *BasicAuth) Clone() *BasicAuth {
-	clone := *a
-	return &clone
+	return &BasicAuth{
+		Username: a.Username,
+		Password: a.Password,
+	}
 }
 
 func (a *TokenAuth) Clone() *TokenAuth {
-	clone := *a
-	return &clone
+	return &TokenAuth{
+		Token: a.Token,
+	}
 }
 
 func (a *APIKeyAuth) Clone() *APIKeyAuth {
-	clone := *a
-	return &clone
+	return &APIKeyAuth{
+		Key:   a.Key,
+		Value: a.Value,
+	}
 }
 
 type BasicAuth struct {
@@ -273,6 +279,11 @@ func (r *Request) Clone() *Request {
 
 func (r *HTTPRequest) Clone() *HTTPRequest {
 	clone := *r
+
+	if r.Auth != (Auth{}) {
+		clone.Auth = r.Auth.Clone()
+	}
+
 	return &clone
 }
 

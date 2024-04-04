@@ -43,10 +43,13 @@ func New(requests *state.Requests, environments *state.Environments) *Service {
 }
 
 func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response, error) {
-	r := s.requests.GetRequest(requestID)
-	if r == nil {
+	req := s.requests.GetRequest(requestID)
+	if req == nil {
 		return nil, fmt.Errorf("request with id %s not found", requestID)
 	}
+
+	// clone the request to make sure we do not modify the original request
+	r := req.Clone()
 
 	var activeEnvironment *domain.Environment
 	// Get environment if provided
@@ -95,14 +98,11 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 	return response, nil
 }
 
-func (s *Service) sendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {
+func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {
 	// prepare request
 	// - apply environment
 	// - apply variables
 	// - apply authentication (if any) is not already applied to the headers
-
-	// clone the request to make sure we don't modify the original request
-	req := r.Clone()
 
 	if e == nil {
 		applyVariables(req, nil)
