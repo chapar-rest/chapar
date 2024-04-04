@@ -100,6 +100,11 @@ func (m *Environments) SetActiveEnvironment(environment *domain.Environment) {
 	m.notifyActiveEnvironmentChange(environment)
 }
 
+func (m *Environments) ClearActiveEnvironment() {
+	m.activeEnvironment = nil
+	m.notifyActiveEnvironmentChange(nil)
+}
+
 func (m *Environments) GetActiveEnvironment() *domain.Environment {
 	return m.activeEnvironment
 }
