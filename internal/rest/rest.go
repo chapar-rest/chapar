@@ -66,36 +66,102 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 	}
 
 	// handle post request
-	if r.Spec.HTTP.Request.PostRequest != (domain.PostRequest{}) {
-		if r.Spec.HTTP.Request.PostRequest.Type == domain.PostRequestTypeSetEnv {
-			if r.Spec.HTTP.Request.PostRequest.PostRequestSet.From != domain.PostRequestSetFromResponseBody {
-				return response, nil
+	if err := s.handlePostRequest(r.Spec.HTTP.Request.PostRequest, response, activeEnvironment); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func (s *Service) handlePostRequest(r domain.PostRequest, response *Response, env *domain.Environment) error {
+	if r == (domain.PostRequest{}) {
+		return nil
+	}
+
+	switch r.Type {
+	case domain.PostRequestTypeSetEnv:
+		switch r.PostRequestSet.From {
+		case domain.PostRequestSetFromResponseBody:
+			if err := s.handlePostRequestFromBody(r, response, env); err != nil {
+				return err
 			}
-
-			if response.JSON != "" && response.IsJSON {
-				data, err := GetJSONPATH(response.JSON, r.Spec.HTTP.Request.PostRequest.PostRequestSet.FromKey)
-				if err != nil {
-					return nil, err
-				}
-
-				if data == nil {
-					return response, nil
-				}
-
-				if result, ok := data.(string); ok {
-					if activeEnvironment != nil {
-						activeEnvironment.SetKey(r.Spec.HTTP.Request.PostRequest.PostRequestSet.Target, result)
-
-						if err := s.environments.UpdateEnvironment(activeEnvironment, false); err != nil {
-							return nil, err
-						}
-					}
-				}
+		case domain.PostRequestSetFromResponseHeader:
+			if err := s.handlePostRequestFromHeader(r, response, env); err != nil {
+				return err
+			}
+		case domain.PostRequestSetFromResponseCookie:
+			if err := s.handlePostRequestFromCookie(r, response, env); err != nil {
+				return err
 			}
 		}
 	}
 
-	return response, nil
+	return nil
+}
+
+func (s *Service) handlePostRequestFromBody(r domain.PostRequest, response *Response, env *domain.Environment) error {
+	// handle post request
+	if r.PostRequestSet.From != domain.PostRequestSetFromResponseBody {
+		return nil
+	}
+
+	if response.JSON != "" && response.IsJSON {
+		data, err := GetJSONPATH(response.JSON, r.PostRequestSet.FromKey)
+		if err != nil {
+			return err
+		}
+
+		if data == nil {
+			return nil
+		}
+
+		if result, ok := data.(string); ok {
+			if env != nil {
+				env.SetKey(r.PostRequestSet.Target, result)
+
+				if err := s.environments.UpdateEnvironment(env, false); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) handlePostRequestFromHeader(r domain.PostRequest, response *Response, env *domain.Environment) error {
+	if r.PostRequestSet.From != domain.PostRequestSetFromResponseHeader {
+		return nil
+	}
+
+	if result, ok := response.Headers[r.PostRequestSet.FromKey]; ok {
+		if env != nil {
+			env.SetKey(r.PostRequestSet.Target, result)
+
+			if err := s.environments.UpdateEnvironment(env, false); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) handlePostRequestFromCookie(r domain.PostRequest, response *Response, env *domain.Environment) error {
+	if r.PostRequestSet.From != domain.PostRequestSetFromResponseCookie {
+		return nil
+	}
+
+	for _, c := range response.Cookies {
+		if c.Name == r.PostRequestSet.FromKey {
+			if env != nil {
+				env.SetKey(r.PostRequestSet.Target, c.Value)
+
+				if err := s.environments.UpdateEnvironment(env, false); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {

@@ -110,6 +110,17 @@ func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
 		return
 	}
 
+	switch clone.Spec.HTTP.Request.PostRequest.PostRequestSet.From {
+	case domain.PostRequestSetFromResponseBody:
+		c.setPreviewFromResponse(id, responseData, fromKey)
+	case domain.PostRequestSetFromResponseHeader:
+		c.setPreviewFromHeader(id, responseData, fromKey)
+	case domain.PostRequestSetFromResponseCookie:
+		c.setPreviewFromCookie(id, responseData, fromKey)
+	}
+}
+
+func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
 	resp, err := rest.GetJSONPATH(responseData.Response, fromKey)
 	if err != nil {
 		fmt.Println("failed to get data from response", err)
@@ -122,6 +133,24 @@ func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
 
 	if result, ok := resp.(string); ok {
 		c.view.SetPostRequestSetPreview(id, result)
+	}
+}
+
+func (c *Controller) setPreviewFromHeader(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
+	for _, header := range responseData.Headers {
+		if header.Key == fromKey {
+			c.view.SetPostRequestSetPreview(id, header.Value)
+			return
+		}
+	}
+}
+
+func (c *Controller) setPreviewFromCookie(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
+	for _, cookie := range responseData.Cookies {
+		if cookie.Key == fromKey {
+			c.view.SetPostRequestSetPreview(id, cookie.Value)
+			return
+		}
 	}
 }
 

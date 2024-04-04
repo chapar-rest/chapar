@@ -127,7 +127,6 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *material.Theme) layou
 					return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return p.script.Layout(gtx, theme, selectedItem.Hint)
 					})
-
 				case TypeSetEnv:
 					return p.SetEnvForm(gtx, theme)
 				}
