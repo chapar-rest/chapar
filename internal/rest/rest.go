@@ -48,12 +48,16 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 		return nil, fmt.Errorf("request with id %s not found", requestID)
 	}
 
-	e := s.environments.GetEnvironment(activeEnvironmentID)
-	if e == nil {
-		return nil, fmt.Errorf("environment with id %s not found", activeEnvironmentID)
+	var activeEnvironment *domain.Environment
+	// Get environment if provided
+	if activeEnvironmentID != "" {
+		activeEnvironment = s.environments.GetEnvironment(activeEnvironmentID)
+		if activeEnvironment == nil {
+			return nil, fmt.Errorf("environment with id %s not found", activeEnvironmentID)
+		}
 	}
 
-	response, err := s.sendRequest(r.Spec.HTTP, e)
+	response, err := s.sendRequest(r.Spec.HTTP, activeEnvironment)
 	if err != nil {
 		return nil, err
 	}
@@ -76,10 +80,12 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 				}
 
 				if result, ok := data.(string); ok {
-					e.SetKey(r.Spec.HTTP.Request.PostRequest.PostRequestSet.Target, result)
+					if activeEnvironment != nil {
+						activeEnvironment.SetKey(r.Spec.HTTP.Request.PostRequest.PostRequestSet.Target, result)
 
-					if err := s.environments.UpdateEnvironment(e, false); err != nil {
-						return nil, err
+						if err := s.environments.UpdateEnvironment(activeEnvironment, false); err != nil {
+							return nil, err
+						}
 					}
 				}
 			}

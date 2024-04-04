@@ -159,7 +159,13 @@ func (c *Controller) onSubmitRequest(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	res, err := c.restService.SendRequest(id, c.envState.GetActiveEnvironment().MetaData.ID)
+	var envID = ""
+	activeEnvironment := c.envState.GetActiveEnvironment()
+	if activeEnvironment != nil {
+		envID = activeEnvironment.MetaData.ID
+	}
+
+	res, err := c.restService.SendRequest(id, envID)
 	if err != nil {
 		fmt.Println("failed to send request", err)
 		return
