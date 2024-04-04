@@ -142,13 +142,13 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *material.Theme) l
 
 	keys.OnEditorChange(gtx, &p.setEnvForm.targetEditor, func() {
 		if p.onSetEnvFormChanged != nil {
-			p.onSetEnvFormChanged(p.setEnvForm.targetEditor.Text(), p.setEnvForm.fromDropDown.GetSelected().Text, p.setEnvForm.fromEditor.Text())
+			p.onSetEnvFormChanged(p.setEnvForm.targetEditor.Text(), p.setEnvForm.fromDropDown.GetSelected().Value, p.setEnvForm.fromEditor.Text())
 		}
 	})
 
 	keys.OnEditorChange(gtx, &p.setEnvForm.fromEditor, func() {
 		if p.onSetEnvFormChanged != nil {
-			p.onSetEnvFormChanged(p.setEnvForm.targetEditor.Text(), p.setEnvForm.fromDropDown.GetSelected().Text, p.setEnvForm.fromEditor.Text())
+			p.onSetEnvFormChanged(p.setEnvForm.targetEditor.Text(), p.setEnvForm.fromDropDown.GetSelected().Value, p.setEnvForm.fromEditor.Text())
 		}
 	})
 
