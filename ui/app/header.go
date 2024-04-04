@@ -18,7 +18,10 @@ type Header struct {
 	OnSelectedEnvChanged func(env *domain.Environment)
 }
 
-const noEnvironment = "No Environment"
+const (
+	none          = "none"
+	noEnvironment = "No Environment"
+)
 
 func NewHeader(envState *state.Environments) *Header {
 	h := &Header{
@@ -35,26 +38,35 @@ func NewHeader(envState *state.Environments) *Header {
 
 func (h *Header) LoadEnvs(data []*domain.Environment) {
 	options := make([]*widgets.DropDownOption, 0)
-	options = append(options, widgets.NewDropDownOption(noEnvironment))
+	options = append(options, widgets.NewDropDownOption(noEnvironment).WithIdentifier(none))
 	options = append(options, widgets.NewDropDownDivider())
+
+	selectEnvExist := false
 	for _, env := range data {
+		if h.selectedEnv == env.MetaData.ID {
+			selectEnvExist = true
+		}
 		options = append(options, widgets.NewDropDownOption(env.MetaData.Name).WithIdentifier(env.MetaData.ID))
 	}
 
 	h.envDropDown.SetOptions(options...)
+
+	if selectEnvExist {
+		h.SetSelectedEnvironment(h.envState.GetEnvironment(h.selectedEnv))
+	}
 }
 
 func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
-	h.selectedEnv = env.MetaData.Name
+	h.selectedEnv = env.MetaData.ID
 	h.envDropDown.SetSelectedByTitle(env.MetaData.Name)
 }
 
 func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(4)}
 
-	if h.envDropDown.GetSelected().Text != h.selectedEnv {
-		h.selectedEnv = h.envDropDown.GetSelected().Text
-		if h.selectedEnv != noEnvironment {
+	if h.envDropDown.GetSelected().Identifier != h.selectedEnv {
+		h.selectedEnv = h.envDropDown.GetSelected().Identifier
+		if h.selectedEnv != none {
 			id := h.envDropDown.GetSelected().Identifier
 			h.envState.SetActiveEnvironment(h.envState.GetEnvironment(id))
 
