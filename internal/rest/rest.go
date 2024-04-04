@@ -120,13 +120,14 @@ func (s *Service) sendRequest(r *domain.HTTPRequestSpec, e *domain.Environment) 
 		httpReq.URL.Path = strings.ReplaceAll(httpReq.URL.Path, "{"+p.Key+"}", p.Value)
 	}
 
+	// TODO queries are already assembled to the url, should we do it here instead?
 	// apply query params
-	query := httpReq.URL.Query()
-	for _, q := range req.Request.QueryParams {
-		query.Add(q.Key, q.Value)
-	}
+	// query := httpReq.URL.Query()
+	// for _, q := range req.Request.QueryParams {
+	//	query.Add(q.Key, q.Value)
+	// }
 
-	httpReq.URL.RawQuery = query.Encode()
+	// httpReq.URL.RawQuery = query.Encode()
 
 	// apply body
 	if req.Request.Body.Data != "" {
