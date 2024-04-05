@@ -3,6 +3,7 @@ package app
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/state"
@@ -13,9 +14,12 @@ type Header struct {
 	selectedEnv string
 	envDropDown *widgets.DropDown
 
-	envState *state.Environments
+	envState      *state.Environments
+	themeSwitcher *widget.Bool
 
 	OnSelectedEnvChanged func(env *domain.Environment)
+
+	OnThemeSwitched func(isLight bool)
 }
 
 const (
@@ -25,8 +29,9 @@ const (
 
 func NewHeader(envState *state.Environments) *Header {
 	h := &Header{
-		selectedEnv: noEnvironment,
-		envState:    envState,
+		selectedEnv:   noEnvironment,
+		envState:      envState,
+		themeSwitcher: new(widget.Bool),
 	}
 
 	h.envDropDown = widgets.NewDropDown(
@@ -88,9 +93,30 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return h.envDropDown.Layout(gtx, theme)
-						})
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return widgets.MaterialIcons("dark_mode", theme).Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Right: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									if h.themeSwitcher.Update(gtx) {
+										if h.OnThemeSwitched != nil {
+											h.OnThemeSwitched(h.themeSwitcher.Value)
+										}
+									}
+
+									return material.Switch(theme, h.themeSwitcher, "").Layout(gtx)
+								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return widgets.MaterialIcons("light_mode", theme).Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Left: unit.Dp(20), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return h.envDropDown.Layout(gtx, theme)
+								})
+							}),
+						)
 					}),
 				)
 			})

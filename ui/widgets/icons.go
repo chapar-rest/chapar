@@ -124,6 +124,11 @@ var LogsIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var DarkIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionSubject)
+	return icon
+}()
+
 var ConsoleIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.HardwareDesktopMac)
 	return icon

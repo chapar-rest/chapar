@@ -6,15 +6,17 @@ import (
 	"image/color"
 	"os"
 
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+
 	"github.com/mirzakhany/chapar/internal/rest"
 
 	"github.com/mirzakhany/chapar/ui/explorer"
+	chapatheme "github.com/mirzakhany/chapar/ui/theme"
 
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -30,7 +32,7 @@ import (
 )
 
 type UI struct {
-	Theme  *material.Theme
+	Theme  *chapatheme.Theme
 	window *app.Window
 
 	sideBar *Sidebar
@@ -76,20 +78,23 @@ func New(w *app.Window) (*UI, error) {
 
 	explorerController := explorer.NewExplorer(w)
 
-	u.Theme = material.NewTheme()
-	u.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
+	theme := material.NewTheme()
+	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	// set foreground color
-	u.Theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
+	theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
 	// set background color
-	u.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
+	theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
+	theme.TextSize = unit.Sp(14)
+	u.Theme = &chapatheme.Theme{
+		Theme: theme,
+	}
 
-	u.Theme.TextSize = unit.Sp(14)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 	u.header = NewHeader(environmentsState)
-	u.sideBar = NewSidebar(u.Theme)
+	u.sideBar = NewSidebar(u.Theme.Material())
 
-	u.environmentsView = environments.NewView(u.Theme)
+	u.environmentsView = environments.NewView(u.Theme.Material())
 	envController := environments.NewController(u.environmentsView, repo, environmentsState, explorerController)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
@@ -115,7 +120,11 @@ func New(w *app.Window) (*UI, error) {
 		environmentsState.SetActiveEnvironment(env)
 	}
 
-	u.requestsView = requests.NewView(u.Theme)
+	u.header.OnThemeSwitched = func(isLight bool) {
+		u.Theme.Switch()
+	}
+
+	u.requestsView = requests.NewView(u.Theme.Material())
 	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
@@ -159,19 +168,19 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return u.header.Layout(gtx, u.Theme)
+					return u.header.Layout(gtx, u.Theme.Material())
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return u.sideBar.Layout(gtx, u.Theme)
+							return u.sideBar.Layout(gtx, u.Theme.Material())
 						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							switch u.sideBar.SelectedIndex() {
 							case 0:
-								return u.requestsView.Layout(gtx, u.Theme)
+								return u.requestsView.Layout(gtx, u.Theme.Material())
 							case 1:
-								return u.environmentsView.Layout(gtx, u.Theme)
+								return u.environmentsView.Layout(gtx, u.Theme.Material())
 								// case 4:
 								//	return u.consolePage.Layout(gtx, u.Theme)
 							}
@@ -182,7 +191,7 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
+			return notify.NotificationController.Layout(gtx, u.Theme.Material(), windowWidth)
 		}),
 	)
 }
