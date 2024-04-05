@@ -131,8 +131,9 @@ type Body struct {
 	// Can be json, xml, or plain text
 	Data string `yaml:"data"`
 
-	FormBody   []KeyValue `yaml:"formBody,omitempty"`
-	URLEncoded []KeyValue `yaml:"urlEncoded,omitempty"`
+	FormBody       []KeyValue `yaml:"formBody,omitempty"`
+	URLEncoded     []KeyValue `yaml:"urlEncoded,omitempty"`
+	BinaryFilePath string     `yaml:"binaryFilePath,omitempty"`
 }
 
 func (b *Body) Clone() *Body {
@@ -427,7 +428,7 @@ func CompareHTTPRequests(a, b *HTTPRequest) bool {
 }
 
 func CompareBody(a, b Body) bool {
-	if a.Type != b.Type || a.Data != b.Data {
+	if a.Type != b.Type || a.Data != b.Data || a.BinaryFilePath != b.BinaryFilePath {
 		return false
 	}
 

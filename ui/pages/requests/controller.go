@@ -65,6 +65,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnSave(c.onSave)
 	view.SetOnSubmit(c.onSubmit)
 	view.SetOnCopyResponse(c.onCopyResponse)
+	view.SetOnBinaryFileSelect(c.onSelectBinaryFile)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	return c
 }
@@ -84,6 +85,19 @@ func (c *Controller) LoadData() error {
 	return nil
 }
 
+func (c *Controller) onSelectBinaryFile(id string) {
+	c.explorer.ChoseFiles(func(result explorer.Result) {
+		if result.Error != nil {
+			fmt.Println("failed to get file", result.Error)
+			return
+		}
+		if result.FilePath == "" {
+			return
+		}
+		c.view.SetBinaryBodyFilePath(id, result.FilePath)
+	}, "")
+}
+
 func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
@@ -92,6 +106,7 @@ func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
 
 	// break the reference
 	clone := req.Clone()
+	clone.MetaData.ID = id
 	req.Spec = clone.Spec
 
 	clone.Spec.HTTP.Request.PostRequest.PostRequestSet = domain.PostRequestSet{

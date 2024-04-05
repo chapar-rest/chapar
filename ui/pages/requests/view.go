@@ -60,6 +60,7 @@ type View struct {
 	onDataChanged               func(id string, data any, containerType string)
 	onCopyResponse              func(gtx layout.Context, response string)
 	onOnPostRequestSetChanged   func(id, item, from, fromKey string)
+	onBinaryFileSelect          func(id string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -164,6 +165,18 @@ func (v *View) RemoveTreeViewNode(id string) {
 
 func (v *View) SetOnCopyResponse(onCopyResponse func(gtx layout.Context, response string)) {
 	v.onCopyResponse = onCopyResponse
+}
+
+func (v *View) SetOnBinaryFileSelect(f func(id string)) {
+	v.onBinaryFileSelect = f
+}
+
+func (v *View) SetBinaryBodyFilePath(id, filePath string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetBinaryBodyFilePath(filePath)
+		}
+	}
 }
 
 func (v *View) SetOnNewRequest(onNewRequest func()) {
@@ -354,6 +367,12 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 	ct.SetOnPostRequestSetChanged(func(id, item, from, fromKey string) {
 		if v.onOnPostRequestSetChanged != nil {
 			v.onOnPostRequestSetChanged(id, item, from, fromKey)
+		}
+	})
+
+	ct.SetOnBinaryFileSelect(func(id string) {
+		if v.onBinaryFileSelect != nil {
+			v.onBinaryFileSelect(id)
 		}
 	})
 

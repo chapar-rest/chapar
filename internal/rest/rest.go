@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -184,7 +185,9 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	// apply headers
 	for _, h := range req.Request.Headers {
-		httpReq.Header.Add(h.Key, h.Value)
+		if h.Enable {
+			httpReq.Header.Add(h.Key, h.Value)
+		}
 	}
 
 	// apply path params as single brace
@@ -202,26 +205,45 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	// httpReq.URL.RawQuery = query.Encode()
 
 	// apply body
-	if req.Request.Body.Data != "" {
-		httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
-	}
-
-	// apply form body
-	if len(req.Request.Body.FormBody) > 0 {
-		form := url.Values{}
-		for _, f := range req.Request.Body.FormBody {
-			form.Add(f.Key, f.Value)
+	switch req.Request.Body.Type {
+	case domain.BodyTypeJSON, domain.BodyTypeXML, domain.BodyTypeText:
+		if req.Request.Body.Data != "" {
+			httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
 		}
-		httpReq.PostForm = form
-	}
 
-	// apply url encoded
-	if len(req.Request.Body.URLEncoded) > 0 {
-		form := url.Values{}
-		for _, f := range req.Request.Body.URLEncoded {
-			form.Add(f.Key, f.Value)
+	case domain.BodyTypeBinary:
+		if req.Request.Body.BinaryFilePath != "" {
+			// read file
+			file, err := os.ReadFile(req.Request.Body.BinaryFilePath)
+			if err != nil {
+				return nil, err
+			}
+
+			httpReq.Body = io.NopCloser(bytes.NewReader(file))
+			httpReq.ContentLength = int64(len(file))
+			httpReq.Header.Add("Content-Type", "application/octet-stream")
+			httpReq.Header.Add("Content-Disposition", "attachment; filename="+req.Request.Body.BinaryFilePath)
 		}
-		httpReq.PostForm = form
+
+	case domain.BodyTypeFormData:
+		// apply form body
+		if len(req.Request.Body.FormBody) > 0 {
+			form := url.Values{}
+			for _, f := range req.Request.Body.FormBody {
+				form.Add(f.Key, f.Value)
+			}
+			httpReq.PostForm = form
+		}
+
+	case domain.BodyTypeUrlencoded:
+		// apply url encoded
+		if len(req.Request.Body.URLEncoded) > 0 {
+			form := url.Values{}
+			for _, f := range req.Request.Body.URLEncoded {
+				form.Add(f.Key, f.Value)
+			}
+			httpReq.PostForm = form
+		}
 	}
 
 	// apply authentication
