@@ -4,7 +4,6 @@ import (
 	"image"
 	"sort"
 	"strings"
-	"time"
 
 	"gioui.org/io/input"
 	"gioui.org/io/pointer"
@@ -45,8 +44,6 @@ type TreeNode struct {
 	menuInit bool
 	isChild  bool
 	expanded bool
-
-	lastClickAt time.Time
 
 	Meta *safemap.Map[string]
 }
@@ -202,18 +199,21 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 		leftPadding = 36
 	}
 
-	for node.DiscloserState.Clickable.Clicked(gtx) {
-		if t.onNodeClick != nil {
-			go t.onNodeClick(node)
+	for {
+		click, ok := node.DiscloserState.Clickable.Update(gtx)
+		if !ok {
+			break
 		}
-
-		// is this a double click?
-		if time.Since(node.lastClickAt) < 500*time.Millisecond {
+		switch click.NumClicks {
+		case 1:
+			if t.onNodeClick != nil {
+				go t.onNodeClick(node)
+			}
+		case 2:
 			if t.onNodeDoubleClick != nil {
 				go t.onNodeDoubleClick(node)
 			}
-		} else {
-			node.lastClickAt = time.Now()
+		default:
 			if node.Children == nil {
 				continue
 			}
