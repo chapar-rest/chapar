@@ -1,6 +1,8 @@
 package state
 
 import (
+	"path"
+
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/repository"
 	"github.com/mirzakhany/chapar/internal/safemap"
@@ -127,16 +129,36 @@ func (m *Requests) UpdateCollection(collection *domain.Collection, stateOnly boo
 		return ErrNotFound
 	}
 
+	oldCollectionFilePath := collection.FilePath
+
 	if !stateOnly {
 		if err := m.repository.UpdateCollection(collection); err != nil {
 			return err
 		}
 	}
 
+	// update the request collection name and id and file path
+	for _, req := range collection.Spec.Requests {
+		req.CollectionName = collection.MetaData.Name
+		req.CollectionID = collection.MetaData.ID
+
+		if oldCollectionFilePath != collection.FilePath {
+			req.FilePath = fixRequestFilePath(req, collection)
+		}
+
+		m.requests.Set(req.MetaData.ID, req)
+	}
+
 	m.collections.Set(collection.MetaData.ID, collection)
 	m.notifyCollectionChange(collection, ActionUpdate)
 
 	return nil
+}
+
+func fixRequestFilePath(request *domain.Request, collection *domain.Collection) string {
+	collectionDir, _ := path.Split(collection.FilePath)
+	requestFileName := path.Base(request.FilePath)
+	return path.Join(collectionDir, requestFileName)
 }
 
 func (m *Requests) GetRequests() []*domain.Request {
