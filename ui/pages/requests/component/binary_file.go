@@ -42,6 +42,9 @@ func (b *BinaryFile) SetOnChanged(f func(filePath string)) {
 func (b *BinaryFile) SetFileName(name string) {
 	b.FileName = name
 	b.textField.SetText(name)
+	if b.onChanged != nil {
+		b.onChanged(name)
+	}
 }
 
 func (b *BinaryFile) RemoveFile() {

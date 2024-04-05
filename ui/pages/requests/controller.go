@@ -85,8 +85,16 @@ func (c *Controller) LoadData() error {
 	return nil
 }
 
-func (c *Controller) onSelectBinaryFile() {
+func (c *Controller) onSelectBinaryFile(id string) {
 	c.explorer.ChoseFiles(func(result explorer.Result) {
+		if result.Error != nil {
+			fmt.Println("failed to get file", result.Error)
+			return
+		}
+		if result.FilePath == "" {
+			return
+		}
+		c.view.SetBinaryBodyFilePath(id, result.FilePath)
 	}, "")
 }
 
@@ -98,6 +106,7 @@ func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
 
 	// break the reference
 	clone := req.Clone()
+	clone.MetaData.ID = id
 	req.Spec = clone.Spec
 
 	clone.Spec.HTTP.Request.PostRequest.PostRequestSet = domain.PostRequestSet{
@@ -277,6 +286,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 
 	// is data changed?
 	if domain.CompareRequests(req, inComingRequest) {
+		fmt.Println("data is not changed")
 		return
 	}
 

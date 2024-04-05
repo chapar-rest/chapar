@@ -3,6 +3,7 @@ package explorer
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"gioui.org/app"
 	"gioui.org/x/explorer"
@@ -14,8 +15,9 @@ type Explorer struct {
 }
 
 type Result struct {
-	Data  []byte
-	Error error
+	Data     []byte
+	Error    error
+	FilePath string
 }
 
 func NewExplorer(w *app.Window) *Explorer {
@@ -46,12 +48,18 @@ func (e *Explorer) ChoseFiles(onResult func(r Result), extensions ...string) {
 			}
 		}(file)
 
+		filePath := ""
+		// get file path if possible
+		if f, ok := file.(*os.File); ok {
+			filePath = f.Name()
+		}
+
 		data, err := io.ReadAll(file)
 		if err != nil {
 			err = fmt.Errorf("failed reading file: %w", err)
-			onResult(Result{Error: err})
+			onResult(Result{Error: err, FilePath: filePath})
 			return
 		}
-		onResult(Result{Data: data, Error: nil})
+		onResult(Result{Data: data, FilePath: filePath, Error: nil})
 	}(onResult)
 }

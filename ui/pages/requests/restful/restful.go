@@ -72,8 +72,14 @@ func (r *Restful) SetURL(url string) {
 	r.AddressBar.SetURL(url)
 }
 
-func (r *Restful) SetOnBinaryFileSelect(f func()) {
-	r.Request.Body.binaryFile.SetOnSelectFile(f)
+func (r *Restful) SetOnBinaryFileSelect(f func(id string)) {
+	r.Request.Body.BinaryFile.SetOnSelectFile(func() {
+		f(r.Req.MetaData.ID)
+	})
+}
+
+func (r *Restful) SetBinaryBodyFilePath(filePath string) {
+	r.Request.Body.BinaryFile.SetFileName(filePath)
 }
 
 func (r *Restful) SetDataChanged(changed bool) {

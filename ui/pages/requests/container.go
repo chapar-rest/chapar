@@ -36,5 +36,6 @@ type RestContainer interface {
 	SetURL(url string)
 	SetPostRequestSetValues(set domain.PostRequestSet)
 	SetOnPostRequestSetChanged(f func(id, item, from, fromKey string))
-	SetOnBinaryFileSelect(f func())
+	SetOnBinaryFileSelect(f func(id string))
+	SetBinaryBodyFilePath(filePath string)
 }

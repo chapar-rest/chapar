@@ -18,7 +18,7 @@ type Body struct {
 	formData   *widgets.KeyValue
 	urlencoded *widgets.KeyValue
 	script     *widgets.CodeEditor
-	binaryFile *component.BinaryFile
+	BinaryFile *component.BinaryFile
 
 	onChange func(body domain.Body)
 }
@@ -38,11 +38,11 @@ func NewBody(body domain.Body) *Body {
 		formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
 		script:     widgets.NewCodeEditor("", "JSON"),
-		binaryFile: component.NewBinaryFile(""),
+		BinaryFile: component.NewBinaryFile(""),
 	}
 
-	if body.Type == "Binary" {
-		b.binaryFile.SetFileName(body.BinaryFilePath)
+	if body.Type == domain.BodyTypeBinary {
+		b.BinaryFile.SetFileName(body.BinaryFilePath)
 	}
 
 	b.script.SetCode(body.Data)
@@ -78,7 +78,7 @@ func (b *Body) SetOnChange(f func(body domain.Body)) {
 		b.onChange(b.body)
 	})
 
-	b.binaryFile.SetOnChanged(func(filePath string) {
+	b.BinaryFile.SetOnChanged(func(filePath string) {
 		b.body.BinaryFilePath = filePath
 		b.onChange(b.body)
 	})
@@ -110,9 +110,8 @@ func (b *Body) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 					case domain.BodyTypeFormData:
 						return b.formData.WithAddLayout(gtx, "Form data", "Add form data", theme)
 					case domain.BodyTypeBinary:
-						return b.binaryFile.Layout(gtx, theme)
+						return b.BinaryFile.Layout(gtx, theme)
 					case domain.BodyTypeUrlencoded:
-
 						return b.urlencoded.WithAddLayout(gtx, "Urlencoded", "Add urlencoded", theme)
 					default:
 						return layout.Dimensions{}
