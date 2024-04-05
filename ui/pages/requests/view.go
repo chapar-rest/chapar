@@ -530,7 +530,9 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 		Text:        req.MetaData.Name,
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuDuplicate, MenuDelete},
+		Meta:        safemap.New[string](),
 	}
+	node.Meta.Set(TypeMeta, TypeRequest)
 	if parentID == "" {
 		v.treeView.AddNode(node)
 	} else {

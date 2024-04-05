@@ -182,7 +182,6 @@ func (m *Requests) GetRequestFromDisc(id string) (*domain.Request, error) {
 
 	// update the file path in case if its a collection request
 	freshReq.FilePath = req.FilePath
-
 	freshReq.CollectionID = req.CollectionID
 	freshReq.CollectionName = req.CollectionName
 
