@@ -119,7 +119,7 @@ func (s *Service) handlePostRequestFromBody(r domain.PostRequest, response *Resp
 			if env != nil {
 				env.SetKey(r.PostRequestSet.Target, result)
 
-				if err := s.environments.UpdateEnvironment(env, false); err != nil {
+				if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
 					return err
 				}
 			}
@@ -137,7 +137,7 @@ func (s *Service) handlePostRequestFromHeader(r domain.PostRequest, response *Re
 		if env != nil {
 			env.SetKey(r.PostRequestSet.Target, result)
 
-			if err := s.environments.UpdateEnvironment(env, false); err != nil {
+			if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
 				return err
 			}
 		}
@@ -155,7 +155,7 @@ func (s *Service) handlePostRequestFromCookie(r domain.PostRequest, response *Re
 			if env != nil {
 				env.SetKey(r.PostRequestSet.Target, c.Value)
 
-				if err := s.environments.UpdateEnvironment(env, false); err != nil {
+				if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
 					return err
 				}
 			}

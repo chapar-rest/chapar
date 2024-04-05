@@ -59,7 +59,7 @@ func (c *Controller) onNewEnvironment() {
 	env.FilePath = filePath.Path
 	env.MetaData.Name = filePath.NewName
 
-	c.state.AddEnvironment(env)
+	c.state.AddEnvironment(env, state.SourceController)
 	c.view.AddTreeViewNode(env)
 	c.saveEnvironmentToDisc(env.MetaData.ID)
 }
@@ -84,7 +84,12 @@ func (c *Controller) onImportEnvironment() {
 	}, "json")
 }
 
-func (c *Controller) onEnvironmentChange(env *domain.Environment, action state.Action) {
+func (c *Controller) onEnvironmentChange(env *domain.Environment, source state.Source, action state.Action) {
+	if source == state.SourceController {
+		// if the change is from controller then no need to update the view as it will be updated by the controller
+		return
+	}
+
 	switch action {
 	case state.ActionAdd:
 		c.view.AddTreeViewNode(env)
@@ -111,7 +116,7 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	c.view.UpdateTreeNodeTitle(env.MetaData.ID, env.MetaData.Name)
 	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
 
-	if err := c.state.UpdateEnvironment(env, false); err != nil {
+	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
 		fmt.Println("failed to update environment", err)
 		return
 	}
@@ -167,7 +172,7 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 	}
 
 	env.Spec.Values = items
-	if err := c.state.UpdateEnvironment(env, true); err != nil {
+	if err := c.state.UpdateEnvironment(env, state.SourceController, true); err != nil {
 		fmt.Println("failed to update environment", err)
 		return
 	}
@@ -222,7 +227,7 @@ func (c *Controller) onTabClose(id string) {
 			}
 
 			c.view.CloseTab(id)
-			c.state.ReloadEnvironmentFromDisc(id)
+			c.state.ReloadEnvironmentFromDisc(id, state.SourceController)
 		}, []widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
 }
@@ -234,7 +239,7 @@ func (c *Controller) saveEnvironmentToDisc(id string) {
 		return
 	}
 
-	if err := c.state.UpdateEnvironment(env, false); err != nil {
+	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
 		fmt.Println("failed to update environment", err)
 		return
 	}
@@ -262,7 +267,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
 	newEnv.FilePath = repository.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
-	c.state.AddEnvironment(newEnv)
+	c.state.AddEnvironment(newEnv, state.SourceController)
 	c.view.AddTreeViewNode(newEnv)
 	c.saveEnvironmentToDisc(newEnv.MetaData.ID)
 }
@@ -273,7 +278,7 @@ func (c *Controller) deleteEnvironment(id string) {
 		return
 	}
 
-	if err := c.state.RemoveEnvironment(env, false); err != nil {
+	if err := c.state.RemoveEnvironment(env, state.SourceController, false); err != nil {
 		fmt.Println("failed to delete environment", err)
 		return
 	}

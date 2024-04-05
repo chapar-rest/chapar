@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	EnvironmentChangeListener       func(environment *domain.Environment, action Action)
+	EnvironmentChangeListener       func(environment *domain.Environment, source Source, action Action)
 	ActiveEnvironmentChangeListener func(*domain.Environment)
 )
 
@@ -36,9 +36,9 @@ func (m *Environments) AddActiveEnvironmentChangeListener(listener ActiveEnviron
 	m.activeEnvironmentChangeListeners = append(m.activeEnvironmentChangeListeners, listener)
 }
 
-func (m *Environments) notifyEnvironmentChange(environment *domain.Environment, action Action) {
+func (m *Environments) notifyEnvironmentChange(environment *domain.Environment, source Source, action Action) {
 	for _, listener := range m.environmentChangeListeners {
-		listener(environment, action)
+		listener(environment, source, action)
 	}
 }
 
@@ -48,12 +48,12 @@ func (m *Environments) notifyActiveEnvironmentChange(environment *domain.Environ
 	}
 }
 
-func (m *Environments) AddEnvironment(environment *domain.Environment) {
+func (m *Environments) AddEnvironment(environment *domain.Environment, source Source) {
 	m.environments.Set(environment.MetaData.ID, environment)
-	m.notifyEnvironmentChange(environment, ActionAdd)
+	m.notifyEnvironmentChange(environment, source, ActionAdd)
 }
 
-func (m *Environments) RemoveEnvironment(environment *domain.Environment, stateOnly bool) error {
+func (m *Environments) RemoveEnvironment(environment *domain.Environment, source Source, stateOnly bool) error {
 	if _, ok := m.environments.Get(environment.MetaData.ID); !ok {
 		return ErrNotFound
 	}
@@ -65,7 +65,7 @@ func (m *Environments) RemoveEnvironment(environment *domain.Environment, stateO
 	}
 
 	m.environments.Delete(environment.MetaData.ID)
-	m.notifyEnvironmentChange(environment, ActionDelete)
+	m.notifyEnvironmentChange(environment, source, ActionDelete)
 	return nil
 }
 
@@ -74,7 +74,7 @@ func (m *Environments) GetEnvironment(id string) *domain.Environment {
 	return env
 }
 
-func (m *Environments) UpdateEnvironment(env *domain.Environment, stateOnly bool) error {
+func (m *Environments) UpdateEnvironment(env *domain.Environment, source Source, stateOnly bool) error {
 	if _, ok := m.environments.Get(env.MetaData.ID); !ok {
 		return ErrNotFound
 	}
@@ -86,7 +86,7 @@ func (m *Environments) UpdateEnvironment(env *domain.Environment, stateOnly bool
 	}
 
 	m.environments.Set(env.MetaData.ID, env)
-	m.notifyEnvironmentChange(env, ActionUpdate)
+	m.notifyEnvironmentChange(env, source, ActionUpdate)
 
 	return nil
 }
@@ -118,7 +118,7 @@ func (m *Environments) GetEnvironmentFromDisc(id string) (*domain.Environment, e
 	return m.repository.GetEnvironment(env.FilePath)
 }
 
-func (m *Environments) ReloadEnvironmentFromDisc(id string) {
+func (m *Environments) ReloadEnvironmentFromDisc(id string, source Source) {
 	env, ok := m.environments.Get(id)
 	if !ok {
 		// log error and handle it
@@ -131,7 +131,7 @@ func (m *Environments) ReloadEnvironmentFromDisc(id string) {
 	}
 
 	m.environments.Set(id, env)
-	m.notifyEnvironmentChange(env, ActionUpdate)
+	m.notifyEnvironmentChange(env, source, ActionUpdate)
 }
 
 func (m *Environments) GetEnvironments() []*domain.Environment {

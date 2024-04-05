@@ -96,7 +96,7 @@ func New(w *app.Window) (*UI, error) {
 	}
 
 	u.header.LoadEnvs(environmentsState.GetEnvironments())
-	environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, action state.Action) {
+	environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, source state.Source, action state.Action) {
 		u.header.LoadEnvs(environmentsState.GetEnvironments())
 	})
 
