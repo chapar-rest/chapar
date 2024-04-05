@@ -399,7 +399,6 @@ func (f *Filesystem) DeleteRequest(request *domain.Request) error {
 
 func getNewFilePath(dir, name string) *FilePath {
 	fileName := path.Join(dir, name)
-	fmt.Println("filename", fileName)
 	fName := generateNewFileName(fileName, "yaml")
 
 	return &FilePath{
