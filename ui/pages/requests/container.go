@@ -23,7 +23,6 @@ type Container interface {
 	SetOnSave(f func(id string))
 	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option)
 	HidePrompt()
-	SetOnBinaryFileSelect(f func())
 }
 
 type RestContainer interface {
@@ -37,4 +36,5 @@ type RestContainer interface {
 	SetURL(url string)
 	SetPostRequestSetValues(set domain.PostRequestSet)
 	SetOnPostRequestSetChanged(f func(id, item, from, fromKey string))
+	SetOnBinaryFileSelect(f func())
 }

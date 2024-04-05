@@ -65,7 +65,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnSave(c.onSave)
 	view.SetOnSubmit(c.onSubmit)
 	view.SetOnCopyResponse(c.onCopyResponse)
-	view.OnSelectBinaryFile(c.onSelectBinaryFile)
+	view.SetOnBinaryFileSelect(c.onSelectBinaryFile)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	return c
 }
@@ -83,6 +83,11 @@ func (c *Controller) LoadData() error {
 
 	c.view.PopulateTreeView(requests, collections)
 	return nil
+}
+
+func (c *Controller) onSelectBinaryFile() {
+	c.explorer.ChoseFiles(func(result explorer.Result) {
+	}, "")
 }
 
 func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
