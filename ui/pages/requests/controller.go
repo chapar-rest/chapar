@@ -286,7 +286,6 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 
 	// is data changed?
 	if domain.CompareRequests(req, inComingRequest) {
-		fmt.Println("data is not changed")
 		return
 	}
 
