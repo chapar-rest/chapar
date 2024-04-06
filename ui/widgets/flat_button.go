@@ -48,11 +48,6 @@ func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween unit.
 	f.SpaceBetween = spaceBetween
 }
 
-func (f *FlatButton) SetColor(background, text color.NRGBA) {
-	f.BackgroundColor = background
-	f.TextColor = text
-}
-
 func (f *FlatButton) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	if f.BackgroundColor == (color.NRGBA{}) {
 		f.BackgroundColor = theme.Palette.ContrastBg
@@ -96,7 +91,6 @@ func (f *FlatButton) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 			return layout.Background{}.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(f.MinWidth)
-					// gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, f.CornerRadius).Push(gtx.Ops).Pop()
 					background := f.BackgroundColor
 					if gtx.Source == (input.Source{}) {

@@ -71,9 +71,9 @@ func (a *AddressBar) SetURL(url string) {
 }
 
 func (a *AddressBar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
-	borderColor := widgets.Gray400
+	borderColor := theme.BorderColor
 	if gtx.Source.Focused(a.url) {
-		borderColor = theme.Palette.ContrastFg
+		borderColor = theme.BorderColorFocused
 	}
 
 	border := widget.Border{

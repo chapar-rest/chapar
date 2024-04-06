@@ -3,6 +3,8 @@ package theme
 import (
 	"image/color"
 
+	"gioui.org/unit"
+
 	"gioui.org/widget/material"
 )
 
@@ -23,38 +25,64 @@ var (
 type Theme struct {
 	*material.Theme
 
-	isLight bool
+	isDark bool
+
+	BorderColor        color.NRGBA
+	BorderColorFocused color.NRGBA
+	TextColor          color.NRGBA
+}
+
+func New(material *material.Theme, isDark bool) *Theme {
+	t := &Theme{
+		Theme: material,
+	}
+
+	t.Theme.TextSize = unit.Sp(14)
+	// default theme is dark
+	t.Switch(isDark)
+	return t
 }
 
 func (t *Theme) Material() *material.Theme {
 	return t.Theme
 }
 
-func (t *Theme) Switch(light bool) *material.Theme {
-	t.isLight = light
+func (t *Theme) Switch(isDark bool) *material.Theme {
+	t.isDark = isDark
 
-	if light {
+	if isDark {
 		// set foreground color
 		t.Theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
 		// set background color
 		t.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
+		t.BorderColor = Gray300
+		t.Theme.Palette.ContrastBg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
+		t.Theme.Palette.ContrastFg = rgb(0xffffff)
+		t.BorderColorFocused = t.Theme.Palette.ContrastFg
+		t.TextColor = Gray700
+
 	} else {
-		// set foreground color
-		t.Theme.Palette.Fg = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xff}
-		// set background color
-		t.Theme.Palette.Bg = color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xff}
+
+		t.Theme.Palette.Fg = rgb(0x000000)
+		t.Theme.Palette.Bg = rgb(0xffffff)
+		t.Theme.Palette.ContrastBg = Gray700
+		t.Theme.Palette.ContrastFg = rgb(0x000000)
+		t.BorderColor = Gray400
+		t.BorderColorFocused = t.Theme.Palette.ContrastBg
+		t.TextColor = Black
 	}
+
 	return t.Theme
 }
 
-func (t *Theme) IsLight() bool {
-	return t.isLight
+func (t *Theme) IsDark() bool {
+	return t.isDark
 }
 
-func (t *Theme) GetBorderColor() color.NRGBA {
-	if t.isLight {
-		return Gray400
-	} else {
-		return Gray600
-	}
+func rgb(c uint32) color.NRGBA {
+	return argb(0xff000000 | c)
+}
+
+func argb(c uint32) color.NRGBA {
+	return color.NRGBA{A: uint8(c >> 24), R: uint8(c >> 16), G: uint8(c >> 8), B: uint8(c)}
 }

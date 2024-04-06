@@ -16,7 +16,7 @@ type Header struct {
 	envDropDown *widgets.DropDown
 
 	envState      *state.Environments
-	themeSwitcher *widget.Bool
+	ThemeSwitcher *widget.Bool
 
 	OnSelectedEnvChanged func(env *domain.Environment)
 
@@ -32,7 +32,7 @@ func NewHeader(envState *state.Environments) *Header {
 	h := &Header{
 		selectedEnv:   noEnvironment,
 		envState:      envState,
-		themeSwitcher: new(widget.Bool),
+		ThemeSwitcher: new(widget.Bool),
 	}
 
 	h.envDropDown = widgets.NewDropDown(
@@ -65,6 +65,9 @@ func (h *Header) LoadEnvs(data []*domain.Environment) {
 func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 	h.selectedEnv = env.MetaData.ID
 	h.envDropDown.SetSelectedByTitle(env.MetaData.Name)
+}
+func (h *Header) SetTheme(isDark bool) {
+	h.ThemeSwitcher.Value = !isDark
 }
 
 func (h *Header) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
@@ -100,13 +103,13 @@ func (h *Header) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimension
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return layout.Inset{Right: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									if h.themeSwitcher.Update(gtx) {
+									if h.ThemeSwitcher.Update(gtx) {
 										if h.OnThemeSwitched != nil {
-											h.OnThemeSwitched(!h.themeSwitcher.Value)
+											h.OnThemeSwitched(!h.ThemeSwitcher.Value)
 										}
 									}
 
-									return material.Switch(theme.Material(), h.themeSwitcher, "").Layout(gtx)
+									return material.Switch(theme.Material(), h.ThemeSwitcher, "").Layout(gtx)
 								})
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -122,6 +125,6 @@ func (h *Header) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimension
 				)
 			})
 		}),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+		widgets.DrawLineFlex(theme.BorderColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 	)
 }
