@@ -5,9 +5,10 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 )
 
-func SaveButtonLayout(gtx layout.Context, theme *material.Theme, clickable *widget.Clickable) layout.Dimensions {
+func SaveButtonLayout(gtx layout.Context, theme *theme.Theme, clickable *widget.Clickable) layout.Dimensions {
 	border := widget.Border{
 		Color:        theme.Palette.ContrastBg,
 		Width:        unit.Dp(1),
@@ -26,7 +27,7 @@ func SaveButtonLayout(gtx layout.Context, theme *material.Theme, clickable *widg
 									return SaveIcon.Layout(gtx, theme.Palette.ContrastFg)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return material.Body1(theme, "Save").Layout(gtx)
+									return material.Body1(theme.Material(), "Save").Layout(gtx)
 								}),
 							)
 						}),

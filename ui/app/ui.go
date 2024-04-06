@@ -92,9 +92,9 @@ func New(w *app.Window) (*UI, error) {
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 	u.header = NewHeader(environmentsState)
-	u.sideBar = NewSidebar(u.Theme.Material())
+	u.sideBar = NewSidebar(u.Theme)
 
-	u.environmentsView = environments.NewView(u.Theme.Material())
+	u.environmentsView = environments.NewView(u.Theme)
 	envController := environments.NewController(u.environmentsView, repo, environmentsState, explorerController)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
@@ -121,10 +121,10 @@ func New(w *app.Window) (*UI, error) {
 	}
 
 	u.header.OnThemeSwitched = func(isLight bool) {
-		u.Theme.Switch()
+		u.Theme.Switch(isLight)
 	}
 
-	u.requestsView = requests.NewView(u.Theme.Material())
+	u.requestsView = requests.NewView(u.Theme)
 	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
@@ -168,19 +168,19 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return u.header.Layout(gtx, u.Theme.Material())
+					return u.header.Layout(gtx, u.Theme)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return u.sideBar.Layout(gtx, u.Theme.Material())
+							return u.sideBar.Layout(gtx, u.Theme)
 						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							switch u.sideBar.SelectedIndex() {
 							case 0:
-								return u.requestsView.Layout(gtx, u.Theme.Material())
+								return u.requestsView.Layout(gtx, u.Theme)
 							case 1:
-								return u.environmentsView.Layout(gtx, u.Theme.Material())
+								return u.environmentsView.Layout(gtx, u.Theme)
 								// case 4:
 								//	return u.consolePage.Layout(gtx, u.Theme)
 							}
@@ -191,7 +191,7 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return notify.NotificationController.Layout(gtx, u.Theme.Material(), windowWidth)
+			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
 		}),
 	)
 }

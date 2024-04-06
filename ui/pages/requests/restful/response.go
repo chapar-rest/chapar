@@ -13,6 +13,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/dustin/go-humanize"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -36,7 +37,7 @@ type Response struct {
 	jsonViewer        *widgets.JsonViewer
 }
 
-func NewResponse(theme *material.Theme) *Response {
+func NewResponse(theme *theme.Theme) *Response {
 	r := &Response{
 		copyButton: &widgets.FlatButton{
 			Text:            "Copy",
@@ -87,7 +88,7 @@ func (r *Response) SetCookies(cookies []domain.KeyValue) {
 	r.responseCookies.SetData(cookies)
 }
 
-func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Response) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	if r.message != "" {
 		return component.Message(gtx, theme, r.message)
 	}

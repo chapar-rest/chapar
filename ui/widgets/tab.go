@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/mirzakhany/chapar/internal/safemap"
+	"github.com/mirzakhany/chapar/ui/theme"
 
 	"gioui.org/op"
 
@@ -130,7 +131,7 @@ func (tab *Tab) IsDataChanged() bool {
 	return tab.isDataChanged
 }
 
-func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (tabs *Tabs) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	// update tabs with new items
 	tabItems := make([]*Tab, 0)
 	for _, ot := range tabs.tabs {
@@ -185,8 +186,8 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 										return layout.UniformInset(unit.Dp(12)).Layout(gtx,
-											material.Label(theme, unit.Sp(13), ellipticalTruncate(t.Title, tabs.maxTitleWidth)).Layout,
-										)
+											material.Label(theme.Material(), unit.Sp(13), ellipticalTruncate(t.Title, tabs.maxTitleWidth)).Layout,
+									)
 									}),
 									layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -226,8 +227,8 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 						} else {
 							dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
 								return layout.UniformInset(unit.Dp(12)).Layout(gtx,
-									material.Label(theme, unit.Sp(13), t.Title).Layout,
-								)
+									material.Label(theme.Material(), unit.Sp(13), t.Title).Layout,
+							)
 							})
 						}
 

@@ -9,6 +9,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
@@ -71,7 +72,7 @@ func Button(th *material.Theme, button *widget.Clickable, icon *widget.Icon, ico
 	return b
 }
 
-func (b ButtonStyle) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (b ButtonStyle) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	return ButtonLayoutStyle{
 		Background:   b.Background,
 		CornerRadius: b.CornerRadius,
@@ -87,7 +88,7 @@ func (b ButtonStyle) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 			return layout.Dimensions{}
 		})
 		labelDims := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lb := material.Label(theme, b.TextSize, b.Text)
+			lb := material.Label(theme.Material(), b.TextSize, b.Text)
 			lb.Color = b.Color
 			return lb.Layout(gtx)
 		})

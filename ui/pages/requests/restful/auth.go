@@ -3,9 +3,9 @@ package restful
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -132,7 +132,7 @@ func (a *Auth) SetAuth(auth domain.Auth) {
 	}
 }
 
-func (a *Auth) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (a *Auth) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,

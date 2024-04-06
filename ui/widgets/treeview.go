@@ -15,6 +15,7 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/mirzakhany/chapar/internal/safemap"
+	"github.com/mirzakhany/chapar/ui/theme"
 )
 
 type TreeView struct {
@@ -155,7 +156,7 @@ func (t *TreeView) Filter(text string) {
 	t.filteredNodes = items
 }
 
-func (t *TreeView) clickableWrap(gtx layout.Context, theme *material.Theme, node *TreeNode, widget layout.Widget) layout.Dimensions {
+func (t *TreeView) clickableWrap(gtx layout.Context, theme *theme.Theme, node *TreeNode, widget layout.Widget) layout.Dimensions {
 	return node.DiscloserState.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Background{}.Layout(gtx,
 			func(gtx layout.Context) layout.Dimensions {
@@ -175,7 +176,7 @@ func (t *TreeView) clickableWrap(gtx layout.Context, theme *material.Theme, node
 	})
 }
 
-func (t *TreeView) controlLayout(gtx layout.Context, theme *material.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) controlLayout(gtx layout.Context, theme *theme.Theme, node *TreeNode) layout.Dimensions {
 	return t.clickableWrap(gtx, theme, node, func(gtx layout.Context) layout.Dimensions {
 		var icon = ExpandIcon
 		if !node.DiscloserState.Visible() {
@@ -189,7 +190,7 @@ func (t *TreeView) controlLayout(gtx layout.Context, theme *material.Theme, node
 	})
 }
 
-func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) itemLayout(gtx layout.Context, theme *theme.Theme, node *TreeNode) layout.Dimensions {
 	leftPadding := 4
 	if len(node.Children) == 0 {
 		leftPadding = 24
@@ -229,7 +230,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 		return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(8 + leftPadding)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					lb := material.Label(theme, unit.Sp(13), node.Text)
+					lb := material.Label(theme.Material(), unit.Sp(13), node.Text)
 					lb.MaxLines = 1
 					return lb.Layout(gtx)
 				}),
@@ -253,7 +254,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 								}
 								return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									gtx.Constraints.Min = image.Point{}
-									m := component.Menu(theme, &node.menu)
+									m := component.Menu(theme.Material(), &node.menu)
 									m.SurfaceStyle.Fill = Gray300
 									return m.Layout(gtx)
 								})
@@ -268,7 +269,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *material.Theme, node *T
 
 // LayoutTreeNode recursively lays out a tree of widgets described by
 // TreeNodes.
-func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *theme.Theme, node *TreeNode) layout.Dimensions {
 	if !node.menuInit {
 		node.menuInit = true
 		node.menuContextArea = component.ContextArea{
@@ -286,11 +287,11 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 					node.menuClickables = append(node.menuClickables, new(widget.Clickable))
 
 					if opt == "-" {
-						out = append(out, component.Divider(theme).Layout)
+						out = append(out, component.Divider(theme.Material()).Layout)
 						continue
 					}
 
-					out = append(out, component.MenuItem(theme, node.menuClickables[i], opt).Layout)
+					out = append(out, component.MenuItem(theme.Material(), node.menuClickables[i], opt).Layout)
 				}
 				return out
 			}(),
@@ -319,7 +320,7 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 			}))
 	}
 
-	return component.Discloser(theme, &node.DiscloserState).Layout(gtx,
+	return component.Discloser(theme.Material(), &node.DiscloserState).Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Dp(16.4)
 			return t.controlLayout(gtx, theme, node)
@@ -334,17 +335,17 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *material.Theme, nod
 	)
 }
 
-func (t *TreeView) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (t *TreeView) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	nodes := t.nodes
 	if t.filterText != "" {
 		nodes = t.filteredNodes
 	}
 
 	if len(nodes) == 0 {
-		return layout.Center.Layout(gtx, material.Label(theme, unit.Sp(14), "No items").Layout)
+		return layout.Center.Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
 	}
 
-	return material.List(theme, &t.list).Layout(gtx, len(nodes), func(gtx layout.Context, index int) layout.Dimensions {
+	return material.List(theme.Material(), &t.list).Layout(gtx, len(nodes), func(gtx layout.Context, index int) layout.Dimensions {
 		return t.LayoutTreeNode(gtx, theme, nodes[index])
 	})
 }

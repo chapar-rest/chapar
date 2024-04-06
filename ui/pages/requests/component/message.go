@@ -3,10 +3,11 @@ package component
 import (
 	"gioui.org/layout"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
-func Message(gtx layout.Context, theme *material.Theme, message string) layout.Dimensions {
+func Message(gtx layout.Context, theme *theme.Theme, message string) layout.Dimensions {
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		l := material.LabelStyle{
 			Text:     message,

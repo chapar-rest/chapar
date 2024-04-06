@@ -7,6 +7,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/state"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -66,7 +67,7 @@ func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 	h.envDropDown.SetSelectedByTitle(env.MetaData.Name)
 }
 
-func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (h *Header) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(4)}
 
 	if h.envDropDown.GetSelected().Identifier != h.selectedEnv {
@@ -89,7 +90,7 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.H6(theme, "Chapar").Layout(gtx)
+							return material.H6(theme.Material(), "Chapar").Layout(gtx)
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -101,11 +102,11 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 								return layout.Inset{Right: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									if h.themeSwitcher.Update(gtx) {
 										if h.OnThemeSwitched != nil {
-											h.OnThemeSwitched(h.themeSwitcher.Value)
+											h.OnThemeSwitched(!h.themeSwitcher.Value)
 										}
 									}
 
-									return material.Switch(theme, h.themeSwitcher, "").Layout(gtx)
+									return material.Switch(theme.Material(), h.themeSwitcher, "").Layout(gtx)
 								})
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {

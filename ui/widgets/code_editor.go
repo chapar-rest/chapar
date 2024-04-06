@@ -19,6 +19,7 @@ import (
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/mirzakhany/chapar/ui/fonts"
+	"github.com/mirzakhany/chapar/ui/theme"
 )
 
 type CodeEditor struct {
@@ -96,7 +97,7 @@ func (c *CodeEditor) Code() string {
 	return c.editor.Text()
 }
 
-func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint string) layout.Dimensions {
+func (c *CodeEditor) Layout(gtx layout.Context, theme *theme.Theme, hint string) layout.Dimensions {
 	border := widget.Border{
 		Color:        Gray300,
 		Width:        unit.Dp(1),
@@ -140,8 +141,8 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.List(theme, c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
-						l := material.Label(theme, theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
+					return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
+						l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
 						l.Font.Weight = font.Medium
 						l.Color = Gray800
 						l.Alignment = text.End
@@ -151,7 +152,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					ee := material.Editor(theme, c.editor, hint)
+					ee := material.Editor(theme.Material(), c.editor, hint)
 					ee.Font = c.font.Font
 					ee.LineHeight = unit.Sp(14.73)
 					ee.Font.Typeface = "JetBrainsMono"

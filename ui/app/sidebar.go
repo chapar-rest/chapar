@@ -4,12 +4,12 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Sidebar struct {
-	Theme *material.Theme
+	Theme *theme.Theme
 
 	flatButtons []*widgets.FlatButton
 	Buttons     []*SideBarButton
@@ -23,7 +23,7 @@ type SideBarButton struct {
 	Text string
 }
 
-func NewSidebar(theme *material.Theme) *Sidebar {
+func NewSidebar(theme *theme.Theme) *Sidebar {
 	s := &Sidebar{
 		Theme: theme,
 
@@ -47,7 +47,7 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 	return s
 }
 
-func (s *Sidebar) makeButtons(theme *material.Theme) {
+func (s *Sidebar) makeButtons(theme *theme.Theme) {
 	s.flatButtons = make([]*widgets.FlatButton, 0)
 	for _, b := range s.Buttons {
 		s.flatButtons = append(s.flatButtons, &widgets.FlatButton{
@@ -70,7 +70,7 @@ func (s *Sidebar) SelectedIndex() int {
 	return s.selectedIndex
 }
 
-func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (s *Sidebar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	gtx.Constraints.Max.X = gtx.Dp(70)
 	dims := s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,

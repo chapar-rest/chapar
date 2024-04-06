@@ -4,9 +4,9 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/converter"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -42,7 +42,7 @@ func (c *container) SetItems(items []domain.KeyValue) {
 	c.Items.SetItems(converter.WidgetItemsFromKeyValue(items))
 }
 
-func (c *container) Layout(gtx layout.Context, theme *material.Theme, selectedID string) layout.Dimensions {
+func (c *container) Layout(gtx layout.Context, theme *theme.Theme, selectedID string) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {

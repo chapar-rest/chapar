@@ -11,7 +11,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 )
 
 type IconButton struct {
@@ -27,7 +27,7 @@ type IconButton struct {
 	OnClick func()
 }
 
-func (ib *IconButton) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (ib *IconButton) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	if ib.BackgroundColor == (color.NRGBA{}) {
 		ib.BackgroundColor = theme.Palette.Bg
 	}

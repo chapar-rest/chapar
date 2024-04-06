@@ -5,13 +5,13 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/safemap"
 	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -47,7 +47,7 @@ type View struct {
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
 }
 
-func NewView(theme *material.Theme) *View {
+func NewView(theme *theme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(widgets.Gray600)
@@ -287,7 +287,7 @@ func (v *View) SwitchToTab(id string) {
 	}
 }
 
-func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	return v.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return v.envList(gtx, theme)
@@ -298,7 +298,7 @@ func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 	)
 }
 
-func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) envList(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -310,7 +310,7 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 									v.onImportEnv()
 								}
 							}
-							return widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
+							return widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -319,7 +319,7 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 									v.onNewEnv()
 								}
 							}
-							return widgets.Button(theme, &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New").Layout(gtx, theme)
+							return widgets.Button(theme.Material(), &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New").Layout(gtx, theme)
 						}),
 					)
 				})
@@ -338,7 +338,7 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 	})
 }
 
-func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) containerHolder(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())

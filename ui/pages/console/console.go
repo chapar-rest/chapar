@@ -9,6 +9,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -45,7 +46,7 @@ func (c *Console) handleIncomingLog(log any) {
 	}
 }
 
-func (c *Console) logLayout(gtx layout.Context, theme *material.Theme, log *domain.Log) layout.Dimensions {
+func (c *Console) logLayout(gtx layout.Context, theme *theme.Theme, log *domain.Log) layout.Dimensions {
 	textColor := theme.Palette.Fg
 	switch log.Level {
 	case "info":
@@ -58,17 +59,17 @@ func (c *Console) logLayout(gtx layout.Context, theme *material.Theme, log *doma
 
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			l := material.Label(theme, theme.TextSize, fmt.Sprintf("[%s] ", log.Time.Format(time.DateTime)))
+			l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("[%s] ", log.Time.Format(time.DateTime)))
 			l.Color = textColor
 			return l.Layout(gtx)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.Label(theme, theme.TextSize, log.Message).Layout(gtx)
+			return material.Label(theme.Material(), theme.TextSize, log.Message).Layout(gtx)
 		}),
 	)
 }
 
-func (c *Console) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (c *Console) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	return layout.Inset{
 		Top:    unit.Dp(15),
 		Left:   unit.Dp(5),
@@ -83,7 +84,7 @@ func (c *Console) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 							c.logs = make([]domain.Log, 0)
 						}
 						return layout.Inset{Bottom: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Button(theme, c.clearButton, "Clear").Layout(gtx)
+							return material.Button(theme.Material(), c.clearButton, "Clear").Layout(gtx)
 						})
 					}),
 				)
@@ -95,7 +96,7 @@ func (c *Console) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 					CornerRadius: unit.Dp(4),
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.List(theme, c.list).Layout(gtx, len(c.logs), func(gtx layout.Context, i int) layout.Dimensions {
+						return material.List(theme.Material(), c.list).Layout(gtx, len(c.logs), func(gtx layout.Context, i int) layout.Dimensions {
 							return c.logLayout(gtx, theme, &c.logs[i])
 						})
 					})

@@ -4,7 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -56,7 +56,7 @@ func (b *BinaryFile) GetFilePath() string {
 	return b.FileName
 }
 
-func (b *BinaryFile) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (b *BinaryFile) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = gtx.Dp(32)
@@ -70,7 +70,7 @@ func (b *BinaryFile) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 				b.onSelectFile()
 			}
 
-			return widgets.Button(theme, &b.selectFileButton, widgets.UploadIcon, widgets.IconPositionStart, "Select File").Layout(gtx, theme)
+			return widgets.Button(theme.Material(), &b.selectFileButton, widgets.UploadIcon, widgets.IconPositionStart, "Select File").Layout(gtx, theme)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -82,7 +82,7 @@ func (b *BinaryFile) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 				}
 			}
 
-			return widgets.Button(theme, &b.removeButton, widgets.DeleteIcon, widgets.IconPositionStart, "Remove").Layout(gtx, theme)
+			return widgets.Button(theme.Material(), &b.removeButton, widgets.DeleteIcon, widgets.IconPositionStart, "Remove").Layout(gtx, theme)
 		}),
 	)
 }

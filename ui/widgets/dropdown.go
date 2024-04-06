@@ -11,6 +11,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/mirzakhany/chapar/ui/theme"
 )
 
 type DropDown struct {
@@ -153,7 +154,7 @@ func (c *DropDown) SetBorder(color color.NRGBA, width unit.Dp, cornerRadius unit
 	c.cornerRadius = cornerRadius
 }
 
-func (c *DropDown) box(gtx layout.Context, theme *material.Theme, text string, minWidth int) layout.Dimensions {
+func (c *DropDown) box(gtx layout.Context, theme *theme.Theme, text string, minWidth int) layout.Dimensions {
 	borderColor := c.borderColor
 	if c.isOpen {
 		borderColor = theme.Palette.ContrastFg
@@ -182,7 +183,7 @@ func (c *DropDown) box(gtx layout.Context, theme *material.Theme, text string, m
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme, textSize, text).Layout(gtx)
+						return material.Label(theme.Material(), textSize, text).Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -199,7 +200,7 @@ func (c *DropDown) SetSize(size image.Point) {
 }
 
 // Layout the DropDown.
-func (c *DropDown) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (c *DropDown) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	c.isOpen = c.menuContextArea.Active()
 
 	for i, opt := range c.options {
@@ -228,14 +229,14 @@ func (c *DropDown) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 		opt := opt
 		c.menu.Options = append(c.menu.Options, func(gtx layout.Context) layout.Dimensions {
 			if opt.isDivider {
-				dim := component.Divider(theme).Layout(gtx)
+				dim := component.Divider(theme.Material()).Layout(gtx)
 				if dim.Size.X > minWidth {
 					minWidth = dim.Size.X
 				}
 				return dim
 			}
 
-			dim := component.MenuItem(theme, &opt.clickable, opt.Text).Layout(gtx)
+			dim := component.MenuItem(theme.Material(), &opt.clickable, opt.Text).Layout(gtx)
 			if dim.Size.X > minWidth {
 				minWidth = dim.Size.X
 			}
@@ -244,7 +245,7 @@ func (c *DropDown) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 		})
 	}
 
-	m := component.Menu(theme, &c.menu)
+	m := component.Menu(theme.Material(), &c.menu)
 	m.SurfaceStyle.Fill = Gray300
 	menuDim := m.Layout(gtx)
 	menuMacroCall := menuMicro.Stop()

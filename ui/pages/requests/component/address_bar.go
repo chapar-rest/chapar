@@ -7,6 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -69,7 +70,7 @@ func (a *AddressBar) SetURL(url string) {
 	a.url.SetText(url)
 }
 
-func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (a *AddressBar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	borderColor := widgets.Gray400
 	if gtx.Source.Focused(a.url) {
 		borderColor = theme.Palette.ContrastFg
@@ -121,7 +122,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.Y = gtx.Dp(20)
-								editor := material.Editor(theme, a.url, "https://example.com")
+								editor := material.Editor(theme.Material(), a.url, "https://example.com")
 								editor.TextSize = unit.Sp(13)
 								editor.Font.Typeface = "JetBrainsMono"
 								return editor.Layout(gtx)
@@ -139,7 +140,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 			}
 
 			gtx.Constraints.Min.X = gtx.Dp(80)
-			return material.Button(theme, &a.sendClickable, "Send").Layout(gtx)
+			return material.Button(theme.Material(), &a.sendClickable, "Send").Layout(gtx)
 		}),
 	)
 }

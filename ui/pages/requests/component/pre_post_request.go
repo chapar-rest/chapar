@@ -7,6 +7,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/keys"
+	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -104,7 +105,7 @@ func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(item, from, fromKey s
 	})
 }
 
-func (p *PrePostRequest) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *PrePostRequest) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{
@@ -136,7 +137,7 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *material.Theme) layou
 	})
 }
 
-func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
 
 	keys.OnEditorChange(gtx, &p.setEnvForm.targetEditor, func() {
@@ -172,7 +173,7 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *material.Theme) l
 			}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(85)
-					return material.Label(theme, theme.TextSize, "From").Layout(gtx)
+					return material.Label(theme.Material(), theme.TextSize, "From").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(unit.Dp(170))
@@ -197,12 +198,12 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *material.Theme) l
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Label(theme, theme.TextSize, "Preview:").Layout(gtx)
+				return material.Label(theme.Material(), theme.TextSize, "Preview:").Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Label(theme, theme.TextSize, p.setEnvForm.preview).Layout(gtx)
+				return material.Label(theme.Material(), theme.TextSize, p.setEnvForm.preview).Layout(gtx)
 			})
 		}),
 	)

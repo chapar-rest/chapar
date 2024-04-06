@@ -13,6 +13,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/theme"
 )
 
 const (
@@ -52,7 +53,7 @@ func (f *FlatButton) SetColor(background, text color.NRGBA) {
 	f.TextColor = text
 }
 
-func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (f *FlatButton) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
 	if f.BackgroundColor == (color.NRGBA{}) {
 		f.BackgroundColor = theme.Palette.ContrastBg
 	}
@@ -63,7 +64,7 @@ func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 
 	axis := layout.Horizontal
 	labelLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		l := material.Label(theme, unit.Sp(12), f.Text)
+		l := material.Label(theme.Material(), unit.Sp(12), f.Text)
 		l.Color = f.TextColor
 		return l.Layout(gtx)
 	})
