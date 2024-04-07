@@ -1,10 +1,9 @@
-package theme
+package chapartheme
 
 import (
 	"image/color"
 
 	"gioui.org/unit"
-
 	"gioui.org/widget/material"
 )
 
@@ -38,6 +37,11 @@ type Theme struct {
 
 	SideBarBgColor   color.NRGBA
 	SideBarTextColor color.NRGBA
+
+	TableBorderColor color.NRGBA
+	CheckBoxColor    color.NRGBA
+
+	RequestMethodColor color.NRGBA
 }
 
 func New(material *material.Theme, isDark bool) *Theme {
@@ -78,6 +82,9 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.ButtonTextColor = rgb(0xffffff)
 		t.SeparatorColor = rgb(0x2b2d31)
 
+		t.TableBorderColor = rgb(0x2b2d31)
+		t.CheckBoxColor = rgb(0xb0b3b8)
+		t.RequestMethodColor = rgb(0x8bc34a)
 	} else {
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
@@ -91,6 +98,10 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.TextColor = rgb(0x000000)
 		t.ButtonTextColor = rgb(0xffffff)
 		t.SeparatorColor = rgb(0x2b2d31)
+
+		t.TableBorderColor = rgb(0xb0b3b8)
+		t.CheckBoxColor = rgb(0x4589f5)
+		t.RequestMethodColor = rgb(0x8bc34a)
 	}
 
 	return t.Theme

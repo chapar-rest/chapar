@@ -4,8 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
-	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -132,7 +132,7 @@ func (a *Auth) SetAuth(auth domain.Auth) {
 	}
 }
 
-func (a *Auth) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (a *Auth) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Vertical,
 		Alignment: layout.Start,

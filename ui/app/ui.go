@@ -5,25 +5,21 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mirzakhany/chapar/ui/fonts"
-
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-
-	"github.com/mirzakhany/chapar/internal/rest"
-
-	"github.com/mirzakhany/chapar/ui/explorer"
-	chapatheme "github.com/mirzakhany/chapar/ui/theme"
-
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/notify"
 	"github.com/mirzakhany/chapar/internal/repository"
+	"github.com/mirzakhany/chapar/internal/rest"
 	"github.com/mirzakhany/chapar/internal/state"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/mirzakhany/chapar/ui/explorer"
+	"github.com/mirzakhany/chapar/ui/fonts"
 	"github.com/mirzakhany/chapar/ui/pages/console"
 	"github.com/mirzakhany/chapar/ui/pages/environments"
 	"github.com/mirzakhany/chapar/ui/pages/requests"
@@ -31,7 +27,7 @@ import (
 )
 
 type UI struct {
-	Theme  *chapatheme.Theme
+	Theme  *chapartheme.Theme
 	window *app.Window
 
 	sideBar *Sidebar
@@ -84,7 +80,7 @@ func New(w *app.Window) (*UI, error) {
 	//theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
 	//theme.TextSize = unit.Sp(14)
 
-	u.Theme = chapatheme.New(theme, preferences.Spec.DarkMode)
+	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 	u.header = NewHeader(environmentsState)

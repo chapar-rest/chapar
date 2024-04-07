@@ -10,7 +10,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type DropDown struct {
@@ -144,7 +144,7 @@ func (c *DropDown) GetSelected() *DropDownOption {
 	return c.options[c.selectedOptionIndex]
 }
 
-func (c *DropDown) box(gtx layout.Context, theme *theme.Theme, text string, minWidth int) layout.Dimensions {
+func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string, minWidth int) layout.Dimensions {
 	borderColor := theme.BorderColor
 	if c.isOpen {
 		borderColor = theme.BorderColorFocused
@@ -191,7 +191,7 @@ func (c *DropDown) SetSize(size image.Point) {
 }
 
 // Layout the DropDown.
-func (c *DropDown) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	c.isOpen = c.menuContextArea.Active()
 
 	for i, opt := range c.options {

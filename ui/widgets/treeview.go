@@ -17,7 +17,7 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/mirzakhany/chapar/internal/safemap"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type TreeView struct {
@@ -158,7 +158,7 @@ func (t *TreeView) Filter(text string) {
 	t.filteredNodes = items
 }
 
-func (t *TreeView) clickableWrap(gtx layout.Context, theme *theme.Theme, node *TreeNode, widget layout.Widget) layout.Dimensions {
+func (t *TreeView) clickableWrap(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode, widget layout.Widget) layout.Dimensions {
 	return node.DiscloserState.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Background{}.Layout(gtx,
 			func(gtx layout.Context) layout.Dimensions {
@@ -178,7 +178,7 @@ func (t *TreeView) clickableWrap(gtx layout.Context, theme *theme.Theme, node *T
 	})
 }
 
-func (t *TreeView) controlLayout(gtx layout.Context, theme *theme.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) controlLayout(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
 	return t.clickableWrap(gtx, theme, node, func(gtx layout.Context) layout.Dimensions {
 		var icon = ExpandIcon
 		if !node.DiscloserState.Visible() {
@@ -192,7 +192,7 @@ func (t *TreeView) controlLayout(gtx layout.Context, theme *theme.Theme, node *T
 	})
 }
 
-func (t *TreeView) itemLayout(gtx layout.Context, theme *theme.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
 	leftPadding := 4
 	if len(node.Children) == 0 {
 		leftPadding = 24
@@ -272,7 +272,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *theme.Theme, node *Tree
 
 // LayoutTreeNode recursively lays out a tree of widgets described by
 // TreeNodes.
-func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *theme.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
 	if !node.menuInit {
 		node.menuInit = true
 		node.menuContextArea = component.ContextArea{
@@ -338,7 +338,7 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *theme.Theme, node *
 	)
 }
 
-func (t *TreeView) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (t *TreeView) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	nodes := t.nodes
 	if t.filterText != "" {
 		nodes = t.filteredNodes

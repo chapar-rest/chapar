@@ -10,7 +10,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/google/uuid"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type KeyValue struct {
@@ -50,7 +50,6 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 			Icon:      PlusIcon,
 			Size:      unit.Dp(20),
 			Clickable: &widget.Clickable{},
-			Color:     Gray800,
 		},
 		Items: items,
 		list: &widget.List{
@@ -147,7 +146,7 @@ func (kv *KeyValue) triggerChanged() {
 	}
 }
 
-func (kv *KeyValue) itemLayout(gtx layout.Context, theme *theme.Theme, index int, item *KeyValueItem) layout.Dimensions {
+func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, index int, item *KeyValueItem) layout.Dimensions {
 	if index < 0 || index >= len(kv.Items) {
 		// Index is out of range, return zero dimensions.
 		return layout.Dimensions{}
@@ -164,7 +163,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *theme.Theme, index int
 	}
 
 	border := widget.Border{
-		Color:        Gray300,
+		Color:        theme.TableBorderColor,
 		CornerRadius: 0,
 		Width:        unit.Dp(1),
 	}
@@ -202,10 +201,12 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *theme.Theme, index int
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.CheckBox(theme.Material(), item.activeBool, "").Layout(gtx)
+					ch := material.CheckBox(theme.Material(), item.activeBool, "")
+					ch.IconColor = theme.CheckBoxColor
+					return ch.Layout(gtx)
 				})
 			}),
-			DrawLineFlex(Gray300, unit.Dp(35), unit.Dp(1)),
+			DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(.80, func(gtx layout.Context) layout.Dimensions {
@@ -213,7 +214,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *theme.Theme, index int
 							return material.Editor(theme.Material(), item.keyEditor, "Key").Layout(gtx)
 						})
 					}),
-					DrawLineFlex(Gray300, unit.Dp(35), unit.Dp(1)),
+					DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return material.Editor(theme.Material(), item.valueEditor, "Value").Layout(gtx)
@@ -225,10 +226,10 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *theme.Theme, index int
 				ib := IconButton{
 					Icon:      DeleteIcon,
 					Size:      unit.Dp(20),
-					Color:     Gray800,
+					Color:     theme.TextColor,
 					Clickable: item.deleteButton,
 				}
-				return layout.Inset{Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return ib.Layout(gtx, theme)
 				})
 			}),
@@ -236,7 +237,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *theme.Theme, index int
 	})
 }
 
-func (kv *KeyValue) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (kv *KeyValue) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	items := kv.Items
 	if kv.filterText != "" {
 		items = kv.filteredItems
@@ -251,7 +252,7 @@ func (kv *KeyValue) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimens
 	})
 }
 
-func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme *theme.Theme) layout.Dimensions {
+func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
@@ -273,6 +274,8 @@ func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme 
 						Left:   0,
 						Right:  unit.Dp(10),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						kv.addButton.BackgroundColor = theme.Palette.Bg
+						kv.addButton.Color = theme.TextColor
 						return kv.addButton.Layout(gtx, theme)
 					})
 				}),

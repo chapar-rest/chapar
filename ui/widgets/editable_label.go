@@ -7,7 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type EditableLabel struct {
@@ -41,7 +41,7 @@ func (e *EditableLabel) SetText(text string) {
 	e.Text = text
 }
 
-func (e *EditableLabel) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	for e.clickable.Clicked(gtx) {
 		if !e.isEditing {
 			e.isEditing = true
@@ -89,7 +89,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *theme.Theme) layout.Di
 			}
 
 			border := widget.Border{
-				Color:        theme.Palette.ContrastBg,
+				Color:        theme.BorderColorFocused,
 				Width:        1,
 				CornerRadius: unit.Dp(4),
 			}

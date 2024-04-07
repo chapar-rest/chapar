@@ -1,7 +1,7 @@
 package requests
 
 import (
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 
 	"gioui.org/layout"
@@ -16,7 +16,7 @@ const (
 )
 
 type Container interface {
-	Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions
+	Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions
 	SetOnDataChanged(f func(id string, data any))
 	SetOnTitleChanged(f func(title string))
 	SetDataChanged(changed bool)

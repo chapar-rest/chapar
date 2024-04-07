@@ -6,8 +6,8 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/keys"
-	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -105,7 +105,7 @@ func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(item, from, fromKey s
 	})
 }
 
-func (p *PrePostRequest) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{
@@ -137,7 +137,7 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *theme.Theme) layout.D
 	})
 }
 
-func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
 
 	keys.OnEditorChange(gtx, &p.setEnvForm.targetEditor, func() {

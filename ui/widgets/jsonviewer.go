@@ -10,7 +10,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type JsonViewer struct {
@@ -43,9 +43,9 @@ func (j *JsonViewer) SetData(data string) {
 	}
 }
 
-func (j *JsonViewer) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (j *JsonViewer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	border := widget.Border{
-		Color:        Gray400,
+		Color:        theme.BorderColor,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
 	}
@@ -58,7 +58,7 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%d", i+1))
 							l.Font.Weight = font.Medium
-							l.Color = Gray800
+							l.Color = theme.TextColor
 							l.Alignment = text.End
 							return l.Layout(gtx)
 						})
@@ -67,7 +67,6 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.Label(theme.Material(), theme.TextSize, j.lines[i])
 							l.State = j.selectables[i]
-							l.Font.Typeface = "JetBrainsMono"
 							l.TextSize = unit.Sp(12)
 							return l.Layout(gtx)
 						})

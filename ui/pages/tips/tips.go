@@ -9,7 +9,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/assets"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type Tips struct {
@@ -40,7 +40,7 @@ func New() *Tips {
 	return tips
 }
 
-func (t *Tips) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (t *Tips) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	items := make([]layout.FlexChild, 0, len(t.messages))
 
 	items = append(items,

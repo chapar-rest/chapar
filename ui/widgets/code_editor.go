@@ -18,8 +18,8 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/fonts"
-	"github.com/mirzakhany/chapar/ui/theme"
 )
 
 type CodeEditor struct {
@@ -99,13 +99,13 @@ func (c *CodeEditor) Code() string {
 	return c.editor.Text()
 }
 
-func (c *CodeEditor) Layout(gtx layout.Context, theme *theme.Theme, hint string) layout.Dimensions {
+func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
 	c.handleThemeChange(theme)
 
 	border := widget.Border{
-		Color:        Gray300,
+		Color:        theme.BorderColor,
 		Width:        unit.Dp(1),
-		CornerRadius: 0,
+		CornerRadius: unit.Dp(4),
 	}
 
 	for {
@@ -205,7 +205,7 @@ func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
 	}
 }
 
-func (c *CodeEditor) handleThemeChange(theme *theme.Theme) {
+func (c *CodeEditor) handleThemeChange(theme *chapartheme.Theme) {
 	if theme.IsDark() && c.lastStyleName != "monokai" {
 		c.codeStyle = styles.Get("monokai")
 		c.lastStyleName = "monokai"

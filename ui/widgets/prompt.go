@@ -10,7 +10,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 // Prompt is a modal dialog that prompts the user for a response.
@@ -117,7 +117,7 @@ func (p *Prompt) Result() (string, bool) {
 	return p.result, false
 }
 
-func (p *Prompt) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (p *Prompt) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if !p.Visible {
 		return layout.Dimensions{}
 	}
@@ -185,8 +185,8 @@ func (p *Prompt) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimension
 								items,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									btn := Button(theme.Material(), &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
-									btn.Background = White
-									btn.Color = Black
+									btn.Background = chapartheme.White
+									btn.Color = chapartheme.Black
 									return btn.Layout(gtx, theme)
 									// return material.Button(theme.Material(), &p.optionsClickables[i], p.options[i]).Layout(gtx)
 								}),

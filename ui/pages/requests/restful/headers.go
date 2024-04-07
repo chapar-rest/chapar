@@ -4,8 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/converter"
-	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -35,7 +35,7 @@ func (h *Headers) SetOnChange(f func(values []domain.KeyValue)) {
 	})
 }
 
-func (h *Headers) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (h *Headers) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{

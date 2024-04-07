@@ -12,12 +12,12 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Sidebar struct {
-	Theme *theme.Theme
+	Theme *chapartheme.Theme
 
 	flatButtons []*widgets.FlatButton
 	Buttons     []*SideBarButton
@@ -33,7 +33,7 @@ type SideBarButton struct {
 	Text string
 }
 
-func NewSidebar(theme *theme.Theme) *Sidebar {
+func NewSidebar(theme *chapartheme.Theme) *Sidebar {
 	s := &Sidebar{
 		Theme: theme,
 
@@ -60,7 +60,7 @@ func NewSidebar(theme *theme.Theme) *Sidebar {
 	return s
 }
 
-func (s *Sidebar) makeButtons(theme *theme.Theme) {
+func (s *Sidebar) makeButtons(theme *chapartheme.Theme) {
 	s.flatButtons = make([]*widgets.FlatButton, 0)
 	for i, b := range s.Buttons {
 		s.flatButtons = append(s.flatButtons, &widgets.FlatButton{
@@ -83,7 +83,7 @@ func (s *Sidebar) SelectedIndex() int {
 	return s.selectedIndex
 }
 
-func (s *Sidebar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	gtx.Constraints.Max.X = gtx.Dp(70)
 
 	macro := op.Record(gtx.Ops)

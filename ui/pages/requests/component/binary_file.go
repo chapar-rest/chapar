@@ -4,7 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -56,7 +56,7 @@ func (b *BinaryFile) GetFilePath() string {
 	return b.FileName
 }
 
-func (b *BinaryFile) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (b *BinaryFile) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = gtx.Dp(32)

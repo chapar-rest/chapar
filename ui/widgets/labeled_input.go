@@ -5,7 +5,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type LabeledInput struct {
@@ -16,7 +16,7 @@ type LabeledInput struct {
 	Editor         *widget.Editor
 }
 
-func (l *LabeledInput) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (l *LabeledInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,

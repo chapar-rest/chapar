@@ -9,7 +9,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -46,15 +46,15 @@ func (c *Console) handleIncomingLog(log any) {
 	}
 }
 
-func (c *Console) logLayout(gtx layout.Context, theme *theme.Theme, log *domain.Log) layout.Dimensions {
+func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *domain.Log) layout.Dimensions {
 	textColor := theme.Palette.Fg
 	switch log.Level {
 	case "info":
-		textColor = widgets.LightGreen
+		textColor = chapartheme.LightGreen
 	case "error":
-		textColor = widgets.LightRed
+		textColor = chapartheme.LightRed
 	case "warn":
-		textColor = widgets.LightYellow
+		textColor = chapartheme.LightYellow
 	}
 
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -69,7 +69,7 @@ func (c *Console) logLayout(gtx layout.Context, theme *theme.Theme, log *domain.
 	)
 }
 
-func (c *Console) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Inset{
 		Top:    unit.Dp(15),
 		Left:   unit.Dp(5),

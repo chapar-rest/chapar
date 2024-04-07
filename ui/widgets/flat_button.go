@@ -13,7 +13,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 const (
@@ -48,7 +48,7 @@ func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween unit.
 	f.SpaceBetween = spaceBetween
 }
 
-func (f *FlatButton) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (f *FlatButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if f.BackgroundColor == (color.NRGBA{}) {
 		f.BackgroundColor = theme.Palette.ContrastBg
 	}

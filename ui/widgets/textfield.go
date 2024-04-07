@@ -8,7 +8,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 const (
@@ -64,7 +64,7 @@ func (t *TextField) SetOnTextChange(f func(text string)) {
 	t.onTextChange = f
 }
 
-func (t *TextField) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	borderColor := theme.BorderColor
 	if gtx.Source.Focused(&t.textEditor) {
 		borderColor = theme.BorderColorFocused

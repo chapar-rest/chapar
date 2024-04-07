@@ -7,7 +7,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/state"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -70,7 +70,7 @@ func (h *Header) SetTheme(isDark bool) {
 	h.ThemeSwitcher.Value = !isDark
 }
 
-func (h *Header) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(4)}
 
 	if h.envDropDown.GetSelected().Identifier != h.selectedEnv {

@@ -11,7 +11,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type Notification struct {
@@ -28,7 +28,7 @@ type Notif struct {
 	Duration time.Duration
 }
 
-func (n *Notification) Layout(gtx layout.Context, theme *theme.Theme, windowWidth int) layout.Dimensions {
+func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme, windowWidth int) layout.Dimensions {
 	n.Mtx.Lock()
 	defer n.Mtx.Unlock()
 

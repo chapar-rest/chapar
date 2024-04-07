@@ -11,11 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/safemap"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/pages/requests/collections"
 	"github.com/mirzakhany/chapar/ui/pages/requests/restful"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
-	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -27,7 +27,7 @@ const (
 )
 
 type View struct {
-	theme *theme.Theme
+	theme *chapartheme.Theme
 
 	// add menu
 	newRequestButton     widget.Clickable
@@ -68,7 +68,7 @@ type View struct {
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
 }
 
-func NewView(theme *theme.Theme) *View {
+func NewView(theme *chapartheme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
@@ -540,7 +540,7 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 	v.treeViewNodes.Set(req.MetaData.ID, node)
 }
 
-func (v *View) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return v.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return v.requestList(gtx, theme)
@@ -551,7 +551,7 @@ func (v *View) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions 
 	)
 }
 
-func (v *View) requestList(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if !v.menuInit {
 		v.menuInit = true
 		v.newMenu = component.MenuState{
@@ -633,7 +633,7 @@ func (v *View) requestList(gtx layout.Context, theme *theme.Theme) layout.Dimens
 	})
 }
 
-func (v *View) containerHolder(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())

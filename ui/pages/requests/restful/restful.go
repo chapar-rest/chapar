@@ -4,8 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
-	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -26,7 +26,7 @@ type Restful struct {
 	onSubmit      func(id string)
 }
 
-func New(req *domain.Request, theme *theme.Theme) *Restful {
+func New(req *domain.Request, theme *chapartheme.Theme) *Restful {
 	r := &Restful{
 		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
@@ -205,7 +205,7 @@ func (r *Restful) SetPathParams(params []domain.KeyValue) {
 	r.Request.Params.SetPathParams(params)
 }
 
-func (r *Restful) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {

@@ -4,8 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/keys"
-	"github.com/mirzakhany/chapar/ui/theme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -54,7 +54,7 @@ func (f *Form) SetValues(values map[string]string) {
 	}
 }
 
-func (f *Form) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (f *Form) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	childs := make([]layout.FlexChild, 0)
 	for _, field := range f.Fields {
 		field := field

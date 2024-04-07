@@ -6,7 +6,7 @@ import (
 	"unicode"
 
 	"github.com/mirzakhany/chapar/internal/safemap"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 
 	"gioui.org/op"
 
@@ -131,7 +131,7 @@ func (tab *Tab) IsDataChanged() bool {
 	return tab.isDataChanged
 }
 
-func (tabs *Tabs) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	// update tabs with new items
 	tabItems := make([]*Tab, 0)
 	for _, ot := range tabs.tabs {
@@ -249,7 +249,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensio
 				)
 			})
 		}),
-		DrawLineFlex(Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+		DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 	)
 }
 

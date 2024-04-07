@@ -7,7 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -70,7 +70,7 @@ func (a *AddressBar) SetURL(url string) {
 	a.url.SetText(url)
 }
 
-func (a *AddressBar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	borderColor := theme.BorderColor
 	if gtx.Source.Focused(a.url) {
 		borderColor = theme.BorderColorFocused

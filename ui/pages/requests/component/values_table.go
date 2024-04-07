@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/theme"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 
 	"gioui.org/font"
 	"gioui.org/layout"
@@ -60,7 +60,7 @@ func (v *ValuesTable) GetData() []domain.KeyValue {
 	return values
 }
 
-func (v *ValuesTable) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
+func (v *ValuesTable) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if len(v.Values) == 0 {
 		return Message(gtx, theme, fmt.Sprintf("No %s available", v.Title))
 	}
