@@ -117,7 +117,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 						return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.LabelStyle{
 								Text:     formatStatus(r.responseCode, r.duration, uint64(r.responseSize)),
-								Color:    chapartheme.LightGreen,
+								Color:    theme.ResponseStatusColor,
 								TextSize: theme.TextSize,
 								Shaper:   theme.Shaper,
 							}

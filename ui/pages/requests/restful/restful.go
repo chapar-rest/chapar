@@ -33,10 +33,8 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Restful {
 		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
 		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
 		split: widgets.SplitView{
-			Ratio:         0.05,
-			BarWidth:      unit.Dp(2),
-			BarColor:      theme.SeparatorColor,
-			BarColorHover: theme.Palette.ContrastBg,
+			Ratio:    0.05,
+			BarWidth: unit.Dp(2),
 		},
 		Response: NewResponse(theme),
 		Request:  NewRequest(req),
@@ -220,7 +218,7 @@ func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				return r.AddressBar.Layout(gtx, theme)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.split.Layout(gtx,
+				return r.split.Layout(gtx, theme,
 					func(gtx layout.Context) layout.Dimensions {
 						return r.Request.Layout(gtx, theme)
 					},

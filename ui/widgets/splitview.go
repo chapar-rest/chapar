@@ -2,7 +2,8 @@ package widgets
 
 import (
 	"image"
-	"image/color"
+
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 
 	"gioui.org/op/paint"
 
@@ -24,9 +25,7 @@ type SplitView struct {
 	dragX  float32
 
 	// Bar is the width for resizing the layout
-	BarWidth      unit.Dp
-	BarColor      color.NRGBA
-	BarColorHover color.NRGBA
+	BarWidth unit.Dp
 
 	MinLeftSize unit.Dp
 	MaxLeftSize unit.Dp
@@ -37,7 +36,7 @@ type SplitView struct {
 
 const defaultBarWidth = unit.Dp(2)
 
-func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout.Dimensions {
+func (s *SplitView) Layout(gtx layout.Context, theme *chapartheme.Theme, left, right layout.Widget) layout.Dimensions {
 	bar := gtx.Dp(s.BarWidth)
 	if bar <= 1 {
 		bar = gtx.Dp(defaultBarWidth)
@@ -71,7 +70,7 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 	}
 
 	{
-		barColor := s.BarColor
+		barColor := theme.SeparatorColor
 		// register for input
 		barRect := image.Rect(leftSize, 0, rightOffset, gtx.Constraints.Max.X)
 		area := clip.Rect(barRect).Push(gtx.Ops)
@@ -102,7 +101,7 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 					break
 				}
 
-				barColor = s.BarColorHover
+				barColor = Hovered(barColor)
 				s.dragID = e.PointerID
 				s.dragX = e.Position.X
 
@@ -111,9 +110,9 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 					break
 				}
 
-				if barColor != s.BarColorHover {
-					barColor = s.BarColorHover
-				}
+				// if barColor != s.BarColorHover {
+				barColor = Hovered(barColor)
+				// }
 
 				deltaX := e.Position.X - s.dragX
 				s.dragX = e.Position.X
@@ -129,11 +128,11 @@ func (s *SplitView) Layout(gtx layout.Context, left, right layout.Widget) layout
 				}
 
 			case pointer.Release:
-				barColor = s.BarColor
+				barColor = theme.SeparatorColor
 				fallthrough
 			case pointer.Cancel:
 				s.drag = false
-				barColor = s.BarColor
+				barColor = theme.SeparatorColor
 			default:
 
 				continue

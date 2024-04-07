@@ -45,12 +45,14 @@ func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme, wind
 	dim := layout.Background{}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 8).Push(gtx.Ops).Pop()
-			paint.Fill(gtx.Ops, theme.Palette.ContrastBg)
+			paint.Fill(gtx.Ops, theme.NotificationBgColor)
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		},
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Body1(theme.Material(), n.Text).Layout(gtx)
+				bd := material.Body1(theme.Material(), n.Text)
+				bd.Color = theme.NotificationTextColor
+				return bd.Layout(gtx)
 			})
 		},
 	)

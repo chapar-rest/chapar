@@ -61,12 +61,10 @@ func NewView(theme *chapartheme.Theme) *View {
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
 		split: widgets.SplitView{
-			Ratio:         -0.64,
-			MinLeftSize:   unit.Dp(250),
-			MaxLeftSize:   unit.Dp(800),
-			BarWidth:      unit.Dp(2),
-			BarColor:      theme.SeparatorColor,
-			BarColorHover: theme.Palette.ContrastBg,
+			Ratio:       -0.64,
+			MinLeftSize: unit.Dp(250),
+			MaxLeftSize: unit.Dp(800),
+			BarWidth:    unit.Dp(2),
 		},
 
 		treeViewNodes: safemap.New[*widgets.TreeNode](),
@@ -288,7 +286,7 @@ func (v *View) SwitchToTab(id string) {
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	return v.split.Layout(gtx,
+	return v.split.Layout(gtx, theme,
 		func(gtx layout.Context) layout.Dimensions {
 			return v.envList(gtx, theme)
 		},

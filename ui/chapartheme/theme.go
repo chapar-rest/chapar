@@ -19,21 +19,24 @@ type Theme struct {
 	*material.Theme
 	isDark bool
 
-	BorderColor         color.NRGBA
-	BorderColorFocused  color.NRGBA
-	TextColor           color.NRGBA
-	ButtonTextColor     color.NRGBA
-	SendButtonBgColor   color.NRGBA
-	TabInactiveColor    color.NRGBA
-	SeparatorColor      color.NRGBA
-	SideBarBgColor      color.NRGBA
-	SideBarTextColor    color.NRGBA
-	TableBorderColor    color.NRGBA
-	CheckBoxColor       color.NRGBA
-	RequestMethodColor  color.NRGBA
-	DropDownMenuBgColor color.NRGBA
-	MenuBgColor         color.NRGBA
-	TextSelectionColor  color.NRGBA
+	BorderColor           color.NRGBA
+	BorderColorFocused    color.NRGBA
+	TextColor             color.NRGBA
+	ButtonTextColor       color.NRGBA
+	SendButtonBgColor     color.NRGBA
+	TabInactiveColor      color.NRGBA
+	SeparatorColor        color.NRGBA
+	SideBarBgColor        color.NRGBA
+	SideBarTextColor      color.NRGBA
+	TableBorderColor      color.NRGBA
+	CheckBoxColor         color.NRGBA
+	RequestMethodColor    color.NRGBA
+	DropDownMenuBgColor   color.NRGBA
+	MenuBgColor           color.NRGBA
+	TextSelectionColor    color.NRGBA
+	NotificationBgColor   color.NRGBA
+	NotificationTextColor color.NRGBA
+	ResponseStatusColor   color.NRGBA
 }
 
 func New(material *material.Theme, isDark bool) *Theme {
@@ -75,6 +78,9 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.DropDownMenuBgColor = rgb(0x2b2d31)
 		t.MenuBgColor = rgb(0x2b2d31)
 		t.TextSelectionColor = rgb(0x6380ad)
+		t.NotificationBgColor = rgb(0x4589f5)
+		t.NotificationTextColor = rgb(0xffffff)
+		t.ResponseStatusColor = rgb(0x8bc34a)
 	} else {
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
@@ -86,13 +92,16 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.SendButtonBgColor = rgb(0x4589f5)
 		t.TextColor = rgb(0x000000)
 		t.ButtonTextColor = rgb(0xffffff)
-		t.SeparatorColor = rgb(0x2b2d31)
+		t.SeparatorColor = rgb(0x9c9c9c)
 		t.TableBorderColor = rgb(0xb0b3b8)
 		t.CheckBoxColor = rgb(0x4589f5)
-		t.RequestMethodColor = rgb(0x8bc34a)
+		t.RequestMethodColor = rgb(0x007518)
 		t.DropDownMenuBgColor = rgb(0x2b2d31)
 		t.MenuBgColor = rgb(0x2b2d31)
 		t.TextSelectionColor = rgb(0xccd3de)
+		t.NotificationBgColor = rgb(0x4589f5)
+		t.NotificationTextColor = rgb(0xffffff)
+		t.ResponseStatusColor = rgb(0x007518)
 	}
 
 	return t.Theme
