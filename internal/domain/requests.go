@@ -714,6 +714,10 @@ func EncodeQueryParams(params []KeyValue) string {
 
 	out := make([]string, 0, len(params))
 	for _, p := range params {
+		if !p.Enable {
+			continue
+		}
+
 		if p.Key == "" || p.Value == "" {
 			continue
 		}

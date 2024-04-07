@@ -329,7 +329,19 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 
 func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) string {
 	if len(params) == 0 {
+		// remove any query params from the url and return it
+		if strings.Contains(url, "?") {
+			url = strings.Split(url, "?")[0]
+		}
 		return url
+	}
+
+	attach := func(url, params string) string {
+		if len(params) == 0 {
+			return url
+		}
+
+		return url + "?" + params
 	}
 
 	// sync url params with url params editor
@@ -339,10 +351,10 @@ func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) s
 
 	urlParams := strings.Split(url, "?")
 	if len(urlParams) < 2 {
-		return url + "?" + domain.EncodeQueryParams(params)
+		return attach(url, domain.EncodeQueryParams(params))
 	}
 
-	return urlParams[0] + "?" + domain.EncodeQueryParams(params)
+	return attach(urlParams[0], domain.EncodeQueryParams(params))
 }
 
 func (c *Controller) getUrlParams(newURL string) []domain.KeyValue {
