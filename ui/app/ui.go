@@ -74,15 +74,10 @@ func New(w *app.Window) (*UI, error) {
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
-	// set foreground color
-	//theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
-	//// set background color
-	//theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
-	//theme.TextSize = unit.Sp(14)
-
 	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
+
 	u.header = NewHeader(environmentsState)
 	u.sideBar = NewSidebar(u.Theme)
 
@@ -115,6 +110,11 @@ func New(w *app.Window) (*UI, error) {
 	u.header.SetTheme(preferences.Spec.DarkMode)
 	u.header.OnThemeSwitched = func(isDark bool) {
 		u.Theme.Switch(isDark)
+
+		preferences.Spec.DarkMode = isDark
+		if err := repo.UpdatePreferences(preferences); err != nil {
+			fmt.Println("failed to update preferences: ", err)
+		}
 	}
 
 	u.requestsView = requests.NewView(u.Theme)
