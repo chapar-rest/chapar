@@ -8,6 +8,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 const (
@@ -63,14 +64,10 @@ func (t *TextField) SetOnTextChange(f func(text string)) {
 	t.onTextChange = f
 }
 
-func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	if t.borderColor == (color.NRGBA{}) {
-		t.borderColor = theme.Palette.ContrastFg
-	}
-
-	borderColor := t.borderColor
+func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	borderColor := theme.BorderColor
 	if gtx.Source.Focused(&t.textEditor) {
-		borderColor = theme.Palette.ContrastFg
+		borderColor = theme.BorderColorFocused
 	}
 
 	cornerRadius := unit.Dp(4)
@@ -110,7 +107,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *material.Theme) layout.Dim
 			Right:  4,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			inputLayout := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme, &t.textEditor, t.Placeholder).Layout(gtx)
+				return material.Editor(theme.Material(), &t.textEditor, t.Placeholder).Layout(gtx)
 			})
 			widgets := []layout.FlexChild{inputLayout}
 

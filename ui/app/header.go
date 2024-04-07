@@ -3,9 +3,11 @@ package app
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/state"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -13,9 +15,12 @@ type Header struct {
 	selectedEnv string
 	envDropDown *widgets.DropDown
 
-	envState *state.Environments
+	envState      *state.Environments
+	ThemeSwitcher *widget.Bool
 
 	OnSelectedEnvChanged func(env *domain.Environment)
+
+	OnThemeSwitched func(isLight bool)
 }
 
 const (
@@ -25,8 +30,9 @@ const (
 
 func NewHeader(envState *state.Environments) *Header {
 	h := &Header{
-		selectedEnv: noEnvironment,
-		envState:    envState,
+		selectedEnv:   noEnvironment,
+		envState:      envState,
+		ThemeSwitcher: new(widget.Bool),
 	}
 
 	h.envDropDown = widgets.NewDropDown(
@@ -60,8 +66,11 @@ func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 	h.selectedEnv = env.MetaData.ID
 	h.envDropDown.SetSelectedByTitle(env.MetaData.Name)
 }
+func (h *Header) SetTheme(isDark bool) {
+	h.ThemeSwitcher.Value = !isDark
+}
 
-func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(4)}
 
 	if h.envDropDown.GetSelected().Identifier != h.selectedEnv {
@@ -84,17 +93,38 @@ func (h *Header) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.H6(theme, "Chapar").Layout(gtx)
+							return material.H6(theme.Material(), "Chapar").Layout(gtx)
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return h.envDropDown.Layout(gtx, theme)
-						})
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return widgets.MaterialIcons("dark_mode", theme).Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Right: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									if h.ThemeSwitcher.Update(gtx) {
+										if h.OnThemeSwitched != nil {
+											h.OnThemeSwitched(!h.ThemeSwitcher.Value)
+										}
+									}
+
+									return material.Switch(theme.Material(), h.ThemeSwitcher, "").Layout(gtx)
+								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return widgets.MaterialIcons("light_mode", theme).Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Left: unit.Dp(20), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return h.envDropDown.Layout(gtx, theme)
+								})
+							}),
+						)
 					}),
 				)
 			})
 		}),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+		widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 	)
 }

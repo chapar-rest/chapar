@@ -18,6 +18,7 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/fonts"
 )
 
@@ -32,8 +33,9 @@ type CodeEditor struct {
 	onChange func(text string)
 	monoFont font.FontFace
 
-	lexer     chroma.Lexer
-	codeStyle *chroma.Style
+	lexer         chroma.Lexer
+	lastStyleName string
+	codeStyle     *chroma.Style
 
 	font font.FontFace
 
@@ -49,7 +51,7 @@ func NewCodeEditor(code string, language string) *CodeEditor {
 				Axis: layout.Vertical,
 			},
 		},
-		font:    fonts.MustGetJetBrainsMono(),
+		font:    fonts.MustGetCodeEditorFont(),
 		rhState: richtext.InteractiveText{},
 	}
 
@@ -65,11 +67,12 @@ func NewCodeEditor(code string, language string) *CodeEditor {
 	}
 	c.lexer = chroma.Coalesce(lexer)
 
-	style := styles.Get("dracula")
+	style := styles.Get("monokai")
 	if style == nil {
 		style = styles.Fallback
 	}
 	c.codeStyle = style
+	c.lastStyleName = style.Name
 
 	return c
 }
@@ -96,11 +99,13 @@ func (c *CodeEditor) Code() string {
 	return c.editor.Text()
 }
 
-func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint string) layout.Dimensions {
+func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
+	c.handleThemeChange(theme)
+
 	border := widget.Border{
-		Color:        Gray300,
+		Color:        theme.BorderColor,
 		Width:        unit.Dp(1),
-		CornerRadius: 0,
+		CornerRadius: unit.Dp(4),
 	}
 
 	for {
@@ -140,26 +145,27 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *material.Theme, hint stri
 		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(10), Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.List(theme, c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
-						l := material.Label(theme, theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
+					return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
+						l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
 						l.Font.Weight = font.Medium
-						l.Color = Gray800
+						l.Color = theme.TextColor
 						l.Alignment = text.End
 						return l.Layout(gtx)
 					})
 				})
 			}),
+
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					ee := material.Editor(theme, c.editor, hint)
+					ee := material.Editor(theme.Material(), c.editor, hint)
 					ee.Font = c.font.Font
 					ee.LineHeight = unit.Sp(14.73)
-					ee.Font.Typeface = "JetBrainsMono"
+					// ee.Font.Typeface = "JetBrainsMono"
 					ee.TextSize = unit.Sp(13)
 					// make it almost invisible
 					ee.Color = Hovered(theme.ContrastBg)
+					ee.SelectionColor = theme.TextSelectionColor
 					ee.Layout(gtx)
-
 					t := styledtext.Text(theme.Shaper, c.getSpans()...)
 					t.WrapPolicy = styledtext.WrapGraphemes
 					return t.Layout(gtx, nil)
@@ -183,7 +189,6 @@ func (c *CodeEditor) getSpans() []styledtext.SpanStyle {
 			Color:   c.getTokenColor(t),
 			Font:    c.font.Font,
 		}
-		span.Font.Typeface = "JetBrainsMono"
 		spans = append(spans, span)
 	}
 	return spans
@@ -198,5 +203,15 @@ func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
 		G: st.Colour.Green(),
 		B: st.Colour.Blue(),
 		A: 0xff,
+	}
+}
+
+func (c *CodeEditor) handleThemeChange(theme *chapartheme.Theme) {
+	if theme.IsDark() && c.lastStyleName != "monokai" {
+		c.codeStyle = styles.Get("monokai")
+		c.lastStyleName = "monokai"
+	} else if !theme.IsDark() && c.lastStyleName != "monokailight" {
+		c.codeStyle = styles.Get("monokailight")
+		c.lastStyleName = "monokailight"
 	}
 }

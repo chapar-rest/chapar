@@ -4,8 +4,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -64,7 +64,7 @@ func (c *Collection) SetOnTitleChanged(f func(string)) {
 	c.Title.SetOnChanged(f)
 }
 
-func (c *Collection) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (c *Collection) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if c.onSave != nil {
 		keys.OnSaveCommand(gtx, c, func() {
 			c.onSave(c.collection.MetaData.ID)

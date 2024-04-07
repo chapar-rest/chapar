@@ -3,8 +3,8 @@ package restful
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -74,7 +74,7 @@ func NewRequest(req *domain.Request) *Request {
 	return r
 }
 
-func (r *Request) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{

@@ -12,6 +12,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/dustin/go-humanize"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
@@ -19,6 +20,8 @@ import (
 type Response struct {
 	copyButton *widgets.FlatButton
 	Tabs       *widgets.Tabs
+
+	copyClickable widget.Clickable
 
 	responseCode int
 	duration     time.Duration
@@ -36,7 +39,7 @@ type Response struct {
 	jsonViewer        *widgets.JsonViewer
 }
 
-func NewResponse(theme *material.Theme) *Response {
+func NewResponse(theme *chapartheme.Theme) *Response {
 	r := &Response{
 		copyButton: &widgets.FlatButton{
 			Text:            "Copy",
@@ -87,7 +90,7 @@ func (r *Response) SetCookies(cookies []domain.KeyValue) {
 	r.responseCookies.SetData(cookies)
 }
 
-func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if r.message != "" {
 		return component.Message(gtx, theme, r.message)
 	}
@@ -96,7 +99,7 @@ func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 		return component.Message(gtx, theme, "No response available yet ;)")
 	}
 
-	if r.copyButton.Clickable.Clicked(gtx) {
+	if r.copyClickable.Clicked(gtx) {
 		r.onCopyResponse(gtx, r.response)
 	}
 
@@ -114,7 +117,7 @@ func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 						return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.LabelStyle{
 								Text:     formatStatus(r.responseCode, r.duration, uint64(r.responseSize)),
-								Color:    widgets.LightGreen,
+								Color:    chapartheme.LightGreen,
 								TextSize: theme.TextSize,
 								Shaper:   theme.Shaper,
 							}
@@ -123,12 +126,13 @@ func (r *Response) Layout(gtx layout.Context, theme *material.Theme) layout.Dime
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return r.copyButton.Layout(gtx, theme)
+						btn := widgets.Button(theme.Material(), &r.copyClickable, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
+						btn.Color = theme.ButtonTextColor
+						return btn.Layout(gtx, theme)
 					}),
 				)
 			}),
-			widgets.DrawLineFlex(widgets.Gray300, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				switch r.Tabs.Selected() {
 				case 1:
 					return r.responseHeaders.Layout(gtx, theme)

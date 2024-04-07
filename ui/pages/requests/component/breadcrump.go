@@ -8,6 +8,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -51,13 +52,13 @@ func (b *Breadcrumb) SetOnSave(f func(id string)) {
 	b.onSave = f
 }
 
-func (b *Breadcrumb) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (b *Breadcrumb) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	items := make([]layout.FlexChild, 0)
 	if b.ContainerType != "" {
 		items = append(items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			l := material.Label(theme, theme.TextSize, strings.ToUpper(b.ContainerType))
+			l := material.Label(theme.Material(), theme.TextSize, strings.ToUpper(b.ContainerType))
 			l.Font.Weight = font.Bold
-			l.Color = widgets.LightGreen // TODO: use theme color
+			l.Color = theme.RequestMethodColor
 			return l.Layout(gtx)
 		}))
 	}
@@ -66,7 +67,7 @@ func (b *Breadcrumb) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 		items = append(items,
 			layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Label(theme, theme.TextSize, b.CollectionName+" /").Layout(gtx)
+				return material.Label(theme.Material(), theme.TextSize, b.CollectionName+" /").Layout(gtx)
 			}))
 	}
 

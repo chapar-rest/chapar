@@ -5,10 +5,10 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/safemap"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/converter"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/pages/tips"
@@ -47,14 +47,14 @@ type View struct {
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
 }
 
-func NewView(theme *material.Theme) *View {
+func NewView(theme *chapartheme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	search.SetBorderColor(widgets.Gray600)
+	search.SetBorderColor(theme.BorderColor)
 
 	itemsSearchBox := widgets.NewTextField("", "Search...")
 	itemsSearchBox.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	itemsSearchBox.SetBorderColor(widgets.Gray600)
+	itemsSearchBox.SetBorderColor(theme.BorderColor)
 
 	v := &View{
 		treeViewSearchBox: search,
@@ -65,7 +65,7 @@ func NewView(theme *material.Theme) *View {
 			MinLeftSize:   unit.Dp(250),
 			MaxLeftSize:   unit.Dp(800),
 			BarWidth:      unit.Dp(2),
-			BarColor:      widgets.Gray300,
+			BarColor:      theme.SeparatorColor,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 
@@ -287,7 +287,7 @@ func (v *View) SwitchToTab(id string) {
 	}
 }
 
-func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return v.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return v.envList(gtx, theme)
@@ -298,7 +298,7 @@ func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 	)
 }
 
-func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -310,7 +310,9 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 									v.onImportEnv()
 								}
 							}
-							return widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
+							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
+							btn.Color = theme.ButtonTextColor
+							return btn.Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -319,7 +321,9 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 									v.onNewEnv()
 								}
 							}
-							return widgets.Button(theme, &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New").Layout(gtx, theme)
+							btn := widgets.Button(theme.Material(), &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
+							btn.Color = theme.ButtonTextColor
+							return btn.Layout(gtx, theme)
 						}),
 					)
 				})
@@ -338,7 +342,7 @@ func (v *View) envList(gtx layout.Context, theme *material.Theme) layout.Dimensi
 	})
 }
 
-func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())

@@ -13,62 +13,51 @@ var fonts embed.FS
 
 func Prepare() ([]font.FontFace, error) {
 	var fontFaces []font.FontFace
-	robotoRegularTTF, err := getFont("Roboto-Regular.ttf")
+	sourceSansProRegularOTF, err := getFont("source_sans_pro_regular.otf")
 	if err != nil {
 		return nil, err
 	}
 
-	robotoRegular, err := opentype.Parse(robotoRegularTTF)
+	sourceSansProRegular, err := opentype.Parse(sourceSansProRegularOTF)
 	if err != nil {
 		return nil, err
 	}
 
-	robotoBoldTTF, err := getFont("Roboto-Bold.ttf")
+	sourceSansProBoldOTF, err := getFont("source_sans_pro_bold.otf")
 	if err != nil {
 		return nil, err
 	}
 
-	robotoBold, err := opentype.Parse(robotoBoldTTF)
+	sourceSansProBold, err := opentype.Parse(sourceSansProBoldOTF)
 	if err != nil {
 		return nil, err
 	}
 
-	robotoMediumTTF, err := getFont("Roboto-Medium.ttf")
+	sourceSansProSemiBoldOTF, err := getFont("source_sans_pro_semibold.otf")
 	if err != nil {
 		return nil, err
 	}
 
-	robotoMedium, err := opentype.Parse(robotoMediumTTF)
+	sourceSansProSemiBold, err := opentype.Parse(sourceSansProSemiBoldOTF)
 	if err != nil {
 		return nil, err
 	}
 
-	materialIconsTTF, err := getFont("MaterialIcons-Regular.ttf")
+	materialIconsOTF, err := getFont("MaterialIcons-Regular.ttf")
 	if err != nil {
 		return nil, err
 	}
 
-	materialIcons, err := opentype.Parse(materialIconsTTF)
+	materialIcons, err := opentype.Parse(materialIconsOTF)
 	if err != nil {
 		return nil, err
-	}
-
-	jetBrainsMonoTTF, err := getFont("JetBrainsMono-Regular.ttf")
-	if err != nil {
-		panic(err)
-	}
-
-	jetBrainsMono, err := opentype.Parse(jetBrainsMonoTTF)
-	if err != nil {
-		panic(err)
 	}
 
 	fontFaces = append(fontFaces,
-		font.FontFace{Font: font.Font{}, Face: robotoRegular},
-		font.FontFace{Font: font.Font{Weight: font.Medium}, Face: robotoMedium},
-		font.FontFace{Font: font.Font{Weight: font.Bold}, Face: robotoBold},
+		font.FontFace{Font: font.Font{}, Face: sourceSansProRegular},
+		font.FontFace{Font: font.Font{Weight: font.SemiBold}, Face: sourceSansProSemiBold},
+		font.FontFace{Font: font.Font{Weight: font.Bold}, Face: sourceSansProBold},
 		font.FontFace{Font: font.Font{Typeface: "MaterialIcons"}, Face: materialIcons},
-		font.FontFace{Font: font.Font{Typeface: "JetBrainsMono"}, Face: jetBrainsMono},
 	)
 	return fontFaces, nil
 }
@@ -82,8 +71,8 @@ func getFont(path string) ([]byte, error) {
 	return data, err
 }
 
-func MustGetJetBrainsMono() font.FontFace {
-	data, err := getFont("JetBrainsMono-Regular.ttf")
+func MustGetCodeEditorFont() font.FontFace {
+	data, err := getFont("source_sans_pro_regular.otf")
 	if err != nil {
 		panic(err)
 	}
@@ -93,5 +82,5 @@ func MustGetJetBrainsMono() font.FontFace {
 		panic(err)
 	}
 
-	return font.FontFace{Font: font.Font{Typeface: "JetBrainsMono"}, Face: monoFont}
+	return font.FontFace{Font: font.Font{}, Face: monoFont}
 }

@@ -1,19 +1,29 @@
 package app
 
 import (
+	"image"
+
+	"gioui.org/op"
+
+	"gioui.org/op/paint"
+
+	"gioui.org/op/clip"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Sidebar struct {
-	Theme *material.Theme
+	Theme *chapartheme.Theme
 
 	flatButtons []*widgets.FlatButton
 	Buttons     []*SideBarButton
 	list        *widget.List
+
+	clickables []*widget.Clickable
 
 	selectedIndex int
 }
@@ -23,7 +33,7 @@ type SideBarButton struct {
 	Text string
 }
 
-func NewSidebar(theme *material.Theme) *Sidebar {
+func NewSidebar(theme *chapartheme.Theme) *Sidebar {
 	s := &Sidebar{
 		Theme: theme,
 
@@ -43,24 +53,27 @@ func NewSidebar(theme *material.Theme) *Sidebar {
 		},
 	}
 
-	s.makeButtons(theme)
+	s.clickables = make([]*widget.Clickable, 0)
+	for range s.Buttons {
+		s.clickables = append(s.clickables, &widget.Clickable{})
+	}
 	return s
 }
 
-func (s *Sidebar) makeButtons(theme *material.Theme) {
+func (s *Sidebar) makeButtons(theme *chapartheme.Theme) {
 	s.flatButtons = make([]*widgets.FlatButton, 0)
-	for _, b := range s.Buttons {
+	for i, b := range s.Buttons {
 		s.flatButtons = append(s.flatButtons, &widgets.FlatButton{
 			Icon:              b.Icon,
 			Text:              b.Text,
 			IconPosition:      widgets.FlatButtonIconTop,
-			Clickable:         &widget.Clickable{},
+			Clickable:         s.clickables[i],
 			SpaceBetween:      unit.Dp(5),
 			BackgroundPadding: unit.Dp(1),
 			CornerRadius:      0,
 			MinWidth:          unit.Dp(60),
-			BackgroundColor:   theme.Palette.Bg,
-			TextColor:         widgets.Gray700,
+			BackgroundColor:   theme.SideBarBgColor,
+			TextColor:         theme.SideBarTextColor,
 			ContentPadding:    unit.Dp(5),
 		})
 	}
@@ -70,8 +83,11 @@ func (s *Sidebar) SelectedIndex() int {
 	return s.selectedIndex
 }
 
-func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	gtx.Constraints.Max.X = gtx.Dp(70)
+
+	macro := op.Record(gtx.Ops)
+	s.makeButtons(theme)
 	dims := s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -81,9 +97,9 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				}
 
 				if s.selectedIndex == i {
-					btn.TextColor = theme.Palette.ContrastFg
+					btn.TextColor = theme.SideBarTextColor
 				} else {
-					btn.TextColor = widgets.Gray700
+					btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
 				}
 
 				return btn.Layout(gtx, theme)
@@ -92,15 +108,26 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimen
 				if i == len(s.Buttons)-1 {
 					return layout.Dimensions{}
 				}
-				return widgets.DrawLine(gtx, widgets.Gray300, unit.Dp(2), unit.Dp(45))
+				return widgets.DrawLine(gtx, theme.SeparatorColor, unit.Dp(2), unit.Dp(45))
 			}),
 		)
 	})
+	call := macro.Stop()
 
-	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return dims
-		}),
-		widgets.DrawLineFlex(widgets.Gray300, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1)),
+	return layout.Background{}.Layout(gtx,
+		func(gtx layout.Context) layout.Dimensions {
+			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
+			paint.Fill(gtx.Ops, theme.SideBarBgColor)
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					call.Add(gtx.Ops)
+					return dims
+				}),
+				widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1)),
+			)
+		},
 	)
 }

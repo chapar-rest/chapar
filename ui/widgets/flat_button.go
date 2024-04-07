@@ -13,6 +13,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 const (
@@ -47,12 +48,7 @@ func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween unit.
 	f.SpaceBetween = spaceBetween
 }
 
-func (f *FlatButton) SetColor(background, text color.NRGBA) {
-	f.BackgroundColor = background
-	f.TextColor = text
-}
-
-func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (f *FlatButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if f.BackgroundColor == (color.NRGBA{}) {
 		f.BackgroundColor = theme.Palette.ContrastBg
 	}
@@ -63,7 +59,7 @@ func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 
 	axis := layout.Horizontal
 	labelLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		l := material.Label(theme, unit.Sp(12), f.Text)
+		l := material.Label(theme.Material(), unit.Sp(12), f.Text)
 		l.Color = f.TextColor
 		return l.Layout(gtx)
 	})
@@ -95,7 +91,6 @@ func (f *FlatButton) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 			return layout.Background{}.Layout(gtx,
 				func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(f.MinWidth)
-					// gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, f.CornerRadius).Push(gtx.Ops).Pop()
 					background := f.BackgroundColor
 					if gtx.Source == (input.Source{}) {

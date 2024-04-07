@@ -10,6 +10,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 // Prompt is a modal dialog that prompts the user for a response.
@@ -116,7 +117,7 @@ func (p *Prompt) Result() (string, bool) {
 	return p.result, false
 }
 
-func (p *Prompt) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *Prompt) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if !p.Visible {
 		return layout.Dimensions{}
 	}
@@ -144,14 +145,14 @@ func (p *Prompt) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 				}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							h := material.H6(theme, p.Title)
+							h := material.H6(theme.Material(), p.Title)
 							h.Color = textColor
 							return h.Layout(gtx)
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							b := material.Body1(theme, p.Content)
+							b := material.Body1(theme.Material(), p.Content)
 							b.Color = textColor
 							return b.Layout(gtx)
 						})
@@ -167,7 +168,7 @@ func (p *Prompt) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 							items = append(
 								items,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return material.CheckBox(theme, p.rememberBool, "Don't ask again").Layout(gtx)
+									return material.CheckBox(theme.Material(), p.rememberBool, "Don't ask again").Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 							)
@@ -183,11 +184,11 @@ func (p *Prompt) Layout(gtx layout.Context, theme *material.Theme) layout.Dimens
 							items = append(
 								items,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									btn := Button(theme, &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
-									btn.Background = White
-									btn.Color = Black
+									btn := Button(theme.Material(), &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
+									btn.Background = chapartheme.White
+									btn.Color = chapartheme.Black
 									return btn.Layout(gtx, theme)
-									// return material.Button(theme, &p.optionsClickables[i], p.options[i]).Layout(gtx)
+									// return material.Button(theme.Material(), &p.optionsClickables[i], p.options[i]).Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 							)

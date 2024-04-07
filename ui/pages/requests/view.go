@@ -6,12 +6,12 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	giox "gioui.org/x/component"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/safemap"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/pages/requests/collections"
 	"github.com/mirzakhany/chapar/ui/pages/requests/restful"
@@ -27,7 +27,7 @@ const (
 )
 
 type View struct {
-	theme *material.Theme
+	theme *chapartheme.Theme
 
 	// add menu
 	newRequestButton     widget.Clickable
@@ -68,10 +68,9 @@ type View struct {
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
 }
 
-func NewView(theme *material.Theme) *View {
+func NewView(theme *chapartheme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	search.SetBorderColor(widgets.Gray600)
 
 	v := &View{
 		theme:             theme,
@@ -83,7 +82,7 @@ func NewView(theme *material.Theme) *View {
 			MinLeftSize:   unit.Dp(250),
 			MaxLeftSize:   unit.Dp(800),
 			BarWidth:      unit.Dp(2),
-			BarColor:      widgets.Gray300,
+			BarColor:      theme.SeparatorColor,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		containers:    safemap.New[Container](),
@@ -541,7 +540,7 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 	v.treeViewNodes.Set(req.MetaData.ID, node)
 }
 
-func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return v.split.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			return v.requestList(gtx, theme)
@@ -552,15 +551,15 @@ func (v *View) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensio
 	)
 }
 
-func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if !v.menuInit {
 		v.menuInit = true
 		v.newMenu = component.MenuState{
 			Options: []func(gtx layout.Context) layout.Dimensions{
-				component.MenuItem(theme, &v.newHttpRequestButton, "Restful Request").Layout,
-				component.MenuItem(theme, &v.newGrpcRequestButton, "GRPC Request").Layout,
-				component.Divider(theme).Layout,
-				component.MenuItem(theme, &v.newCollectionButton, "Collection").Layout,
+				component.MenuItem(theme.Material(), &v.newHttpRequestButton, "Restful Request").Layout,
+				component.MenuItem(theme.Material(), &v.newGrpcRequestButton, "GRPC Request").Layout,
+				component.Divider(theme.Material()).Layout,
+				component.MenuItem(theme.Material(), &v.newCollectionButton, "Collection").Layout,
 			},
 		}
 	}
@@ -576,7 +575,9 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 									v.onImport()
 								}
 							}
-							return widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
+							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
+							btn.Color = theme.ButtonTextColor
+							return btn.Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -595,7 +596,9 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 										}
 									}
 
-									return widgets.Button(theme, &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New").Layout(gtx, theme)
+									btn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
+									btn.Color = theme.ButtonTextColor
+									return btn.Layout(gtx, theme)
 								}),
 								layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 									return v.newMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -605,8 +608,8 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 										}
 										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 											gtx.Constraints.Min.X = 0
-											m := component.Menu(theme, &v.newMenu)
-											m.SurfaceStyle.Fill = widgets.Gray300
+											m := component.Menu(theme.Material(), &v.newMenu)
+											m.SurfaceStyle.Fill = theme.MenuBgColor
 											return m.Layout(gtx)
 										})
 									})
@@ -630,7 +633,7 @@ func (v *View) requestList(gtx layout.Context, theme *material.Theme) layout.Dim
 	})
 }
 
-func (v *View) containerHolder(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())

@@ -3,12 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
-	"image/color"
 	"os"
-
-	"github.com/mirzakhany/chapar/internal/rest"
-
-	"github.com/mirzakhany/chapar/ui/explorer"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -16,12 +11,14 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/notify"
 	"github.com/mirzakhany/chapar/internal/repository"
+	"github.com/mirzakhany/chapar/internal/rest"
 	"github.com/mirzakhany/chapar/internal/state"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/mirzakhany/chapar/ui/explorer"
 	"github.com/mirzakhany/chapar/ui/fonts"
 	"github.com/mirzakhany/chapar/ui/pages/console"
 	"github.com/mirzakhany/chapar/ui/pages/environments"
@@ -30,7 +27,7 @@ import (
 )
 
 type UI struct {
-	Theme  *material.Theme
+	Theme  *chapartheme.Theme
 	window *app.Window
 
 	sideBar *Sidebar
@@ -73,17 +70,17 @@ func New(w *app.Window) (*UI, error) {
 	}
 
 	restService := rest.New(requestsState, environmentsState)
-
 	explorerController := explorer.NewExplorer(w)
 
-	u.Theme = material.NewTheme()
-	u.Theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
+	theme := material.NewTheme()
+	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	// set foreground color
-	u.Theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
-	// set background color
-	u.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
+	//theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
+	//// set background color
+	//theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
+	//theme.TextSize = unit.Sp(14)
 
-	u.Theme.TextSize = unit.Sp(14)
+	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 	u.header = NewHeader(environmentsState)
@@ -115,6 +112,11 @@ func New(w *app.Window) (*UI, error) {
 		environmentsState.SetActiveEnvironment(env)
 	}
 
+	u.header.SetTheme(preferences.Spec.DarkMode)
+	u.header.OnThemeSwitched = func(isDark bool) {
+		u.Theme.Switch(isDark)
+	}
+
 	u.requestsView = requests.NewView(u.Theme)
 	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
 	if err := reqController.LoadData(); err != nil {
@@ -126,7 +128,6 @@ func New(w *app.Window) (*UI, error) {
 }
 
 func (u *UI) Run() error {
-	// expl := explorer.NewExplorer(w)
 	// ops are the operations from the UI
 	var ops op.Ops
 
@@ -136,10 +137,12 @@ func (u *UI) Run() error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
+			// if u.Theme.IsDark() {
 			// set the background color
 			paint.ColorOp{Color: u.Theme.Palette.Bg}.Add(&ops)
 			paint.PaintOp{}.Add(&ops)
 			clip.Rect{Max: gtx.Constraints.Max}.Push(&ops).Pop()
+			// 	}
 
 			// render and handle UI.
 			u.Layout(gtx, gtx.Constraints.Max.X)

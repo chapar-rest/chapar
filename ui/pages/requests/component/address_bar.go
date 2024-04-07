@@ -7,6 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -69,10 +70,10 @@ func (a *AddressBar) SetURL(url string) {
 	a.url.SetText(url)
 }
 
-func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	borderColor := widgets.Gray400
+func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	borderColor := theme.BorderColor
 	if gtx.Source.Focused(a.url) {
-		borderColor = theme.Palette.ContrastFg
+		borderColor = theme.BorderColorFocused
 	}
 
 	border := widget.Border{
@@ -117,13 +118,13 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 							a.methodDropDown.TextSize = unit.Sp(16)
 							return a.methodDropDown.Layout(gtx, theme)
 						}),
-						widgets.DrawLineFlex(widgets.Gray300, unit.Dp(20), unit.Dp(1)),
+						widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(20), unit.Dp(1)),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.Y = gtx.Dp(20)
-								editor := material.Editor(theme, a.url, "https://example.com")
-								editor.TextSize = unit.Sp(13)
-								editor.Font.Typeface = "JetBrainsMono"
+								editor := material.Editor(theme.Material(), a.url, "https://example.com")
+								editor.SelectionColor = theme.TextSelectionColor
+								editor.TextSize = unit.Sp(14)
 								return editor.Layout(gtx)
 							})
 						}),
@@ -139,7 +140,10 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *material.Theme) layout.Di
 			}
 
 			gtx.Constraints.Min.X = gtx.Dp(80)
-			return material.Button(theme, &a.sendClickable, "Send").Layout(gtx)
+			btn := material.Button(theme.Material(), &a.sendClickable, "Send")
+			btn.Background = theme.SendButtonBgColor
+			btn.Color = theme.ButtonTextColor
+			return btn.Layout(gtx)
 		}),
 	)
 }

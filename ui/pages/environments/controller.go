@@ -54,8 +54,6 @@ func (c *Controller) onNewEnvironment() {
 		return
 	}
 
-	fmt.Println("filePath", filePath)
-
 	env.FilePath = filePath.Path
 	env.MetaData.Name = filePath.NewName
 

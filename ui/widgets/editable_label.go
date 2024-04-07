@@ -7,6 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type EditableLabel struct {
@@ -40,7 +41,7 @@ func (e *EditableLabel) SetText(text string) {
 	e.Text = text
 }
 
-func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	for e.clickable.Clicked(gtx) {
 		if !e.isEditing {
 			e.isEditing = true
@@ -88,13 +89,13 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 			}
 
 			border := widget.Border{
-				Color:        theme.Palette.ContrastBg,
+				Color:        theme.BorderColorFocused,
 				Width:        1,
 				CornerRadius: unit.Dp(4),
 			}
 			return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme, e.editor, "").Layout(gtx)
+					return material.Editor(theme.Material(), e.editor, "").Layout(gtx)
 				})
 			})
 		}
@@ -104,7 +105,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *material.Theme) layout
 			Bottom: unit.Dp(5),
 			Left:   unit.Dp(5),
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return material.Label(theme, theme.TextSize, e.Text).Layout(gtx)
+			return material.Label(theme.Material(), theme.TextSize, e.Text).Layout(gtx)
 		})
 	})
 }
