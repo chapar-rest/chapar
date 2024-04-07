@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"fmt"
-	"image/color"
 	"strings"
 
 	"gioui.org/font"
@@ -14,18 +13,15 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/richtext"
-	"gioui.org/x/styledtext"
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
-	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/fonts"
 )
 
 type CodeEditor struct {
 	editor *widget.Editor
-
-	code string
+	code   string
 
 	lines []string
 	list  *widget.List
@@ -61,18 +57,18 @@ func NewCodeEditor(code string, language string) *CodeEditor {
 	c.editor.SetText(code)
 	c.lines = strings.Split(code, "\n")
 
-	lexer := lexers.Get(language)
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-	c.lexer = chroma.Coalesce(lexer)
+	//lexer := lexers.Get(language)
+	//if lexer == nil {
+	//	lexer = lexers.Fallback
+	//}
+	//c.lexer = chroma.Coalesce(lexer)
 
-	style := styles.Get("monokai")
-	if style == nil {
-		style = styles.Fallback
-	}
-	c.codeStyle = style
-	c.lastStyleName = style.Name
+	//style := styles.Get("monokai")
+	//if style == nil {
+	//	style = styles.Fallback
+	//}
+	//c.codeStyle = style
+	//c.lastStyleName = style.Name
 
 	return c
 }
@@ -100,7 +96,7 @@ func (c *CodeEditor) Code() string {
 }
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
-	c.handleThemeChange(theme)
+	// c.handleThemeChange(theme)
 
 	border := widget.Border{
 		Color:        theme.BorderColor,
@@ -158,60 +154,61 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					ee := material.Editor(theme.Material(), c.editor, hint)
-					ee.Font = c.font.Font
-					ee.LineHeight = unit.Sp(14.73)
-					// ee.Font.Typeface = "JetBrainsMono"
-					ee.TextSize = unit.Sp(13)
-					// make it almost invisible
-					ee.Color = Hovered(theme.ContrastBg)
+					//ee.Font = c.font.Font
+					//ee.LineHeight = unit.Sp(14.73)
+					//// ee.Font.Typeface = "JetBrainsMono"
+					//ee.TextSize = unit.Sp(13)
+					//// make it almost invisible
+					//ee.Color = Hovered(theme.ContrastBg)
 					ee.SelectionColor = theme.TextSelectionColor
-					ee.Layout(gtx)
-					t := styledtext.Text(theme.Shaper, c.getSpans()...)
-					t.WrapPolicy = styledtext.WrapGraphemes
-					return t.Layout(gtx, nil)
+					//ee.Layout(gtx)
+					//t := styledtext.Text(theme.Shaper, c.getSpans()...)
+					//t.WrapPolicy = styledtext.WrapGraphemes
+					//return t.Layout(gtx, nil)
+					return ee.Layout(gtx)
 				})
 			}),
 		)
 	})
 }
 
-func (c *CodeEditor) getSpans() []styledtext.SpanStyle {
-	iterator, err := c.lexer.Tokenise(nil, c.code) // sourceCode is a string containing your code
-	if err != nil {
-		panic(err)
-	}
-	spans := make([]styledtext.SpanStyle, 0)
-	for _, t := range iterator.Tokens() {
-		// Create your span using the determined color
-		span := styledtext.SpanStyle{
-			Content: t.Value,
-			Size:    unit.Sp(13),
-			Color:   c.getTokenColor(t),
-			Font:    c.font.Font,
-		}
-		spans = append(spans, span)
-	}
-	return spans
-}
-
-func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
-	st := c.codeStyle.Get(t.Type)
-
-	// Convert the chroma style to a color.NRGBA
-	return color.NRGBA{
-		R: st.Colour.Red(),
-		G: st.Colour.Green(),
-		B: st.Colour.Blue(),
-		A: 0xff,
-	}
-}
-
-func (c *CodeEditor) handleThemeChange(theme *chapartheme.Theme) {
-	if theme.IsDark() && c.lastStyleName != "monokai" {
-		c.codeStyle = styles.Get("monokai")
-		c.lastStyleName = "monokai"
-	} else if !theme.IsDark() && c.lastStyleName != "monokailight" {
-		c.codeStyle = styles.Get("monokailight")
-		c.lastStyleName = "monokailight"
-	}
-}
+//func (c *CodeEditor) getSpans() []styledtext.SpanStyle {
+//	iterator, err := c.lexer.Tokenise(nil, c.code) // sourceCode is a string containing your code
+//	if err != nil {
+//		panic(err)
+//	}
+//	spans := make([]styledtext.SpanStyle, 0)
+//	for _, t := range iterator.Tokens() {
+//		// Create your span using the determined color
+//		span := styledtext.SpanStyle{
+//			Content: t.Value,
+//			Size:    unit.Sp(13),
+//			Color:   c.getTokenColor(t),
+//			Font:    c.font.Font,
+//		}
+//		spans = append(spans, span)
+//	}
+//	return spans
+//}
+//
+//func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
+//	st := c.codeStyle.Get(t.Type)
+//
+//	// Convert the chroma style to a color.NRGBA
+//	return color.NRGBA{
+//		R: st.Colour.Red(),
+//		G: st.Colour.Green(),
+//		B: st.Colour.Blue(),
+//		A: 0xff,
+//	}
+//}
+//
+//func (c *CodeEditor) handleThemeChange(theme *chapartheme.Theme) {
+//	if theme.IsDark() && c.lastStyleName != "monokai" {
+//		c.codeStyle = styles.Get("monokai")
+//		c.lastStyleName = "monokai"
+//	} else if !theme.IsDark() && c.lastStyleName != "monokailight" {
+//		c.codeStyle = styles.Get("monokailight")
+//		c.lastStyleName = "monokailight"
+//	}
+//}
