@@ -83,8 +83,8 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.Theme.Palette.Bg = rgb(0xffffff)
 		t.Theme.Palette.ContrastBg = rgb(0x4589f5)
 		t.Theme.Palette.ContrastFg = rgb(0x000000)
-		t.BorderColorFocused = t.Theme.Palette.ContrastBg
 
+		t.BorderColorFocused = rgb(0x4589f5)
 		t.BorderColor = rgb(0x6c6f76)
 		t.TabInactiveColor = rgb(0x4589f5)
 		t.SendButtonBgColor = rgb(0x4589f5)

@@ -118,7 +118,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 							a.methodDropDown.TextSize = unit.Sp(16)
 							return a.methodDropDown.Layout(gtx, theme)
 						}),
-						widgets.DrawLineFlex(widgets.Gray300, unit.Dp(20), unit.Dp(1)),
+						widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(20), unit.Dp(1)),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.Y = gtx.Dp(20)

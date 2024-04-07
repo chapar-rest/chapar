@@ -33,8 +33,9 @@ type CodeEditor struct {
 	onChange func(text string)
 	monoFont font.FontFace
 
-	lexer     chroma.Lexer
-	codeStyle *chroma.Style
+	lexer         chroma.Lexer
+	lastStyleName string
+	codeStyle     *chroma.Style
 
 	font font.FontFace
 
@@ -66,11 +67,12 @@ func NewCodeEditor(code string, language string) *CodeEditor {
 	}
 	c.lexer = chroma.Coalesce(lexer)
 
-	style := styles.Get("dracula")
+	style := styles.Get("monokai")
 	if style == nil {
 		style = styles.Fallback
 	}
 	c.codeStyle = style
+	c.lastStyleName = style.Name
 
 	return c
 }
@@ -98,6 +100,8 @@ func (c *CodeEditor) Code() string {
 }
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *theme.Theme, hint string) layout.Dimensions {
+	c.handleThemeChange(theme)
+
 	border := widget.Border{
 		Color:        Gray300,
 		Width:        unit.Dp(1),
@@ -144,12 +148,13 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *theme.Theme, hint string)
 					return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
 						l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
 						l.Font.Weight = font.Medium
-						l.Color = Gray800
+						l.Color = theme.TextColor
 						l.Alignment = text.End
 						return l.Layout(gtx)
 					})
 				})
 			}),
+
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					ee := material.Editor(theme.Material(), c.editor, hint)
@@ -160,7 +165,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *theme.Theme, hint string)
 					// make it almost invisible
 					ee.Color = Hovered(theme.ContrastBg)
 					ee.Layout(gtx)
-
 					t := styledtext.Text(theme.Shaper, c.getSpans()...)
 					t.WrapPolicy = styledtext.WrapGraphemes
 					return t.Layout(gtx, nil)
@@ -198,5 +202,15 @@ func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
 		G: st.Colour.Green(),
 		B: st.Colour.Blue(),
 		A: 0xff,
+	}
+}
+
+func (c *CodeEditor) handleThemeChange(theme *theme.Theme) {
+	if theme.IsDark() && c.lastStyleName != "monokai" {
+		c.codeStyle = styles.Get("monokai")
+		c.lastStyleName = "monokai"
+	} else if !theme.IsDark() && c.lastStyleName != "monokailight" {
+		c.codeStyle = styles.Get("monokailight")
+		c.lastStyleName = "monokailight"
 	}
 }
