@@ -65,13 +65,9 @@ func (t *TextField) SetOnTextChange(f func(text string)) {
 }
 
 func (t *TextField) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensions {
-	if t.borderColor == (color.NRGBA{}) {
-		t.borderColor = theme.Palette.ContrastFg
-	}
-
-	borderColor := t.borderColor
+	borderColor := theme.BorderColor
 	if gtx.Source.Focused(&t.textEditor) {
-		borderColor = theme.Palette.ContrastFg
+		borderColor = theme.BorderColorFocused
 	}
 
 	cornerRadius := unit.Dp(4)

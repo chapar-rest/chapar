@@ -125,6 +125,6 @@ func (h *Header) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimension
 				)
 			})
 		}),
-		widgets.DrawLineFlex(theme.BorderColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+		widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 	)
 }

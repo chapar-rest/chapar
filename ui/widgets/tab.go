@@ -187,7 +187,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensio
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 										return layout.UniformInset(unit.Dp(12)).Layout(gtx,
 											material.Label(theme.Material(), unit.Sp(13), ellipticalTruncate(t.Title, tabs.maxTitleWidth)).Layout,
-									)
+										)
 									}),
 									layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -228,7 +228,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensio
 							dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
 								return layout.UniformInset(unit.Dp(12)).Layout(gtx,
 									material.Label(theme.Material(), unit.Sp(13), t.Title).Layout,
-							)
+								)
 							})
 						}
 
@@ -241,7 +241,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensio
 						}
 						tabHeight := gtx.Dp(unit.Dp(2))
 						tabRect := image.Rect(0, 0, tabWidth, tabHeight)
-						paint.FillShape(gtx.Ops, theme.Palette.ContrastBg, clip.Rect(tabRect).Op())
+						paint.FillShape(gtx.Ops, theme.TabInactiveColor, clip.Rect(tabRect).Op())
 						return layout.Dimensions{
 							Size: image.Point{X: tabWidth, Y: tabHeight},
 						}

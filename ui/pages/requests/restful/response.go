@@ -21,6 +21,8 @@ type Response struct {
 	copyButton *widgets.FlatButton
 	Tabs       *widgets.Tabs
 
+	copyClickable widget.Clickable
+
 	responseCode int
 	duration     time.Duration
 	responseSize int
@@ -97,7 +99,7 @@ func (r *Response) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensi
 		return component.Message(gtx, theme, "No response available yet ;)")
 	}
 
-	if r.copyButton.Clickable.Clicked(gtx) {
+	if r.copyClickable.Clicked(gtx) {
 		r.onCopyResponse(gtx, r.response)
 	}
 
@@ -124,7 +126,10 @@ func (r *Response) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimensi
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return r.copyButton.Layout(gtx, theme)
+						btn := widgets.Button(theme.Material(), &r.copyClickable, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
+						btn.Color = theme.ButtonTextColor
+						return btn.Layout(gtx, theme)
+						//return r.copyButton.Layout(gtx, theme)
 					}),
 				)
 			}),

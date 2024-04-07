@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"image"
-	"image/color"
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -27,7 +26,6 @@ type DropDown struct {
 
 	TextSize unit.Sp
 
-	borderColor  color.NRGBA
 	borderWidth  unit.Dp
 	cornerRadius unit.Dp
 
@@ -109,9 +107,7 @@ func NewDropDown(options ...*DropDownOption) *DropDown {
 				Axis: layout.Vertical,
 			},
 		},
-		options: options,
-
-		borderColor:  Gray600,
+		options:      options,
 		borderWidth:  unit.Dp(1),
 		cornerRadius: unit.Dp(4),
 	}
@@ -148,16 +144,10 @@ func (c *DropDown) GetSelected() *DropDownOption {
 	return c.options[c.selectedOptionIndex]
 }
 
-func (c *DropDown) SetBorder(color color.NRGBA, width unit.Dp, cornerRadius unit.Dp) {
-	c.borderColor = color
-	c.borderWidth = width
-	c.cornerRadius = cornerRadius
-}
-
 func (c *DropDown) box(gtx layout.Context, theme *theme.Theme, text string, minWidth int) layout.Dimensions {
-	borderColor := c.borderColor
+	borderColor := theme.BorderColor
 	if c.isOpen {
-		borderColor = theme.Palette.ContrastFg
+		borderColor = theme.BorderColorFocused
 	}
 
 	textSize := theme.TextSize
@@ -170,6 +160,7 @@ func (c *DropDown) box(gtx layout.Context, theme *theme.Theme, text string, minW
 		Width:        c.borderWidth,
 		CornerRadius: c.cornerRadius,
 	}
+
 	c.size.X = minWidth
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		// calculate the minimum width of the box, considering icon and padding

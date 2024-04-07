@@ -29,12 +29,22 @@ type Theme struct {
 
 	BorderColor        color.NRGBA
 	BorderColorFocused color.NRGBA
-	TextColor          color.NRGBA
+
+	TextColor         color.NRGBA
+	ButtonTextColor   color.NRGBA
+	SendButtonBgColor color.NRGBA
+	TabInactiveColor  color.NRGBA
+	SeparatorColor    color.NRGBA
+
+	SideBarBgColor   color.NRGBA
+	SideBarTextColor color.NRGBA
 }
 
 func New(material *material.Theme, isDark bool) *Theme {
 	t := &Theme{
-		Theme: material,
+		Theme:            material,
+		SideBarBgColor:   rgb(0x202224),
+		SideBarTextColor: rgb(0xffffff),
 	}
 
 	t.Theme.TextSize = unit.Sp(14)
@@ -55,21 +65,32 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.Theme.Palette.Fg = color.NRGBA{R: 0xD7, G: 0xDA, B: 0xDE, A: 0xff}
 		// set background color
 		t.Theme.Palette.Bg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
-		t.BorderColor = Gray300
 		t.Theme.Palette.ContrastBg = color.NRGBA{R: 0x20, G: 0x22, B: 0x24, A: 0xff}
 		t.Theme.Palette.ContrastFg = rgb(0xffffff)
+
 		t.BorderColorFocused = t.Theme.Palette.ContrastFg
 		t.TextColor = Gray700
 
-	} else {
+		t.BorderColor = rgb(0x6c6f76)
+		t.TabInactiveColor = rgb(0x4589f5)
+		t.SendButtonBgColor = rgb(0x4589f5)
+		t.TextColor = rgb(0xffffff)
+		t.ButtonTextColor = rgb(0xffffff)
+		t.SeparatorColor = rgb(0x2b2d31)
 
+	} else {
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
-		t.Theme.Palette.ContrastBg = Gray700
+		t.Theme.Palette.ContrastBg = rgb(0x4589f5)
 		t.Theme.Palette.ContrastFg = rgb(0x000000)
-		t.BorderColor = Gray400
 		t.BorderColorFocused = t.Theme.Palette.ContrastBg
-		t.TextColor = Black
+
+		t.BorderColor = rgb(0x6c6f76)
+		t.TabInactiveColor = rgb(0x4589f5)
+		t.SendButtonBgColor = rgb(0x4589f5)
+		t.TextColor = rgb(0x000000)
+		t.ButtonTextColor = rgb(0xffffff)
+		t.SeparatorColor = rgb(0x2b2d31)
 	}
 
 	return t.Theme

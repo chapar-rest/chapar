@@ -65,7 +65,7 @@ func NewView(theme *theme.Theme) *View {
 			MinLeftSize:   unit.Dp(250),
 			MaxLeftSize:   unit.Dp(800),
 			BarWidth:      unit.Dp(2),
-			BarColor:      widgets.Gray300,
+			BarColor:      theme.SeparatorColor,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 

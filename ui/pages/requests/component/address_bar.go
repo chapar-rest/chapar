@@ -124,7 +124,6 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 								gtx.Constraints.Min.Y = gtx.Dp(20)
 								editor := material.Editor(theme.Material(), a.url, "https://example.com")
 								editor.TextSize = unit.Sp(13)
-								editor.Font.Typeface = "JetBrainsMono"
 								return editor.Layout(gtx)
 							})
 						}),
@@ -140,7 +139,10 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 			}
 
 			gtx.Constraints.Min.X = gtx.Dp(80)
-			return material.Button(theme.Material(), &a.sendClickable, "Send").Layout(gtx)
+			btn := material.Button(theme.Material(), &a.sendClickable, "Send")
+			btn.Background = theme.SendButtonBgColor
+			btn.Color = theme.ButtonTextColor
+			return btn.Layout(gtx)
 		}),
 	)
 }

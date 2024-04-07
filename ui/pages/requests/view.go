@@ -71,7 +71,6 @@ type View struct {
 func NewView(theme *theme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	search.SetBorderColor(widgets.Gray600)
 
 	v := &View{
 		theme:             theme,
@@ -83,7 +82,7 @@ func NewView(theme *theme.Theme) *View {
 			MinLeftSize:   unit.Dp(250),
 			MaxLeftSize:   unit.Dp(800),
 			BarWidth:      unit.Dp(2),
-			BarColor:      widgets.Gray300,
+			BarColor:      theme.SeparatorColor,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		containers:    safemap.New[Container](),
@@ -576,7 +575,9 @@ func (v *View) requestList(gtx layout.Context, theme *theme.Theme) layout.Dimens
 									v.onImport()
 								}
 							}
-							return widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import").Layout(gtx, theme)
+							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
+							btn.Color = theme.ButtonTextColor
+							return btn.Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -595,7 +596,9 @@ func (v *View) requestList(gtx layout.Context, theme *theme.Theme) layout.Dimens
 										}
 									}
 
-									return widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New").Layout(gtx, theme)
+									btn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
+									btn.Color = theme.ButtonTextColor
+									return btn.Layout(gtx, theme)
 								}),
 								layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 									return v.newMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

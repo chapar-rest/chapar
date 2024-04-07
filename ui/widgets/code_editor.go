@@ -50,7 +50,7 @@ func NewCodeEditor(code string, language string) *CodeEditor {
 				Axis: layout.Vertical,
 			},
 		},
-		font:    fonts.MustGetJetBrainsMono(),
+		font:    fonts.MustGetCodeEditorFont(),
 		rhState: richtext.InteractiveText{},
 	}
 
@@ -155,7 +155,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *theme.Theme, hint string)
 					ee := material.Editor(theme.Material(), c.editor, hint)
 					ee.Font = c.font.Font
 					ee.LineHeight = unit.Sp(14.73)
-					ee.Font.Typeface = "JetBrainsMono"
+					// ee.Font.Typeface = "JetBrainsMono"
 					ee.TextSize = unit.Sp(13)
 					// make it almost invisible
 					ee.Color = Hovered(theme.ContrastBg)
@@ -184,7 +184,6 @@ func (c *CodeEditor) getSpans() []styledtext.SpanStyle {
 			Color:   c.getTokenColor(t),
 			Font:    c.font.Font,
 		}
-		span.Font.Typeface = "JetBrainsMono"
 		spans = append(spans, span)
 	}
 	return spans

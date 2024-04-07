@@ -230,7 +230,8 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *theme.Theme, node *Tree
 		return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(8 + leftPadding)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					lb := material.Label(theme.Material(), unit.Sp(13), node.Text)
+					lb := material.Label(theme.Material(), unit.Sp(14), node.Text)
+					// lb.Font.Weight = font.SemiBold
 					lb.MaxLines = 1
 					return lb.Layout(gtx)
 				}),

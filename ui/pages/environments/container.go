@@ -24,7 +24,6 @@ type container struct {
 func newContainer(id, name string, items []domain.KeyValue) *container {
 	search := widgets.NewTextField("", "Search items")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	search.SetBorderColor(widgets.Gray600)
 
 	c := &container{
 		Identifier: id,

@@ -35,7 +35,7 @@ func New(req *domain.Request, theme *theme.Theme) *Restful {
 		split: widgets.SplitView{
 			Ratio:         0.05,
 			BarWidth:      unit.Dp(2),
-			BarColor:      widgets.Gray300,
+			BarColor:      theme.SeparatorColor,
 			BarColorHover: theme.Palette.ContrastBg,
 		},
 		Response: NewResponse(theme),

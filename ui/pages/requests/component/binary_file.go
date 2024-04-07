@@ -70,7 +70,9 @@ func (b *BinaryFile) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 				b.onSelectFile()
 			}
 
-			return widgets.Button(theme.Material(), &b.selectFileButton, widgets.UploadIcon, widgets.IconPositionStart, "Select File").Layout(gtx, theme)
+			btn := widgets.Button(theme.Material(), &b.selectFileButton, widgets.UploadIcon, widgets.IconPositionStart, "Select File")
+			btn.Color = theme.ButtonTextColor
+			return btn.Layout(gtx, theme)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -82,7 +84,9 @@ func (b *BinaryFile) Layout(gtx layout.Context, theme *theme.Theme) layout.Dimen
 				}
 			}
 
-			return widgets.Button(theme.Material(), &b.removeButton, widgets.DeleteIcon, widgets.IconPositionStart, "Remove").Layout(gtx, theme)
+			btn := widgets.Button(theme.Material(), &b.removeButton, widgets.DeleteIcon, widgets.IconPositionStart, "Remove")
+			btn.Color = theme.ButtonTextColor
+			return btn.Layout(gtx, theme)
 		}),
 	)
 }
