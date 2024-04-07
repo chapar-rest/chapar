@@ -2,13 +2,6 @@ package widgets
 
 import "image/color"
 
-var (
-	Gray300 = color.NRGBA{R: 0x2b, G: 0x2d, B: 0x31, A: 0xff}
-	Gray400 = color.NRGBA{R: 0x3c, G: 0x3f, B: 0x46, A: 0xff}
-	Gray600 = color.NRGBA{R: 0x6c, G: 0x6f, B: 0x76, A: 0xff}
-	Gray800 = color.NRGBA{R: 0xb0, G: 0xb3, B: 0xb8, A: 0xff}
-)
-
 // MulAlpha applies the alpha to the color.
 func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {
 	c.A = uint8(uint32(c.A) * uint32(alpha) / 0xFF)

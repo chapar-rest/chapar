@@ -609,7 +609,7 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 											gtx.Constraints.Min.X = 0
 											m := component.Menu(theme.Material(), &v.newMenu)
-											m.SurfaceStyle.Fill = widgets.Gray300
+											m.SurfaceStyle.Fill = theme.MenuBgColor
 											return m.Layout(gtx)
 										})
 									})

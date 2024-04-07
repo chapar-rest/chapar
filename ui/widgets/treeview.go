@@ -258,7 +258,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 								return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									gtx.Constraints.Min = image.Point{}
 									m := component.Menu(theme.Material(), &node.menu)
-									m.SurfaceStyle.Fill = Gray300
+									m.SurfaceStyle.Fill = theme.MenuBgColor
 									return m.Layout(gtx)
 								})
 							})

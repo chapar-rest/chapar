@@ -237,7 +237,7 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 	}
 
 	m := component.Menu(theme.Material(), &c.menu)
-	m.SurfaceStyle.Fill = Gray300
+	m.SurfaceStyle.Fill = theme.DropDownMenuBgColor
 	menuDim := m.Layout(gtx)
 	menuMacroCall := menuMicro.Stop()
 

@@ -50,11 +50,11 @@ type View struct {
 func NewView(theme *chapartheme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	search.SetBorderColor(widgets.Gray600)
+	search.SetBorderColor(theme.BorderColor)
 
 	itemsSearchBox := widgets.NewTextField("", "Search...")
 	itemsSearchBox.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	itemsSearchBox.SetBorderColor(widgets.Gray600)
+	itemsSearchBox.SetBorderColor(theme.BorderColor)
 
 	v := &View{
 		treeViewSearchBox: search,

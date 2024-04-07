@@ -10,7 +10,6 @@ import (
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Console struct {
@@ -91,7 +90,7 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return widget.Border{
-					Color:        widgets.Gray400,
+					Color:        theme.BorderColor,
 					Width:        unit.Dp(1),
 					CornerRadius: unit.Dp(4),
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

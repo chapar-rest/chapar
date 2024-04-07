@@ -30,7 +30,7 @@ func (l *LabeledInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layo
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Dp(l.MinEditorWidth)
 			return widget.Border{
-				Color:        Gray600,
+				Color:        theme.TextColor,
 				Width:        unit.Dp(1),
 				CornerRadius: unit.Dp(4),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
