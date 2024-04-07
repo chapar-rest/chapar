@@ -220,14 +220,18 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		opt := opt
 		c.menu.Options = append(c.menu.Options, func(gtx layout.Context) layout.Dimensions {
 			if opt.isDivider {
-				dim := component.Divider(theme.Material()).Layout(gtx)
+				dv := component.Divider(theme.Material())
+				dv.Fill = theme.TextColor
+				dim := dv.Layout(gtx)
 				if dim.Size.X > minWidth {
 					minWidth = dim.Size.X
 				}
 				return dim
 			}
 
-			dim := component.MenuItem(theme.Material(), &opt.clickable, opt.Text).Layout(gtx)
+			itm := component.MenuItem(theme.Material(), &opt.clickable, opt.Text)
+			itm.Label.Color = chapartheme.White
+			dim := itm.Layout(gtx)
 			if dim.Size.X > minWidth {
 				minWidth = dim.Size.X
 			}
