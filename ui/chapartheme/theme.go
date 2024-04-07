@@ -33,6 +33,7 @@ type Theme struct {
 	RequestMethodColor  color.NRGBA
 	DropDownMenuBgColor color.NRGBA
 	MenuBgColor         color.NRGBA
+	TextSelectionColor  color.NRGBA
 }
 
 func New(material *material.Theme, isDark bool) *Theme {
@@ -73,6 +74,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.RequestMethodColor = rgb(0x8bc34a)
 		t.DropDownMenuBgColor = rgb(0x2b2d31)
 		t.MenuBgColor = rgb(0x2b2d31)
+		t.TextSelectionColor = rgb(0x6380ad)
 	} else {
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
@@ -90,6 +92,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.RequestMethodColor = rgb(0x8bc34a)
 		t.DropDownMenuBgColor = rgb(0x2b2d31)
 		t.MenuBgColor = rgb(0x2b2d31)
+		t.TextSelectionColor = rgb(0xccd3de)
 	}
 
 	return t.Theme

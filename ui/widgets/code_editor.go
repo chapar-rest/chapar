@@ -164,6 +164,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 					ee.TextSize = unit.Sp(13)
 					// make it almost invisible
 					ee.Color = Hovered(theme.ContrastBg)
+					ee.SelectionColor = theme.TextSelectionColor
 					ee.Layout(gtx)
 					t := styledtext.Text(theme.Shaper, c.getSpans()...)
 					t.WrapPolicy = styledtext.WrapGraphemes

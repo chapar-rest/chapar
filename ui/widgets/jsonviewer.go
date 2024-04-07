@@ -59,6 +59,7 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 							l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%d", i+1))
 							l.Font.Weight = font.Medium
 							l.Color = theme.TextColor
+							l.SelectionColor = theme.TextSelectionColor
 							l.Alignment = text.End
 							return l.Layout(gtx)
 						})
@@ -67,6 +68,7 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.Label(theme.Material(), theme.TextSize, j.lines[i])
 							l.State = j.selectables[i]
+							l.SelectionColor = theme.TextSelectionColor
 							l.TextSize = unit.Sp(12)
 							return l.Layout(gtx)
 						})

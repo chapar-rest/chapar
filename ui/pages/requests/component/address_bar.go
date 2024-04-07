@@ -123,7 +123,8 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.Y = gtx.Dp(20)
 								editor := material.Editor(theme.Material(), a.url, "https://example.com")
-								editor.TextSize = unit.Sp(13)
+								editor.SelectionColor = theme.TextSelectionColor
+								editor.TextSize = unit.Sp(14)
 								return editor.Layout(gtx)
 							})
 						}),
