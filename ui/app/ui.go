@@ -137,13 +137,10 @@ func (u *UI) Run() error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			// if u.Theme.IsDark() {
 			// set the background color
 			paint.ColorOp{Color: u.Theme.Palette.Bg}.Add(&ops)
 			paint.PaintOp{}.Add(&ops)
 			clip.Rect{Max: gtx.Constraints.Max}.Push(&ops).Pop()
-			// 	}
-
 			// render and handle UI.
 			u.Layout(gtx, gtx.Constraints.Max.X)
 			// render and handle the operations from the UI.
