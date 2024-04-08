@@ -211,13 +211,17 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(.80, func(gtx layout.Context) layout.Dimensions {
 						return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Editor(theme.Material(), item.keyEditor, "Key").Layout(gtx)
+							ed := material.Editor(theme.Material(), item.keyEditor, "Key")
+							ed.SelectionColor = theme.TextSelectionColor
+							return ed.Layout(gtx)
 						})
 					}),
 					DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Editor(theme.Material(), item.valueEditor, "Value").Layout(gtx)
+							ed := material.Editor(theme.Material(), item.valueEditor, "Value")
+							ed.SelectionColor = theme.TextSelectionColor
+							return ed.Layout(gtx)
 						})
 					}),
 				)
