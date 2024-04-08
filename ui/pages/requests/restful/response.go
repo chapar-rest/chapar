@@ -36,8 +36,9 @@ type Response struct {
 
 	onCopyResponse func(gtx layout.Context, response string)
 
-	isResponseUpdated bool
-	jsonViewer        *widgets.JsonViewer
+	isResponseUpdated   bool
+	responseIsAvailable bool
+	jsonViewer          *widgets.JsonViewer
 }
 
 func NewResponse(theme *chapartheme.Theme) *Response {
@@ -71,6 +72,7 @@ func (r *Response) SetOnCopyResponse(f func(gtx layout.Context, response string)
 func (r *Response) SetResponse(response string) {
 	r.response = response
 	r.isResponseUpdated = false
+	r.responseIsAvailable = true
 }
 
 func (r *Response) SetStatusParams(code int, duration time.Duration, size int) {
@@ -104,7 +106,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		return component.Message(gtx, component.MessageTypeInfo, theme, r.message)
 	}
 
-	if r.response == "" {
+	if !r.responseIsAvailable {
 		return component.Message(gtx, component.MessageTypeInfo, theme, "No response available yet ;)")
 	}
 
