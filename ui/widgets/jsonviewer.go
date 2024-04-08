@@ -69,7 +69,7 @@ func (j *JsonViewer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 							l := material.Label(theme.Material(), theme.TextSize, j.lines[i])
 							l.State = j.selectables[i]
 							l.SelectionColor = theme.TextSelectionColor
-							l.TextSize = unit.Sp(12)
+							l.TextSize = unit.Sp(14)
 							return l.Layout(gtx)
 						})
 					}),

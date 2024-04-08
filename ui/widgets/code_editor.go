@@ -145,6 +145,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 						l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
 						l.Font.Weight = font.Medium
 						l.Color = theme.TextColor
+						l.TextSize = unit.Sp(14)
 						l.Alignment = text.End
 						return l.Layout(gtx)
 					})
@@ -157,13 +158,13 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 					//ee.Font = c.font.Font
 					//ee.LineHeight = unit.Sp(14.73)
 					//// ee.Font.Typeface = "JetBrainsMono"
-					//ee.TextSize = unit.Sp(13)
+					ee.TextSize = unit.Sp(14)
 					//// make it almost invisible
 					//ee.Color = Hovered(theme.ContrastBg)
 					ee.SelectionColor = theme.TextSelectionColor
 					//ee.Layout(gtx)
 					//t := styledtext.Text(theme.Shaper, c.getSpans()...)
-					//t.WrapPolicy = styledtext.WrapGraphemes
+					// t.WrapPolicy = styledtext.WrapGraphemes
 					//return t.Layout(gtx, nil)
 					return ee.Layout(gtx)
 				})
