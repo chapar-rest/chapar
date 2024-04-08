@@ -93,6 +93,11 @@ func (r *Restful) SetOnCopyResponse(f func(gtx layout.Context, response string))
 }
 
 func (r *Restful) SetHTTPResponse(detail domain.HTTPResponseDetail) {
+	if detail.Error != nil {
+		r.Response.SetError(detail.Error)
+		return
+	}
+
 	r.Response.SetResponse(detail.Response)
 	r.Response.SetHeaders(detail.Headers)
 	r.Response.SetCookies(detail.Cookies)

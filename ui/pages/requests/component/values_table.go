@@ -62,7 +62,7 @@ func (v *ValuesTable) GetData() []domain.KeyValue {
 
 func (v *ValuesTable) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if len(v.Values) == 0 {
-		return Message(gtx, theme, fmt.Sprintf("No %s available", v.Title))
+		return Message(gtx, MessageTypeInfo, theme, fmt.Sprintf("No %s available", v.Title))
 	}
 
 	return material.List(theme.Material(), v.list).Layout(gtx, len(v.Values), func(gtx layout.Context, i int) layout.Dimensions {

@@ -211,7 +211,9 @@ func (c *Controller) onSubmitRequest(id string) {
 
 	res, err := c.restService.SendRequest(id, envID)
 	if err != nil {
-		fmt.Println("failed to send request", err)
+		c.view.SetHTTPResponse(id, domain.HTTPResponseDetail{
+			Error: err,
+		})
 		return
 	}
 

@@ -32,6 +32,7 @@ type Response struct {
 
 	response string
 	message  string
+	err      error
 
 	onCopyResponse func(gtx layout.Context, response string)
 
@@ -86,17 +87,25 @@ func (r *Response) SetMessage(message string) {
 	r.message = message
 }
 
+func (r *Response) SetError(err error) {
+	r.err = err
+}
+
 func (r *Response) SetCookies(cookies []domain.KeyValue) {
 	r.responseCookies.SetData(cookies)
 }
 
 func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if r.err != nil {
+		return component.Message(gtx, component.MessageTypeError, theme, r.err.Error())
+	}
+
 	if r.message != "" {
-		return component.Message(gtx, theme, r.message)
+		return component.Message(gtx, component.MessageTypeInfo, theme, r.message)
 	}
 
 	if r.response == "" {
-		return component.Message(gtx, theme, "No response available yet ;)")
+		return component.Message(gtx, component.MessageTypeInfo, theme, "No response available yet ;)")
 	}
 
 	if r.copyClickable.Clicked(gtx) {

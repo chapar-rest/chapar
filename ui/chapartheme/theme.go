@@ -37,6 +37,8 @@ type Theme struct {
 	NotificationBgColor   color.NRGBA
 	NotificationTextColor color.NRGBA
 	ResponseStatusColor   color.NRGBA
+	ErrorColor            color.NRGBA
+	WarningColor          color.NRGBA
 }
 
 func New(material *material.Theme, isDark bool) *Theme {
@@ -81,6 +83,8 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.NotificationBgColor = rgb(0x4589f5)
 		t.NotificationTextColor = rgb(0xffffff)
 		t.ResponseStatusColor = rgb(0x8bc34a)
+		t.ErrorColor = rgb(0xff7373)
+		t.WarningColor = rgb(0xffe073)
 	} else {
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
@@ -102,6 +106,8 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.NotificationBgColor = rgb(0x4589f5)
 		t.NotificationTextColor = rgb(0xffffff)
 		t.ResponseStatusColor = rgb(0x007518)
+		t.ErrorColor = rgb(0xff7373)
+		t.WarningColor = rgb(0xffe073)
 	}
 
 	return t.Theme

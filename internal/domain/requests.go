@@ -735,4 +735,6 @@ type HTTPResponseDetail struct {
 	StatusCode int
 	Duration   time.Duration
 	Size       int
+
+	Error error
 }

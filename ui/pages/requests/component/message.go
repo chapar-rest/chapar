@@ -6,11 +6,25 @@ import (
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
-func Message(gtx layout.Context, theme *chapartheme.Theme, message string) layout.Dimensions {
+const (
+	MessageTypeInfo    = "info"
+	MessageTypeError   = "error"
+	MessageTypeWarning = "warning"
+)
+
+func Message(gtx layout.Context, messageType string, theme *chapartheme.Theme, message string) layout.Dimensions {
+	textColor := theme.TextColor
+	switch messageType {
+	case MessageTypeError:
+		textColor = theme.ErrorColor
+	case MessageTypeWarning:
+		textColor = theme.WarningColor
+	}
+
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		l := material.LabelStyle{
 			Text:     message,
-			Color:    theme.TextColor,
+			Color:    textColor,
 			TextSize: theme.TextSize,
 			Shaper:   theme.Shaper,
 		}
