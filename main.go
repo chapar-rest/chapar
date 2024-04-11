@@ -1,15 +1,31 @@
 package main
 
 import (
+	"flag"
 	"log"
+	"net/http"
 	"os"
+
+	_ "net/http/pprof"
 
 	"gioui.org/app"
 	"gioui.org/unit"
 	mainApp "github.com/mirzakhany/chapar/ui/app"
 )
 
+var (
+	enablePprof = flag.Bool("pprof", false, "enable pprof")
+)
+
 func main() {
+	flag.Parse()
+
+	if *enablePprof {
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
+
 	go func() {
 		var w app.Window
 		w.Option(app.Title("Chapar"), app.Size(unit.Dp(1200), unit.Dp(800)))
