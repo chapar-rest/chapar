@@ -78,7 +78,7 @@ func New(w *app.Window) (*UI, error) {
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 
-	u.header = NewHeader(environmentsState)
+	u.header = NewHeader(environmentsState, u.Theme)
 	u.sideBar = NewSidebar(u.Theme)
 
 	u.environmentsView = environments.NewView(u.Theme)

@@ -16,11 +16,14 @@ type Header struct {
 	envDropDown *widgets.DropDown
 
 	envState      *state.Environments
-	ThemeSwitcher *widget.Bool
+	switchState   *widget.Bool
+	themeSwitcher material.SwitchStyle
+
+	iconDarkMode  material.LabelStyle
+	iconLightMode material.LabelStyle
 
 	OnSelectedEnvChanged func(env *domain.Environment)
-
-	OnThemeSwitched func(isLight bool)
+	OnThemeSwitched      func(isLight bool)
 }
 
 const (
@@ -28,13 +31,16 @@ const (
 	noEnvironment = "No Environment"
 )
 
-func NewHeader(envState *state.Environments) *Header {
+func NewHeader(envState *state.Environments, theme *chapartheme.Theme) *Header {
 	h := &Header{
-		selectedEnv:   noEnvironment,
-		envState:      envState,
-		ThemeSwitcher: new(widget.Bool),
+		selectedEnv: noEnvironment,
+		envState:    envState,
+		switchState: new(widget.Bool),
 	}
+	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
+	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
 
+	h.themeSwitcher = material.Switch(theme.Material(), h.switchState, "")
 	h.envDropDown = widgets.NewDropDown(
 		widgets.NewDropDownOption(noEnvironment),
 		widgets.NewDropDownDivider(),
@@ -67,7 +73,7 @@ func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 	h.envDropDown.SetSelectedByTitle(env.MetaData.Name)
 }
 func (h *Header) SetTheme(isDark bool) {
-	h.ThemeSwitcher.Value = !isDark
+	h.switchState.Value = !isDark
 }
 
 func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -99,21 +105,21 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return widgets.MaterialIcons("dark_mode", theme).Layout(gtx)
+								return h.iconDarkMode.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return layout.Inset{Right: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									if h.ThemeSwitcher.Update(gtx) {
+									if h.switchState.Update(gtx) {
 										if h.OnThemeSwitched != nil {
-											h.OnThemeSwitched(!h.ThemeSwitcher.Value)
+											h.OnThemeSwitched(!h.switchState.Value)
 										}
 									}
 
-									return material.Switch(theme.Material(), h.ThemeSwitcher, "").Layout(gtx)
+									return h.themeSwitcher.Layout(gtx)
 								})
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return widgets.MaterialIcons("light_mode", theme).Layout(gtx)
+								return h.iconLightMode.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return layout.Inset{Left: unit.Dp(20), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
