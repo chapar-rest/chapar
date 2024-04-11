@@ -767,15 +767,17 @@ func (l *LineWrapper) WrapParagraph(config WrapConfig, maxWidth int, paragraph [
 	}
 
 	l.Prepare(config, paragraph, runs)
-	var done bool
+	var (
+		line WrappedLine
+		done bool
+	)
 	for !done {
-		var line Line
-		line, truncated, done = l.WrapNextLine(maxWidth)
-		if line != nil {
-			l.scratch.paragraphAppend(line)
+		line, done = l.WrapNextLine(maxWidth)
+		if line.Line != nil {
+			l.scratch.paragraphAppend(line.Line)
 		}
 	}
-	return l.scratch.finalParagraph(), truncated
+	return l.scratch.finalParagraph(), line.Truncated
 }
 
 // fillUntil tries to fill the line candidate slice with runs until it reaches a run containing the
@@ -816,48 +818,89 @@ type lineConfig struct {
 	truncatedMaxWidth int
 }
 
+// WrappedLine is the result of wrapping one line of text.
+type WrappedLine struct {
+	// Line is the content of the line, as a slice of shaped runs
+	Line Line
+	// Truncated is the count of runes truncated from the end of the line,
+	// if this line was truncated.
+	Truncated int
+	// NextLine is the indice (in the input text slice) of the begining
+	// of the next line. It will equal len(text) if all the text
+	// fit in one line.
+	NextLine int
+}
+
+func (l *LineWrapper) postProcessLine(finalLine Line, done bool) (WrappedLine, bool) {
+	if len(finalLine) > 0 {
+		finalRun := finalLine[len(finalLine)-1]
+
+		// zero trailing whitespace advance,
+		// to be coherent with Output.advanceSpaceAware
+		if L := len(finalRun.Glyphs); L != 0 {
+			if finalRun.Direction.IsVertical() {
+				if g := &finalRun.Glyphs[L-1]; g.Height == 0 {
+					g.YAdvance = 0
+				}
+			} else { // horizontal
+				if g := finalRun.Glyphs[L-1]; g.Width == 0 {
+					g.XAdvance = 0
+				}
+			}
+			finalRun.RecomputeAdvance()
+		}
+
+		// Update the start position of the next line.
+		l.lineStartRune = finalRun.Runes.Count + finalRun.Runes.Offset
+	}
+
+	// Check whether we've exhausted the text.
+	done = done || l.lineStartRune >= l.breaker.totalRunes
+
+	// Implement truncation if needed.
+	truncated := 0
+	if l.truncating {
+		l.config.TruncateAfterLines--
+		insertTruncator := false
+		if l.config.TruncateAfterLines == 0 {
+			done = true
+			truncated = l.breaker.totalRunes - l.lineStartRune
+			insertTruncator = truncated > 0 || l.config.TextContinues
+		}
+		if insertTruncator {
+			finalLine = append(finalLine, l.config.Truncator)
+		}
+	}
+
+	// Mark the paragraph as complete if needed.
+	if done {
+		l.more = false
+	}
+
+	return WrappedLine{finalLine, truncated, l.lineStartRune}, done
+}
+
 // WrapNextLine wraps the shaped glyphs of a paragraph to a particular max width.
 // It is meant to be called iteratively to wrap each line, allowing lines to
 // be wrapped to different widths within the same paragraph. When done is true,
 // subsequent calls to WrapNextLine (without calling Prepare) will return a nil line.
-// The truncated return value is the count of runes truncated from the end of the line,
-// if this line was truncated. The returned line is only valid until the next call to
+//
+// The returned line is only valid until the next call to
 // [*LineWrapper.Prepare] or [*LineWrapper.WrapParagraph].
-func (l *LineWrapper) WrapNextLine(maxWidth int) (finalLine Line, truncated int, done bool) {
+func (l *LineWrapper) WrapNextLine(maxWidth int) (out WrappedLine, done bool) {
 	// If we've already finished the paragraph, don't do any more work.
 	if !l.more {
-		return nil, 0, true
+		return WrappedLine{NextLine: l.lineStartRune}, true
 	}
+
 	defer func() {
-		// Update the start position of the next line.
-		if len(finalLine) > 0 {
-			finalRun := finalLine[len(finalLine)-1]
-			l.lineStartRune = finalRun.Runes.Count + finalRun.Runes.Offset
-		}
-		// Check whether we've exhausted the text.
-		done = done || l.lineStartRune >= l.breaker.totalRunes
-		// Implement truncation if needed.
-		if l.truncating {
-			l.config.TruncateAfterLines--
-			insertTruncator := false
-			if l.config.TruncateAfterLines == 0 {
-				done = true
-				truncated = l.breaker.totalRunes - l.lineStartRune
-				insertTruncator = truncated > 0 || l.config.TextContinues
-			}
-			if insertTruncator {
-				finalLine = append(finalLine, l.config.Truncator)
-			}
-		}
-		// Mark the paragraph as complete if needed.
-		if done {
-			l.more = false
-		}
+		out, done = l.postProcessLine(out.Line, done)
 	}()
+
 	// If the iterator is empty, return early.
 	_, firstRun, hasFirst := l.glyphRuns.Peek()
 	if !hasFirst {
-		return nil, 0, true
+		return WrappedLine{}, true
 	}
 	l.scratch.startLine()
 	truncating := l.config.TruncateAfterLines == 1
@@ -877,7 +920,7 @@ func (l *LineWrapper) WrapNextLine(maxWidth int) (finalLine Line, truncated int,
 			}
 			l.scratch.candidateAppend(firstRun)
 			l.scratch.markCandidateBest()
-			return l.scratch.finalizeBest(), 0, true
+			return WrappedLine{Line: l.scratch.finalizeBest()}, true
 		}
 		// Restore iterator state in preparation for real line wrapping algorithm.
 		l.glyphRuns.Restore()
@@ -889,8 +932,8 @@ func (l *LineWrapper) WrapNextLine(maxWidth int) (finalLine Line, truncated int,
 		truncatedMaxWidth: maxWidth - l.config.Truncator.Advance.Ceil(),
 	}
 	done = l.wrapNextLine(config)
-	finalLine = l.scratch.finalizeBest()
-	return finalLine, 0, done
+	finalLine := l.scratch.finalizeBest()
+	return WrappedLine{Line: finalLine}, done
 }
 
 // checkpoint captures both the current candidate line and the corresponding run iteration
@@ -1050,7 +1093,7 @@ func (l *LineWrapper) processBreakOption(option breakOption, config lineConfig) 
 		return breakInvalid, Output{}
 	}
 	candidateRun := cutRun(run, l.mapper.mapping, l.lineStartRune, option.breakAtRune)
-	candidateLineWidth := (candidateRun.Advance + l.scratch.candidateAdvance()).Ceil()
+	candidateLineWidth := (candidateRun.advanceSpaceAware() + l.scratch.candidateAdvance()).Ceil()
 	if candidateLineWidth > config.maxWidth {
 		// The run doesn't fit on the line.
 		if !l.scratch.hasBest() {

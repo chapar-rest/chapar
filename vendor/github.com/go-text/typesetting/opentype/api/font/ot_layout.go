@@ -67,7 +67,7 @@ func (la *Layout) FindScript(script Tag) int {
 // the specified variation coordinates, as an index in the
 // `FeatureVariations` field.
 // It returns `-1` if not found.
-func (la *Layout) FindVariationIndex(coords []float32) int {
+func (la *Layout) FindVariationIndex(coords []VarCoord) int {
 	for i, record := range la.FeatureVariations {
 		if evaluateVarRec(record, coords) {
 			return i
@@ -77,7 +77,7 @@ func (la *Layout) FindVariationIndex(coords []float32) int {
 }
 
 // returns `true` if the feature is concerned by the `coords`
-func evaluateVarRec(fv tables.FeatureVariationRecord, coords []float32) bool {
+func evaluateVarRec(fv tables.FeatureVariationRecord, coords []VarCoord) bool {
 	for _, c := range fv.ConditionSet.Conditions {
 		if !evaluateCondition(c, coords) {
 			return false
@@ -87,8 +87,8 @@ func evaluateVarRec(fv tables.FeatureVariationRecord, coords []float32) bool {
 }
 
 // returns `true` if `coords` match the condition `c`
-func evaluateCondition(c tables.ConditionFormat1, coords []float32) bool {
-	var coord float32
+func evaluateCondition(c tables.ConditionFormat1, coords []VarCoord) bool {
+	var coord VarCoord
 	if int(c.AxisIndex) < len(coords) {
 		coord = coords[c.AxisIndex]
 	}

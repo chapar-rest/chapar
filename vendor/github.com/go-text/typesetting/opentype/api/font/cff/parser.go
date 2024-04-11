@@ -11,16 +11,12 @@ import (
 
 	"github.com/go-text/typesetting/opentype/api"
 	ps "github.com/go-text/typesetting/opentype/api/font/cff/interpreter"
-	"github.com/go-text/typesetting/opentype/tables"
 )
 
-var (
-	errUnsupportedCFFVersion       = errors.New("unsupported CFF version")
-	errUnsupportedCFFFDSelectTable = errors.New("unsupported FD Select version")
-)
+var errUnsupportedCFFVersion = errors.New("unsupported CFF version")
 
-// Font represents a parsed CFF font.
-type Font struct {
+// CFF represents a parsed CFF font, as found in the 'CFF ' Opentype table.
+type CFF struct {
 	userStrings userStrings
 	fdSelect    fdSelect // only valid for CIDFonts
 	charset     []uint16 // indexed by glyph ID
@@ -45,7 +41,7 @@ type Font struct {
 // single file, embedded CFF font file in PDF or in TrueType/OpenType fonts
 // shall consist of exactly one font or CIDFont. Thus, this function
 // returns an error if the file contains more than one font.
-func Parse(file []byte) (*Font, error) {
+func Parse(file []byte) (*CFF, error) {
 	// read 4 bytes to check if its a supported CFF file
 	if L := len(file); L < 4 {
 		return nil, fmt.Errorf("EOF: expected length: %d, got %d", 4, L)
@@ -67,7 +63,7 @@ func Parse(file []byte) (*Font, error) {
 }
 
 // GlyphName returns the name of the glyph or an empty string if not found.
-func (f *Font) GlyphName(glyph api.GID) string {
+func (f *CFF) GlyphName(glyph api.GID) string {
 	if f.fdSelect != nil || int(glyph) >= len(f.charset) {
 		return ""
 	}
@@ -138,7 +134,7 @@ type cffParser struct {
 	offset int    // current position
 }
 
-func (p *cffParser) parse() ([]Font, error) {
+func (p *cffParser) parse() ([]CFF, error) {
 	// header was checked prior to this call
 
 	// Parse the Name INDEX.
@@ -164,7 +160,7 @@ func (p *cffParser) parse() ([]Font, error) {
 		return nil, err
 	}
 
-	out := make([]Font, len(topDicts))
+	out := make([]CFF, len(topDicts))
 
 	// use the strings to fetch the PSInfo
 	for i, topDict := range topDicts {
@@ -249,14 +245,14 @@ func (p *cffParser) parse() ([]Font, error) {
 	return out, nil
 }
 
-func (p *cffParser) parseTopDicts() ([]topDictData, error) {
+func (p *cffParser) parseTopDicts() ([]topDict, error) {
 	// Parse the Top DICT INDEX.
 	instructions, err := p.parseIndex()
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]topDictData, len(instructions)) // guarded by uint16 max size
+	out := make([]topDict, len(instructions)) // guarded by uint16 max size
 	var psi ps.Machine
 	for i, buf := range instructions {
 		topDict := &out[i]
@@ -278,32 +274,61 @@ func (p *cffParser) parseTopDicts() ([]topDictData, error) {
 	return out, nil
 }
 
+// src does NOT includes header, but starts at the array offset
+// also returns the length read from 'src'
+func parseIndexContent(src []byte, header indexStart) ([][]byte, int, error) {
+	if header.count == 0 {
+		return nil, 0, nil
+	}
+	oSize := int(header.offSize)
+	offsetArraySize := int(header.count+1) * oSize
+	if L := len(src); L < offsetArraySize {
+		return nil, 0, fmt.Errorf("reading INDEX offsets: EOF: expected length: %d, got %d", offsetArraySize, L)
+	}
+	out := make([][]byte, header.count)
+	data := src[offsetArraySize:]
+
+	prev := 0
+	for i := range out {
+		// In the same paragraph, "Therefore the first element of the offset
+		// array is always 1" before correcting for the off-by-1.
+		loc := int(bigEndian(src[(i+1)*oSize : (i+2)*oSize]))
+
+		// Locations are off by 1 byte. 5176.CFF.pdf section 5 "INDEX Data"
+		// says that "Offsets in the offset array are relative to the byte that
+		// precedes the object data... This ensures that every object has a
+		// corresponding offset which is always nonzero".
+		if loc == 0 {
+			return nil, 0, errors.New("invalid INDEX locations (0)")
+		}
+		loc--
+
+		if loc < prev { // Check that locations are increasing
+			return nil, 0, errors.New("invalid INDEX locations (not increasing)")
+		}
+
+		// Check that locations are in bounds, that is offsetsLength + loc <= len(src)
+		if int(loc) > len(data) {
+			return nil, 0, errors.New("invalid INDEX locations (out of bounds)")
+		}
+
+		out[i] = data[prev:loc]
+		prev = loc
+	}
+	return out, offsetArraySize + prev, nil
+}
+
 // parse the general form of an index
 func (p *cffParser) parseIndex() ([][]byte, error) {
 	count, offSize, err := p.parseIndexHeader()
 	if err != nil {
 		return nil, err
 	}
-	if count == 0 {
-		return nil, nil
-	}
 
-	out := make([][]byte, count)
+	out, read, err := parseIndexContent(p.src[p.offset:], indexStart{count: uint32(count), offSize: offSize})
+	p.offset += read
 
-	stringsLocations := make([]uint32, int(count)+1)
-	if err := p.parseIndexLocations(stringsLocations, offSize); err != nil {
-		return nil, err
-	}
-
-	for i := range out {
-		length := stringsLocations[i+1] - stringsLocations[i]
-		buf, err := p.read(int(length))
-		if err != nil {
-			return nil, err
-		}
-		out[i] = buf
-	}
-	return out, nil
+	return out, err
 }
 
 // parse the Name INDEX
@@ -377,113 +402,17 @@ func (p *cffParser) parseCharset(charsetOffset int32, numGlyphs uint16) ([]uint1
 	return charset, nil
 }
 
-// fdSelect holds a CFF font's Font Dict Select data.
-type fdSelect interface {
-	fontDictIndex(glyph tables.GlyphID) (byte, error)
-	// return the maximum index + 1 (it's the length of an array
-	// which can be safely indexed by the indexes)
-	extent() int
-}
-
-type fdSelect0 []byte
-
-func (fds fdSelect0) fontDictIndex(glyph tables.GlyphID) (byte, error) {
-	if int(glyph) >= len(fds) {
-		return 0, errors.New("invalid glyph index")
-	}
-	return fds[glyph], nil
-}
-
-func (fds fdSelect0) extent() int {
-	max := -1
-	for _, b := range fds {
-		if int(b) > max {
-			max = int(b)
-		}
-	}
-	return max + 1
-}
-
-type range3 struct {
-	first tables.GlyphID
-	fd    byte
-}
-
-type fdSelect3 struct {
-	ranges   []range3
-	sentinel tables.GlyphID // = numGlyphs
-}
-
-func (fds fdSelect3) fontDictIndex(x tables.GlyphID) (byte, error) {
-	lo, hi := 0, len(fds.ranges)
-	for lo < hi {
-		i := (lo + hi) / 2
-		r := fds.ranges[i]
-		xlo := r.first
-		if x < xlo {
-			hi = i
-			continue
-		}
-		xhi := fds.sentinel
-		if i < len(fds.ranges)-1 {
-			xhi = fds.ranges[i+1].first
-		}
-		if xhi <= x {
-			lo = i + 1
-			continue
-		}
-		return r.fd, nil
-	}
-	return 0, errors.New("invalid glyph index")
-}
-
-func (fds fdSelect3) extent() int {
-	max := -1
-	for _, b := range fds.ranges {
-		if int(b.fd) > max {
-			max = int(b.fd)
-		}
-	}
-	return max + 1
-}
-
 // parseFDSelect parses the Font Dict Select data as per 5176.CFF.pdf section
 // 19 "FDSelect".
 func (p *cffParser) parseFDSelect(offset int32, numGlyphs uint16) (fdSelect, error) {
 	if err := p.seek(offset); err != nil {
 		return nil, err
 	}
-	buf, err := p.read(1)
+	out, _, err := parseFdSelect(p.src[offset:], int(numGlyphs))
 	if err != nil {
 		return nil, err
 	}
-	switch buf[0] { // format
-	case 0:
-		if len(p.src) < p.offset+int(numGlyphs) {
-			return nil, errors.New("invalid FDSelect data")
-		}
-		return fdSelect0(p.src[p.offset : p.offset+int(numGlyphs)]), nil
-	case 3:
-		buf, err = p.read(2)
-		if err != nil {
-			return nil, err
-		}
-		numRanges := binary.BigEndian.Uint16(buf)
-		if len(p.src) < p.offset+3*int(numRanges)+2 {
-			return nil, errors.New("invalid FDSelect data")
-		}
-		out := fdSelect3{
-			sentinel: tables.GlyphID(numGlyphs),
-			ranges:   make([]range3, numRanges),
-		}
-		for i := range out.ranges {
-			// 	buf holds the range [xlo, xhi).
-			out.ranges[i].first = tables.GlyphID(binary.BigEndian.Uint16(p.src[p.offset+3*i:]))
-			out.ranges[i].fd = p.src[p.offset+3*i+2]
-		}
-		return out, nil
-	}
-	return nil, errUnsupportedCFFFDSelectTable
+	return out, err
 }
 
 // Parse Private DICT and the Local Subrs [Subroutines] INDEX
@@ -553,7 +482,7 @@ func bigEndian(b []byte) uint32 {
 	panic("unreachable")
 }
 
-func (p *cffParser) parseIndexHeader() (count uint16, offSize int32, err error) {
+func (p *cffParser) parseIndexHeader() (count uint16, offSize uint8, err error) {
 	buf, err := p.read(2)
 	if err != nil {
 		return 0, 0, err
@@ -569,59 +498,15 @@ func (p *cffParser) parseIndexHeader() (count uint16, offSize int32, err error) 
 	if err != nil {
 		return 0, 0, err
 	}
-	offSize = int32(buf[0])
+	offSize = buf[0]
 	if offSize < 1 || 4 < offSize {
 		return 0, 0, fmt.Errorf("invalid offset size %d", offSize)
 	}
 	return count, offSize, nil
 }
 
-func (p *cffParser) parseIndexLocations(dst []uint32, offSize int32) error {
-	if len(dst) == 0 {
-		return nil
-	}
-	buf, err := p.read(len(dst) * int(offSize))
-	if err != nil {
-		return err
-	}
-
-	prev := uint32(0)
-	for i := range dst {
-		loc := bigEndian(buf[:offSize])
-		buf = buf[offSize:]
-
-		// Locations are off by 1 byte. 5176.CFF.pdf section 5 "INDEX Data"
-		// says that "Offsets in the offset array are relative to the byte that
-		// precedes the object data... This ensures that every object has a
-		// corresponding offset which is always nonzero".
-		if loc == 0 {
-			return errors.New("invalid CFF index locations (0)")
-		}
-		loc--
-
-		// In the same paragraph, "Therefore the first element of the offset
-		// array is always 1" before correcting for the off-by-1.
-		if i == 0 {
-			if loc != 0 {
-				return errors.New("invalid CFF index locations (not 0)")
-			}
-		} else if loc < prev { // Check that locations are increasing
-			return errors.New("invalid CFF index locations (not increasing)")
-		}
-
-		// Check that locations are in bounds.
-		if uint32(len(p.src)-p.offset) < loc {
-			return errors.New("invalid CFF index locations (out of bounds)")
-		}
-
-		dst[i] = uint32(p.offset) + loc
-		prev = loc
-	}
-	return nil
-}
-
-// topDictData contains fields specific to the Top DICT context.
-type topDictData struct {
+// topDict contains fields specific to the Top DICT context.
+type topDict struct {
 	// SIDs, to be decoded using the string index
 	version, notice, fullName, familyName, weight      uint16
 	isFixedPitch                                       bool
@@ -637,9 +522,9 @@ type topDictData struct {
 	privateDictLength                                  int32
 }
 
-func (topDict *topDictData) Context() ps.Context { return ps.TopDict }
+func (tp *topDict) Context() ps.Context { return ps.TopDict }
 
-func (topDict *topDictData) Apply(state *ps.Machine, op ps.Operator) error {
+func (tp *topDict) Apply(state *ps.Machine, op ps.Operator) error {
 	ops := topDictOperators[0]
 	if op.IsEscaped {
 		ops = topDictOperators[1]
@@ -654,7 +539,7 @@ func (topDict *topDictData) Apply(state *ps.Machine, op ps.Operator) error {
 	if state.ArgStack.Top < opFunc.numPop {
 		return fmt.Errorf("invalid number of arguments for operator %s in Top Dict", op)
 	}
-	err := opFunc.run(topDict, state)
+	err := opFunc.run(tp, state)
 	if err != nil {
 		return err
 	}
@@ -667,81 +552,81 @@ func (topDict *topDictData) Apply(state *ps.Machine, op ps.Operator) error {
 type topDictOperator struct {
 	// run is the function that implements the operator. Nil means that we
 	// ignore the operator, other than popping its arguments off the stack.
-	run func(*topDictData, *ps.Machine) error
+	run func(*topDict, *ps.Machine) error
 
 	// numPop is the number of stack values to pop. -1 means "array" and -2
 	// means "delta" as per 5176.CFF.pdf Table 6 "Operand Types".
 	numPop int32
 }
 
-func topDictNoOp(*topDictData, *ps.Machine) error { return nil }
+func topDictNoOp(*topDict, *ps.Machine) error { return nil }
 
 var topDictOperators = [2][]topDictOperator{
 	// 1-byte operators.
 	{
-		0: {func(t *topDictData, s *ps.Machine) error {
+		0: {func(t *topDict, s *ps.Machine) error {
 			t.version = s.ArgStack.Uint16()
 			return nil
 		}, +1 /*version*/},
-		1: {func(t *topDictData, s *ps.Machine) error {
+		1: {func(t *topDict, s *ps.Machine) error {
 			t.notice = s.ArgStack.Uint16()
 			return nil
 		}, +1 /*Notice*/},
-		2: {func(t *topDictData, s *ps.Machine) error {
+		2: {func(t *topDict, s *ps.Machine) error {
 			t.fullName = s.ArgStack.Uint16()
 			return nil
 		}, +1 /*FullName*/},
-		3: {func(t *topDictData, s *ps.Machine) error {
+		3: {func(t *topDict, s *ps.Machine) error {
 			t.familyName = s.ArgStack.Uint16()
 			return nil
 		}, +1 /*FamilyName*/},
-		4: {func(t *topDictData, s *ps.Machine) error {
+		4: {func(t *topDict, s *ps.Machine) error {
 			t.weight = s.ArgStack.Uint16()
 			return nil
 		}, +1 /*Weight*/},
 		5:  {topDictNoOp, -1 /*FontBBox*/},
 		13: {topDictNoOp, +1 /*UniqueID*/},
 		14: {topDictNoOp, -1 /*XUID*/},
-		15: {func(t *topDictData, s *ps.Machine) error {
-			t.charsetOffset = s.ArgStack.Vals[s.ArgStack.Top-1]
+		15: {func(t *topDict, s *ps.Machine) error {
+			t.charsetOffset = int32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*charset*/},
-		16: {func(t *topDictData, s *ps.Machine) error {
-			t.encodingOffset = s.ArgStack.Vals[s.ArgStack.Top-1]
+		16: {func(t *topDict, s *ps.Machine) error {
+			t.encodingOffset = int32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*Encoding*/},
-		17: {func(t *topDictData, s *ps.Machine) error {
-			t.charStringsOffset = s.ArgStack.Vals[s.ArgStack.Top-1]
+		17: {func(t *topDict, s *ps.Machine) error {
+			t.charStringsOffset = int32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*CharStrings*/},
-		18: {func(t *topDictData, s *ps.Machine) error {
-			t.privateDictLength = s.ArgStack.Vals[s.ArgStack.Top-2]
-			t.privateDictOffset = s.ArgStack.Vals[s.ArgStack.Top-1]
+		18: {func(t *topDict, s *ps.Machine) error {
+			t.privateDictLength = int32(s.ArgStack.Vals[s.ArgStack.Top-2])
+			t.privateDictOffset = int32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +2 /*Private*/},
 	},
 	// 2-byte operators. The first byte is the escape byte.
 	{
 		0: {topDictNoOp, +1 /*Copyright*/},
-		1: {func(t *topDictData, s *ps.Machine) error {
+		1: {func(t *topDict, s *ps.Machine) error {
 			t.isFixedPitch = s.ArgStack.Vals[s.ArgStack.Top-1] == 1
 			return nil
 		}, +1 /*isFixedPitch*/},
-		2: {func(t *topDictData, s *ps.Machine) error {
-			t.italicAngle = s.ArgStack.Float()
+		2: {func(t *topDict, s *ps.Machine) error {
+			t.italicAngle = float32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*ItalicAngle*/},
-		3: {func(t *topDictData, s *ps.Machine) error {
-			t.underlinePosition = s.ArgStack.Float()
+		3: {func(t *topDict, s *ps.Machine) error {
+			t.underlinePosition = float32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*UnderlinePosition*/},
-		4: {func(t *topDictData, s *ps.Machine) error {
-			t.underlineThickness = s.ArgStack.Float()
+		4: {func(t *topDict, s *ps.Machine) error {
+			t.underlineThickness = float32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*UnderlineThickness*/},
 		5: {topDictNoOp, +1 /*PaintType*/},
-		6: {func(_ *topDictData, i *ps.Machine) error {
-			if version := i.ArgStack.Vals[i.ArgStack.Top-1]; version != 2 {
+		6: {func(_ *topDict, i *ps.Machine) error {
+			if version := int(i.ArgStack.Vals[i.ArgStack.Top-1]); version != 2 {
 				return fmt.Errorf("charstring type %d not supported", version)
 			}
 			return nil
@@ -752,7 +637,7 @@ var topDictOperators = [2][]topDictOperator{
 		21: {topDictNoOp, +1 /*PostScript*/},
 		22: {topDictNoOp, +1 /*BaseFontName*/},
 		23: {topDictNoOp, -2 /*BaseFontBlend*/},
-		30: {func(t *topDictData, _ *ps.Machine) error {
+		30: {func(t *topDict, _ *ps.Machine) error {
 			t.isCIDFont = true
 			return nil
 		}, +3 /*ROS*/},
@@ -761,15 +646,15 @@ var topDictOperators = [2][]topDictOperator{
 		33: {topDictNoOp, +1 /*CIDFontType*/},
 		34: {topDictNoOp, +1 /*CIDCount*/},
 		35: {topDictNoOp, +1 /*UIDBase*/},
-		36: {func(t *topDictData, s *ps.Machine) error {
-			t.fdArray = s.ArgStack.Vals[s.ArgStack.Top-1]
+		36: {func(t *topDict, s *ps.Machine) error {
+			t.fdArray = int32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*FDArray*/},
-		37: {func(t *topDictData, s *ps.Machine) error {
-			t.fdSelect = s.ArgStack.Vals[s.ArgStack.Top-1]
+		37: {func(t *topDict, s *ps.Machine) error {
+			t.fdSelect = int32(s.ArgStack.Vals[s.ArgStack.Top-1])
 			return nil
 		}, +1 /*FDSelect*/},
-		38: {func(t *topDictData, s *ps.Machine) error {
+		38: {func(t *topDict, s *ps.Machine) error {
 			t.cidFontName = s.ArgStack.Uint16()
 			return nil
 		}, +1 /*FontName*/},
@@ -779,7 +664,7 @@ var topDictOperators = [2][]topDictOperator{
 // privateDict contains fields specific to the Private DICT context.
 type privateDict struct {
 	subrsOffset                  int32
-	defaultWidthX, nominalWidthX int32
+	defaultWidthX, nominalWidthX float64
 }
 
 func (privateDict) Context() ps.Context { return ps.PrivateDict }
@@ -809,7 +694,7 @@ func (priv *privateDict) Apply(state *ps.Machine, op ps.Operator) error {
 			if state.ArgStack.Top < 1 {
 				return errors.New("invalid stack size for 'subrs' in private Dict charstring")
 			}
-			priv.subrsOffset = state.ArgStack.Vals[state.ArgStack.Top-1]
+			priv.subrsOffset = int32(state.ArgStack.Vals[state.ArgStack.Top-1])
 			return state.ArgStack.PopN(1)
 		}
 	} else { // 2-byte operators. The first byte is the escape byte.

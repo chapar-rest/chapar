@@ -49,7 +49,7 @@ func newExplorer(w *app.Window) *explorer {
 
 func (e *Explorer) listenEvents(evt event.Event) {
 	switch evt := evt.(type) {
-	case app.ViewEvent:
+	case app.UIKitViewEvent:
 		e.explorer.picker = C.createPicker(C.CFTypeRef(evt.ViewController), C.int32_t(e.id))
 	}
 }

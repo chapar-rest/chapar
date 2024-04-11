@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 )
 
 var (
@@ -159,6 +160,17 @@ func (pr *Loader) findTableBuffer(s tableSection, dst []byte) ([]byte, error) {
 func (pr *Loader) HasTable(table Tag) bool {
 	_, has := pr.tables[table]
 	return has
+}
+
+// Tables returns all the tables found in the file,
+// as a sorted slice.
+func (ld *Loader) Tables() []Tag {
+	out := make([]Tag, 0, len(ld.tables))
+	for tag := range ld.tables {
+		out = append(out, tag)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 // RawTable returns the binary content of the given table,

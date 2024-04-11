@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+// Selector allows for custom variable selection from structs
+//
+// Return value is again handled with variable() until end of the given path
+type Selector interface {
+	SelectGVal(c context.Context, key string) (interface{}, error)
+}
+
 // Evaluable evaluates given parameter
 type Evaluable func(c context.Context, parameter interface{}) (interface{}, error)
 
@@ -26,7 +33,7 @@ func (e Evaluable) EvalInt(c context.Context, parameter interface{}) (int, error
 	return int(f), nil
 }
 
-//EvalFloat64 evaluates given parameter to an int
+//EvalFloat64 evaluates given parameter to a float64
 func (e Evaluable) EvalFloat64(c context.Context, parameter interface{}) (float64, error) {
 	v, err := e(c, parameter)
 	if err != nil {
@@ -68,6 +75,7 @@ func (*Parser) Const(value interface{}) Evaluable {
 	return constant(value)
 }
 
+//go:noinline
 func constant(value interface{}) Evaluable {
 	return func(c context.Context, v interface{}) (interface{}, error) {
 		return value, nil
@@ -84,10 +92,10 @@ func constant(value interface{}) Evaluable {
 //	slices and
 //  map with int or string key.
 func (p *Parser) Var(path ...Evaluable) Evaluable {
-	if p.Language.selector == nil {
+	if p.selector == nil {
 		return variable(path)
 	}
-	return p.Language.selector(path)
+	return p.selector(path)
 }
 
 // Evaluables is a slice of Evaluable.
@@ -114,6 +122,12 @@ func variable(path Evaluables) Evaluable {
 		}
 		for i, k := range keys {
 			switch o := v.(type) {
+			case Selector:
+				v, err = o.SelectGVal(c, k)
+				if err != nil {
+					return nil, fmt.Errorf("failed to select '%s' on %T: %w", k, o, err)
+				}
+				continue
 			case map[interface{}]interface{}:
 				v = o[k]
 				continue
@@ -202,7 +216,7 @@ func (*Parser) callFunc(fun function, args ...Evaluable) Evaluable {
 			}
 			a[i] = ai
 		}
-		return fun(a...)
+		return fun(c, a...)
 	}
 }
 
@@ -211,7 +225,7 @@ func (*Parser) callEvaluable(fullname string, fun Evaluable, args ...Evaluable) 
 		f, err := fun(c, v)
 
 		if err != nil {
-			return nil, fmt.Errorf("could not call function: %v", err)
+			return nil, fmt.Errorf("could not call function: %w", err)
 		}
 
 		defer func() {
@@ -284,7 +298,7 @@ func regEx(a, b Evaluable) (Evaluable, error) {
 			return matched, err
 		}, nil
 	}
-	s, err := b.EvalString(nil, nil)
+	s, err := b.EvalString(context.TODO(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +330,7 @@ func notRegEx(a, b Evaluable) (Evaluable, error) {
 			return !matched, err
 		}, nil
 	}
-	s, err := b.EvalString(nil, nil)
+	s, err := b.EvalString(context.TODO(), nil)
 	if err != nil {
 		return nil, err
 	}

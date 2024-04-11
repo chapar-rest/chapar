@@ -208,11 +208,12 @@ func (f *Font) getGlyphHOriginWithFallback(glyph GID) (Position, Position) {
 	if !ok {
 		x, y, ok = f.face.GlyphVOrigin(glyph)
 		if ok {
+			x, y := f.emScalefX(float32(x)), f.emScalefY(float32(y))
 			dx, dy := f.guessVOriginMinusHOrigin(glyph)
 			return x - dx, y - dy
 		}
 	}
-	return x, y
+	return f.emScalefX(float32(x)), f.emScalefY(float32(y))
 }
 
 func (f *Font) getGlyphVOriginWithFallback(glyph GID) (Position, Position) {
@@ -220,11 +221,12 @@ func (f *Font) getGlyphVOriginWithFallback(glyph GID) (Position, Position) {
 	if !ok {
 		x, y, ok = f.face.GlyphHOrigin(glyph)
 		if ok {
+			x, y := f.emScalefX(float32(x)), f.emScalefY(float32(y))
 			dx, dy := f.guessVOriginMinusHOrigin(glyph)
 			return x + dx, y + dy
 		}
 	}
-	return x, y
+	return f.emScalefX(float32(x)), f.emScalefY(float32(y))
 }
 
 func (f *Font) guessVOriginMinusHOrigin(glyph GID) (x, y Position) {
@@ -309,7 +311,7 @@ func (f *Font) ExtentsForDirection(direction Direction) api.FontExtents {
 	return extents
 }
 
-func (font *Font) varCoords() []float32 { return font.face.Coords }
+func (font *Font) varCoords() []tables.Coord { return font.face.Coords }
 
 func (font *Font) getXDelta(varStore tables.ItemVarStore, device tables.DeviceTable) Position {
 	switch device := device.(type) {

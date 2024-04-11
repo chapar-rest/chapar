@@ -17,8 +17,13 @@ type otfEntry struct {
 	Length   uint32
 }
 
+const (
+	otfHeaderSize = 12
+	otfEntrySize  = 16
+)
+
 func readOTFHeader(r io.Reader) (flavor Tag, numTables uint16, err error) {
-	var buf [12]byte
+	var buf [otfHeaderSize]byte
 	if _, err := r.Read(buf[:]); err != nil {
 		return 0, 0, fmt.Errorf("invalid OpenType header: %s", err)
 	}
@@ -28,7 +33,7 @@ func readOTFHeader(r io.Reader) (flavor Tag, numTables uint16, err error) {
 
 func readOTFEntry(r io.Reader) (otfEntry, error) {
 	var (
-		buf   [16]byte
+		buf   [otfEntrySize]byte
 		entry otfEntry
 	)
 	if _, err := io.ReadFull(r, buf[:]); err != nil {

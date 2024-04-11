@@ -22,6 +22,17 @@ import (
 // and the position in the resulting uint32 is given by the 5 lower bits (from 0 to 31)
 type pageSet [8]uint32
 
+func (a pageSet) includes(b pageSet) bool {
+	for j, aPage := range b {
+		bPage := a[j]
+		// Does b have any bits not in a?
+		if aPage & ^bPage != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // pageRef stores the second and third bytes of a rune (uint16(r >> 8)),
 // shared by all the runes in a page.
 type pageRef = uint16
@@ -219,12 +230,39 @@ func (rs runeSet) Delete(r rune) {
 }
 
 // Contains returns `true` if `r` is in the set.
-func (rs *runeSet) Contains(r rune) bool {
+func (rs runeSet) Contains(r rune) bool {
 	leaf := rs.findPage(uint16(r >> 8))
 	if leaf == nil {
 		return false
 	}
 	return leaf[(r&0xff)>>5]&(1<<(r&0x1f)) != 0
+}
+
+// return true iff a includes b, that is if b is a subset of a, that is if all runes
+// of b are in a
+func (a runeSet) includes(b runeSet) bool {
+	bi, ai := 0, 0 // index in b and a
+	for bi < len(b) && ai < len(a) {
+		bEntry, aEntry := b[bi], a[ai]
+		// Check matching pages
+		if bEntry.ref == aEntry.ref {
+			if ok := aEntry.set.includes(bEntry.set); !ok {
+				return false
+			}
+			bi++
+			ai++
+		} else if bEntry.ref < aEntry.ref { // Does b have any pages not in a?
+			return false
+		} else {
+			// increment ai to match the page of b
+			ai = a.findPageFrom(ai+1, bEntry.ref)
+			if ai < 0 { // the page is not even in a
+				return false
+			}
+		}
+	}
+	//  did we look at every page?
+	return bi >= len(b)
 }
 
 // Len returns the number of runes in the set.
@@ -240,7 +278,7 @@ func (a runeSet) Len() int {
 
 const runePageSize = 2 + 8*4 // uint16 + 8 * uint32
 
-// serialize serialize the Coverage in binary format
+// serialize serializes the rune coverage in binary format
 func (rs runeSet) serialize() []byte {
 	buffer := make([]byte, 2+runePageSize*len(rs))
 	binary.BigEndian.PutUint16(buffer, uint16(len(rs)))
@@ -254,15 +292,15 @@ func (rs runeSet) serialize() []byte {
 	return buffer
 }
 
-// deserializeFrom reads the binary format produced by serializeTo
+// deserializeFrom reads the binary format produced by serialize.
 // it returns the number of bytes read from `data`
 func (rs *runeSet) deserializeFrom(data []byte) (int, error) {
 	if len(data) < 2 {
-		return 0, errors.New("invalid Coverage (EOF)")
+		return 0, errors.New("invalid rune set (EOF)")
 	}
 	L := int(binary.BigEndian.Uint16(data))
 	if len(data) < 2+runePageSize*L {
-		return 0, errors.New("invalid Coverage size (EOF)")
+		return 0, errors.New("invalid rune set size (EOF)")
 	}
 	v := make(runeSet, L)
 	for i := range v {
@@ -299,7 +337,7 @@ func (s *scriptSet) insert(newScript language.Script) {
 
 const scriptSize = 4
 
-// serialize serialize the script set in binary format
+// serialize serializes the script set in binary format
 func (ss scriptSet) serialize() []byte {
 	buffer := make([]byte, 1+scriptSize*len(ss))
 	buffer[0] = byte(len(ss)) // there are about 190 scripts, a byte is enough

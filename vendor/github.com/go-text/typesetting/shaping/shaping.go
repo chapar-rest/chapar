@@ -72,17 +72,16 @@ func (t *HarfbuzzShaper) Shape(input Input) Output {
 	start = clamp(start, 0, len(runes))
 	end = clamp(end, 0, len(runes))
 	t.buf.AddRunes(runes, start, end-start)
-	switch input.Direction {
-	case di.DirectionRTL:
-		t.buf.Props.Direction = harfbuzz.RightToLeft
-	case di.DirectionBTT:
-		t.buf.Props.Direction = harfbuzz.BottomToTop
-	case di.DirectionTTB:
-		t.buf.Props.Direction = harfbuzz.TopToBottom
-	default:
-		// Default to LTR.
-		t.buf.Props.Direction = harfbuzz.LeftToRight
+
+	// handle vertical sideways text
+	isSideways := false
+	if input.Direction.IsSideways() {
+		// temporarily switch to horizontal
+		input.Direction = input.Direction.SwitchAxis()
+		isSideways = true
 	}
+
+	t.buf.Props.Direction = input.Direction.Harfbuzz()
 	t.buf.Props.Language = input.Language
 	t.buf.Props.Script = input.Script
 
@@ -137,28 +136,36 @@ func (t *HarfbuzzShaper) Shape(input Input) Output {
 		glyphs[i].XOffset = fixed.I(int(t.buf.Pos[i].XOffset)) >> scaleShift
 		glyphs[i].YOffset = fixed.I(int(t.buf.Pos[i].YOffset)) >> scaleShift
 	}
-	countClusters(glyphs, input.RunEnd, input.Direction)
+	countClusters(glyphs, input.RunEnd, input.Direction.Progression())
 	out := Output{
 		Glyphs:    glyphs,
 		Direction: input.Direction,
 		Face:      input.Face,
 		Size:      input.Size,
 	}
-	fontExtents := font.ExtentsForDirection(t.buf.Props.Direction)
+	out.Runes.Offset = input.RunStart
+	out.Runes.Count = input.RunEnd - input.RunStart
+
+	if isSideways {
+		// set the Direction to the correct value.
+		// this is required here so that the following call to ExtentsForDirection
+		// returns the vertical data.
+		out.sideways()
+	}
+
+	fontExtents := font.ExtentsForDirection(out.Direction.Harfbuzz())
 	out.LineBounds = Bounds{
 		Ascent:  fixed.I(int(fontExtents.Ascender)) >> scaleShift,
 		Descent: fixed.I(int(fontExtents.Descender)) >> scaleShift,
 		Gap:     fixed.I(int(fontExtents.LineGap)) >> scaleShift,
 	}
-	out.Runes.Offset = input.RunStart
-	out.Runes.Count = input.RunEnd - input.RunStart
 	out.RecalculateAll()
 	return out
 }
 
 // countClusters tallies the number of runes and glyphs in each cluster
 // and updates the relevant fields on the provided glyph slice.
-func countClusters(glyphs []Glyph, textLen int, dir di.Direction) {
+func countClusters(glyphs []Glyph, textLen int, dir di.Progression) {
 	currentCluster := -1
 	runesInCluster := 0
 	glyphsInCluster := 0
@@ -184,7 +191,7 @@ func countClusters(glyphs []Glyph, textLen int, dir di.Direction) {
 			if nextCluster == -1 {
 				nextCluster = textLen
 			}
-			switch dir.Progression() {
+			switch dir {
 			case di.FromTopLeft:
 				runesInCluster = nextCluster - currentCluster
 			case di.TowardTopLeft:

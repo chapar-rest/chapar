@@ -23,6 +23,8 @@ type footprint struct {
 
 	// Family is the general nature of the font, like
 	// "Arial"
+	// Note that, for performance reason, we store the
+	// normalized version of the family name.
 	Family string
 
 	// Runes is the set of runes supported by the font.
@@ -30,6 +32,9 @@ type footprint struct {
 
 	// set of scripts deduced from Runes
 	scripts scriptSet
+
+	// set of languages deduced from Runes
+	langs langSet
 
 	// Aspect precises the visual characteristics
 	// of the font among a family, like "Bold Italic"
@@ -45,11 +50,12 @@ type footprint struct {
 	isUserProvided bool
 }
 
-func newFootprintFromFont(f font.Font, md meta.Description) (out footprint) {
+func newFootprintFromFont(f font.Font, location Location, md meta.Description) (out footprint) {
 	out.Runes, out.scripts, _ = newCoveragesFromCmap(f.Cmap, nil)
+	out.langs = newLangsetFromCoverage(out.Runes)
 	out.Family = meta.NormalizeFamily(md.Family)
 	out.Aspect = md.Aspect
-	out.Location.File = fmt.Sprintf("%v", md)
+	out.Location = location
 	out.isUserProvided = true
 	return out
 }
@@ -81,6 +87,8 @@ func newFootprintFromLoader(ld *loader.Loader, isUserProvided bool, buffer scanB
 	}
 
 	out.Runes, out.scripts, buffer.cmapBuffer = newCoveragesFromCmap(cmap, buffer.cmapBuffer) // ... and build the corresponding rune set
+
+	out.langs = newLangsetFromCoverage(out.Runes)
 
 	family, aspect, raw := meta.Describe(ld, raw)
 	out.Family = meta.NormalizeFamily(family)

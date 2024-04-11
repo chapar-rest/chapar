@@ -40,7 +40,11 @@ func (fc familyCrible) reset() {
 // and applies all the substitutions coded in the package
 // to add substitutes values
 func (fc familyCrible) fillWithSubstitutions(family string) {
-	fl := newFamilyList([]string{family})
+	fc.fillWithSubstitutionsList([]string{family})
+}
+
+func (fc familyCrible) fillWithSubstitutionsList(families []string) {
+	fl := newFamilyList(families)
 	for _, subs := range familySubstitution {
 		fl.execute(subs)
 	}
@@ -104,41 +108,59 @@ func isGenericFamily(family string) bool {
 	}
 }
 
-// selectByFamily returns all the fonts in the fontmap matching
+// selectByFamilyExact returns all the fonts in the fontmap matching
 // the given `family`, with the best matches coming first.
-// `substitute` controls whether or not system substitutions are applied.
-// The generic families are always expanded to concrete families.
+//
+// The match is performed without substituting family names,
+// expect for the generic families, which are always expanded to concrete families.
 //
 // If two fonts have the same family, user provided are returned first.
 //
 // The returned slice may be empty if no font matches the given `family`.
-// buffer is used to reduce allocations
-func (fm fontSet) selectByFamily(family string, substitute bool,
+//
+// The two buffers are used to reduce allocations.
+func (fm fontSet) selectByFamilyExact(family string,
 	footprintBuffer *scoredFootprints, cribleBuffer familyCrible,
 ) []int {
 	// build the crible, handling substitutions
-	family = meta.NormalizeFamily(family)
-
-	footprintBuffer.reset(fm)
 	cribleBuffer.reset()
 
 	// always substitute generic families
-	if substitute || isGenericFamily(family) {
+	if isGenericFamily(family) {
 		cribleBuffer.fillWithSubstitutions(family)
 	} else {
-		cribleBuffer = familyCrible{family: 0}
+		cribleBuffer = familyCrible{meta.NormalizeFamily(family): 0}
 	}
 
-	// select the matching fonts:
+	return fm.selectByFamilies(cribleBuffer, footprintBuffer)
+}
+
+// selectByFamilyExact returns all the fonts in the fontmap matching
+// the given query, with the best matches coming first.
+//
+// `query` is expanded with family substitutions
+func (fm fontSet) selectByFamilyWithSubs(query []string,
+	footprintBuffer *scoredFootprints, cribleBuffer familyCrible,
+) []int {
+	cribleBuffer.reset()
+	cribleBuffer.fillWithSubstitutionsList(query)
+	return fm.selectByFamilies(cribleBuffer, footprintBuffer)
+}
+
+// select the fonts in the fontSet matching [crible], returning their indices.
+// footprintBuffer is used to reduce allocations.
+func (fm fontSet) selectByFamilies(crible familyCrible, footprintBuffer *scoredFootprints) []int {
+	footprintBuffer.reset(fm)
+
 	// loop through `footprints` and stores the matching fonts into `dst`
 	for index, footprint := range fm {
-		if score, has := cribleBuffer[footprint.Family]; has {
+		if score, has := crible[footprint.Family]; has {
 			footprintBuffer.footprints = append(footprintBuffer.footprints, index)
 			footprintBuffer.scores = append(footprintBuffer.scores, score)
 		}
 	}
 
-	// sort the matched font by score (lower is better)
+	// sort the matched fonts by score (lower is better)
 	sort.Stable(*footprintBuffer)
 
 	return footprintBuffer.footprints

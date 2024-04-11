@@ -70,7 +70,7 @@ func (e *explorer) init(env jni.Env) error {
 }
 
 func (e *Explorer) listenEvents(evt event.Event) {
-	if evt, ok := evt.(app.ViewEvent); ok {
+	if evt, ok := evt.(app.AndroidViewEvent); ok {
 		e.view = evt.View
 	}
 }

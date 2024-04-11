@@ -154,10 +154,10 @@ type ConditionSet struct {
 }
 
 type ConditionFormat1 struct {
-	format              uint16   // Format, = 1
-	AxisIndex           uint16   // Index (zero-based) for the variation axis within the 'fvar' table.
-	FilterRangeMinValue Float214 // Minimum value of the font variation instances that satisfy this condition.
-	FilterRangeMaxValue Float214 // Maximum value of the font variation instances that satisfy this condition.
+	format              uint16 // Format, = 1
+	AxisIndex           uint16 // Index (zero-based) for the variation axis within the 'fvar' table.
+	FilterRangeMinValue Coord  // Minimum value of the font variation instances that satisfy this condition.
+	FilterRangeMaxValue Coord  // Maximum value of the font variation instances that satisfy this condition.
 }
 
 type FeatureTableSubstitution struct {

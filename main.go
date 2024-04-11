@@ -10,13 +10,14 @@ import (
 )
 
 func main() {
-	w := app.NewWindow(app.Title("Chapar"), app.Size(unit.Dp(1200), unit.Dp(800)))
-	mainUI, err := mainApp.New(w)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	go func() {
+		var w app.Window
+		w.Option(app.Title("Chapar"), app.Size(unit.Dp(1200), unit.Dp(800)))
+
+		mainUI, err := mainApp.New(&w)
+		if err != nil {
+			log.Fatal(err)
+		}
 		if err := mainUI.Run(); err != nil {
 			log.Fatal(err)
 		}

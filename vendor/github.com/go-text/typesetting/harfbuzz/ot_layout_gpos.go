@@ -285,8 +285,8 @@ func (c *otApplyContext) applyGPOSPair1(inner tables.PairPosData1, index int) bo
 	skippyIter := &c.iterInput
 	pos := skippyIter.idx
 	set := inner.PairSets[index]
-	record := set.FindGlyph(gID(buffer.Info[skippyIter.idx].Glyph))
-	if record == nil {
+	record, ok := set.FindGlyph(gID(buffer.Info[skippyIter.idx].Glyph))
+	if !ok {
 		buffer.unsafeToConcat(buffer.idx, pos+1)
 		return false
 	}

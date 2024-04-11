@@ -763,7 +763,7 @@ type shaperOpentype struct {
 
 type otShapePlanKey = [2]int // -1 for not found
 
-func newShaperOpentype(tables *font.Font, coords []float32) *shaperOpentype {
+func newShaperOpentype(tables *font.Font, coords []tables.Coord) *shaperOpentype {
 	var out shaperOpentype
 	out.key = otShapePlanKey{
 		0: tables.GSUB.FindVariationIndex(coords),

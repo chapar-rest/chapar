@@ -30,14 +30,12 @@ type fontDescriptor struct {
 	head  tables.Head
 }
 
-// Describe provides access to family and aspect.
-// 'buffer' may be provided to reduce allocations.
-func Describe(ld *loader.Loader, buffer []byte) (family string, aspect Aspect, _ []byte) {
+func newFontDescriptor(ld *loader.Loader, buffer []byte) (fontDescriptor, []byte) {
 	var desc fontDescriptor
 
 	// load tables, all considered optional
 	buffer, _ = ld.RawTableTo(loader.MustNewTag("OS/2"), buffer)
-	if os2, _, err := tables.ParseOs2(buffer); err != nil {
+	if os2, _, err := tables.ParseOs2(buffer); err == nil {
 		desc.os2 = &os2Table{
 			USWeightClass: os2.USWeightClass,
 			USWidthClass:  os2.USWidthClass,
@@ -50,6 +48,13 @@ func Describe(ld *loader.Loader, buffer []byte) (family string, aspect Aspect, _
 	buffer, _ = ld.RawTableTo(loader.MustNewTag("name"), buffer)
 	desc.names, _, _ = tables.ParseName(buffer)
 
+	return desc, buffer
+}
+
+// Describe provides access to family and aspect.
+// 'buffer' may be provided to reduce allocations.
+func Describe(ld *loader.Loader, buffer []byte) (family string, aspect Aspect, _ []byte) {
+	desc, buffer := newFontDescriptor(ld, buffer)
 	return desc.Family(), desc.Aspect(), buffer
 }
 

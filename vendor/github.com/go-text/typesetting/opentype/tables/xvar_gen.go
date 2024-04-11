@@ -11,8 +11,8 @@ import (
 
 func (item *AxisValueMap) mustParse(src []byte) {
 	_ = src[3] // early bound checking
-	item.FromCoordinate = Float214FromUint(binary.BigEndian.Uint16(src[0:]))
-	item.ToCoordinate = Float214FromUint(binary.BigEndian.Uint16(src[2:]))
+	item.FromCoordinate = Coord(binary.BigEndian.Uint16(src[0:]))
+	item.ToCoordinate = Coord(binary.BigEndian.Uint16(src[2:]))
 }
 
 func ParseAvar(src []byte) (Avar, int, error) {
@@ -503,9 +503,9 @@ func ParseTuple(src []byte, valuesCount int) (Tuple, int, error) {
 			return item, 0, fmt.Errorf("reading Tuple: "+"EOF: expected length: %d, got %d", valuesCount*2, L)
 		}
 
-		item.Values = make([]float32, valuesCount) // allocation guarded by the previous check
+		item.Values = make([]Coord, valuesCount) // allocation guarded by the previous check
 		for i := range item.Values {
-			item.Values[i] = Float214FromUint(binary.BigEndian.Uint16(src[i*2:]))
+			item.Values[i] = Coord(binary.BigEndian.Uint16(src[i*2:]))
 		}
 		n += valuesCount * 2
 	}
@@ -600,9 +600,9 @@ func ParseVariationRegionList(src []byte) (VariationRegionList, int, error) {
 
 func (item *RegionAxisCoordinates) mustParse(src []byte) {
 	_ = src[5] // early bound checking
-	item.StartCoord = Float214FromUint(binary.BigEndian.Uint16(src[0:]))
-	item.PeakCoord = Float214FromUint(binary.BigEndian.Uint16(src[2:]))
-	item.EndCoord = Float214FromUint(binary.BigEndian.Uint16(src[4:]))
+	item.StartCoord = Coord(binary.BigEndian.Uint16(src[0:]))
+	item.PeakCoord = Coord(binary.BigEndian.Uint16(src[2:]))
+	item.EndCoord = Coord(binary.BigEndian.Uint16(src[4:]))
 }
 
 func (item *VarValueRecord) mustParse(src []byte) {

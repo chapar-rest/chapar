@@ -37,7 +37,7 @@ func newExplorer(w *app.Window) *explorer {
 
 func (e *Explorer) listenEvents(evt event.Event) {
 	switch evt := evt.(type) {
-	case app.ViewEvent:
+	case app.AppKitViewEvent:
 		e.view = C.CFTypeRef(evt.View)
 	}
 }

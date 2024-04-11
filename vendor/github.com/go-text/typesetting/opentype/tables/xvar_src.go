@@ -84,6 +84,16 @@ type ItemVarStore struct {
 	ItemVariationDatas  []ItemVariationData `arrayCount:"FirstUint16" offsetsArray:"Offset32"` // [itemVariationDataCount] Offsets in bytes from the start of the item variation store to each item variation data subtable.
 }
 
+// AxisCount returns the number of axis found in the
+// var store, which must be the same as the one in the 'fvar' table.
+// It returns -1 if the store is empty
+func (vs *ItemVarStore) AxisCount() int {
+	if vs.format == 0 {
+		return -1
+	}
+	return int(vs.VariationRegionList.axisCount)
+}
+
 type VariationRegionList struct {
 	axisCount        uint16            // The number of variation axes for this font. This must be the same number as axisCount in the 'fvar' table.
 	VariationRegions []VariationRegion `arrayCount:"FirstUint16" arguments:"regionAxesCount=.axisCount"` // [regionCount] Array of variation regions.
@@ -96,14 +106,14 @@ type VariationRegion struct {
 }
 
 type RegionAxisCoordinates struct {
-	StartCoord Float214 // The region start coordinate value for the current axis.
-	PeakCoord  Float214 // The region peak coordinate value for the current axis.
-	EndCoord   Float214 // The region end coordinate value for the current axis.
+	StartCoord Coord // The region start coordinate value for the current axis.
+	PeakCoord  Coord // The region peak coordinate value for the current axis.
+	EndCoord   Coord // The region end coordinate value for the current axis.
 }
 
 // evaluate returns the factor corresponding to the given [coord],
 // interpolating between start and end.
-func (reg RegionAxisCoordinates) evaluate(coord float32) float32 {
+func (reg RegionAxisCoordinates) evaluate(coord Coord) float32 {
 	start, peak, end := reg.StartCoord, reg.PeakCoord, reg.EndCoord
 	if peak == 0 || coord == peak {
 		return 1.
@@ -113,11 +123,11 @@ func (reg RegionAxisCoordinates) evaluate(coord float32) float32 {
 		return 0.
 	}
 
-	/* Interpolate */
+	// Interpolate
 	if coord < peak {
-		return (coord - start) / (peak - start)
+		return float32(coord-start) / float32(peak-start)
 	}
-	return (end - coord) / (end - peak)
+	return float32(end-coord) / float32(end-peak)
 }
 
 type ItemVariationData struct {
@@ -216,7 +226,7 @@ type SharedTuples struct {
 }
 
 type Tuple struct {
-	Values []Float214 // [axisCount] Coordinate array specifying a position within the font’s variation space. The number of elements must match the axisCount specified in the 'fvar' table.
+	Values []Coord // [axisCount] Coordinate array specifying a position within the font’s variation space. The number of elements must match the axisCount specified in the 'fvar' table.
 }
 
 type GlyphVariationData struct {
@@ -377,8 +387,8 @@ type SegmentMaps struct {
 }
 
 type AxisValueMap struct {
-	FromCoordinate Float214 // A normalized coordinate value obtained using default normalization.
-	ToCoordinate   Float214 // The modified, normalized coordinate value.
+	FromCoordinate Coord // A normalized coordinate value obtained using default normalization.
+	ToCoordinate   Coord // The modified, normalized coordinate value.
 }
 
 // ----------------------------------------- MVAR -----------------------------------------

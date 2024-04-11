@@ -13,8 +13,8 @@ func (item *ConditionFormat1) mustParse(src []byte) {
 	_ = src[7] // early bound checking
 	item.format = binary.BigEndian.Uint16(src[0:])
 	item.AxisIndex = binary.BigEndian.Uint16(src[2:])
-	item.FilterRangeMinValue = Float214FromUint(binary.BigEndian.Uint16(src[4:]))
-	item.FilterRangeMaxValue = Float214FromUint(binary.BigEndian.Uint16(src[6:]))
+	item.FilterRangeMinValue = Coord(binary.BigEndian.Uint16(src[4:]))
+	item.FilterRangeMaxValue = Coord(binary.BigEndian.Uint16(src[6:]))
 }
 
 func ParseConditionFormat1(src []byte) (ConditionFormat1, int, error) {

@@ -107,6 +107,21 @@ type GlyphOutline struct {
 	Segments []Segment
 }
 
+// Sideways updates the coordinates of the outline by applying
+// a 90° clockwise rotation, and adding [yOffset] afterwards.
+//
+// When used for vertical text, pass
+// -Glyph.YOffset, converted in font units, as [yOffset]
+// (a positive value to lift the glyph up).
+func (o GlyphOutline) Sideways(yOffset float32) {
+	for i := range o.Segments {
+		target := o.Segments[i].Args[:]
+		target[0].X, target[0].Y = target[0].Y, -target[0].X+yOffset
+		target[1].X, target[1].Y = target[1].Y, -target[1].X+yOffset
+		target[2].X, target[2].Y = target[2].Y, -target[2].X+yOffset
+	}
+}
+
 type SegmentOp uint8
 
 const (

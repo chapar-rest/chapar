@@ -15,7 +15,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 )
 
@@ -31,12 +30,10 @@ var (
 )
 
 const (
-	// psArgStackSize is the argument stack size for a PostScript interpreter.
-	// 5176.CFF.pdf section 4 "DICT Data" says that "An operator may be
-	// preceded by up to a maximum of 48 operands". 5177.Type2.pdf Appendix B
-	// "Type 2 Charstring Implementation Limits" says that "Argument stack 48".
-	// T1_SPEC.pdf 6.1 Encoding as a limitation of 24.
-	psArgStackSize = 48
+	// psArgStackSize is the argument stack size for a PostScript interpreter,
+	// set to 513 in CFF2
+	// See https://learn.microsoft.com/en-us/typography/opentype/spec/cff2#appendixD
+	psArgStackSize = 513
 
 	// Similarly, Appendix B says "Subr nesting, stack limit 10".
 	psCallStackSize = 10
@@ -55,7 +52,7 @@ const (
 )
 
 type ArgStack struct {
-	Vals [psArgStackSize]int32
+	Vals [psArgStackSize]float64 // we have to use float64 to properly store floats and int32 values
 	// Effecive size currently in use. The first value to
 	// pop is at index Top-1
 	Top int32
@@ -65,15 +62,9 @@ type ArgStack struct {
 // without popping the stack.
 func (a *ArgStack) Uint16() uint16 { return uint16(a.Vals[a.Top-1]) }
 
-// Float return the top level value as a real number (which is stored as its binary representation),
-// without popping the stack.
-func (a *ArgStack) Float() float32 {
-	return math.Float32frombits(uint32(a.Vals[a.Top-1]))
-}
-
 // Pop returns the top level value and decrease `Top`
 // It will panic if the stack is empty.
-func (a *ArgStack) Pop() int32 {
+func (a *ArgStack) Pop() float64 {
 	a.Top--
 	return a.Vals[a.Top]
 }
@@ -174,20 +165,20 @@ func (p *Machine) Run(instructions []byte, localSubrs, globalSubrs [][]byte, han
 
 // See 5176.CFF.pdf section 4 "DICT Data".
 func (p *Machine) parseNumber() (hasResult bool, err error) {
-	number := int32(0)
+	number := 0.
 	switch b := p.instructions[0]; {
 	case b == 28:
 		if len(p.instructions) < 3 {
 			return true, errInvalidCFFTable
 		}
-		number, hasResult = int32(int16(be.Uint16(p.instructions[1:]))), true
+		number, hasResult = float64(int16(be.Uint16(p.instructions[1:]))), true
 		p.instructions = p.instructions[3:]
 
 	case b == 29 && p.ctx != Type2Charstring:
 		if len(p.instructions) < 5 {
 			return true, errInvalidCFFTable
 		}
-		number, hasResult = int32(be.Uint32(p.instructions[1:])), true
+		number, hasResult = float64(int32(be.Uint32(p.instructions[1:]))), true
 		p.instructions = p.instructions[5:]
 
 	case b == 30 && p.ctx != Type2Charstring && p.ctx != Type1Charstring:
@@ -215,7 +206,7 @@ func (p *Machine) parseNumber() (hasResult bool, err error) {
 					if err != nil {
 						return true, errInvalidCFFTable
 					}
-					number, hasResult = int32(math.Float32bits(float32(f))), true
+					number, hasResult = float64(f), true
 					break loop
 				}
 				if nib == 0x0d {
@@ -232,21 +223,21 @@ func (p *Machine) parseNumber() (hasResult bool, err error) {
 		// not a number: no-op.
 	case b < 247:
 		p.instructions = p.instructions[1:]
-		number, hasResult = int32(b)-139, true
+		number, hasResult = float64(b)-139, true
 	case b < 251:
 		if len(p.instructions) < 2 {
 			return true, errInvalidCFFTable
 		}
 		b1 := p.instructions[1]
 		p.instructions = p.instructions[2:]
-		number, hasResult = +int32(b-247)*256+int32(b1)+108, true
+		number, hasResult = float64(+int32(b-247)*256+int32(b1)+108), true
 	case b < 255:
 		if len(p.instructions) < 2 {
 			return true, errInvalidCFFTable
 		}
 		b1 := p.instructions[1]
 		p.instructions = p.instructions[2:]
-		number, hasResult = -int32(b-251)*256-int32(b1)-108, true
+		number, hasResult = float64(-int32(b-251)*256-int32(b1)-108), true
 	case b == 255 && (p.ctx == Type2Charstring || p.ctx == Type1Charstring):
 		if len(p.instructions) < 5 {
 			return true, errInvalidCFFTable
@@ -259,10 +250,10 @@ func (p *Machine) parseNumber() (hasResult bool, err error) {
 			// fraction".
 			//
 			// we just round the 16.16 fixed point number to the closest integer value
-			number = (intValue >> 16) + (1 & (intValue >> 15)) // care with overflow
+			number = float64(intValue) / (1 << 16)
 			hasResult = true
 		} else {
-			number, hasResult = intValue, true
+			number, hasResult = float64(intValue), true
 		}
 		p.instructions = p.instructions[5:]
 	}

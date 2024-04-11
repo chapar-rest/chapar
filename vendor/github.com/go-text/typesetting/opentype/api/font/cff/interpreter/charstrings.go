@@ -5,6 +5,7 @@ package psinterpreter
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/go-text/typesetting/opentype/api"
 )
@@ -33,19 +34,20 @@ func (b *PathBounds) Enlarge(pt Point) {
 
 // ToExtents converts a path bounds to the corresponding glyph extents.
 func (b *PathBounds) ToExtents() api.GlyphExtents {
+	xBearing, yBearing := math.Round(b.Min.X), math.Round(b.Max.Y)
 	return api.GlyphExtents{
-		XBearing: float32(b.Min.X),
-		YBearing: float32(b.Max.Y),
-		Width:    float32(b.Max.X - b.Min.X),
-		Height:   float32(b.Min.Y - b.Max.Y),
+		XBearing: float32(xBearing),
+		YBearing: float32(yBearing),
+		Width:    float32(math.Round(b.Max.X - xBearing)),
+		Height:   float32(math.Round(b.Min.Y - yBearing)),
 	}
 }
 
 // Point is a 2D Point in font units.
-type Point struct{ X, Y int32 }
+type Point struct{ X, Y float64 }
 
 // Move translates the Point.
-func (p *Point) Move(dx, dy int32) {
+func (p *Point) Move(dx, dy float64) {
 	p.X += dx
 	p.Y += dy
 }
@@ -165,13 +167,6 @@ func (out *CharstringReader) ensureClosePath() {
 	}
 }
 
-func abs(x int32) int32 {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 // ------------------------------------------------------------
 
 // LocalSubr pops the subroutine index and call it
@@ -179,7 +174,7 @@ func LocalSubr(state *Machine) error {
 	if state.ArgStack.Top < 1 {
 		return errors.New("invalid callsubr operator (empty stack)")
 	}
-	index := state.ArgStack.Pop()
+	index := int32(state.ArgStack.Pop())
 	return state.CallSubroutine(index, true)
 }
 
@@ -188,7 +183,7 @@ func GlobalSubr(state *Machine) error {
 	if state.ArgStack.Top < 1 {
 		return errors.New("invalid callgsubr operator (empty stack)")
 	}
-	index := state.ArgStack.Pop()
+	index := int32(state.ArgStack.Pop())
 	return state.CallSubroutine(index, false)
 }
 
@@ -578,7 +573,7 @@ func (out *CharstringReader) Flex1(state *Machine) error {
 	pt5.Move(state.ArgStack.Vals[8], state.ArgStack.Vals[9])
 	pt6 := pt5
 
-	if abs(d.X) > abs(d.Y) {
+	if math.Abs(d.X) > math.Abs(d.Y) {
 		pt6.X += state.ArgStack.Vals[10]
 		pt6.Y = out.CurrentPoint.Y
 	} else {

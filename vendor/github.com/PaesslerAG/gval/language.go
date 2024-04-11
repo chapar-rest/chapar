@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"text/scanner"
 	"unicode"
+
+	"github.com/shopspring/decimal"
 )
 
 // Language is an expression language
 type Language struct {
-	prefixes        map[interface{}]prefix
+	prefixes        map[interface{}]extension
 	operators       map[string]operator
 	operatorSymbols map[rune]struct{}
+	init            extension
+	def             extension
 	selector        func(Evaluables) Evaluable
 }
 
@@ -29,6 +33,12 @@ func NewLanguage(bases ...Language) Language {
 		for i := range base.operatorSymbols {
 			l.operatorSymbols[i] = struct{}{}
 		}
+		if base.init != nil {
+			l.init = base.init
+		}
+		if base.def != nil {
+			l.def = base.def
+		}
 		if base.selector != nil {
 			l.selector = base.selector
 		}
@@ -38,7 +48,7 @@ func NewLanguage(bases ...Language) Language {
 
 func newLanguage() Language {
 	return Language{
-		prefixes:        map[interface{}]prefix{},
+		prefixes:        map[interface{}]extension{},
 		operators:       map[string]operator{},
 		operatorSymbols: map[rune]struct{}{},
 	}
@@ -46,30 +56,39 @@ func newLanguage() Language {
 
 // NewEvaluable returns an Evaluable for given expression in the specified language
 func (l Language) NewEvaluable(expression string) (Evaluable, error) {
+	return l.NewEvaluableWithContext(context.Background(), expression)
+}
+
+// NewEvaluableWithContext returns an Evaluable for given expression in the specified language using context
+func (l Language) NewEvaluableWithContext(c context.Context, expression string) (Evaluable, error) {
 	p := newParser(expression, l)
 
-	eval, err := p.ParseExpression(context.Background())
-
+	eval, err := p.parse(c)
 	if err == nil && p.isCamouflaged() && p.lastScan != scanner.EOF {
 		err = p.camouflage
 	}
-
 	if err != nil {
 		pos := p.scanner.Pos()
-		return nil, fmt.Errorf("parsing error: %s - %d:%d %s", p.scanner.Position, pos.Line, pos.Column, err)
+		return nil, fmt.Errorf("parsing error: %s - %d:%d %w", p.scanner.Position, pos.Line, pos.Column, err)
 	}
+
 	return eval, nil
 }
 
 // Evaluate given parameter with given expression
 func (l Language) Evaluate(expression string, parameter interface{}) (interface{}, error) {
-	eval, err := l.NewEvaluable(expression)
+	return l.EvaluateWithContext(context.Background(), expression, parameter)
+}
+
+// Evaluate given parameter with given expression using context
+func (l Language) EvaluateWithContext(c context.Context, expression string, parameter interface{}) (interface{}, error) {
+	eval, err := l.NewEvaluableWithContext(c, expression)
 	if err != nil {
 		return nil, err
 	}
-	v, err := eval(context.Background(), parameter)
+	v, err := eval(c, parameter)
 	if err != nil {
-		return nil, fmt.Errorf("can not evaluate %s: %v", expression, err)
+		return nil, fmt.Errorf("can not evaluate %s: %w", expression, err)
 	}
 	return v, nil
 }
@@ -116,6 +135,26 @@ func PrefixExtension(r rune, ext func(context.Context, *Parser) (Evaluable, erro
 	return l
 }
 
+// Init is a language that does no parsing, but invokes the given function when
+// parsing starts. It is incumbent upon the function to call ParseExpression to
+// continue parsing.
+//
+// This function can be used to customize the parser settings, such as
+// whitespace or ident behavior.
+func Init(ext func(context.Context, *Parser) (Evaluable, error)) Language {
+	l := newLanguage()
+	l.init = ext
+	return l
+}
+
+// DefaultExtension is a language that runs the given function if no other
+// prefix matches.
+func DefaultExtension(ext func(context.Context, *Parser) (Evaluable, error)) Language {
+	l := newLanguage()
+	l.def = ext
+	return l
+}
+
 // PrefixMetaPrefix chooses a Prefix to be executed
 func PrefixMetaPrefix(r rune, ext func(context.Context, *Parser) (call string, alternative func() (Evaluable, error), err error)) Language {
 	l := newLanguage()
@@ -148,7 +187,7 @@ func PrefixOperator(name string, e Evaluable) Language {
 			return e(c, a)
 		}
 		if eval.IsConst() {
-			v, err := prefix(context.Background(), nil)
+			v, err := prefix(c, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -190,6 +229,11 @@ func InfixNumberOperator(name string, f func(a, b float64) (interface{}, error))
 	return newLanguageOperator(name, &infix{number: f})
 }
 
+// InfixDecimalOperator for two decimal values.
+func InfixDecimalOperator(name string, f func(a, b decimal.Decimal) (interface{}, error)) Language {
+	return newLanguageOperator(name, &infix{decimal: f})
+}
+
 // InfixBoolOperator for two bool values.
 func InfixBoolOperator(name string, f func(a, b bool) (interface{}, error)) Language {
 	return newLanguageOperator(name, &infix{boolean: f})
@@ -222,8 +266,7 @@ func (l *Language) makePrefixKey(key string) interface{} {
 }
 
 func (l *Language) makeInfixKey(key string) string {
-	runes := []rune(key)
-	for _, r := range runes {
+	for _, r := range key {
 		l.operatorSymbols[r] = struct{}{}
 	}
 	return key

@@ -351,26 +351,38 @@ type otApplyContext struct {
 	lastBaseUntil int // GPOS uses
 }
 
-func newOtApplyContext(tableIndex uint8, font *Font, buffer *Buffer) otApplyContext {
-	var out otApplyContext
-	out.font = font
-	out.buffer = buffer
-	out.gdef = font.face.GDEF
-	out.varStore = out.gdef.ItemVarStore
-	out.digest = buffer.digest()
-	out.direction = buffer.Props.Direction
-	out.lookupMask = 1
-	out.tableIndex = tableIndex
-	out.lookupIndex = math.MaxUint16
-	out.nestingLevelLeft = maxNestingLevel
-	out.hasGlyphClasses = out.gdef.GlyphClassDef != nil
-	out.autoZWNJ = true
-	out.autoZWJ = true
-	out.randomState = 1
-	out.newSyllables = 0xFF
-	out.lastBase = -1
-	out.initIters()
-	return out
+func (c *otApplyContext) reset(tableIndex uint8, font *Font, buffer *Buffer) {
+	c.font = font
+	c.buffer = buffer
+
+	c.recurseFunc = nil
+	c.gdef = font.face.GDEF
+	c.varStore = c.gdef.ItemVarStore
+	c.indices = c.indices[:0]
+
+	c.digest = buffer.digest()
+
+	c.nestingLevelLeft = maxNestingLevel
+	c.tableIndex = tableIndex
+	c.lookupMask = 1
+	c.lookupProps = 0
+	c.randomState = 1
+	c.lookupIndex = 0
+	c.direction = buffer.Props.Direction
+
+	c.hasGlyphClasses = c.gdef.GlyphClassDef != nil
+	c.autoZWNJ = true
+	c.autoZWJ = true
+	c.perSyllable = false
+	c.newSyllables = 0xFF
+	c.random = false
+
+	c.lastBase = -1
+	c.lastBaseUntil = 0
+
+	// iterContext
+	// iterInput
+	c.initIters()
 }
 
 func (c *otApplyContext) initIters() {

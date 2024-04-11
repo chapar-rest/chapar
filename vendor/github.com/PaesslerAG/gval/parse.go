@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strconv"
 	"text/scanner"
+
+	"github.com/shopspring/decimal"
 )
 
 //ParseExpression scans an expression into an Evaluable.
@@ -34,15 +36,50 @@ func (p *Parser) ParseNextExpression(c context.Context) (eval Evaluable, err err
 	scan := p.Scan()
 	ex, ok := p.prefixes[scan]
 	if !ok {
+		if scan != scanner.EOF && p.def != nil {
+			return p.def(c, p)
+		}
 		return nil, p.Expected("extensions")
 	}
 	return ex(c, p)
 }
 
+// ParseSublanguage sets the next language for this parser to parse and calls
+// its initialization function, usually ParseExpression.
+func (p *Parser) ParseSublanguage(c context.Context, l Language) (Evaluable, error) {
+	if p.isCamouflaged() {
+		panic("can not ParseSublanguage() on camouflaged Parser")
+	}
+	curLang := p.Language
+	curWhitespace := p.scanner.Whitespace
+	curMode := p.scanner.Mode
+	curIsIdentRune := p.scanner.IsIdentRune
+
+	p.Language = l
+	p.resetScannerProperties()
+
+	defer func() {
+		p.Language = curLang
+		p.scanner.Whitespace = curWhitespace
+		p.scanner.Mode = curMode
+		p.scanner.IsIdentRune = curIsIdentRune
+	}()
+
+	return p.parse(c)
+}
+
+func (p *Parser) parse(c context.Context) (Evaluable, error) {
+	if p.init != nil {
+		return p.init(c, p)
+	}
+
+	return p.ParseExpression(c)
+}
+
 func parseString(c context.Context, p *Parser) (Evaluable, error) {
 	s, err := strconv.Unquote(p.TokenText())
 	if err != nil {
-		return nil, fmt.Errorf("could not parse string: %s", err)
+		return nil, fmt.Errorf("could not parse string: %w", err)
 	}
 	return p.Const(s), nil
 }
@@ -53,6 +90,14 @@ func parseNumber(c context.Context, p *Parser) (Evaluable, error) {
 		return nil, err
 	}
 	return p.Const(n), nil
+}
+
+func parseDecimal(c context.Context, p *Parser) (Evaluable, error) {
+	n, err := strconv.ParseFloat(p.TokenText(), 64)
+	if err != nil {
+		return nil, err
+	}
+	return p.Const(decimal.NewFromFloat(n)), nil
 }
 
 func parseParentheses(c context.Context, p *Parser) (Evaluable, error) {
@@ -75,7 +120,7 @@ func (p *Parser) parseOperator(c context.Context, stack *stageStack, eval Evalua
 		mustOp := false
 		if p.isSymbolOperation(scan) {
 			scan = p.Peek()
-			for p.isSymbolOperation(scan) {
+			for p.isSymbolOperation(scan) && p.isOperatorPrefix(op+string(scan)) {
 				mustOp = true
 				op += string(scan)
 				p.Next()
@@ -85,8 +130,7 @@ func (p *Parser) parseOperator(c context.Context, stack *stageStack, eval Evalua
 			p.Camouflage("operator")
 			return stage{Evaluable: eval}, nil
 		}
-		operator, _ := p.operators[op]
-		switch operator := operator.(type) {
+		switch operator := p.operators[op].(type) {
 		case *infix:
 			return stage{
 				Evaluable:          eval,
@@ -221,7 +265,7 @@ func parseIf(c context.Context, p *Parser, e Evaluable) (Evaluable, error) {
 		if err != nil {
 			return nil, err
 		}
-		if x == false || x == nil {
+		if valX := reflect.ValueOf(x); x == nil || valX.IsZero() {
 			return b(c, v)
 		}
 		return a(c, v)

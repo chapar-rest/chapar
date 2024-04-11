@@ -132,7 +132,7 @@ func (u *UI) Run() error {
 	var ops op.Ops
 
 	for {
-		switch e := u.window.NextEvent().(type) {
+		switch e := u.window.Event().(type) {
 		// this is sent when the application should re-render.
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)

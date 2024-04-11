@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
+
+	"github.com/shopspring/decimal"
 )
 
 type stage struct {
@@ -53,6 +56,15 @@ func (l Language) isSymbolOperation(r rune) bool {
 	return in
 }
 
+func (l Language) isOperatorPrefix(op string) bool {
+	for k := range l.operators {
+		if strings.HasPrefix(k, op) {
+			return true
+		}
+	}
+	return false
+}
+
 func (op *infix) initiate(name string) {
 	f := func(a, b interface{}) (interface{}, error) {
 		return nil, fmt.Errorf("invalid operation (%T) %s (%T)", a, name, b)
@@ -69,6 +81,9 @@ func (op *infix) initiate(name string) {
 		}
 		if op.number != nil {
 			f = getFloatOpFunc(op.number, f, typeConvertion)
+		}
+		if op.decimal != nil {
+			f = getDecimalOpFunc(op.decimal, f, typeConvertion)
 		}
 	}
 	if op.shortCircuit == nil {
@@ -104,7 +119,6 @@ func (op *infix) initiate(name string) {
 			return f(a, b)
 		}, nil
 	}
-	return
 }
 
 type opFunc func(a, b interface{}) (interface{}, error)
@@ -134,6 +148,9 @@ func convertToBool(o interface{}) (bool, bool) {
 	v := reflect.ValueOf(o)
 	for o != nil && v.Kind() == reflect.Ptr {
 		v = v.Elem()
+		if !v.IsValid() {
+			return false, false
+		}
 		o = v.Interface()
 	}
 	if o == false || o == nil || o == "false" || o == "FALSE" {
@@ -174,6 +191,9 @@ func convertToFloat(o interface{}) (float64, bool) {
 	v := reflect.ValueOf(o)
 	for o != nil && v.Kind() == reflect.Ptr {
 		v = v.Elem()
+		if !v.IsValid() {
+			return 0, false
+		}
 		o = v.Interface()
 	}
 	switch v.Kind() {
@@ -214,6 +234,59 @@ func getFloatOpFunc(o func(a, b float64) (interface{}, error), f opFunc, typeCon
 		return f(a, b)
 	}
 }
+func convertToDecimal(o interface{}) (decimal.Decimal, bool) {
+	if i, ok := o.(decimal.Decimal); ok {
+		return i, true
+	}
+	if i, ok := o.(float64); ok {
+		return decimal.NewFromFloat(i), true
+	}
+	v := reflect.ValueOf(o)
+	for o != nil && v.Kind() == reflect.Ptr {
+		v = v.Elem()
+		if !v.IsValid() {
+			return decimal.Zero, false
+		}
+		o = v.Interface()
+	}
+	switch v.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return decimal.NewFromInt(v.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return decimal.NewFromFloat(float64(v.Uint())), true
+	case reflect.Float32, reflect.Float64:
+		return decimal.NewFromFloat(v.Float()), true
+	}
+	if s, ok := o.(string); ok {
+		f, err := strconv.ParseFloat(s, 64)
+		if err == nil {
+			return decimal.NewFromFloat(f), true
+		}
+	}
+	return decimal.Zero, false
+}
+func getDecimalOpFunc(o func(a, b decimal.Decimal) (interface{}, error), f opFunc, typeConversion bool) opFunc {
+	if typeConversion {
+		return func(a, b interface{}) (interface{}, error) {
+			x, k := convertToDecimal(a)
+			y, l := convertToDecimal(b)
+			if k && l {
+				return o(x, y)
+			}
+
+			return f(a, b)
+		}
+	}
+	return func(a, b interface{}) (interface{}, error) {
+		x, k := a.(decimal.Decimal)
+		y, l := b.(decimal.Decimal)
+		if k && l {
+			return o(x, y)
+		}
+
+		return f(a, b)
+	}
+}
 
 type operator interface {
 	merge(operator) operator
@@ -245,6 +318,7 @@ func (pre operatorPrecedence) initiate(name string) {}
 type infix struct {
 	operatorPrecedence
 	number       func(a, b float64) (interface{}, error)
+	decimal      func(a, b decimal.Decimal) (interface{}, error)
 	boolean      func(a, b bool) (interface{}, error)
 	text         func(a, b string) (interface{}, error)
 	arbitrary    func(a, b interface{}) (interface{}, error)
@@ -255,19 +329,22 @@ type infix struct {
 func (op infix) merge(op2 operator) operator {
 	switch op2 := op2.(type) {
 	case *infix:
-		if op2.number != nil {
+		if op.number == nil {
 			op.number = op2.number
 		}
-		if op2.boolean != nil {
+		if op.decimal == nil {
+			op.decimal = op2.decimal
+		}
+		if op.boolean == nil {
 			op.boolean = op2.boolean
 		}
-		if op2.text != nil {
+		if op.text == nil {
 			op.text = op2.text
 		}
-		if op2.arbitrary != nil {
+		if op.arbitrary == nil {
 			op.arbitrary = op2.arbitrary
 		}
-		if op2.shortCircuit != nil {
+		if op.shortCircuit == nil {
 			op.shortCircuit = op2.shortCircuit
 		}
 	}
@@ -293,7 +370,7 @@ func (op directInfix) merge(op2 operator) operator {
 	return op
 }
 
-type prefix func(context.Context, *Parser) (Evaluable, error)
+type extension func(context.Context, *Parser) (Evaluable, error)
 
 type postfix struct {
 	operatorPrecedence

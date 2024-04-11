@@ -219,6 +219,20 @@ func max16(a, b int16) int16 {
 	return b
 }
 
+func minC(a, b VarCoord) VarCoord {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxC(a, b VarCoord) VarCoord {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func minF(a, b float32) float32 {
 	if a < b {
 		return a

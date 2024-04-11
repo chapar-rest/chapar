@@ -383,9 +383,9 @@ type otMap struct {
 	chosenScript [2]tables.Tag
 	globalMask   GlyphMask
 	foundScript  [2]bool
-}
 
-//   friend struct hb_ot_map_builder_t;
+	applyContext otApplyContext // buffer
+}
 
 func (m *otMap) needsFallback(featureTag tables.Tag) bool {
 	if ma := bsearchFeature(m.features, featureTag); ma != nil {
@@ -485,7 +485,9 @@ func (m *otMap) position(plan *otShapePlan, font *Font, buffer *Buffer) {
 func (m *otMap) apply(proxy otProxy, plan *otShapePlan, font *Font, buffer *Buffer) {
 	tableIndex := proxy.tableIndex
 	i := 0
-	c := newOtApplyContext(tableIndex, font, buffer)
+	c := &m.applyContext
+
+	c.reset(tableIndex, font, buffer)
 	c.recurseFunc = proxy.recurseFunc
 
 	for stageI, stage := range m.stages[tableIndex] {

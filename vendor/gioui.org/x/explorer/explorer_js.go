@@ -35,6 +35,7 @@ func (e *Explorer) importFile(extensions ...string) (io.ReadCloser, error) {
 	document := js.Global().Get("document")
 	input := document.Call("createElement", "input")
 	input.Call("addEventListener", "change", openCallback(r))
+	input.Call("addEventListener", "cancel", openCallback(r))
 	input.Set("type", "file")
 	input.Set("style", "display:none;")
 	if len(extensions) > 0 {
@@ -114,7 +115,7 @@ func (f *FileReader) Close() error {
 }
 
 type FileWriter struct {
-	buffer                   js.Value
+	buffers                  []js.Value
 	isClosed                 bool
 	name                     string
 	successFunc, failureFunc js.Func
@@ -122,8 +123,7 @@ type FileWriter struct {
 
 func newFileWriter(name string) *FileWriter {
 	return &FileWriter{
-		name:   name,
-		buffer: js.Global().Get("Uint8Array").New(),
+		name: name,
 	}
 }
 
@@ -135,7 +135,9 @@ func (f *FileWriter) Write(b []byte) (n int, err error) {
 		return 0, nil
 	}
 
-	fileWrite(f.buffer, b)
+	buff := js.Global().Get("Uint8Array").New(len(b))
+	fileWrite(buff, b)
+	f.buffers = append(f.buffers, buff)
 	return len(b), err
 }
 
@@ -151,8 +153,12 @@ func (f *FileWriter) saveFile() error {
 	config := js.Global().Get("Object").New()
 	config.Set("type", "octet/stream")
 
+	buffs := js.Global().Get("Array").New(len(f.buffers))
+	for idx, buf := range f.buffers {
+		buffs.SetIndex(idx, js.ValueOf(buf))
+	}
 	blob := js.Global().Get("Blob").New(
-		js.Global().Get("Array").New().Call("concat", f.buffer),
+		buffs,
 		config,
 	)
 

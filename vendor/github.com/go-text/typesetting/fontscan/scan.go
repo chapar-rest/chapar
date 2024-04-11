@@ -16,7 +16,7 @@ import (
 
 // DefaultFontDirectories return the OS-dependent usual directories for
 // fonts, or an error if no one exists.
-// These are the directories used by `FindFont` and `FontMap.UseSystemFonts` to locate fonts.
+// These are the directories used by `FontMap.UseSystemFonts` to locate fonts.
 func DefaultFontDirectories(logger Logger) ([]string, error) {
 	var dirs []string
 	switch runtime.GOOS {

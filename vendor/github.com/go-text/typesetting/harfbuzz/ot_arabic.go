@@ -889,7 +889,8 @@ func newArabicFallbackPlan(plan *otShapePlan, font *Font) *arabicFallbackPlan {
 }
 
 func (fbPlan *arabicFallbackPlan) shape(font *Font, buffer *Buffer) {
-	c := newOtApplyContext(0, font, buffer)
+	var c otApplyContext
+	c.reset(0, font, buffer)
 	for i := 0; i < fbPlan.numLookups; i++ {
 		if fbPlan.accelArray[i].lookup != nil {
 			c.setLookupMask(fbPlan.maskArray[i])

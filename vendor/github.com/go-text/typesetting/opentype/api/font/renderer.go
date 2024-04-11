@@ -111,9 +111,14 @@ func (bt bitmap) glyphData(gid gID, xPpem, yPpem uint16) (api.GlyphBitmap, error
 	return out, nil
 }
 
-// look for data in 'glyf' and 'cff' tables
+// look for data in 'glyf', 'CFF ' and 'CFF2' tables
 func (f *Face) outlineGlyphData(gid gID) (api.GlyphOutline, bool) {
 	out, err := f.glyphDataFromCFF1(gid)
+	if err == nil {
+		return out, true
+	}
+
+	out, err = f.glyphDataFromCFF2(gid)
 	if err == nil {
 		return out, true
 	}
@@ -288,13 +293,27 @@ func (f *Face) glyphDataFromGlyf(glyph gID) (api.GlyphOutline, error) {
 	return api.GlyphOutline{Segments: segments}, nil
 }
 
-var errNoCFFTable error = errors.New("no CFF table")
+var (
+	errNoCFFTable  error = errors.New("no CFF table")
+	errNoCFF2Table error = errors.New("no CFF2 table")
+)
 
 func (f *Font) glyphDataFromCFF1(glyph gID) (api.GlyphOutline, error) {
 	if f.cff == nil {
 		return api.GlyphOutline{}, errNoCFFTable
 	}
 	segments, _, err := f.cff.LoadGlyph(glyph)
+	if err != nil {
+		return api.GlyphOutline{}, err
+	}
+	return api.GlyphOutline{Segments: segments}, nil
+}
+
+func (f *Face) glyphDataFromCFF2(glyph gID) (api.GlyphOutline, error) {
+	if f.cff2 == nil {
+		return api.GlyphOutline{}, errNoCFF2Table
+	}
+	segments, _, err := f.cff2.LoadGlyph(glyph, f.Coords)
 	if err != nil {
 		return api.GlyphOutline{}, err
 	}

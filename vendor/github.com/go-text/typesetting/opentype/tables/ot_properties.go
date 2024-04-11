@@ -215,13 +215,13 @@ func (lk ExtensionPos) Cov() Coverage         { return nil } // not used anyway
 
 // FindGlyph performs a binary search in the list, returning the record for `secondGlyph`,
 // or `nil` if not found.
-func (ps PairSet) FindGlyph(secondGlyph GlyphID) *PairValueRecord {
+func (ps PairSet) FindGlyph(secondGlyph GlyphID) (PairValueRecord, bool) {
 	low, high := 0, int(ps.pairValueCount)
 	for low < high {
 		mid := low + (high-low)/2 // avoid overflow when computing mid
 		rec, err := ps.data.get(mid)
 		if err != nil { // argh...
-			return nil
+			return PairValueRecord{}, false
 		}
 		p := rec.SecondGlyph
 		if secondGlyph < p {
@@ -229,10 +229,10 @@ func (ps PairSet) FindGlyph(secondGlyph GlyphID) *PairValueRecord {
 		} else if secondGlyph > p {
 			low = mid + 1
 		} else {
-			return &rec
+			return rec, true
 		}
 	}
-	return nil
+	return PairValueRecord{}, false
 }
 
 // GetDelta returns the hint for the given `ppem`, scaled by `scale`.
@@ -286,7 +286,7 @@ func (gd *GDEF) GlyphProps(glyph GlyphID) GlyphProps {
 
 // GetDelta uses the variation [store] and the selected instance coordinates [coords]
 // to compute the value at [index].
-func (store ItemVarStore) GetDelta(index VariationStoreIndex, coords []float32) float32 {
+func (store ItemVarStore) GetDelta(index VariationStoreIndex, coords []Coord) float32 {
 	if int(index.DeltaSetOuter) >= len(store.ItemVariationDatas) {
 		return 0
 	}
@@ -297,13 +297,19 @@ func (store ItemVarStore) GetDelta(index VariationStoreIndex, coords []float32) 
 	deltaSet := varData.DeltaSets[index.DeltaSetInner]
 	var delta float32
 	for i, regionIndex := range varData.RegionIndexes {
-		region := store.VariationRegionList.VariationRegions[regionIndex].RegionAxes
-		v := float32(1)
-		for axis, coord := range coords {
-			factor := region[axis].evaluate(coord)
-			v *= factor
-		}
+		region := store.VariationRegionList.VariationRegions[regionIndex]
+		v := region.Evaluate(coords)
 		delta += float32(deltaSet[i]) * v
 	}
 	return delta
+}
+
+// Evaluate returns the scalar factor of the region
+func (vr VariationRegion) Evaluate(coords []Coord) float32 {
+	v := float32(1)
+	for axis, coord := range coords {
+		factor := vr.RegionAxes[axis].evaluate(coord)
+		v *= factor
+	}
+	return v
 }

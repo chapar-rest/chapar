@@ -137,8 +137,10 @@ import (
 	"unsafe"
 
 	"gioui.org/internal/f32color"
+	"gioui.org/op"
 
 	"gioui.org/f32"
+	"gioui.org/io/event"
 	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
@@ -150,6 +152,7 @@ import (
 
 type window struct {
 	callbacks *callbacks
+	loop      *eventLoop
 
 	view   C.jobject
 	handle cgo.Handle
@@ -158,12 +161,13 @@ type window struct {
 	fontScale float32
 	insets    pixelInsets
 
-	stage     Stage
+	visible   bool
 	started   bool
 	animating bool
 
-	win    *C.ANativeWindow
-	config Config
+	win       *C.ANativeWindow
+	config    Config
+	inputHint key.InputHint
 
 	semantic struct {
 		hoverID input.SemanticID
@@ -201,9 +205,9 @@ type pixelInsets struct {
 	top, bottom, left, right int
 }
 
-// ViewEvent is sent whenever the Window's underlying Android view
+// AndroidViewEvent is sent whenever the Window's underlying Android view
 // changes.
-type ViewEvent struct {
+type AndroidViewEvent struct {
 	// View is a JNI global reference to the android.view.View
 	// instance backing the Window. The reference is valid until
 	// the next ViewEvent is received.
@@ -487,24 +491,30 @@ func Java_org_gioui_GioView_onCreateView(env *C.JNIEnv, class C.jclass, view C.j
 	})
 	view = C.jni_NewGlobalRef(env, view)
 	wopts := <-mainWindow.out
+	var cnf Config
 	w, ok := windows[wopts.window]
 	if !ok {
 		w = &window{
 			callbacks: wopts.window,
 		}
+		w.loop = newEventLoop(w.callbacks, w.wakeup)
+		w.callbacks.SetDriver(w)
+		cnf.apply(unit.Metric{}, wopts.options)
 		windows[wopts.window] = w
+	} else {
+		cnf = w.config
 	}
+	mainWindow.windows <- struct{}{}
 	if w.view != 0 {
 		w.detach(env)
 	}
 	w.view = view
+	w.visible = false
 	w.handle = cgo.NewHandle(w)
-	w.callbacks.SetDriver(w)
 	w.loadConfig(env, class)
-	w.Configure(wopts.options)
-	w.SetInputHint(key.HintAny)
-	w.setStage(StagePaused)
-	w.callbacks.Event(ViewEvent{View: uintptr(view)})
+	w.setConfig(env, cnf)
+	w.SetInputHint(w.inputHint)
+	w.processEvent(AndroidViewEvent{View: uintptr(view)})
 	return C.jlong(w.handle)
 }
 
@@ -518,7 +528,7 @@ func Java_org_gioui_GioView_onDestroyView(env *C.JNIEnv, class C.jclass, handle 
 func Java_org_gioui_GioView_onStopView(env *C.JNIEnv, class C.jclass, handle C.jlong) {
 	w := cgo.Handle(handle).Value().(*window)
 	w.started = false
-	w.setStage(StagePaused)
+	w.visible = false
 }
 
 //export Java_org_gioui_GioView_onStartView
@@ -534,7 +544,7 @@ func Java_org_gioui_GioView_onStartView(env *C.JNIEnv, class C.jclass, handle C.
 func Java_org_gioui_GioView_onSurfaceDestroyed(env *C.JNIEnv, class C.jclass, handle C.jlong) {
 	w := cgo.Handle(handle).Value().(*window)
 	w.win = nil
-	w.setStage(StagePaused)
+	w.visible = false
 }
 
 //export Java_org_gioui_GioView_onSurfaceChanged
@@ -556,9 +566,7 @@ func Java_org_gioui_GioView_onLowMemory(env *C.JNIEnv, class C.jclass) {
 func Java_org_gioui_GioView_onConfigurationChanged(env *C.JNIEnv, class C.jclass, view C.jlong) {
 	w := cgo.Handle(view).Value().(*window)
 	w.loadConfig(env, class)
-	if w.stage >= StageInactive {
-		w.draw(env, true)
-	}
+	w.draw(env, true)
 }
 
 //export Java_org_gioui_GioView_onFrameCallback
@@ -567,10 +575,7 @@ func Java_org_gioui_GioView_onFrameCallback(env *C.JNIEnv, class C.jclass, view 
 	if !exist {
 		return
 	}
-	if w.stage < StageInactive {
-		return
-	}
-	if w.animating {
+	if w.visible && w.animating {
 		w.draw(env, false)
 		callVoidMethod(env, w.view, gioView.postFrameCallback)
 	}
@@ -579,7 +584,7 @@ func Java_org_gioui_GioView_onFrameCallback(env *C.JNIEnv, class C.jclass, view 
 //export Java_org_gioui_GioView_onBack
 func Java_org_gioui_GioView_onBack(env *C.JNIEnv, class C.jclass, view C.jlong) C.jboolean {
 	w := cgo.Handle(view).Value().(*window)
-	if w.callbacks.Event(key.Event{Name: key.NameBack}) {
+	if w.processEvent(key.Event{Name: key.NameBack}) {
 		return C.JNI_TRUE
 	}
 	return C.JNI_FALSE
@@ -588,7 +593,8 @@ func Java_org_gioui_GioView_onBack(env *C.JNIEnv, class C.jclass, view C.jlong) 
 //export Java_org_gioui_GioView_onFocusChange
 func Java_org_gioui_GioView_onFocusChange(env *C.JNIEnv, class C.jclass, view C.jlong, focus C.jboolean) {
 	w := cgo.Handle(view).Value().(*window)
-	w.callbacks.Event(key.FocusEvent{Focus: focus == C.JNI_TRUE})
+	w.config.Focused = focus == C.JNI_TRUE
+	w.processEvent(ConfigEvent{Config: w.config})
 }
 
 //export Java_org_gioui_GioView_onWindowInsets
@@ -600,9 +606,7 @@ func Java_org_gioui_GioView_onWindowInsets(env *C.JNIEnv, class C.jclass, view C
 		left:   int(left),
 		right:  int(right),
 	}
-	if w.stage >= StageInactive {
-		w.draw(env, true)
-	}
+	w.draw(env, true)
 }
 
 //export Java_org_gioui_GioView_initializeAccessibilityNodeInfo
@@ -661,6 +665,34 @@ func Java_org_gioui_GioView_onClearA11yFocus(env *C.JNIEnv, class C.jclass, view
 	if w.semantic.focusID == w.semIDFor(virtID) {
 		w.semantic.focusID = 0
 	}
+}
+
+func (w *window) ProcessEvent(e event.Event) {
+	w.processEvent(e)
+}
+
+func (w *window) processEvent(e event.Event) bool {
+	if !w.callbacks.ProcessEvent(e) {
+		return false
+	}
+	w.loop.FlushEvents()
+	return true
+}
+
+func (w *window) Event() event.Event {
+	return w.loop.Event()
+}
+
+func (w *window) Invalidate() {
+	w.loop.Invalidate()
+}
+
+func (w *window) Run(f func()) {
+	w.loop.Run(f)
+}
+
+func (w *window) Frame(frame *op.Ops) {
+	w.loop.Frame(frame)
 }
 
 func (w *window) initAccessibilityNodeInfo(env *C.JNIEnv, sem input.SemanticNode, off image.Point, info C.jobject) error {
@@ -767,8 +799,7 @@ func (w *window) semIDFor(virtID C.jint) input.SemanticID {
 
 func (w *window) detach(env *C.JNIEnv) {
 	callVoidMethod(env, w.view, gioView.unregister)
-	w.callbacks.Event(ViewEvent{})
-	w.callbacks.SetDriver(nil)
+	w.processEvent(AndroidViewEvent{})
 	w.handle.Delete()
 	C.jni_DeleteGlobalRef(env, w.view)
 	w.view = 0
@@ -779,16 +810,8 @@ func (w *window) setVisible(env *C.JNIEnv) {
 	if width == 0 || height == 0 {
 		return
 	}
-	w.setStage(StageRunning)
+	w.visible = true
 	w.draw(env, true)
-}
-
-func (w *window) setStage(stage Stage) {
-	if stage == w.stage {
-		return
-	}
-	w.stage = stage
-	w.callbacks.Event(StageEvent{stage})
 }
 
 func (w *window) setVisual(visID int) error {
@@ -827,10 +850,13 @@ func (w *window) SetAnimating(anim bool) {
 }
 
 func (w *window) draw(env *C.JNIEnv, sync bool) {
+	if !w.visible {
+		return
+	}
 	size := image.Pt(int(C.ANativeWindow_getWidth(w.win)), int(C.ANativeWindow_getHeight(w.win)))
 	if size != w.config.Size {
 		w.config.Size = size
-		w.callbacks.Event(ConfigEvent{Config: w.config})
+		w.processEvent(ConfigEvent{Config: w.config})
 	}
 	if size.X == 0 || size.Y == 0 {
 		return
@@ -844,7 +870,7 @@ func (w *window) draw(env *C.JNIEnv, sync bool) {
 		Left:   unit.Dp(w.insets.left) * dppp,
 		Right:  unit.Dp(w.insets.right) * dppp,
 	}
-	w.callbacks.Event(frameEvent{
+	w.processEvent(frameEvent{
 		FrameEvent: FrameEvent{
 			Now:    time.Now(),
 			Size:   w.config.Size,
@@ -944,7 +970,7 @@ func Java_org_gioui_GioView_onKeyEvent(env *C.JNIEnv, class C.jclass, handle C.j
 		if pressed == C.JNI_TRUE {
 			state = key.Press
 		}
-		w.callbacks.Event(key.Event{Name: n, State: state})
+		w.processEvent(key.Event{Name: n, State: state})
 	}
 	if pressed == C.JNI_TRUE && r != 0 && r != '\n' { // Checking for "\n" to prevent duplication with key.NameEnter (gio#224).
 		w.callbacks.EditorInsert(string(rune(r)))
@@ -994,7 +1020,7 @@ func Java_org_gioui_GioView_onTouchEvent(env *C.JNIEnv, class C.jclass, handle C
 	default:
 		return
 	}
-	w.callbacks.Event(pointer.Event{
+	w.processEvent(pointer.Event{
 		Kind:      kind,
 		Source:    src,
 		Buttons:   btns,
@@ -1146,6 +1172,8 @@ func (w *window) ShowTextInput(show bool) {
 }
 
 func (w *window) SetInputHint(mode key.InputHint) {
+	w.inputHint = mode
+
 	// Constants defined at https://developer.android.com/reference/android/text/InputType.
 	const (
 		TYPE_NULL = 0
@@ -1292,9 +1320,9 @@ func findClass(env *C.JNIEnv, name string) C.jclass {
 func osMain() {
 }
 
-func newWindow(window *callbacks, options []Option) error {
+func newWindow(window *callbacks, options []Option) {
 	mainWindow.in <- windowAndConfig{window, options}
-	return <-mainWindow.errs
+	<-mainWindow.windows
 }
 
 func (w *window) WriteClipboard(mime string, s []byte) {
@@ -1313,7 +1341,7 @@ func (w *window) ReadClipboard() {
 			return
 		}
 		content := goString(env, C.jstring(c))
-		w.callbacks.Event(transfer.DataEvent{
+		w.processEvent(transfer.DataEvent{
 			Type: "application/text",
 			Open: func() io.ReadCloser {
 				return io.NopCloser(strings.NewReader(content))
@@ -1323,40 +1351,44 @@ func (w *window) ReadClipboard() {
 }
 
 func (w *window) Configure(options []Option) {
+	cnf := w.config
+	cnf.apply(unit.Metric{}, options)
 	runInJVM(javaVM(), func(env *C.JNIEnv) {
-		prev := w.config
-		cnf := w.config
-		cnf.apply(unit.Metric{}, options)
-		// Decorations are never disabled.
-		cnf.Decorated = true
-
-		if prev.Orientation != cnf.Orientation {
-			w.config.Orientation = cnf.Orientation
-			setOrientation(env, w.view, cnf.Orientation)
-		}
-		if prev.NavigationColor != cnf.NavigationColor {
-			w.config.NavigationColor = cnf.NavigationColor
-			setNavigationColor(env, w.view, cnf.NavigationColor)
-		}
-		if prev.StatusColor != cnf.StatusColor {
-			w.config.StatusColor = cnf.StatusColor
-			setStatusColor(env, w.view, cnf.StatusColor)
-		}
-		if prev.Mode != cnf.Mode {
-			switch cnf.Mode {
-			case Fullscreen:
-				callVoidMethod(env, w.view, gioView.setFullscreen, C.JNI_TRUE)
-				w.config.Mode = Fullscreen
-			case Windowed:
-				callVoidMethod(env, w.view, gioView.setFullscreen, C.JNI_FALSE)
-				w.config.Mode = Windowed
-			}
-		}
-		if cnf.Decorated != prev.Decorated {
-			w.config.Decorated = cnf.Decorated
-		}
-		w.callbacks.Event(ConfigEvent{Config: w.config})
+		w.setConfig(env, cnf)
 	})
+}
+
+func (w *window) setConfig(env *C.JNIEnv, cnf Config) {
+	prev := w.config
+	// Decorations are never disabled.
+	cnf.Decorated = true
+
+	if prev.Orientation != cnf.Orientation {
+		w.config.Orientation = cnf.Orientation
+		setOrientation(env, w.view, cnf.Orientation)
+	}
+	if prev.NavigationColor != cnf.NavigationColor {
+		w.config.NavigationColor = cnf.NavigationColor
+		setNavigationColor(env, w.view, cnf.NavigationColor)
+	}
+	if prev.StatusColor != cnf.StatusColor {
+		w.config.StatusColor = cnf.StatusColor
+		setStatusColor(env, w.view, cnf.StatusColor)
+	}
+	if prev.Mode != cnf.Mode {
+		switch cnf.Mode {
+		case Fullscreen:
+			callVoidMethod(env, w.view, gioView.setFullscreen, C.JNI_TRUE)
+			w.config.Mode = Fullscreen
+		case Windowed:
+			callVoidMethod(env, w.view, gioView.setFullscreen, C.JNI_FALSE)
+			w.config.Mode = Windowed
+		}
+	}
+	if cnf.Decorated != prev.Decorated {
+		w.config.Decorated = cnf.Decorated
+	}
+	w.processEvent(ConfigEvent{Config: w.config})
 }
 
 func (w *window) Perform(system.Action) {}
@@ -1367,9 +1399,10 @@ func (w *window) SetCursor(cursor pointer.Cursor) {
 	})
 }
 
-func (w *window) Wakeup() {
+func (w *window) wakeup() {
 	runOnMain(func(env *C.JNIEnv) {
-		w.callbacks.Event(wakeupEvent{})
+		w.loop.Wakeup()
+		w.loop.FlushEvents()
 	})
 }
 
@@ -1460,4 +1493,5 @@ func Java_org_gioui_Gio_scheduleMainFuncs(env *C.JNIEnv, cls C.jclass) {
 	}
 }
 
-func (_ ViewEvent) ImplementsEvent() {}
+func (AndroidViewEvent) implementsViewEvent() {}
+func (AndroidViewEvent) ImplementsEvent()     {}

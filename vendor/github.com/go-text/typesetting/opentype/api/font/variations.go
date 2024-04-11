@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/go-text/typesetting/opentype/tables"
 )
@@ -20,10 +21,15 @@ type mvar struct {
 	values []tables.VarValueRecord
 }
 
-func newMvar(mv tables.MVAR) mvar { return mvar{mv.ItemVariationStore, mv.ValueRecords} }
+func newMvar(mv tables.MVAR, axisCount int) (mvar, error) {
+	if got := mv.ItemVariationStore.AxisCount(); got != axisCount {
+		return mvar{}, fmt.Errorf("mvar: invalid number of axis (%d != %d)", got, axisCount)
+	}
+	return mvar{mv.ItemVariationStore, mv.ValueRecords}, nil
+}
 
 // return 0 if `tag` is not found
-func (mv mvar) getVar(tag Tag, coords []float32) float32 {
+func (mv mvar) getVar(tag Tag, coords []VarCoord) float32 {
 	// binary search
 	for i, j := 0, len(mv.values); i < j; {
 		h := i + (j-i)/2
@@ -42,7 +48,7 @@ func (mv mvar) getVar(tag Tag, coords []float32) float32 {
 // ---------------------------------- gvar ----------------------------------
 
 type gvar struct {
-	sharedTuples         [][]float32        // with size tupleCount x axisCount
+	sharedTuples         [][]VarCoord       // with size tupleCount x axisCount
 	variations           [][]tupleVariation // with length glyphCount
 	sharedTupleActiveIdx []int              // with length tupleCount
 }
@@ -53,7 +59,7 @@ func newGvar(table tables.Gvar, glyf tables.Glyf) (gvar, error) {
 	}
 
 	out := gvar{
-		sharedTuples:         make([][]float32, len(table.SharedTuples.SharedTuples)),
+		sharedTuples:         make([][]VarCoord, len(table.SharedTuples.SharedTuples)),
 		variations:           make([][]tupleVariation, len(table.GlyphVariationDatas)),
 		sharedTupleActiveIdx: make([]int, len(table.SharedTuples.SharedTuples)),
 	}
@@ -105,7 +111,7 @@ type tupleVariation struct {
 
 // sharedTuples has length tupleCount x axisCount
 // sharedTupleActiveIdx has length tupleCount
-func (t tupleVariation) calculateScalar(coords []float32, sharedTuples [][]float32, sharedTupleActiveIdx []int) float32 {
+func (t tupleVariation) calculateScalar(coords []VarCoord, sharedTuples [][]VarCoord, sharedTupleActiveIdx []int) float32 {
 	startIdx, endIdx := 0, len(coords)
 	peakTuple := t.PeakTuple.Values
 	if peakTuple == nil { // no peak specified -> use shared tuple
@@ -143,17 +149,17 @@ func (t tupleVariation) calculateScalar(coords []float32, sharedTuples [][]float
 			}
 			if v < peak {
 				if peak != start {
-					scalar *= (v - start) / (peak - start)
+					scalar *= float32(v-start) / float32(peak-start)
 				}
 			} else {
 				if peak != end {
-					scalar *= (end - v) / (end - peak)
+					scalar *= float32(end-v) / float32(end-peak)
 				}
 			}
-		} else if v == 0 || v < minF(0, peak) || v > maxF(0, peak) {
+		} else if v == 0 || v < minC(0, peak) || v > maxC(0, peak) {
 			return 0.
 		} else {
-			scalar *= v / peak
+			scalar *= float32(v) / float32(peak)
 		}
 	}
 	return scalar
@@ -296,6 +302,12 @@ func unpackDeltas(data []byte, pointNumbersCount int) ([]int16, error) {
 			nbRead += int(count)
 			data = data[1:]
 		} else {
+			// we want to fill out[nbRead:nbRead+count-1], that is we must have
+			// nbRead+count-1 < pointNumbersCount, ie
+			// nbRead+count <= pointNumbersCount
+			if got := nbRead + int(count); got > pointNumbersCount {
+				return nil, fmt.Errorf("invalid packed deltas (expected %d point numbers, got %d)", pointNumbersCount, got)
+			}
 			isInt16 := control&deltasAreWords != 0
 			if isInt16 {
 				if len(data) < 1+2*int(count) {
@@ -322,7 +334,7 @@ func unpackDeltas(data []byte, pointNumbersCount int) ([]int16, error) {
 }
 
 // update `points` in place
-func (gvar gvar) applyDeltasToPoints(glyph gID, coords []float32, points []contourPoint) {
+func (gvar gvar) applyDeltasToPoints(glyph gID, coords []VarCoord, points []contourPoint) {
 	// adapted from harfbuzz/src/hb-ot-var-gvar-table.hh
 
 	if int(glyph) >= len(gvar.variations) { // should not happend
@@ -461,12 +473,12 @@ func inferDelta(targetVal, prevVal, nextVal, prevDelta, nextDelta float32) float
 
 // ------------------------------ hvar/vvar ------------------------------
 
-func getAdvanceDeltaUnscaled(t *tables.HVAR, glyph tables.GlyphID, coords []float32) float32 {
+func getAdvanceDeltaUnscaled(t *tables.HVAR, glyph tables.GlyphID, coords []VarCoord) float32 {
 	index := t.AdvanceWidthMapping.Index(glyph)
 	return t.ItemVariationStore.GetDelta(index, coords)
 }
 
-func getLsbDeltaUnscaled(t *tables.HVAR, glyph tables.GlyphID, coords []float32) float32 {
+func getLsbDeltaUnscaled(t *tables.HVAR, glyph tables.GlyphID, coords []VarCoord) float32 {
 	if t.LsbMapping == nil {
 		return 0
 	}
@@ -476,10 +488,8 @@ func getLsbDeltaUnscaled(t *tables.HVAR, glyph tables.GlyphID, coords []float32)
 
 func sanitizeGDEF(table tables.GDEF, axisCount int) error {
 	// check axis count
-	for _, reg := range table.ItemVarStore.VariationRegionList.VariationRegions {
-		if axisCount != len(reg.RegionAxes) {
-			return fmt.Errorf("GDEF: invalid number of axis (%d != %d)", axisCount, len(reg.RegionAxes))
-		}
+	if got := table.ItemVarStore.AxisCount(); got != -1 && got != axisCount {
+		return fmt.Errorf("GDEF: invalid number of axis (%d != %d)", axisCount, got)
 	}
 
 	// check LigCarets length
@@ -549,8 +559,8 @@ func (fv fvar) getDesignCoords(variations []Variation, designCoords []float32) {
 }
 
 // normalize based on the [min,def,max] values for the axis to be [-1,0,1].
-func (fv fvar) normalizeCoordinates(coords []float32) []float32 {
-	normalized := make([]float32, len(coords))
+func (fv fvar) normalizeCoordinates(coords []float32) []VarCoord {
+	normalized := make([]VarCoord, len(coords))
 	for i, a := range fv {
 		coord := coords[i]
 
@@ -562,12 +572,14 @@ func (fv fvar) normalizeCoordinates(coords []float32) []float32 {
 		}
 
 		if coord < a.Default {
-			normalized[i] = -(coord - a.Default) / (a.Minimum - a.Default)
+			coord = -(coord - a.Default) / (a.Minimum - a.Default)
 		} else if coord > a.Default {
-			normalized[i] = (coord - a.Default) / (a.Maximum - a.Default)
+			coord = (coord - a.Default) / (a.Maximum - a.Default)
 		} else {
-			normalized[i] = 0
+			coord = 0
 		}
+
+		normalized[i] = VarCoord(math.Round(float64(coord * 16384))) // 1 << 14
 	}
 	return normalized
 }
@@ -580,7 +592,7 @@ func (fv fvar) normalizeCoordinates(coords []float32) []float32 {
 // applied, as described at https://docs.microsoft.com/en-us/typography/opentype/spec/avar.
 //
 // This method panics if `coords` has not the correct length, that is the number of axis inf 'fvar'.
-func (f *Font) NormalizeVariations(coords []float32) []float32 {
+func (f *Font) NormalizeVariations(coords []float32) []VarCoord {
 	// ported from freetype2
 
 	// Axis normalization is a two-stage process.  First we normalize
@@ -594,8 +606,9 @@ func (f *Font) NormalizeVariations(coords []float32) []float32 {
 		for j := 1; j < len(l); j++ {
 			previous, pair := l[j-1], l[j]
 			if normalized[i] < pair.FromCoordinate {
-				normalized[i] = previous.ToCoordinate + (normalized[i]-previous.FromCoordinate)*
-					(pair.ToCoordinate-previous.ToCoordinate)/(pair.FromCoordinate-previous.FromCoordinate)
+
+				normalized[i] = previous.ToCoordinate + VarCoord(math.Round(float64(normalized[i]-previous.FromCoordinate)*
+					float64(pair.ToCoordinate-previous.ToCoordinate)/float64(pair.FromCoordinate-previous.FromCoordinate)))
 				break
 			}
 		}
