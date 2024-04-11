@@ -21,7 +21,7 @@ type Request struct {
 	Auth    *Auth
 }
 
-func NewRequest(req *domain.Request) *Request {
+func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 	r := &Request{
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Params"},
@@ -37,15 +37,15 @@ func NewRequest(req *domain.Request) *Request {
 			{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
 			{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
 			{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
-		}),
+		}, theme),
 		PostRequest: component.NewPrePostRequest([]component.Option{
 			{Title: "None", Value: domain.PostRequestTypeNone},
 			{Title: "Set Environment Variable", Value: domain.PostRequestTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
 			{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
 			{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
-		}),
+		}, theme),
 
-		Body:    NewBody(req.Spec.HTTP.Request.Body),
+		Body:    NewBody(req.Spec.HTTP.Request.Body, theme),
 		Params:  NewParams(nil, nil),
 		Headers: NewHeaders(nil),
 		Auth:    NewAuth(req.Spec.HTTP.Request.Auth),

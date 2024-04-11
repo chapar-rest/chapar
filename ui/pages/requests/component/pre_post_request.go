@@ -47,10 +47,10 @@ type Option struct {
 	Hint  string
 }
 
-func NewPrePostRequest(options []Option) *PrePostRequest {
+func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostRequest {
 	p := &PrePostRequest{
 		dropDown:      widgets.NewDropDown(),
-		script:        widgets.NewCodeEditor("", "Python"),
+		script:        widgets.NewCodeEditor("", "Python", theme),
 		dropDownItems: options,
 		setEnvForm: &SetEnvForm{
 			fromDropDown: widgets.NewDropDown(

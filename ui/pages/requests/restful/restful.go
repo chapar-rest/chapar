@@ -37,7 +37,7 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Restful {
 			BarWidth: unit.Dp(2),
 		},
 		Response: NewResponse(theme),
-		Request:  NewRequest(req),
+		Request:  NewRequest(req, theme),
 	}
 	r.setupHooks()
 

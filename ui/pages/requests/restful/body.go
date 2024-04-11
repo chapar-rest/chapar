@@ -23,7 +23,7 @@ type Body struct {
 	onChange func(body domain.Body)
 }
 
-func NewBody(body domain.Body) *Body {
+func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
@@ -37,7 +37,7 @@ func NewBody(body domain.Body) *Body {
 		),
 		formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
-		script:     widgets.NewCodeEditor("", "JSON"),
+		script:     widgets.NewCodeEditor("", "JSON", theme),
 		BinaryFile: component.NewBinaryFile(""),
 	}
 
