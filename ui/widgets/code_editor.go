@@ -13,8 +13,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/richtext"
-	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/fonts"
 )
@@ -29,9 +27,9 @@ type CodeEditor struct {
 	onChange func(text string)
 	monoFont font.FontFace
 
-	lexer         chroma.Lexer
-	lastStyleName string
-	codeStyle     *chroma.Style
+	//lexer         chroma.Lexer
+	//lastStyleName string
+	//codeStyle     *chroma.Style
 
 	font font.FontFace
 
@@ -84,11 +82,11 @@ func (c *CodeEditor) SetCode(code string) {
 }
 
 func (c *CodeEditor) SetLanguage(language string) {
-	lexer := lexers.Get(language)
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-	c.lexer = chroma.Coalesce(lexer)
+	//lexer := lexers.Get(language)
+	//if lexer == nil {
+	//	lexer = lexers.Fallback
+	//}
+	//c.lexer = chroma.Coalesce(lexer)
 }
 
 func (c *CodeEditor) Code() string {
