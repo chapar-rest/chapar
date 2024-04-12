@@ -31,7 +31,7 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Restful {
 		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
 		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
-		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
+		AddressBar: component.NewAddressBar(theme, req.Spec.HTTP.URL, req.Spec.HTTP.Method),
 		split: widgets.SplitView{
 			Ratio:    0.05,
 			BarWidth: unit.Dp(2),

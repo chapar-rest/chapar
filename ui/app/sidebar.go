@@ -23,6 +23,8 @@ type Sidebar struct {
 	Buttons     []*SideBarButton
 	list        *widget.List
 
+	cache *op.Ops
+
 	clickables []*widget.Clickable
 
 	selectedIndex int
@@ -36,6 +38,7 @@ type SideBarButton struct {
 func NewSidebar(theme *chapartheme.Theme) *Sidebar {
 	s := &Sidebar{
 		Theme: theme,
+		cache: new(op.Ops),
 
 		Buttons: []*SideBarButton{
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
@@ -116,8 +119,10 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 
 	return layout.Background{}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
-			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
-			paint.Fill(gtx.Ops, theme.SideBarBgColor)
+			if !theme.IsDark() {
+				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
+				paint.Fill(gtx.Ops, theme.SideBarBgColor)
+			}
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		},
 		func(gtx layout.Context) layout.Dimensions {

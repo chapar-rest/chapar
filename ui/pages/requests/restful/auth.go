@@ -21,10 +21,11 @@ type Auth struct {
 	onChange func(auth domain.Auth)
 }
 
-func NewAuth(auth domain.Auth) *Auth {
+func NewAuth(auth domain.Auth, theme *chapartheme.Theme) *Auth {
 	a := &Auth{
 		auth: auth,
 		DropDown: widgets.NewDropDown(
+			theme,
 			widgets.NewDropDownOption("None").WithValue(domain.AuthTypeNone),
 			widgets.NewDropDownOption("Basic").WithValue(domain.AuthTypeBasic),
 			widgets.NewDropDownOption("Token").WithValue(domain.AuthTypeToken),
@@ -45,6 +46,7 @@ func NewAuth(auth domain.Auth) *Auth {
 	}
 
 	a.DropDown.SetSelectedByValue(auth.Type)
+	a.DropDown.MinWidth = unit.Dp(150)
 
 	if auth.BasicAuth != nil {
 		a.BasicForm.SetValues(map[string]string{

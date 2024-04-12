@@ -41,10 +41,8 @@ func NewHeader(envState *state.Environments, theme *chapartheme.Theme) *Header {
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
 
 	h.themeSwitcher = material.Switch(theme.Material(), h.switchState, "")
-	h.envDropDown = widgets.NewDropDown(
-		widgets.NewDropDownOption(noEnvironment),
-		widgets.NewDropDownDivider(),
-	)
+	h.envDropDown = widgets.NewDropDown(theme)
+	h.envDropDown.MinWidth = unit.Dp(150)
 	return h
 }
 

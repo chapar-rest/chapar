@@ -5,7 +5,6 @@ import (
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -17,6 +16,10 @@ type DropDown struct {
 	menuContextArea component.ContextArea
 	menu            component.MenuState
 	list            *widget.List
+	theme           *chapartheme.Theme
+
+	MinWidth unit.Dp
+	menuInit bool
 
 	isOpen              bool
 	selectedOptionIndex int
@@ -96,7 +99,7 @@ func (c *DropDown) SetSelectedByValue(value string) {
 	}
 }
 
-func NewDropDown(options ...*DropDownOption) *DropDown {
+func NewDropDown(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		menuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
@@ -110,12 +113,14 @@ func NewDropDown(options ...*DropDownOption) *DropDown {
 		options:      options,
 		borderWidth:  unit.Dp(1),
 		cornerRadius: unit.Dp(4),
+		theme:        theme,
+		menuInit:     true,
 	}
 
 	return c
 }
 
-func NewDropDownWithoutBorder(options ...*DropDownOption) *DropDown {
+func NewDropDownWithoutBorder(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		menuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
@@ -126,7 +131,9 @@ func NewDropDownWithoutBorder(options ...*DropDownOption) *DropDown {
 				Axis: layout.Vertical,
 			},
 		},
-		options: options,
+		options:  options,
+		theme:    theme,
+		menuInit: true,
 	}
 
 	return c
@@ -138,13 +145,14 @@ func (c *DropDown) SelectedIndex() int {
 
 func (c *DropDown) SetOptions(options ...*DropDownOption) {
 	c.options = options
+	c.menuInit = true
 }
 
 func (c *DropDown) GetSelected() *DropDownOption {
 	return c.options[c.selectedOptionIndex]
 }
 
-func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string, minWidth int) layout.Dimensions {
+func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string, minWidth unit.Dp) layout.Dimensions {
 	borderColor := theme.BorderColor
 	if c.isOpen {
 		borderColor = theme.BorderColorFocused
@@ -161,10 +169,10 @@ func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string
 		CornerRadius: c.cornerRadius,
 	}
 
-	c.size.X = minWidth
+	c.size.X = gtx.Dp(minWidth)
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		// calculate the minimum width of the box, considering icon and padding
-		gtx.Constraints.Min.X = minWidth - gtx.Dp(8)
+		gtx.Constraints.Min.X = gtx.Dp(minWidth) - gtx.Dp(8)
 		return layout.Inset{
 			Top:    4,
 			Bottom: 4,
@@ -213,39 +221,17 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		}
 	}
 
-	minWidth := 0
-	menuMicro := op.Record(gtx.Ops)
-	c.menu.Options = c.menu.Options[:0]
-	for _, opt := range c.options {
-		opt := opt
-		c.menu.Options = append(c.menu.Options, func(gtx layout.Context) layout.Dimensions {
-			if opt.isDivider {
-				dv := component.Divider(theme.Material())
-				dv.Fill = theme.TextColor
-				dim := dv.Layout(gtx)
-				if dim.Size.X > minWidth {
-					minWidth = dim.Size.X
-				}
-				return dim
-			}
-
-			itm := component.MenuItem(theme.Material(), &opt.clickable, opt.Text)
-			itm.Label.Color = chapartheme.White
-			dim := itm.Layout(gtx)
-			if dim.Size.X > minWidth {
-				minWidth = dim.Size.X
-			}
-
-			return dim
-		})
+	// Update menu items only if options change
+	if c.menuInit {
+		c.menuInit = false
+		c.updateMenuItems(theme)
 	}
 
-	m := component.Menu(theme.Material(), &c.menu)
-	m.SurfaceStyle.Fill = theme.DropDownMenuBgColor
-	menuDim := m.Layout(gtx)
-	menuMacroCall := menuMicro.Stop()
+	if c.MinWidth == 0 {
+		c.MinWidth = unit.Dp(150)
+	}
 
-	box := c.box(gtx, theme, c.options[c.selectedOptionIndex].Text, minWidth)
+	box := c.box(gtx, theme, c.options[c.selectedOptionIndex].Text, c.MinWidth)
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return box
@@ -257,11 +243,31 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					Left: unit.Dp(4),
 				}
 				return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = minWidth
-					menuMacroCall.Add(gtx.Ops)
-					return menuDim
+					gtx.Constraints.Max.X = gtx.Dp(c.MinWidth)
+					m := component.Menu(theme.Material(), &c.menu)
+					m.SurfaceStyle.Fill = theme.DropDownMenuBgColor
+					return m.Layout(gtx)
 				})
 			})
 		}),
 	)
+}
+
+// updateMenuItems creates or updates menu items based on options and calculates minWidth.
+func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
+	c.menu.Options = c.menu.Options[:0]
+	for _, opt := range c.options {
+		opt := opt
+		c.menu.Options = append(c.menu.Options, func(gtx layout.Context) layout.Dimensions {
+			if opt.isDivider {
+				dv := component.Divider(theme.Material())
+				dv.Fill = theme.TextColor
+				return dv.Layout(gtx)
+			}
+
+			itm := component.MenuItem(theme.Material(), &opt.clickable, opt.Text)
+			itm.Label.Color = chapartheme.White
+			return itm.Layout(gtx)
+		})
+	}
 }

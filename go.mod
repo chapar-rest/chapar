@@ -1,6 +1,6 @@
 module github.com/mirzakhany/chapar
 
-go 1.21.6
+go 1.22.1
 
 require (
 	gioui.org v0.6.0

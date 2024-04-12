@@ -49,11 +49,12 @@ type Option struct {
 
 func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostRequest {
 	p := &PrePostRequest{
-		dropDown:      widgets.NewDropDown(),
+		dropDown:      widgets.NewDropDown(theme),
 		script:        widgets.NewCodeEditor("", "Python", theme),
 		dropDownItems: options,
 		setEnvForm: &SetEnvForm{
 			fromDropDown: widgets.NewDropDown(
+				theme,
 				widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
 				widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
 				widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),

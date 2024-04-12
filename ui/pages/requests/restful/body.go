@@ -27,6 +27,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
+			theme,
 			widgets.NewDropDownOption("None").WithValue(domain.BodyTypeNone),
 			widgets.NewDropDownOption("JSON").WithValue(domain.BodyTypeJSON),
 			widgets.NewDropDownOption("Text").WithValue(domain.BodyTypeText),
@@ -47,6 +48,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 
 	b.script.SetCode(body.Data)
 	b.DropDown.SetSelectedByValue(body.Type)
+	b.DropDown.MinWidth = unit.Dp(150)
 
 	return b
 }
