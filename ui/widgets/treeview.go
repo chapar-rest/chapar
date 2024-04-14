@@ -5,10 +5,10 @@ import (
 	"sort"
 	"strings"
 
-	"gioui.org/font"
+	"github.com/mirzakhany/chapar/internal/safemap"
 
+	"gioui.org/font"
 	"gioui.org/io/input"
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -16,11 +16,12 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/mirzakhany/chapar/internal/safemap"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type TreeView struct {
+	materialTheme *material.Theme
+
 	nodes []*TreeNode
 	list  widget.List
 
@@ -31,6 +32,12 @@ type TreeView struct {
 
 	onNodeDoubleClick func(tr *TreeNode)
 	onNodeClick       func(tr *TreeNode)
+
+	itemLabelStyle material.LabelStyle
+	openIcon       *widget.Icon
+	closeIcon      *widget.Icon
+
+	renderedNodes []layout.Dimensions
 }
 
 type TreeNode struct {
@@ -40,18 +47,14 @@ type TreeNode struct {
 	DiscloserState component.DiscloserState
 	MenuOptions    []string
 
-	menuContextArea component.ContextArea
-	menu            component.MenuState
-	menuClickables  []*widget.Clickable
+	clickable widget.Clickable
 
-	menuInit bool
-	isChild  bool
 	expanded bool
 
 	Meta *safemap.Map[string]
 }
 
-func NewTreeView(nodes []*TreeNode) *TreeView {
+func NewTreeView(nodes []*TreeNode, theme *chapartheme.Theme) *TreeView {
 	// sort nodes alphabetically
 	sort.Slice(nodes, func(i, j int) bool {
 		sort.Slice(nodes[i].Children, func(k, l int) bool {
@@ -60,14 +63,25 @@ func NewTreeView(nodes []*TreeNode) *TreeView {
 		return nodes[i].Text < nodes[j].Text
 	})
 
-	return &TreeView{
+	th := theme.Material()
+	tr := &TreeView{
+		materialTheme: th,
 		list: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
 			},
 		},
 		nodes: nodes,
+
+		itemLabelStyle: material.Label(th, unit.Sp(13), ""),
+		openIcon:       ExpandIcon,
+		closeIcon:      ForwardIcon,
 	}
+
+	tr.itemLabelStyle.Font.Weight = font.SemiBold
+	tr.itemLabelStyle.MaxLines = 1
+
+	return tr
 }
 
 func (t *TreeView) OnNodeDoubleClick(fn func(tr *TreeNode)) {
@@ -95,7 +109,6 @@ func (t *TreeView) AddNode(node *TreeNode) {
 }
 
 func (tr *TreeNode) AddChildNode(child *TreeNode) {
-	child.isChild = true
 	tr.Children = append(tr.Children, child)
 }
 
@@ -111,7 +124,6 @@ func (t *TreeView) ExpandNode(identifier string) {
 func (t *TreeView) AddChildNode(parentIdentifier string, child *TreeNode) {
 	for _, n := range t.nodes {
 		if n.Identifier == parentIdentifier {
-			child.isChild = true
 			n.Children = append(n.Children, child)
 			return
 		}
@@ -158,57 +170,26 @@ func (t *TreeView) Filter(text string) {
 	t.filteredNodes = items
 }
 
-func (t *TreeView) clickableWrap(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode, widget layout.Widget) layout.Dimensions {
-	return node.DiscloserState.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Background{}.Layout(gtx,
-			func(gtx layout.Context) layout.Dimensions {
-				background := theme.Palette.Bg
-				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
-				if gtx.Source == (input.Source{}) {
-					background = Disabled(theme.Palette.Bg)
-				} else if node.DiscloserState.Clickable.Hovered() || gtx.Focused(node.DiscloserState.Clickable) || node.menuContextArea.Active() {
-					background = Hovered(theme.Palette.Bg)
-				}
-
-				paint.Fill(gtx.Ops, background)
-				return layout.Dimensions{Size: gtx.Constraints.Min}
-			},
-			widget,
-		)
-	})
-}
-
-func (t *TreeView) controlLayout(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
-	return t.clickableWrap(gtx, theme, node, func(gtx layout.Context) layout.Dimensions {
-		var icon = ExpandIcon
-		if !node.DiscloserState.Visible() {
-			icon = ForwardIcon
-		}
-		return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(4)}.Layout(gtx,
-			func(gtx layout.Context) layout.Dimensions {
-				return icon.Layout(gtx, theme.ContrastFg)
-			},
-		)
-	})
-}
-
-func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode, isChildNode bool) layout.Dimensions {
 	leftPadding := 4
 	if len(node.Children) == 0 {
-		leftPadding = 24
+		leftPadding = 20
 	}
 
-	if node.isChild {
-		leftPadding = 36
+	if isChildNode {
+		leftPadding = 32
 	}
+
+	padding := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(8 + leftPadding)}
 
 	for {
-		click, ok := node.DiscloserState.Clickable.Update(gtx)
+		click, ok := node.clickable.Update(gtx)
 		if !ok {
 			break
 		}
 		switch click.NumClicks {
 		case 1:
+			node.DiscloserState.Appear(gtx.Now)
 			if t.onNodeClick != nil {
 				go t.onNodeClick(node)
 			}
@@ -228,109 +209,57 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		node.DiscloserState.Appear(gtx.Now)
 	}
 
-	return t.clickableWrap(gtx, theme, node, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(8 + leftPadding)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					lb := material.Label(theme.Material(), unit.Sp(13), node.Text)
-					lb.Font.Weight = font.SemiBold
-					lb.MaxLines = 1
-					return lb.Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					iconBtn := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						if !node.DiscloserState.Clickable.Hovered() && !node.menuContextArea.Active() {
-							return layout.Dimensions{}
-						}
-						gtx.Constraints.Min.X = gtx.Dp(16)
-						return MoreVertIcon.Layout(gtx, theme.ContrastFg)
-					})
-					return layout.Stack{}.Layout(gtx,
-						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-							return iconBtn
-						}),
-						layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-							return node.menuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								offset := layout.Inset{
-									Top:  unit.Dp(float32(iconBtn.Size.Y)/gtx.Metric.PxPerDp + 1),
-									Left: unit.Dp(4),
-								}
-								return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									gtx.Constraints.Min = image.Point{}
-									m := component.Menu(theme.Material(), &node.menu)
-									m.SurfaceStyle.Fill = theme.MenuBgColor
-									return m.Layout(gtx)
-								})
-							})
-						}),
-					)
-				}),
-			)
-		})
+	return node.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Background{}.Layout(gtx,
+			func(gtx layout.Context) layout.Dimensions {
+				background := theme.Palette.Bg
+				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
+				if gtx.Source == (input.Source{}) {
+					background = Disabled(theme.Palette.Bg)
+				} else if node.clickable.Hovered() || gtx.Focused(node.clickable) {
+					background = Hovered(theme.Palette.Bg)
+				}
+
+				paint.Fill(gtx.Ops, background)
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			},
+			func(gtx layout.Context) layout.Dimensions {
+				return padding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					t.itemLabelStyle.Text = node.Text
+					return t.itemLabelStyle.Layout(gtx)
+				})
+			},
+		)
 	})
 }
 
 // LayoutTreeNode recursively lays out a tree of widgets described by
 // TreeNodes.
-func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
-	if !node.menuInit {
-		node.menuInit = true
-		node.menuContextArea = component.ContextArea{
-			Activation:       pointer.ButtonPrimary,
-			AbsolutePosition: true,
-		}
-		node.menu = component.MenuState{
-			Options: func() []func(gtx layout.Context) layout.Dimensions {
-
-				out := make([]func(gtx layout.Context) layout.Dimensions, 0, len(node.MenuOptions))
-				node.menuClickables = make([]*widget.Clickable, 0, len(node.MenuOptions))
-				for i, opt := range node.MenuOptions {
-					opt := opt
-					i := i
-					node.menuClickables = append(node.menuClickables, new(widget.Clickable))
-
-					if opt == "-" {
-						out = append(out, component.Divider(theme.Material()).Layout)
-						continue
-					}
-
-					out = append(out, component.MenuItem(theme.Material(), node.menuClickables[i], opt).Layout)
-				}
-				return out
-			}(),
-		}
-	}
-
-	for i := range node.menuClickables {
-		if node.menuClickables[i].Clicked(gtx) {
-			if t.onMenuItemClick != nil {
-				t.onMenuItemClick(node, node.MenuOptions[i])
-			}
-		}
-	}
-
+func (t *TreeView) layoutTreeNode(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode, isChildNode bool) layout.Dimensions {
 	if len(node.Children) == 0 {
-		return t.itemLayout(gtx, theme, node)
+		return t.itemLayout(gtx, theme, node, isChildNode)
 	}
 
 	children := make([]layout.FlexChild, 0, len(node.Children))
 	for i := range node.Children {
-		child := node.Children[i]
-		child.isChild = true
 		children = append(children, layout.Rigid(
 			func(gtx layout.Context) layout.Dimensions {
-				return t.LayoutTreeNode(gtx, theme, child)
+				return t.layoutTreeNode(gtx, theme, node.Children[i], true)
 			}))
 	}
 
-	return component.Discloser(theme.Material(), &node.DiscloserState).Layout(gtx,
+	return component.Discloser(t.materialTheme, &node.DiscloserState).Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Dp(16.4)
-			return t.controlLayout(gtx, theme, node)
+			if node.DiscloserState.Visible() {
+				return t.openIcon.Layout(gtx, theme.ContrastFg)
+			} else {
+				return t.closeIcon.Layout(gtx, theme.ContrastFg)
+			}
 		},
 		func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return t.itemLayout(gtx, theme, node)
+			return t.itemLayout(gtx, theme, node, isChildNode)
 		},
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -348,7 +277,13 @@ func (t *TreeView) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		return layout.Center.Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
 	}
 
-	return material.List(theme.Material(), &t.list).Layout(gtx, len(nodes), func(gtx layout.Context, index int) layout.Dimensions {
-		return t.LayoutTreeNode(gtx, theme, nodes[index])
+	if len(t.renderedNodes) != len(nodes) {
+		t.renderedNodes = make([]layout.Dimensions, len(nodes))
+	}
+
+	return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return material.List(t.materialTheme, &t.list).Layout(gtx, len(t.nodes), func(gtx layout.Context, index int) layout.Dimensions {
+			return t.layoutTreeNode(gtx, theme, nodes[index], false)
+		})
 	})
 }

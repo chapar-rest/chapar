@@ -59,7 +59,7 @@ func NewView(theme *chapartheme.Theme) *View {
 	v := &View{
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
-		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
+		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}, theme),
 		split: widgets.SplitView{
 			Ratio:       -0.64,
 			MinLeftSize: unit.Dp(250),
