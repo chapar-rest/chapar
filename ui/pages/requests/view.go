@@ -6,6 +6,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	giox "gioui.org/x/component"
 	"github.com/google/uuid"
@@ -27,7 +28,8 @@ const (
 )
 
 type View struct {
-	theme *chapartheme.Theme
+	theme         *chapartheme.Theme
+	materialTheme *material.Theme
 
 	// add menu
 	newRequestButton     widget.Clickable
@@ -43,6 +45,7 @@ type View struct {
 	treeView          *widgets.TreeView
 
 	split     widgets.SplitView
+	resizer   component.Resize
 	tabHeader *widgets.Tabs
 
 	// callbacks
@@ -76,15 +79,18 @@ func NewView(theme *chapartheme.Theme) *View {
 
 	v := &View{
 		theme:             theme,
+		materialTheme:     theme.Material(),
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}, theme),
 		split: widgets.SplitView{
-			Ratio:       -0.64,
-			MinLeftSize: unit.Dp(250),
-			MaxLeftSize: unit.Dp(800),
-			BarWidth:    unit.Dp(2),
+			// Ratio:       -0.64,
+			Resize: giox.Resize{
+				Ratio: 0.19,
+			},
+			BarWidth: unit.Dp(2),
 		},
+		//resizer:       component.Resize{Ratio: 0.19},
 		containers:    safemap.New[Container](),
 		treeViewNodes: safemap.New[*widgets.TreeNode](),
 		openTabs:      safemap.New[*widgets.Tab](),
@@ -550,6 +556,25 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			return v.containerHolder(gtx, theme)
 		},
 	)
+
+	//return v.resizer.Layout(gtx,
+	//	func(gtx layout.Context) layout.Dimensions {
+	//		return v.requestList(gtx, theme)
+	//	},
+	//	func(gtx layout.Context) layout.Dimensions {
+	//		return v.containerHolder(gtx, theme)
+	//	},
+	//	func(gtx layout.Context) layout.Dimensions {
+	//		rect := image.Rectangle{
+	//			Max: image.Point{
+	//				X: gtx.Dp(unit.Dp(2)),
+	//				Y: gtx.Constraints.Max.Y,
+	//			},
+	//		}
+	//		paint.FillShape(gtx.Ops, theme.SeparatorColor, clip.Rect(rect).Op())
+	//		return layout.Dimensions{Size: rect.Max}
+	//	},
+	//)
 }
 
 func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
