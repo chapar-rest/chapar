@@ -5,9 +5,10 @@ import (
 	"sort"
 	"strings"
 
+	"gioui.org/font"
+
 	"github.com/mirzakhany/chapar/internal/safemap"
 
-	"gioui.org/font"
 	"gioui.org/io/input"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
@@ -36,8 +37,6 @@ type TreeView struct {
 	itemLabelStyle material.LabelStyle
 	openIcon       *widget.Icon
 	closeIcon      *widget.Icon
-
-	renderedNodes []layout.Dimensions
 }
 
 type TreeNode struct {
@@ -275,10 +274,6 @@ func (t *TreeView) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 
 	if len(nodes) == 0 {
 		return layout.Center.Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
-	}
-
-	if len(t.renderedNodes) != len(nodes) {
-		t.renderedNodes = make([]layout.Dimensions, len(nodes))
 	}
 
 	return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

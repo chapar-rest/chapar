@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mirzakhany/chapar/ui/fonts"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -19,7 +21,6 @@ import (
 	"github.com/mirzakhany/chapar/internal/state"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/explorer"
-	"github.com/mirzakhany/chapar/ui/fonts"
 	"github.com/mirzakhany/chapar/ui/pages/console"
 	"github.com/mirzakhany/chapar/ui/pages/environments"
 	"github.com/mirzakhany/chapar/ui/pages/requests"

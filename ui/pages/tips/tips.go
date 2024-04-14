@@ -16,6 +16,9 @@ type Tips struct {
 	messages []string
 
 	chaparImage image.Image
+	imageOp     paint.ImageOp
+
+	items []layout.FlexChild
 }
 
 func New() *Tips {
@@ -36,40 +39,42 @@ func New() *Tips {
 	}
 
 	tips.chaparImage = data
+	tips.imageOp = paint.NewImageOp(tips.chaparImage)
+	tips.items = make([]layout.FlexChild, 0)
 
 	return tips
 }
 
 func (t *Tips) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	items := make([]layout.FlexChild, 0, len(t.messages))
+	if len(t.items) == 0 {
+		t.items = append(t.items,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return widget.Image{
+					Src:      t.imageOp,
+					Fit:      widget.Unscaled,
+					Position: layout.Center,
+					Scale:    1.0,
+				}.Layout(gtx)
+			}),
+		)
 
-	items = append(items,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return widget.Image{
-				Src:      paint.NewImageOp(t.chaparImage),
-				Fit:      widget.Unscaled,
-				Position: layout.Center,
-				Scale:    1.0,
-			}.Layout(gtx)
-		}),
-	)
-
-	for i, m := range t.messages {
-		m := m
-		i := i
-		items = append(items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				if i == 0 {
-					return material.H6(theme.Material(), m).Layout(gtx)
-				}
-				return material.Body1(theme.Material(), m).Layout(gtx)
-			})
-		}))
+		for i, m := range t.messages {
+			m := m
+			i := i
+			t.items = append(t.items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					if i == 0 {
+						return material.H6(theme.Material(), m).Layout(gtx)
+					}
+					return material.Body1(theme.Material(), m).Layout(gtx)
+				})
+			}))
+		}
 	}
 
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-			items...,
+			t.items...,
 		)
 	})
 }
