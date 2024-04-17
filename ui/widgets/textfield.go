@@ -82,17 +82,17 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		leftPadding = unit.Dp(0)
 	}
 
-	//for {
-	//	event, ok := t.textEditor.Update(gtx)
-	//	if !ok {
-	//		break
-	//	}
-	//	if _, ok := event.(widget.ChangeEvent); ok {
-	//		if t.onTextChange != nil {
-	//			t.onTextChange(t.textEditor.Text())
-	//		}
-	//	}
-	//}
+	for {
+		event, ok := t.textEditor.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := event.(widget.ChangeEvent); ok {
+			if t.onTextChange != nil {
+				t.onTextChange(t.textEditor.Text())
+			}
+		}
+	}
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if t.size.X == 0 {

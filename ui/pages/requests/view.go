@@ -101,6 +101,7 @@ func NewView(theme *chapartheme.Theme) *View {
 		tipsView: tips.New(),
 	}
 
+	v.treeView.MenuOptions = []string{MenuDuplicate, MenuDelete}
 	v.tabHeader.SetMaxTitleWidth(20)
 
 	v.treeViewSearchBox.SetOnTextChange(func(text string) {
