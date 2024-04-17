@@ -567,6 +567,18 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 		}
 	}
 
+	if v.newHttpRequestButton.Clicked(gtx) {
+		if v.onNewRequest != nil {
+			v.onNewRequest()
+		}
+	}
+
+	if v.newCollectionButton.Clicked(gtx) {
+		if v.onNewCollection != nil {
+			v.onNewCollection()
+		}
+	}
+
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -587,18 +599,6 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 							gtx.Constraints.Min.X = 0
 							return layout.Stack{}.Layout(gtx,
 								layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-									if v.newHttpRequestButton.Clicked(gtx) {
-										if v.onNewRequest != nil {
-											v.onNewRequest()
-										}
-									}
-
-									if v.newCollectionButton.Clicked(gtx) {
-										if v.onNewCollection != nil {
-											v.onNewCollection()
-										}
-									}
-
 									btn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
 									btn.Color = theme.ButtonTextColor
 									return btn.Layout(gtx, theme)

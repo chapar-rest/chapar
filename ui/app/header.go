@@ -70,6 +70,7 @@ func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 	h.selectedEnv = env.MetaData.ID
 	h.envDropDown.SetSelectedByTitle(env.MetaData.Name)
 }
+
 func (h *Header) SetTheme(isDark bool) {
 	h.switchState.Value = !isDark
 }
@@ -91,6 +92,12 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 		}
 	}
 
+	if h.switchState.Update(gtx) {
+		if h.OnThemeSwitched != nil {
+			go h.OnThemeSwitched(!h.switchState.Value)
+		}
+	}
+
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -107,11 +114,6 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return layout.Inset{Right: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									if h.switchState.Update(gtx) {
-										if h.OnThemeSwitched != nil {
-											h.OnThemeSwitched(!h.switchState.Value)
-										}
-									}
 
 									return h.themeSwitcher.Layout(gtx)
 								})
