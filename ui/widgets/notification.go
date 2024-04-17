@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"image"
-	"sync"
 	"time"
 
 	"gioui.org/layout"
@@ -17,8 +16,6 @@ import (
 type Notification struct {
 	Text  string
 	EndAt time.Time
-
-	Mtx sync.Mutex
 }
 
 type Notif struct {
@@ -29,9 +26,6 @@ type Notif struct {
 }
 
 func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme, windowWidth int) layout.Dimensions {
-	n.Mtx.Lock()
-	defer n.Mtx.Unlock()
-
 	if n.Text == "" || n.EndAt == (time.Time{}) || time.Now().After(n.EndAt) {
 		return layout.Dimensions{}
 	}

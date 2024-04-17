@@ -98,29 +98,6 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		}
 	}
 
-	macro := op.Record(gtx.Ops)
-	dims := s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				btn := s.flatButtons[i]
-				if s.selectedIndex == i {
-					btn.TextColor = theme.SideBarTextColor
-				} else {
-					btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
-				}
-
-				return btn.Layout(gtx, theme)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if i == len(s.Buttons)-1 {
-					return layout.Dimensions{}
-				}
-				return widgets.DrawLine(gtx, theme.SeparatorColor, unit.Dp(2), unit.Dp(45))
-			}),
-		)
-	})
-	call := macro.Stop()
-
 	return layout.Background{}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			if !theme.IsDark() {
@@ -132,8 +109,26 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					call.Add(gtx.Ops)
-					return dims
+					return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								btn := s.flatButtons[i]
+								if s.selectedIndex == i {
+									btn.TextColor = theme.SideBarTextColor
+								} else {
+									btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
+								}
+
+								return btn.Layout(gtx, theme)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if i == len(s.Buttons)-1 {
+									return layout.Dimensions{}
+								}
+								return widgets.DrawLine(gtx, theme.SeparatorColor, unit.Dp(2), unit.Dp(45))
+							}),
+						)
+					})
 				}),
 				widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1)),
 			)

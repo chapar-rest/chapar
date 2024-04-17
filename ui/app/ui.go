@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget/material"
 	"github.com/mirzakhany/chapar/internal/domain"
