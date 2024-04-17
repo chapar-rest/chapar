@@ -60,6 +60,9 @@ func NewSidebar(theme *chapartheme.Theme) *Sidebar {
 	for range s.Buttons {
 		s.clickables = append(s.clickables, &widget.Clickable{})
 	}
+
+	s.makeButtons(theme)
+
 	return s
 }
 
@@ -89,16 +92,17 @@ func (s *Sidebar) SelectedIndex() int {
 func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	gtx.Constraints.Max.X = gtx.Dp(70)
 
+	for i, c := range s.clickables {
+		for c.Clicked(gtx) {
+			s.selectedIndex = i
+		}
+	}
+
 	macro := op.Record(gtx.Ops)
-	s.makeButtons(theme)
 	dims := s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				btn := s.flatButtons[i]
-				if btn.Clickable.Clicked(gtx) {
-					s.selectedIndex = i
-				}
-
 				if s.selectedIndex == i {
 					btn.TextColor = theme.SideBarTextColor
 				} else {
