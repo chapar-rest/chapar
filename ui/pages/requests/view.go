@@ -66,6 +66,8 @@ type View struct {
 	containers    *safemap.Map[Container]
 	openTabs      *safemap.Map[*widgets.Tab]
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
+
+	tipsView *tips.Tips
 }
 
 func NewView(theme *chapartheme.Theme) *View {
@@ -91,6 +93,8 @@ func NewView(theme *chapartheme.Theme) *View {
 			Activation:       pointer.ButtonPrimary,
 			AbsolutePosition: true,
 		},
+
+		tipsView: tips.New(),
 	}
 
 	v.tabHeader.SetMaxTitleWidth(20)
@@ -645,8 +649,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			if v.openTabs.Len() == 0 {
-				t := tips.New()
-				return t.Layout(gtx, theme)
+				return v.tipsView.Layout(gtx, theme)
 			}
 
 			selectedTab := v.tabHeader.SelectedTab()

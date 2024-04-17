@@ -46,6 +46,8 @@ type View struct {
 	containers    *safemap.Map[*container]
 	openTabs      *safemap.Map[*widgets.Tab]
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
+
+	tipsView *tips.Tips
 }
 
 func NewView(theme *chapartheme.Theme) *View {
@@ -70,6 +72,8 @@ func NewView(theme *chapartheme.Theme) *View {
 		treeViewNodes: safemap.New[*widgets.TreeNode](),
 		openTabs:      safemap.New[*widgets.Tab](),
 		containers:    safemap.New[*container](),
+
+		tipsView: tips.New(),
 	}
 
 	v.treeViewSearchBox.SetOnTextChange(func(text string) {
@@ -353,8 +357,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			if v.openTabs.Len() == 0 {
-				t := tips.New()
-				return t.Layout(gtx, theme)
+				return v.tipsView.Layout(gtx, theme)
 			}
 
 			selectedTab := v.tabHeader.SelectedTab()
