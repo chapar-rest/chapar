@@ -78,10 +78,11 @@ func NewView(theme *chapartheme.Theme) *View {
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
 		split: widgets.SplitView{
-			Ratio:       -0.64,
-			MinLeftSize: unit.Dp(250),
-			MaxLeftSize: unit.Dp(800),
-			BarWidth:    unit.Dp(2),
+			// Ratio:       -0.64,
+			Resize: giox.Resize{
+				Ratio: 0.19,
+			},
+			BarWidth: unit.Dp(2),
 		},
 		containers:    safemap.New[Container](),
 		treeViewNodes: safemap.New[*widgets.TreeNode](),

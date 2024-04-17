@@ -3,6 +3,7 @@ package restful
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+	giox "gioui.org/x/component"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/pages/requests/component"
@@ -33,7 +34,9 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Restful {
 		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
 		AddressBar: component.NewAddressBar(theme, req.Spec.HTTP.URL, req.Spec.HTTP.Method),
 		split: widgets.SplitView{
-			Ratio:    0.05,
+			Resize: giox.Resize{
+				Ratio: 0.5,
+			},
 			BarWidth: unit.Dp(2),
 		},
 		Response: NewResponse(theme),
