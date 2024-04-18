@@ -3,10 +3,13 @@ package app
 import (
 	"errors"
 	"fmt"
+	"image"
 	"os"
 
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+
+	"github.com/mirzakhany/chapar/internal/rest"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -16,7 +19,6 @@ import (
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/internal/notify"
 	"github.com/mirzakhany/chapar/internal/repository"
-	"github.com/mirzakhany/chapar/internal/rest"
 	"github.com/mirzakhany/chapar/internal/state"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/explorer"
@@ -81,24 +83,25 @@ func New(w *app.Window) (*UI, error) {
 
 	u.header = NewHeader(environmentsState, u.Theme)
 	u.sideBar = NewSidebar(u.Theme)
-
+	//
 	u.environmentsView = environments.NewView(u.Theme)
 	envController := environments.NewController(u.environmentsView, repo, environmentsState, explorerController)
 	if err := envController.LoadData(); err != nil {
 		return nil, err
 	}
-
+	//
 	u.header.LoadEnvs(environmentsState.GetEnvironments())
 	environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, source state.Source, action state.Action) {
 		u.header.LoadEnvs(environmentsState.GetEnvironments())
 	})
-
+	//
 	if selectedEnv := environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironment.ID); selectedEnv != nil {
 		environmentsState.SetActiveEnvironment(selectedEnv)
 		u.header.SetSelectedEnvironment(environmentsState.GetActiveEnvironment())
 	}
-
+	//
 	u.header.OnSelectedEnvChanged = func(env *domain.Environment) {
+		fmt.Println("selected env changed to: ", env.MetaData.Name)
 		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
 		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
 		if err := repo.UpdatePreferences(preferences); err != nil {
@@ -107,9 +110,10 @@ func New(w *app.Window) (*UI, error) {
 
 		environmentsState.SetActiveEnvironment(env)
 	}
-
+	//
 	u.header.SetTheme(preferences.Spec.DarkMode)
 	u.header.OnThemeSwitched = func(isDark bool) {
+		fmt.Println("theme switched to: ", isDark)
 		u.Theme.Switch(isDark)
 
 		preferences.Spec.DarkMode = isDark
@@ -137,11 +141,6 @@ func (u *UI) Run() error {
 		// this is sent when the application should re-render.
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
-
-			// set the background color
-			paint.ColorOp{Color: u.Theme.Palette.Bg}.Add(&ops)
-			paint.PaintOp{}.Add(&ops)
-			clip.Rect{Max: gtx.Constraints.Max}.Push(&ops).Pop()
 			// render and handle UI.
 			u.Layout(gtx, gtx.Constraints.Max.X)
 			// render and handle the operations from the UI.
@@ -155,7 +154,19 @@ func (u *UI) Run() error {
 
 // Layout displays the main program layout.
 func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
-	return layout.Stack{Alignment: layout.S}.Layout(gtx,
+	// set the background color
+	macro := op.Record(gtx.Ops)
+	rect := image.Rectangle{
+		Max: image.Point{
+			X: gtx.Constraints.Max.X,
+			Y: gtx.Constraints.Max.Y,
+		},
+	}
+	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(rect).Op())
+	background := macro.Stop()
+
+	background.Add(gtx.Ops)
+	layout.Stack{Alignment: layout.S}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
@@ -165,6 +176,7 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							// return layout.Dimensions{}
 							return u.sideBar.Layout(gtx, u.Theme)
 						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -186,4 +198,6 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
 		}),
 	)
+
+	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
