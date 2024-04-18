@@ -7,7 +7,6 @@ import (
 	"gioui.org/io/input"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -99,7 +98,6 @@ func (f *FlatButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 						background = Hovered(f.BackgroundColor)
 					}
 					paint.Fill(gtx.Ops, background)
-					gtx.Execute(op.InvalidateCmd{})
 					return layout.Dimensions{Size: gtx.Constraints.Min}
 				},
 				func(gtx layout.Context) layout.Dimensions {
