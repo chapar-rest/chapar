@@ -3,7 +3,6 @@ package requests
 import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/x/component"
@@ -66,6 +65,7 @@ type View struct {
 	containers    *safemap.Map[Container]
 	openTabs      *safemap.Map[*widgets.Tab]
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
+	selectedTabId string
 
 	tipsView *tips.Tips
 }
@@ -656,7 +656,6 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 			if selectedTab != nil {
 				if v.onTabSelected != nil {
 					v.onTabSelected(selectedTab.Identifier)
-					gtx.Execute(op.InvalidateCmd{})
 				}
 
 				if ct, ok := v.containers.Get(selectedTab.Identifier); ok {

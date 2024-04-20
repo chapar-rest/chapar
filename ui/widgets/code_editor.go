@@ -7,7 +7,6 @@ import (
 	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -121,7 +120,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 
 		if e.Name == key.NameTab && e.State == key.Release {
 			c.editor.Insert("    ")
-			gtx.Execute(op.InvalidateCmd{})
 			break
 		}
 	}

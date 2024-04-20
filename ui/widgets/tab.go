@@ -5,14 +5,13 @@ import (
 	"image/color"
 	"unicode"
 
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+
 	"github.com/mirzakhany/chapar/internal/safemap"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 
-	"gioui.org/op"
-
 	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -141,7 +140,6 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 	}
 
 	tabs.tabs = tabItems
-	gtx.Execute(op.InvalidateCmd{})
 	if tabs.selected > len(tabs.tabs)-1 {
 		if len(tabs.tabs) > 0 {
 			tabs.selected = len(tabs.tabs) - 1

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"gioui.org/font"
-
 	"gioui.org/io/input"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"

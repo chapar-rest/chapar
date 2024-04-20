@@ -23,11 +23,10 @@ type DropDown struct {
 
 	isOpen              bool
 	selectedOptionIndex int
+	lastSelectedIndex   int
 	options             []*DropDownOption
 
 	size image.Point
-
-	TextSize unit.Sp
 
 	borderWidth  unit.Dp
 	cornerRadius unit.Dp
@@ -75,6 +74,7 @@ func (o *DropDownOption) DefaultSelected() *DropDownOption {
 
 func (c *DropDown) SetSelected(index int) {
 	c.selectedOptionIndex = index
+	c.lastSelectedIndex = index
 }
 
 func (c *DropDown) SetOnChanged(f func(value string)) {
@@ -85,6 +85,7 @@ func (c *DropDown) SetSelectedByTitle(title string) {
 	for i, opt := range c.options {
 		if opt.Text == title {
 			c.selectedOptionIndex = i
+			c.lastSelectedIndex = i
 			break
 		}
 	}
@@ -94,6 +95,7 @@ func (c *DropDown) SetSelectedByValue(value string) {
 	for i, opt := range c.options {
 		if opt.Value == value {
 			c.selectedOptionIndex = i
+			c.lastSelectedIndex = i
 			break
 		}
 	}
@@ -158,11 +160,6 @@ func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string
 		borderColor = theme.BorderColorFocused
 	}
 
-	textSize := theme.TextSize
-	if c.TextSize != 0 {
-		textSize = c.TextSize
-	}
-
 	border := widget.Border{
 		Color:        borderColor,
 		Width:        c.borderWidth,
@@ -182,7 +179,7 @@ func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme.Material(), textSize, text).Layout(gtx)
+						return material.Label(theme.Material(), theme.TextSize, text).Layout(gtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -210,15 +207,14 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		for opt.clickable.Clicked(gtx) {
 			c.isOpen = false
 			c.selectedOptionIndex = i
-
-			if c.onValueChange != nil {
-				if c.options[i].Value == "" {
-					c.onValueChange(c.options[i].Text)
-				} else {
-					c.onValueChange(c.options[i].Value)
-				}
-			}
 		}
+	}
+
+	if c.selectedOptionIndex != c.lastSelectedIndex {
+		if c.onValueChange != nil {
+			go c.onValueChange(c.options[c.selectedOptionIndex].Value)
+		}
+		c.lastSelectedIndex = c.selectedOptionIndex
 	}
 
 	// Update menu items only if options change

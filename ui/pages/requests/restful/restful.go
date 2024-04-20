@@ -216,6 +216,7 @@ func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.Prompt.Layout(gtx, theme)
+				// return layout.Dimensions{}
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
