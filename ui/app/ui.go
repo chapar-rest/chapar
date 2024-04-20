@@ -101,7 +101,6 @@ func New(w *app.Window) (*UI, error) {
 	}
 	//
 	u.header.OnSelectedEnvChanged = func(env *domain.Environment) {
-		fmt.Println("selected env changed to: ", env.MetaData.Name)
 		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
 		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
 		if err := repo.UpdatePreferences(preferences); err != nil {
@@ -113,7 +112,6 @@ func New(w *app.Window) (*UI, error) {
 	//
 	u.header.SetTheme(preferences.Spec.DarkMode)
 	u.header.OnThemeSwitched = func(isDark bool) {
-		fmt.Println("theme switched to: ", isDark)
 		u.Theme.Switch(isDark)
 
 		preferences.Spec.DarkMode = isDark
