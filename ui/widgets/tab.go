@@ -5,6 +5,8 @@ import (
 	"image/color"
 	"unicode"
 
+	"gioui.org/op"
+
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 
@@ -162,12 +164,14 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				t := tabs.tabs[tabIdx]
 				if t.Closable && t.onClose != nil && t.CloseClickable.Clicked(gtx) {
 					t.onClose(t)
+					gtx.Execute(op.InvalidateCmd{})
 				}
 
 				if t.btn.Clicked(gtx) {
 					tabs.selected = tabIdx
 					if tabs.onSelectedChange != nil {
 						go tabs.onSelectedChange(tabIdx)
+						gtx.Execute(op.InvalidateCmd{})
 					}
 				}
 

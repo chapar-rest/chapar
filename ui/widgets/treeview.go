@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"gioui.org/op"
+
 	"gioui.org/font"
 	"gioui.org/io/input"
 	"gioui.org/io/pointer"
@@ -210,10 +212,12 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		case 1:
 			if t.onNodeClick != nil {
 				go t.onNodeClick(node)
+				gtx.Execute(op.InvalidateCmd{})
 			}
 		case 2:
 			if t.onNodeDoubleClick != nil {
 				go t.onNodeDoubleClick(node)
+				gtx.Execute(op.InvalidateCmd{})
 			}
 		default:
 			if node.Children == nil {
