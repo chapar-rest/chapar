@@ -76,7 +76,7 @@ func (s *Sidebar) makeButtons(theme *chapartheme.Theme) {
 			Clickable:         s.clickables[i],
 			SpaceBetween:      unit.Dp(5),
 			BackgroundPadding: unit.Dp(1),
-			CornerRadius:      0,
+			CornerRadius:      5,
 			MinWidth:          unit.Dp(60),
 			BackgroundColor:   theme.SideBarBgColor,
 			TextColor:         theme.SideBarTextColor,
@@ -90,8 +90,6 @@ func (s *Sidebar) SelectedIndex() int {
 }
 
 func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	gtx.Constraints.Max.X = gtx.Dp(70)
-
 	for i, c := range s.clickables {
 		for c.Clicked(gtx) {
 			s.selectedIndex = i
@@ -107,31 +105,23 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical, Spacing: 0, Alignment: layout.Middle}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								btn := s.flatButtons[i]
-								if s.selectedIndex == i {
-									btn.TextColor = theme.SideBarTextColor
-								} else {
-									btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
-								}
+			return layout.Inset{Left: unit.Dp(2), Right: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
+							btn := s.flatButtons[i]
+							if s.selectedIndex == i {
+								btn.TextColor = theme.SideBarTextColor
+							} else {
+								btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
+							}
 
-								return btn.Layout(gtx, theme)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								if i == len(s.Buttons)-1 {
-									return layout.Dimensions{}
-								}
-								return widgets.DrawLine(gtx, theme.SeparatorColor, unit.Dp(2), unit.Dp(45))
-							}),
-						)
-					})
-				}),
-				widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1)),
-			)
+							return btn.Layout(gtx, theme)
+						})
+					}),
+					widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1)),
+				)
+			})
 		},
 	)
 }
