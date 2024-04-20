@@ -1,6 +1,8 @@
 package requests
 
 import (
+	"image"
+
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -596,21 +598,21 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Min.X = 0
+							newBtn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
+							newBtn.Color = theme.ButtonTextColor
+							newBtnDims := newBtn.Layout(gtx, theme)
 							return layout.Stack{}.Layout(gtx,
 								layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-									btn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
-									btn.Color = theme.ButtonTextColor
-									return btn.Layout(gtx, theme)
+									return newBtnDims
 								}),
 								layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 									return v.newMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 										offset := layout.Inset{
-											Top:  unit.Dp(float32(70)/gtx.Metric.PxPerDp + 1),
+											Top:  unit.Dp(float32(newBtnDims.Size.Y)/gtx.Metric.PxPerDp + 1),
 											Left: unit.Dp(1),
 										}
 										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-											gtx.Constraints.Min.X = 0
+											gtx.Constraints.Min = image.Point{}
 											m := component.Menu(theme.Material(), &v.newMenu)
 											m.SurfaceStyle.Fill = theme.MenuBgColor
 											return m.Layout(gtx)
