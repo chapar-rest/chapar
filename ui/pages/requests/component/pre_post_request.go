@@ -177,8 +177,7 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme
 					return material.Label(theme.Material(), theme.TextSize, "From").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = gtx.Dp(unit.Dp(170))
-					gtx.Constraints.Max.X = gtx.Dp(unit.Dp(165))
+					p.setEnvForm.fromDropDown.MinWidth = unit.Dp(162)
 					return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return p.setEnvForm.fromDropDown.Layout(gtx, theme)
 					})
