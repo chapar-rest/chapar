@@ -158,14 +158,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 		kv.mx.Unlock()
 
 		kv.triggerChanged()
-
 		return layout.Dimensions{}
-	}
-
-	border := widget.Border{
-		Color:        theme.TableBorderColor,
-		CornerRadius: 0,
-		Width:        unit.Dp(1),
 	}
 
 	if item.activeBool.Update(gtx) {
@@ -194,51 +187,54 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 			kv.triggerChanged()
 		}
 	}
-
 	leftPadding := layout.Inset{Left: unit.Dp(8)}
 
-	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					ch := material.CheckBox(theme.Material(), item.activeBool, "")
-					ch.IconColor = theme.CheckBoxColor
-					return ch.Layout(gtx)
-				})
-			}),
-			DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-					layout.Flexed(.80, func(gtx layout.Context) layout.Dimensions {
-						return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(theme.Material(), item.keyEditor, "Key")
-							ed.SelectionColor = theme.TextSelectionColor
-							return ed.Layout(gtx)
-						})
-					}),
-					DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(theme.Material(), item.valueEditor, "Value")
-							ed.SelectionColor = theme.TextSelectionColor
-							return ed.Layout(gtx)
-						})
-					}),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				ib := IconButton{
-					Icon:      DeleteIcon,
-					Size:      unit.Dp(20),
-					Color:     theme.TextColor,
-					Clickable: item.deleteButton,
-				}
-				return layout.Inset{Left: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return ib.Layout(gtx, theme)
-				})
-			}),
-		)
-	})
+	content := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				ch := material.CheckBox(theme.Material(), item.activeBool, "")
+				ch.IconColor = theme.CheckBoxColor
+				return ch.Layout(gtx)
+			})
+		}),
+		DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(.80, func(gtx layout.Context) layout.Dimensions {
+					return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						ed := material.Editor(theme.Material(), item.keyEditor, "Key")
+						ed.SelectionColor = theme.TextSelectionColor
+						return ed.Layout(gtx)
+					})
+				}),
+				DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						ed := material.Editor(theme.Material(), item.valueEditor, "Value")
+						ed.SelectionColor = theme.TextSelectionColor
+						return ed.Layout(gtx)
+					})
+				}),
+			)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			ib := IconButton{
+				Icon:      DeleteIcon,
+				Size:      unit.Dp(20),
+				Color:     theme.TextColor,
+				Clickable: item.deleteButton,
+			}
+			return ib.Layout(gtx, theme)
+		}),
+	)
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return content
+		}),
+		// TODO fix unknown padding issue on right side of the separator, as it should be 0 but it's not.
+		DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+	)
 }
 
 func (kv *KeyValue) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -247,12 +243,20 @@ func (kv *KeyValue) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		items = kv.filteredItems
 	}
 
-	if len(items) == 0 {
-		return layout.Center.Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
+	border := widget.Border{
+		Color:        theme.TableBorderColor,
+		CornerRadius: unit.Dp(4),
+		Width:        unit.Dp(1),
 	}
 
-	return material.List(theme.Material(), kv.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-		return kv.itemLayout(gtx, theme, i, items[i])
+	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		if len(items) == 0 {
+			return layout.UniformInset(unit.Dp(10)).Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
+		}
+
+		return material.List(theme.Material(), kv.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
+			return kv.itemLayout(gtx, theme, i, items[i])
+		})
 	})
 }
 
