@@ -21,7 +21,6 @@ func Clickable(gtx layout.Context, button *widget.Clickable, w layout.Widget) la
 				if button.Hovered() {
 					paint.Fill(gtx.Ops, Hovered(color.NRGBA{}))
 				}
-				// gtx.Execute(op.InvalidateCmd{})
 				return layout.Dimensions{Size: gtx.Constraints.Min}
 			},
 			w,

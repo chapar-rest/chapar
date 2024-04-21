@@ -2,7 +2,6 @@ package environments
 
 import (
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	giox "gioui.org/x/component"
@@ -364,7 +363,6 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 			if selectedTab != nil {
 				if v.onTabSelected != nil {
 					v.onTabSelected(selectedTab.Identifier)
-					gtx.Execute(op.InvalidateCmd{})
 				}
 
 				if ct, ok := v.containers.Get(selectedTab.Identifier); ok {
