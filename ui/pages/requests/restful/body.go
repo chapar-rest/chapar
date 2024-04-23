@@ -15,8 +15,8 @@ type Body struct {
 
 	body domain.Body
 
-	formDataV2 *component.FormData
-	formData   *widgets.KeyValue
+	FormData *component.FormData
+	// formData   *widgets.KeyValue
 	urlencoded *widgets.KeyValue
 	script     *widgets.CodeEditor
 	BinaryFile *component.BinaryFile
@@ -38,9 +38,9 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 			widgets.NewDropDownOption("Binary").WithValue(domain.BodyTypeBinary),
 			widgets.NewDropDownOption("Urlencoded").WithValue(domain.BodyTypeUrlencoded),
 		),
-		formDataV2: component.NewFormData(theme,
+		FormData: component.NewFormData(theme,
 			component.NewFormDataField("text", "foo", "bar", []string{"foo", "bar", "baz", "ooo", "gggg", "dddd"})),
-		formData:   widgets.NewKeyValue(),
+		// formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
 		script:     widgets.NewCodeEditor("", "JSON", theme),
 		BinaryFile: component.NewBinaryFile(""),
@@ -74,10 +74,10 @@ func (b *Body) SetOnChange(f func(body domain.Body)) {
 		b.onChange(b.body)
 	})
 
-	b.formData.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		b.body.FormBody = converter.KeyValueFromWidgetItems(b.formData.Items)
-		b.onChange(b.body)
-	})
+	//b.formData.SetOnChanged(func(items []*widgets.KeyValueItem) {
+	//	b.body.FormBody = converter.KeyValueFromWidgetItems(b.formData.Items)
+	//	b.onChange(b.body)
+	//})
 
 	b.urlencoded.SetOnChanged(func(items []*widgets.KeyValueItem) {
 		b.body.URLEncoded = converter.KeyValueFromWidgetItems(b.urlencoded.Items)
@@ -114,7 +114,7 @@ func (b *Body) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 					case domain.BodyTypeXML:
 						return b.script.Layout(gtx, theme, "XML")
 					case domain.BodyTypeFormData:
-						return b.formDataV2.Layout(gtx, "Form data", "Add form data", theme)
+						return b.FormData.Layout(gtx, "Form data", "Add form data", theme)
 					case domain.BodyTypeBinary:
 						return b.BinaryFile.Layout(gtx, theme)
 					case domain.BodyTypeUrlencoded:

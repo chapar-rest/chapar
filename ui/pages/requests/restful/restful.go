@@ -79,6 +79,16 @@ func (r *Restful) SetOnBinaryFileSelect(f func(id string)) {
 	})
 }
 
+func (r *Restful) SetOnFormDataFileSelect(f func(requestId, fieldId string)) {
+	r.Request.Body.FormData.SetOnSelectFile(func(fieldId string) {
+		f(r.Req.MetaData.ID, fieldId)
+	})
+}
+
+func (r *Restful) AddFileToFormData(fieldId, filePath string) {
+	r.Request.Body.FormData.AddFile(fieldId, filePath)
+}
+
 func (r *Restful) SetBinaryBodyFilePath(filePath string) {
 	r.Request.Body.BinaryFile.SetFileName(filePath)
 }

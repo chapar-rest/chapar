@@ -62,6 +62,7 @@ type View struct {
 	onCopyResponse              func(gtx layout.Context, response string)
 	onOnPostRequestSetChanged   func(id, item, from, fromKey string)
 	onBinaryFileSelect          func(id string)
+	onFromDataFileSelect        func(requestID, fieldID string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -179,6 +180,18 @@ func (v *View) SetBinaryBodyFilePath(id, filePath string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetBinaryBodyFilePath(filePath)
+		}
+	}
+}
+
+func (v *View) SetOnFormDataFileSelect(f func(requestId, fieldId string)) {
+	v.onFromDataFileSelect = f
+}
+
+func (v *View) AddFileToFormData(requestId, fieldId, filePath string) {
+	if ct, ok := v.containers.Get(requestId); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.AddFileToFormData(fieldId, filePath)
 		}
 	}
 }
@@ -377,6 +390,12 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 	ct.SetOnBinaryFileSelect(func(id string) {
 		if v.onBinaryFileSelect != nil {
 			v.onBinaryFileSelect(id)
+		}
+	})
+
+	ct.SetOnFormDataFileSelect(func(requestId, fieldId string) {
+		if v.onFromDataFileSelect != nil {
+			v.onFromDataFileSelect(requestId, fieldId)
 		}
 	})
 

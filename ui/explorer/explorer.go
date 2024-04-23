@@ -27,7 +27,7 @@ func NewExplorer(w *app.Window) *Explorer {
 	}
 }
 
-func (e *Explorer) ChoseFiles(onResult func(r Result), extensions ...string) {
+func (e *Explorer) ChoseFile(onResult func(r Result), extensions ...string) {
 	go func(onResult func(r Result)) {
 		defer func(e *Explorer) {
 			e.w.Invalidate()
@@ -61,5 +61,43 @@ func (e *Explorer) ChoseFiles(onResult func(r Result), extensions ...string) {
 			return
 		}
 		onResult(Result{Data: data, FilePath: filePath, Error: nil})
+	}(onResult)
+}
+
+func (e *Explorer) ChoseFiles(onResult func(r []Result), extensions ...string) {
+	go func(onResult func(r []Result)) {
+		defer func(e *Explorer) {
+			e.w.Invalidate()
+		}(e)
+
+		files, err := e.expl.ChooseFiles(extensions...)
+		if err != nil {
+			err = fmt.Errorf("failed opening file: %w", err)
+			onResult([]Result{{Error: err}})
+			return
+		}
+
+		results := make([]Result, 0, len(files))
+		for _, file := range files {
+
+			filePath := ""
+			// get file path if possible
+			if f, ok := file.(*os.File); ok {
+				filePath = f.Name()
+			}
+
+			data, err := io.ReadAll(file)
+			if err != nil {
+				err = fmt.Errorf("failed reading file: %w", err)
+				results = append(results, Result{Error: err, FilePath: filePath})
+			}
+
+			if err := file.Close(); err != nil {
+				err = fmt.Errorf("failed closing file: %w", err)
+				results = append(results, Result{Error: err})
+			}
+			results = append(results, Result{Data: data, FilePath: filePath, Error: nil})
+		}
+
 	}(onResult)
 }
