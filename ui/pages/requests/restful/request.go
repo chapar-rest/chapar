@@ -28,21 +28,21 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 			{Title: "Body"},
 			{Title: "Auth"},
 			{Title: "Headers"},
-			{Title: "Pre Request"},
+			//	{Title: "Pre Request"},
 			{Title: "Post Request"},
 		}, nil),
-		PreRequest: component.NewPrePostRequest([]component.Option{
-			{Title: "None", Value: domain.PostRequestTypeNone},
-			{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your pre request python script here"},
-			{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
-			{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
-			{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
-		}, theme),
+		//PreRequest: component.NewPrePostRequest([]component.Option{
+		//	{Title: "None", Value: domain.PostRequestTypeNone},
+		//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your pre request python script here"},
+		//	{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
+		//	{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
+		//	{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
+		//}, theme),
 		PostRequest: component.NewPrePostRequest([]component.Option{
 			{Title: "None", Value: domain.PostRequestTypeNone},
 			{Title: "Set Environment Variable", Value: domain.PostRequestTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
-			{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
-			{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
+			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
+			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
 		}, theme),
 
 		Body:    NewBody(req.Spec.HTTP.Request.Body, theme),
@@ -56,14 +56,14 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 		r.Params.SetPathParams(req.Spec.HTTP.Request.PathParams)
 		r.Headers.SetHeaders(req.Spec.HTTP.Request.Headers)
 
-		if req.Spec.HTTP.Request.PreRequest != (domain.PreRequest{}) {
-			r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
-			r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
-		}
+		//if req.Spec.HTTP.Request.PreRequest != (domain.PreRequest{}) {
+		//	r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
+		//	r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
+		//}
 
 		if req.Spec.HTTP.Request.PostRequest != (domain.PostRequest{}) {
 			r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PostRequest.Type)
-			r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
+			//	r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
 		}
 
 		if req.Spec.HTTP.Request.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {
@@ -86,8 +86,8 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				switch r.Tabs.SelectedTab().Title {
-				case "Pre Request":
-					return r.PreRequest.Layout(gtx, theme)
+				//case "Pre Request":
+				//	return r.PreRequest.Layout(gtx, theme)
 				case "Post Request":
 					return r.PostRequest.Layout(gtx, theme)
 				case "Params":

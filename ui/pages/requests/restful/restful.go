@@ -187,15 +187,15 @@ func (r *Restful) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
-	r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
-		r.Req.Spec.HTTP.Request.PreRequest.Type = selected
-		r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	})
+	//r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
+	//	r.Req.Spec.HTTP.Request.PreRequest.Type = selected
+	//	r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	//})
 
-	r.Request.PreRequest.SetOnScriptChanged(func(code string) {
-		r.Req.Spec.HTTP.Request.PreRequest.Script = code
-		r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	})
+	//r.Request.PreRequest.SetOnScriptChanged(func(code string) {
+	//	r.Req.Spec.HTTP.Request.PreRequest.Script = code
+	//	r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	//})
 
 	r.Request.PostRequest.SetOnDropDownChanged(func(selected string) {
 		r.Req.Spec.HTTP.Request.PostRequest.Type = selected
