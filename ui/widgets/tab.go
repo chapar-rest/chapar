@@ -251,7 +251,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				)
 			})
 		}),
-		DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+		DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.Y)),
 	)
 }
 

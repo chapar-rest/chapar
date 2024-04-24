@@ -5,6 +5,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/google/uuid"
 	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
 	"github.com/mirzakhany/chapar/ui/keys"
@@ -102,6 +103,7 @@ func (f *FormData) GetValues() []domain.FormField {
 	values := make([]domain.FormField, 0, len(f.Fields))
 	for _, field := range f.Fields {
 		values = append(values, domain.FormField{
+			ID:     field.Identifier,
 			Type:   field.Type,
 			Key:    field.Key,
 			Value:  field.Value,
@@ -116,11 +118,12 @@ func (f *FormData) SetValues(values []domain.FormField) {
 	f.Fields = make([]*FormDataField, 0, len(values))
 	for _, field := range values {
 		f.addField(&FormDataField{
-			Type:   field.Type,
-			Key:    field.Key,
-			Value:  field.Value,
-			Files:  field.Files,
-			Enable: field.Enable,
+			Identifier: field.ID,
+			Type:       field.Type,
+			Key:        field.Key,
+			Value:      field.Value,
+			Files:      field.Files,
+			Enable:     field.Enable,
 		})
 	}
 }
@@ -182,10 +185,11 @@ func getFileName(filePath string) string {
 
 func NewFormDataField(t FormDataFieldType, key, value string, files []string) *FormDataField {
 	return &FormDataField{
-		Type:  string(t),
-		Key:   key,
-		Value: value,
-		Files: files,
+		Identifier: uuid.NewString(),
+		Type:       string(t),
+		Key:        key,
+		Value:      value,
+		Files:      files,
 	}
 }
 

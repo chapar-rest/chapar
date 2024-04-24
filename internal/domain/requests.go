@@ -143,6 +143,7 @@ const (
 )
 
 type FormField struct {
+	ID     string   `yaml:"id"`
 	Type   string   `yaml:"type"`
 	Key    string   `yaml:"key"`
 	Value  string   `yaml:"value"`
