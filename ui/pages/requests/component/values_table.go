@@ -3,14 +3,13 @@ package component
 import (
 	"fmt"
 
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/mirzakhany/chapar/ui/chapartheme"
 )
 
 type ValuesTable struct {

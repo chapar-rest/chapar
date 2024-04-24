@@ -16,6 +16,8 @@ type BadgeInput struct {
 	Items []*BadgeInputItem
 
 	list *widget.List
+
+	onChange func(values map[string]string)
 }
 
 type BadgeInputItem struct {
@@ -35,11 +37,23 @@ func NewBadgeInput(items ...*BadgeInputItem) *BadgeInput {
 	}
 }
 
+func (b *BadgeInput) SetOnChange(f func(values map[string]string)) {
+	b.onChange = f
+}
+
 func (b *BadgeInput) AddItem(identifier, value string) {
 	b.Items = append(b.Items, &BadgeInputItem{
 		Identifier: identifier,
 		Value:      value,
 	})
+}
+
+func (b *BadgeInput) GetValues() map[string]string {
+	values := make(map[string]string)
+	for _, item := range b.Items {
+		values[item.Identifier] = item.Value
+	}
+	return values
 }
 
 func (b *BadgeInput) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *BadgeInputItem) layout.Dimensions {
@@ -85,6 +99,11 @@ func (b *BadgeInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 	for i := range b.Items {
 		if b.Items[i].closeButton.Clicked(gtx) {
 			b.Items = append(b.Items[:i], b.Items[i+1:]...)
+
+			if b.onChange != nil {
+				b.onChange(b.GetValues())
+			}
+
 			break
 		}
 	}

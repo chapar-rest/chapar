@@ -108,14 +108,6 @@ type HTTPRequest struct {
 	PostRequest PostRequest `yaml:"postRequest"`
 }
 
-//			widgets.NewDropDownOption("None"),
-//			widgets.NewDropDownOption("JSON"),
-//			widgets.NewDropDownOption("Text"),
-//			widgets.NewDropDownOption("XML"),
-//			widgets.NewDropDownOption("Form data"),
-//			widgets.NewDropDownOption("Binary"),
-//			widgets.NewDropDownOption("Urlencoded"),
-
 const (
 	BodyTypeNone       = "none"
 	BodyTypeJSON       = "json"
@@ -131,6 +123,7 @@ type Body struct {
 	// Can be json, xml, or plain text
 	Data string `yaml:"data"`
 
+	FormData       FormData   `yaml:"formData,omitempty"`
 	FormBody       []KeyValue `yaml:"formBody,omitempty"`
 	URLEncoded     []KeyValue `yaml:"urlEncoded,omitempty"`
 	BinaryFilePath string     `yaml:"binaryFilePath,omitempty"`
@@ -139,6 +132,23 @@ type Body struct {
 func (b *Body) Clone() *Body {
 	clone := *b
 	return &clone
+}
+
+type FormData struct {
+	Fields []FormField `yaml:"fields"`
+}
+
+const (
+	FormFieldTypeText = "text"
+	FormFieldTypeFile = "file"
+)
+
+type FormField struct {
+	Type   string   `yaml:"type"`
+	Key    string   `yaml:"key"`
+	Value  string   `yaml:"value"`
+	Files  []string `yaml:"files"`
+	Enable bool     `yaml:"enable"`
 }
 
 const (
@@ -408,6 +418,10 @@ func CompareHTTPRequests(a, b *HTTPRequest) bool {
 		return false
 	}
 
+	if !CompareFormData(a.Body.FormData, b.Body.FormData) {
+		return false
+	}
+
 	if !CompareKeyValues(a.Body.URLEncoded, b.Body.URLEncoded) {
 		return false
 	}
@@ -422,6 +436,38 @@ func CompareHTTPRequests(a, b *HTTPRequest) bool {
 
 	if !ComparePostRequest(a.PostRequest, b.PostRequest) {
 		return false
+	}
+
+	return true
+}
+
+func CompareFormData(a, b FormData) bool {
+	if len(a.Fields) != len(b.Fields) {
+		return false
+	}
+
+	for i, v := range a.Fields {
+		if !CompareFormField(v, b.Fields[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CompareFormField(a, b FormField) bool {
+	if a.Type != b.Type || a.Key != b.Key || a.Value != b.Value || a.Enable != b.Enable {
+		return false
+	}
+
+	if len(a.Files) != len(b.Files) {
+		return false
+	}
+
+	for i, v := range a.Files {
+		if v != b.Files[i] {
+			return false
+		}
 	}
 
 	return true

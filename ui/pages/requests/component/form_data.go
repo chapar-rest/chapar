@@ -5,7 +5,9 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/mirzakhany/chapar/internal/domain"
 	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/mirzakhany/chapar/ui/keys"
 	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
@@ -18,6 +20,7 @@ type FormData struct {
 	list *widget.List
 
 	onSelectFile func(id string)
+	onChanged    func(values []domain.FormField)
 }
 
 type FormDataFieldType string
@@ -42,7 +45,7 @@ type FormDataField struct {
 
 	activeBool   *widget.Bool
 	deleteButton widget.Clickable
-	addButton    widget.Clickable
+	uploadButton widget.Clickable
 }
 
 func NewFormData(theme *chapartheme.Theme, fields ...*FormDataField) *FormData {
@@ -66,9 +69,16 @@ func NewFormData(theme *chapartheme.Theme, fields ...*FormDataField) *FormData {
 
 	f.addButton.OnClick = func() {
 		f.addField(NewFormDataField(FormDataFieldTypeText, "", "", nil))
+		if f.onChanged != nil {
+			f.onChanged(f.GetValues())
+		}
 	}
 
 	return f
+}
+
+func (f *FormData) SetOnChanged(fn func(values []domain.FormField)) {
+	f.onChanged = fn
 }
 
 func (f *FormData) SetOnSelectFile(fn func(id string)) {
@@ -82,6 +92,37 @@ func (f *FormData) AddFile(id string, file string) {
 			field.badgeInput.AddItem(file, getFileName(file))
 		}
 	}
+
+	if f.onChanged != nil {
+		f.onChanged(f.GetValues())
+	}
+}
+
+func (f *FormData) GetValues() []domain.FormField {
+	values := make([]domain.FormField, 0, len(f.Fields))
+	for _, field := range f.Fields {
+		values = append(values, domain.FormField{
+			Type:   field.Type,
+			Key:    field.Key,
+			Value:  field.Value,
+			Files:  field.Files,
+			Enable: field.Enable,
+		})
+	}
+	return values
+}
+
+func (f *FormData) SetValues(values []domain.FormField) {
+	f.Fields = make([]*FormDataField, 0, len(values))
+	for _, field := range values {
+		f.addField(&FormDataField{
+			Type:   field.Type,
+			Key:    field.Key,
+			Value:  field.Value,
+			Files:  field.Files,
+			Enable: field.Enable,
+		})
+	}
 }
 
 func (f *FormData) addField(field *FormDataField) {
@@ -92,13 +133,36 @@ func (f *FormData) addField(field *FormDataField) {
 	)
 	field.typeDropDown.SetSelectedByValue(field.Type)
 	field.typeDropDown.MinWidth = unit.Dp(60)
+
 	field.keyEditor = &widget.Editor{SingleLine: true}
+	field.keyEditor.SetText(field.Key)
+
 	field.valueEditor = &widget.Editor{SingleLine: true}
+	field.valueEditor.SetText(field.Value)
+
 	field.badgeInput = widgets.NewBadgeInput()
 	for _, file := range field.Files {
 		field.badgeInput.AddItem(file, getFileName(file))
 	}
+
+	field.badgeInput.SetOnChange(func(values map[string]string) {
+		field.Files = make([]string, 0, len(values))
+		for file := range values {
+			field.Files = append(field.Files, file)
+		}
+
+		f.triggerChanged()
+	})
+
 	field.activeBool = new(widget.Bool)
+	field.activeBool.Value = field.Enable
+
+	field.typeDropDown.SetOnChanged(func(selected string) {
+		field.Type = selected
+
+		f.triggerChanged()
+	})
+
 	f.Fields = append(f.Fields, field)
 }
 
@@ -126,10 +190,31 @@ func NewFormDataField(t FormDataFieldType, key, value string, files []string) *F
 }
 
 func (f *FormData) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *FormDataField) layout.Dimensions {
-	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, f.fieldLayouts(theme, item)...)
+	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx, f.fieldLayouts(gtx, theme, item)...)
 }
 
-func (f *FormData) fieldLayouts(theme *chapartheme.Theme, item *FormDataField) []layout.FlexChild {
+func (f *FormData) triggerChanged() {
+	if f.onChanged != nil {
+		f.onChanged(f.GetValues())
+	}
+}
+
+func (f *FormData) fieldLayouts(gtx layout.Context, theme *chapartheme.Theme, item *FormDataField) []layout.FlexChild {
+	keys.OnEditorChange(gtx, item.keyEditor, func() {
+		item.Key = item.keyEditor.Text()
+		f.triggerChanged()
+	})
+
+	keys.OnEditorChange(gtx, item.valueEditor, func() {
+		item.Value = item.valueEditor.Text()
+		f.triggerChanged()
+	})
+
+	if item.activeBool.Update(gtx) {
+		item.Enable = item.activeBool.Value
+		f.triggerChanged()
+	}
+
 	items := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			ch := material.CheckBox(theme.Material(), item.activeBool, "")
@@ -173,7 +258,7 @@ func (f *FormData) fieldLayouts(theme *chapartheme.Theme, item *FormDataField) [
 						Icon:      widgets.UploadIcon,
 						Size:      unit.Dp(20),
 						Color:     theme.TextColor,
-						Clickable: &item.addButton,
+						Clickable: &item.uploadButton,
 					}
 					return ib.Layout(gtx, theme)
 				}
@@ -222,9 +307,10 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 	for i, field := range f.Fields {
 		if field.deleteButton.Clicked(gtx) {
 			f.Fields = append(f.Fields[:i], f.Fields[i+1:]...)
+			f.triggerChanged()
 		}
 
-		if field.addButton.Clicked(gtx) {
+		if field.uploadButton.Clicked(gtx) {
 			if f.onSelectFile != nil {
 				go f.onSelectFile(field.Identifier)
 			}
