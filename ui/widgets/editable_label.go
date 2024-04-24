@@ -95,7 +95,9 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) lay
 			}
 			return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme.Material(), e.editor, "").Layout(gtx)
+					editor := material.Editor(theme.Material(), e.editor, "")
+					editor.SelectionColor = theme.TextSelectionColor
+					return editor.Layout(gtx)
 				})
 			})
 		}

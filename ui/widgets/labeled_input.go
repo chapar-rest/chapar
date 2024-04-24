@@ -35,7 +35,9 @@ func (l *LabeledInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layo
 				CornerRadius: unit.Dp(4),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(theme.Material(), l.Editor, "            ").Layout(gtx)
+					editor := material.Editor(theme.Material(), l.Editor, "            ")
+					editor.SelectionColor = theme.TextSelectionColor
+					return editor.Layout(gtx)
 				})
 			})
 		}),
