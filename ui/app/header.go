@@ -111,6 +111,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							h.iconDarkMode.Color = theme.TextColor
 							return h.iconDarkMode.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -119,6 +120,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							h.iconLightMode.Color = theme.TextColor
 							return h.iconLightMode.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
