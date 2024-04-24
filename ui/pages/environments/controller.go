@@ -63,7 +63,7 @@ func (c *Controller) onNewEnvironment() {
 }
 
 func (c *Controller) onImportEnvironment() {
-	c.explorer.ChoseFiles(func(result explorer.Result) {
+	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
 			fmt.Println("failed to get file", result.Error)
 			return

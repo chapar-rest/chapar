@@ -38,4 +38,6 @@ type RestContainer interface {
 	SetOnPostRequestSetChanged(f func(id, item, from, fromKey string))
 	SetOnBinaryFileSelect(f func(id string))
 	SetBinaryBodyFilePath(filePath string)
+	SetOnFormDataFileSelect(f func(requestId, fieldId string))
+	AddFileToFormData(fieldId, filePath string)
 }

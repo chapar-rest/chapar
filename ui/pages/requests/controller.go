@@ -67,6 +67,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnCopyResponse(c.onCopyResponse)
 	view.SetOnBinaryFileSelect(c.onSelectBinaryFile)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
+	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
 	return c
 }
 
@@ -86,7 +87,7 @@ func (c *Controller) LoadData() error {
 }
 
 func (c *Controller) onSelectBinaryFile(id string) {
-	c.explorer.ChoseFiles(func(result explorer.Result) {
+	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
 			fmt.Println("failed to get file", result.Error)
 			return
@@ -95,6 +96,20 @@ func (c *Controller) onSelectBinaryFile(id string) {
 			return
 		}
 		c.view.SetBinaryBodyFilePath(id, result.FilePath)
+	}, "")
+}
+
+func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
+	c.explorer.ChoseFile(func(result explorer.Result) {
+		if result.Error != nil {
+			fmt.Println("failed to get file", result.Error)
+			return
+		}
+		if result.FilePath == "" {
+			return
+		}
+		c.view.AddFileToFormData(requestId, fieldId, result.FilePath)
+
 	}, "")
 }
 
@@ -486,7 +501,7 @@ func (c *Controller) onNewRequest() {
 }
 
 func (c *Controller) onImport() {
-	c.explorer.ChoseFiles(func(result explorer.Result) {
+	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
 			fmt.Println("failed to get file", result.Error)
 			return
