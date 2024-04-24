@@ -124,7 +124,6 @@ type Body struct {
 	Data string `yaml:"data"`
 
 	FormData       FormData   `yaml:"formData,omitempty"`
-	FormBody       []KeyValue `yaml:"formBody,omitempty"`
 	URLEncoded     []KeyValue `yaml:"urlEncoded,omitempty"`
 	BinaryFilePath string     `yaml:"binaryFilePath,omitempty"`
 }
@@ -411,10 +410,6 @@ func CompareHTTPRequests(a, b *HTTPRequest) bool {
 	}
 
 	if !CompareKeyValues(a.QueryParams, b.QueryParams) {
-		return false
-	}
-
-	if !CompareKeyValues(a.Body.FormBody, b.Body.FormBody) {
 		return false
 	}
 

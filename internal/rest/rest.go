@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -223,16 +224,55 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 			httpReq.ContentLength = int64(len(file))
 			httpReq.Header.Add("Content-Type", "application/octet-stream")
 			httpReq.Header.Add("Content-Disposition", "attachment; filename="+req.Request.Body.BinaryFilePath)
+			httpReq.Header.Add("Content-Transfer-Encoding", "binary")
+			httpReq.Header.Add("Connection", "Keep-Alive")
+			httpReq.Header.Add("Content-Length", strconv.Itoa(len(file)))
 		}
 
 	case domain.BodyTypeFormData:
 		// apply form body
-		if len(req.Request.Body.FormBody) > 0 {
-			form := url.Values{}
-			for _, f := range req.Request.Body.FormBody {
-				form.Add(f.Key, f.Value)
+		if len(req.Request.Body.FormData.Fields) > 0 {
+			var b bytes.Buffer
+			w := multipart.NewWriter(&b)
+			for _, field := range req.Request.Body.FormData.Fields {
+				var fw io.Writer
+
+				if field.Type == domain.FormFieldTypeText {
+					if fw, err = w.CreateFormField(field.Key); err != nil {
+						return nil, err
+					}
+					if _, err = io.Copy(fw, strings.NewReader(field.Value)); err != nil {
+						return nil, err
+					}
+				}
+
+				if field.Type == domain.FormFieldTypeFile {
+					for _, ff := range field.Files {
+						file, err := os.Open(ff)
+						if err != nil {
+							return nil, err
+						}
+						defer file.Close()
+
+						if fw, err = w.CreateFormFile(field.Key, file.Name()); err != nil {
+							return nil, err
+						}
+						if _, err = io.Copy(fw, file); err != nil {
+							return nil, err
+						}
+					}
+				}
 			}
-			httpReq.PostForm = form
+
+			if err := w.Close(); err != nil {
+				return nil, err
+			}
+
+			httpReq.Body = io.NopCloser(&b)
+			httpReq.Header.Set("Content-Type", w.FormDataContentType())
+			httpReq.Header.Add("Connection", "Keep-Alive")
+			httpReq.Header.Add("Content-Length", strconv.Itoa(b.Len()))
+			httpReq.ContentLength = int64(b.Len())
 		}
 
 	case domain.BodyTypeUrlencoded:
@@ -370,10 +410,13 @@ func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HT
 			req.Request.Body.Data = strings.ReplaceAll(req.Request.Body.Data, "{{"+k+"}}", v)
 		}
 
-		for i, kv := range req.Request.Body.FormBody {
+		for i, field := range req.Request.Body.FormData.Fields {
+			if field.Type == domain.FormFieldTypeFile {
+				continue
+			}
 			// if value contain the variable in double curly braces then replace it
-			if strings.Contains(kv.Value, "{{"+k+"}}") {
-				req.Request.Body.FormBody[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			if strings.Contains(field.Value, "{{"+k+"}}") {
+				req.Request.Body.FormData.Fields[i].Value = strings.ReplaceAll(field.Value, "{{"+k+"}}", v)
 			}
 		}
 
