@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"gioui.org/app"
+
 	"github.com/mirzakhany/chapar/ui/explorer"
 	"github.com/mirzakhany/chapar/ui/importer"
 
@@ -28,6 +30,8 @@ import (
 )
 
 type Controller struct {
+	window *app.Window
+
 	model *state.Requests
 	view  *View
 
@@ -42,8 +46,9 @@ type Controller struct {
 	restService *rest.Service
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
+func NewController(window *app.Window, view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
 	c := &Controller{
+		window:   window,
 		view:     view,
 		model:    model,
 		repo:     repo,
@@ -245,6 +250,8 @@ func (c *Controller) onSubmitRequest(id string) {
 		Duration:   res.TimePassed,
 		Size:       len(res.Body),
 	})
+
+	c.window.Invalidate()
 }
 
 func cookieToKeyValue(cookies []*http.Cookie) []domain.KeyValue {

@@ -121,7 +121,7 @@ func New(w *app.Window) (*UI, error) {
 	}
 
 	u.requestsView = requests.NewView(u.Theme)
-	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
+	reqController := requests.NewController(w, u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
 	}
