@@ -13,11 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mirzakhany/chapar/internal/state"
-
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/google/uuid"
-
-	"github.com/mirzakhany/chapar/internal/domain"
 )
 
 type Response struct {

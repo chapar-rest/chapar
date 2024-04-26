@@ -10,7 +10,7 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/unit"
-	mainApp "github.com/mirzakhany/chapar/ui/app"
+	mainApp "github.com/chapar-rest/chapar/ui/app"
 )
 
 var (

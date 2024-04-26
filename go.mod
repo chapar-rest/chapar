@@ -1,4 +1,4 @@
-module github.com/mirzakhany/chapar
+module github.com/chapar-rest/chapar
 
 go 1.22.1
 

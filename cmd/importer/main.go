@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mirzakhany/chapar/ui/importer"
+	"github.com/chapar-rest/chapar/ui/importer"
 )
 
 var (

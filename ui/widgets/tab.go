@@ -10,8 +10,8 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 
-	"github.com/mirzakhany/chapar/internal/safemap"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 
 	"gioui.org/layout"
 	"gioui.org/unit"

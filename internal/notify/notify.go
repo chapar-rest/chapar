@@ -3,7 +3,7 @@ package notify
 import (
 	"time"
 
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 var NotificationController = &widgets.Notification{}

@@ -12,8 +12,8 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/richtext"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/fonts"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/fonts"
 )
 
 type CodeEditor struct {

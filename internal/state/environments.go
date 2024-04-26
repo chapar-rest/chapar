@@ -1,9 +1,9 @@
 package state
 
 import (
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/repository"
-	"github.com/mirzakhany/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/internal/safemap"
 )
 
 type (

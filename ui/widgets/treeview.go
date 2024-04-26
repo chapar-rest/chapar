@@ -17,8 +17,8 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/mirzakhany/chapar/internal/safemap"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 type TreeView struct {

@@ -9,7 +9,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 type DropDown struct {

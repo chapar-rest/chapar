@@ -9,7 +9,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 
 	"gioui.org/io/semantic"
 	"gioui.org/layout"

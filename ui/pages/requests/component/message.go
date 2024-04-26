@@ -3,7 +3,7 @@ package component
 import (
 	"gioui.org/layout"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 const (

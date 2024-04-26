@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/domain"
 	"gopkg.in/yaml.v2"
 )
 

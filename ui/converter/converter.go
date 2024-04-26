@@ -1,8 +1,8 @@
 package converter
 
 import (
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 func KeyValueFromWidgetItems(items []*widgets.KeyValueItem) []domain.KeyValue {

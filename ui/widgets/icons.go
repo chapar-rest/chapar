@@ -4,7 +4,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 

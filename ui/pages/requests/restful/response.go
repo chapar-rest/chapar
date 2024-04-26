@@ -5,16 +5,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/domain"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/pages/requests/component"
+	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/dustin/go-humanize"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/pages/requests/component"
-	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 type Response struct {

@@ -3,17 +3,14 @@ package app
 import (
 	"image"
 
-	"gioui.org/op"
-
-	"gioui.org/op/paint"
-
-	"gioui.org/op/clip"
-
 	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type Sidebar struct {

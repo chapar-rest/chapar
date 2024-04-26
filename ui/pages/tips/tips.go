@@ -8,8 +8,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/assets"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/assets"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 type Tips struct {

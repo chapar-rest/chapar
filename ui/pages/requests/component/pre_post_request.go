@@ -5,10 +5,10 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/keys"
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/keys"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type PrePostRequest struct {

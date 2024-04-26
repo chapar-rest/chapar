@@ -3,13 +3,12 @@ package environments
 import (
 	"fmt"
 
-	"github.com/mirzakhany/chapar/ui/importer"
-
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/repository"
-	"github.com/mirzakhany/chapar/internal/state"
-	"github.com/mirzakhany/chapar/ui/explorer"
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/internal/state"
+	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/importer"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type Controller struct {

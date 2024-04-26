@@ -4,10 +4,10 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/converter"
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/converter"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type container struct {

@@ -4,10 +4,10 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	giox "gioui.org/x/component"
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/pages/requests/component"
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/pages/requests/component"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type Restful struct {

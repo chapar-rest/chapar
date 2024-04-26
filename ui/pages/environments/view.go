@@ -5,14 +5,14 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	giox "gioui.org/x/component"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/converter"
+	"github.com/chapar-rest/chapar/ui/keys"
+	"github.com/chapar-rest/chapar/ui/pages/tips"
+	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/google/uuid"
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/safemap"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/converter"
-	"github.com/mirzakhany/chapar/ui/keys"
-	"github.com/mirzakhany/chapar/ui/pages/tips"
-	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 const (

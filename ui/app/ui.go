@@ -6,27 +6,25 @@ import (
 	"image"
 	"os"
 
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-
-	"github.com/mirzakhany/chapar/internal/rest"
-
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget/material"
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/notify"
-	"github.com/mirzakhany/chapar/internal/repository"
-	"github.com/mirzakhany/chapar/internal/state"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/explorer"
-	"github.com/mirzakhany/chapar/ui/fonts"
-	"github.com/mirzakhany/chapar/ui/pages/console"
-	"github.com/mirzakhany/chapar/ui/pages/environments"
-	"github.com/mirzakhany/chapar/ui/pages/requests"
-	"github.com/mirzakhany/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/notify"
+	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/state"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/fonts"
+	"github.com/chapar-rest/chapar/ui/pages/console"
+	"github.com/chapar-rest/chapar/ui/pages/environments"
+	"github.com/chapar-rest/chapar/ui/pages/requests"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type UI struct {
@@ -120,8 +118,8 @@ func New(w *app.Window) (*UI, error) {
 		}
 	}
 
-	u.requestsView = requests.NewView(u.Theme)
-	reqController := requests.NewController(w, u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
+	u.requestsView = requests.NewView(w, u.Theme)
+	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
 	if err := reqController.LoadData(); err != nil {
 		return nil, err
 	}

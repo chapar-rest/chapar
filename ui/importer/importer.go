@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/google/uuid"
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/repository"
 )
 
 var variablesMap = map[string]string{

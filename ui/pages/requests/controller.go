@@ -7,31 +7,19 @@ import (
 	"strings"
 	"time"
 
-	"gioui.org/app"
-
-	"github.com/mirzakhany/chapar/ui/explorer"
-	"github.com/mirzakhany/chapar/ui/importer"
-
-	"github.com/mirzakhany/chapar/internal/notify"
-
 	"gioui.org/io/clipboard"
-
 	"gioui.org/layout"
-
-	"github.com/mirzakhany/chapar/internal/repository"
-
-	"github.com/mirzakhany/chapar/internal/state"
-
-	"github.com/mirzakhany/chapar/internal/rest"
-
-	"github.com/mirzakhany/chapar/ui/widgets"
-
-	"github.com/mirzakhany/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/notify"
+	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/state"
+	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/importer"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type Controller struct {
-	window *app.Window
-
 	model *state.Requests
 	view  *View
 
@@ -46,9 +34,8 @@ type Controller struct {
 	restService *rest.Service
 }
 
-func NewController(window *app.Window, view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
 	c := &Controller{
-		window:   window,
 		view:     view,
 		model:    model,
 		repo:     repo,
@@ -250,8 +237,6 @@ func (c *Controller) onSubmitRequest(id string) {
 		Duration:   res.TimePassed,
 		Size:       len(res.Body),
 	})
-
-	c.window.Invalidate()
 }
 
 func cookieToKeyValue(cookies []*http.Cookie) []domain.KeyValue {

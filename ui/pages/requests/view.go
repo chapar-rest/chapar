@@ -3,21 +3,22 @@ package requests
 import (
 	"image"
 
+	"gioui.org/app"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/x/component"
 	giox "gioui.org/x/component"
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/keys"
+	"github.com/chapar-rest/chapar/ui/pages/requests/collections"
+	"github.com/chapar-rest/chapar/ui/pages/requests/restful"
+	"github.com/chapar-rest/chapar/ui/pages/tips"
+	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/google/uuid"
-	"github.com/mirzakhany/chapar/internal/domain"
-	"github.com/mirzakhany/chapar/internal/safemap"
-	"github.com/mirzakhany/chapar/ui/chapartheme"
-	"github.com/mirzakhany/chapar/ui/keys"
-	"github.com/mirzakhany/chapar/ui/pages/requests/collections"
-	"github.com/mirzakhany/chapar/ui/pages/requests/restful"
-	"github.com/mirzakhany/chapar/ui/pages/tips"
-	"github.com/mirzakhany/chapar/ui/widgets"
 )
 
 const (
@@ -28,7 +29,8 @@ const (
 )
 
 type View struct {
-	theme *chapartheme.Theme
+	theme  *chapartheme.Theme
+	window *app.Window
 
 	// add menu
 	newRequestButton     widget.Clickable
@@ -73,11 +75,12 @@ type View struct {
 	tipsView *tips.Tips
 }
 
-func NewView(theme *chapartheme.Theme) *View {
+func NewView(w *app.Window, theme *chapartheme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
 	v := &View{
+		window:            w,
 		theme:             theme,
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
@@ -461,6 +464,7 @@ func (v *View) SetHTTPResponse(id string, response domain.HTTPResponseDetail) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetHTTPResponse(response)
+			v.window.Invalidate()
 		}
 	}
 }
