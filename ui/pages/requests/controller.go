@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -334,6 +336,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
+	c.view.SetTreeViewNodePrefix(id, req.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method))
 }
 
 func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) string {
