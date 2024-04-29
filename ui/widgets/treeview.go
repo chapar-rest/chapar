@@ -103,6 +103,11 @@ func (tr *TreeNode) AddChildNode(child *TreeNode) {
 	tr.Children = append(tr.Children, child)
 }
 
+func (tr *TreeNode) SetPrefix(prefix string, color color.NRGBA) {
+	tr.Prefix = prefix
+	tr.PrefixColor = color
+}
+
 func (t *TreeView) ExpandNode(identifier string) {
 	for _, n := range t.nodes {
 		if n.Identifier == identifier {
@@ -202,10 +207,6 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		leftPadding = 24
 	}
 
-	// if node.isChild {
-	// 	leftPadding = 30
-	// }
-
 	for {
 		click, ok := node.DiscloserState.Clickable.Update(gtx)
 		if !ok {
@@ -247,6 +248,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 								lb := material.Label(theme.Material(), unit.Sp(13), node.Prefix)
 								lb.Font.Weight = font.SemiBold
 								lb.Color = node.PrefixColor
+								lb.TextSize = unit.Sp(11)
 								lb.MaxLines = 1
 								return lb.Layout(gtx)
 							})

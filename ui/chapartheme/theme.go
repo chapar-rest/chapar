@@ -13,6 +13,8 @@ var (
 	LightGreen  = color.NRGBA{R: 0x8b, G: 0xc3, B: 0x4a, A: 0xff}
 	LightRed    = color.NRGBA{R: 0xff, G: 0x73, B: 0x73, A: 0xff}
 	LightYellow = color.NRGBA{R: 0xff, G: 0xe0, B: 0x73, A: 0xff}
+	LightBlue   = color.NRGBA{R: 0x45, G: 0x89, B: 0xf5, A: 0xff}
+	LightPurple = color.NRGBA{R: 0x9c, G: 0x27, B: 0xb0, A: 0xff}
 )
 
 type Theme struct {
@@ -126,4 +128,25 @@ func rgb(c uint32) color.NRGBA {
 
 func argb(c uint32) color.NRGBA {
 	return color.NRGBA{A: uint8(c >> 24), R: uint8(c >> 16), G: uint8(c >> 8), B: uint8(c)}
+}
+
+func GetRequestPrefixColor(method string) color.NRGBA {
+	switch method {
+	case "GET":
+		return LightGreen
+	case "POST":
+		return LightYellow
+	case "PUT":
+		return LightBlue
+	case "DELETE":
+		return LightRed
+	case "PATCH":
+		return LightPurple
+	case "OPTIONS":
+		return color.NRGBA{R: 0x00, G: 0x80, B: 0x80, A: 0xff}
+	case "HEAD":
+		return color.NRGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff}
+	default:
+		return color.NRGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff}
+	}
 }

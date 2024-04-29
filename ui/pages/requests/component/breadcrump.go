@@ -58,7 +58,7 @@ func (b *Breadcrumb) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		items = append(items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			l := material.Label(theme.Material(), theme.TextSize, strings.ToUpper(b.ContainerType))
 			l.Font.Weight = font.Bold
-			l.Color = theme.RequestMethodColor
+			l.Color = chapartheme.GetRequestPrefixColor(b.ContainerType)
 			return l.Layout(gtx)
 		}))
 	}

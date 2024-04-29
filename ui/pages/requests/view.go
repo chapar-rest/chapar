@@ -498,27 +498,6 @@ func (v *View) HidePrompt(id string) {
 	ct.HidePrompt()
 }
 
-func getRequestPrefixColor(method string) color.NRGBA {
-	switch method {
-	case "GET":
-		return color.NRGBA{R: 0x00, G: 0x80, B: 0x00, A: 0xff}
-	case "POST":
-		return color.NRGBA{R: 0x00, G: 0x00, B: 0x80, A: 0xff}
-	case "PUT":
-		return color.NRGBA{R: 0x80, G: 0x00, B: 0x00, A: 0xff}
-	case "DELETE":
-		return color.NRGBA{R: 0x80, G: 0x00, B: 0x80, A: 0xff}
-	case "PATCH":
-		return color.NRGBA{R: 0x80, G: 0x80, B: 0x00, A: 0xff}
-	case "OPTIONS":
-		return color.NRGBA{R: 0x00, G: 0x80, B: 0x80, A: 0xff}
-	case "HEAD":
-		return color.NRGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff}
-	default:
-		return color.NRGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff}
-	}
-}
-
 func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domain.Collection) {
 	treeViewNodes := make([]*widgets.TreeNode, 0)
 	for _, cl := range collections {
@@ -538,7 +517,7 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 				MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 				Meta:        safemap.New[string](),
 				Prefix:      req.Spec.HTTP.Method,
-				PrefixColor: getRequestPrefixColor(req.Spec.HTTP.Method),
+				PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 			}
 			node.Meta.Set(TypeMeta, TypeRequest)
 			parentNode.AddChildNode(node)
@@ -556,7 +535,7 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 			MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 			Meta:        safemap.New[string](),
 			Prefix:      req.Spec.HTTP.Method,
-			PrefixColor: getRequestPrefixColor(req.Spec.HTTP.Method),
+			PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 		}
 		node.Meta.Set(TypeMeta, TypeRequest)
 		treeViewNodes = append(treeViewNodes, node)
@@ -572,6 +551,14 @@ func (v *View) AddTreeViewNode(req *domain.Request) {
 
 func (v *View) AddChildTreeViewNode(parentID string, req *domain.Request) {
 	v.addTreeViewNode(parentID, req)
+}
+
+func (v *View) SetTreeViewNodePrefix(id string, prefix string, color color.NRGBA) {
+	if node, ok := v.treeViewNodes.Get(id); ok {
+		node.PrefixColor = color
+		node.Prefix = prefix
+		v.window.Invalidate()
+	}
 }
 
 func (v *View) addTreeViewNode(parentID string, req *domain.Request) {

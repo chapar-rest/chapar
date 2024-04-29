@@ -154,105 +154,105 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		tabs.selected = 0
 	}
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return tabs.list.Layout(gtx, len(tabs.tabs), func(gtx layout.Context, tabIdx int) layout.Dimensions {
-				if tabIdx > len(tabs.tabs)-1 {
-					tabIdx = len(tabs.tabs) - 1
-				}
+	//return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+	//	layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return tabs.list.Layout(gtx, len(tabs.tabs), func(gtx layout.Context, tabIdx int) layout.Dimensions {
+		if tabIdx > len(tabs.tabs)-1 {
+			tabIdx = len(tabs.tabs) - 1
+		}
 
-				t := tabs.tabs[tabIdx]
-				if t.Closable && t.onClose != nil && t.CloseClickable.Clicked(gtx) {
-					t.onClose(t)
-					gtx.Execute(op.InvalidateCmd{})
-				}
+		t := tabs.tabs[tabIdx]
+		if t.Closable && t.onClose != nil && t.CloseClickable.Clicked(gtx) {
+			t.onClose(t)
+			gtx.Execute(op.InvalidateCmd{})
+		}
 
-				if t.btn.Clicked(gtx) {
-					tabs.selected = tabIdx
-					if tabs.onSelectedChange != nil {
-						go tabs.onSelectedChange(tabIdx)
-						gtx.Execute(op.InvalidateCmd{})
-					}
-				}
+		if t.btn.Clicked(gtx) {
+			tabs.selected = tabIdx
+			if tabs.onSelectedChange != nil {
+				go tabs.onSelectedChange(tabIdx)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+		}
 
-				if t.btn.Hovered() {
-					paint.FillShape(gtx.Ops, theme.Palette.ContrastBg, clip.Rect{Max: gtx.Constraints.Min}.Op())
-				}
+		if t.btn.Hovered() {
+			paint.FillShape(gtx.Ops, theme.Palette.ContrastBg, clip.Rect{Max: gtx.Constraints.Min}.Op())
+		}
 
-				var tabWidth int
-				return layout.Stack{Alignment: layout.S}.Layout(gtx,
-					layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-						var dims layout.Dimensions
-						if t.Closable {
-							dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return layout.UniformInset(unit.Dp(12)).Layout(gtx,
-											material.Label(theme.Material(), unit.Sp(13), ellipticalTruncate(t.Title, tabs.maxTitleWidth)).Layout,
-										)
-									}),
-									layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										bkColor := color.NRGBA{}
-										hoveredColor := Hovered(bkColor)
-										if t.btn.Hovered() {
-											bkColor = hoveredColor
-										}
-										iconColor := theme.ContrastFg
-										closeIcon := CloseIcon
-										iconSize := unit.Dp(16)
-										padding := unit.Dp(4)
-										if t.isDataChanged {
-											// yellow
-											iconColor = color.NRGBA{R: 0xff, G: 0xff, B: 0x00, A: 0xff}
-											closeIcon = CircleIcon
-											iconSize = unit.Dp(10)
-											padding = unit.Dp(8)
-										}
-
-										ib := &IconButton{
-											Icon:                 closeIcon,
-											Color:                iconColor,
-											BackgroundColor:      bkColor,
-											BackgroundColorHover: hoveredColor,
-											Size:                 iconSize,
-											Clickable:            t.CloseClickable,
-										}
-										return layout.UniformInset(padding).Layout(gtx,
-											func(gtx layout.Context) layout.Dimensions {
-												return ib.Layout(gtx, theme)
-											},
-										)
-									}),
-								)
-							})
-						} else {
-							dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
+		var tabWidth int
+		return layout.Stack{Alignment: layout.S}.Layout(gtx,
+			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+				var dims layout.Dimensions
+				if t.Closable {
+					dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return layout.UniformInset(unit.Dp(12)).Layout(gtx,
-									material.Label(theme.Material(), unit.Sp(13), t.Title).Layout,
+									material.Label(theme.Material(), unit.Sp(13), ellipticalTruncate(t.Title, tabs.maxTitleWidth)).Layout,
 								)
-							})
-						}
+							}),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								bkColor := color.NRGBA{}
+								hoveredColor := Hovered(bkColor)
+								if t.btn.Hovered() {
+									bkColor = hoveredColor
+								}
+								iconColor := theme.ContrastFg
+								closeIcon := CloseIcon
+								iconSize := unit.Dp(16)
+								padding := unit.Dp(4)
+								if t.isDataChanged {
+									// yellow
+									iconColor = color.NRGBA{R: 0xff, G: 0xff, B: 0x00, A: 0xff}
+									closeIcon = CircleIcon
+									iconSize = unit.Dp(10)
+									padding = unit.Dp(8)
+								}
 
-						tabWidth = dims.Size.X
-						return dims
-					}),
-					layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-						if tabs.selected != tabIdx {
-							return layout.Dimensions{}
-						}
-						tabHeight := gtx.Dp(unit.Dp(2))
-						tabRect := image.Rect(0, 0, tabWidth, tabHeight)
-						paint.FillShape(gtx.Ops, theme.TabInactiveColor, clip.Rect(tabRect).Op())
-						return layout.Dimensions{
-							Size: image.Point{X: tabWidth, Y: tabHeight},
-						}
-					}),
-				)
-			})
-		}),
-		DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
-	)
+								ib := &IconButton{
+									Icon:                 closeIcon,
+									Color:                iconColor,
+									BackgroundColor:      bkColor,
+									BackgroundColorHover: hoveredColor,
+									Size:                 iconSize,
+									Clickable:            t.CloseClickable,
+								}
+								return layout.UniformInset(padding).Layout(gtx,
+									func(gtx layout.Context) layout.Dimensions {
+										return ib.Layout(gtx, theme)
+									},
+								)
+							}),
+						)
+					})
+				} else {
+					dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
+						return layout.UniformInset(unit.Dp(12)).Layout(gtx,
+							material.Label(theme.Material(), unit.Sp(13), t.Title).Layout,
+						)
+					})
+				}
+
+				tabWidth = dims.Size.X
+				return dims
+			}),
+			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+				if tabs.selected != tabIdx {
+					return layout.Dimensions{}
+				}
+				tabHeight := gtx.Dp(unit.Dp(2))
+				tabRect := image.Rect(0, 0, tabWidth, tabHeight)
+				paint.FillShape(gtx.Ops, theme.TabInactiveColor, clip.Rect(tabRect).Op())
+				return layout.Dimensions{
+					Size: image.Point{X: tabWidth, Y: tabHeight},
+				}
+			}),
+		)
+	})
+	//	}),
+	//DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+	//)
 }
 
 func ellipticalTruncate(text string, maxLen int) string {
