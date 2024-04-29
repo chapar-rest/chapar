@@ -116,7 +116,12 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 							return btn.Layout(gtx, theme)
 						})
 					}),
-					widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1)),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if !theme.IsDark() {
+							return layout.Dimensions{}
+						}
+						return widgets.DrawLine(gtx, theme.SeparatorColor, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1))
+					}),
 				)
 			})
 		},

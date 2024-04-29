@@ -225,18 +225,18 @@ func (f *FormData) fieldLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 			ch.IconColor = theme.CheckBoxColor
 			return ch.Layout(gtx)
 		}),
-		widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+		widgets.DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return item.typeDropDown.Layout(gtx, theme)
 		}),
-		widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+		widgets.DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(100))
 				return material.Editor(theme.Material(), item.keyEditor, "Key").Layout(gtx)
 			})
 		}),
-		widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+		widgets.DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
 	}
 
 	itemType := item.typeDropDown.GetSelected().Identifier
@@ -268,7 +268,7 @@ func (f *FormData) fieldLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 				}
 				return layout.Dimensions{}
 			}),
-			widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+			widgets.DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				ib := widgets.IconButton{
 					Icon:      widgets.DeleteIcon,
@@ -301,7 +301,13 @@ func (f *FormData) layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return f.itemLayout(gtx, theme, f.Fields[i])
 				}),
-				widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					// only if it's not the last item
+					if i == len(f.Fields)-1 {
+						return layout.Dimensions{}
+					}
+					return widgets.DrawLine(gtx, theme.TableBorderColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X))
+				}),
 			)
 		})
 	})
@@ -329,8 +335,8 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{
-						Left:  unit.Dp(10),
-						Right: unit.Dp(10),
+						Left: unit.Dp(10),
+						//	Right: unit.Dp(10),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return material.Label(theme.Material(), unit.Sp(10), hint).Layout(gtx)
 					})
@@ -340,7 +346,6 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 						Top:    0,
 						Bottom: unit.Dp(10),
 						Left:   0,
-						Right:  unit.Dp(10),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						f.addButton.BackgroundColor = theme.Palette.Bg
 						f.addButton.Color = theme.TextColor

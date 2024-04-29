@@ -2,12 +2,13 @@ package widgets
 
 import (
 	"image"
+	"image/color"
 	"sort"
 	"strings"
 
+	"gioui.org/font"
 	"gioui.org/op"
 
-	"gioui.org/font"
 	"gioui.org/io/input"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -36,6 +37,8 @@ type TreeView struct {
 
 type TreeNode struct {
 	Text           string
+	Prefix         string
+	PrefixColor    color.NRGBA
 	Identifier     string
 	Children       []*TreeNode
 	DiscloserState component.DiscloserState
@@ -199,9 +202,9 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		leftPadding = 24
 	}
 
-	if node.isChild {
-		leftPadding = 36
-	}
+	// if node.isChild {
+	// 	leftPadding = 30
+	// }
 
 	for {
 		click, ok := node.DiscloserState.Clickable.Update(gtx)
@@ -235,10 +238,26 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(8 + leftPadding)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					lb := material.Label(theme.Material(), unit.Sp(13), node.Text)
-					lb.Font.Weight = font.SemiBold
-					lb.MaxLines = 1
-					return lb.Layout(gtx)
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if node.Prefix == "" {
+								return layout.Dimensions{}
+							}
+							return layout.Inset{Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								lb := material.Label(theme.Material(), unit.Sp(13), node.Prefix)
+								lb.Font.Weight = font.SemiBold
+								lb.Color = node.PrefixColor
+								lb.MaxLines = 1
+								return lb.Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lb := material.Label(theme.Material(), unit.Sp(13), node.Text)
+							lb.Font.Weight = font.SemiBold
+							lb.MaxLines = 1
+							return lb.Layout(gtx)
+						}),
+					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					iconBtn := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

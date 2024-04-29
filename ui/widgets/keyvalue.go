@@ -197,7 +197,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 				return ch.Layout(gtx)
 			})
 		}),
-		DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+		DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(.80, func(gtx layout.Context) layout.Dimensions {
@@ -207,7 +207,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 						return ed.Layout(gtx)
 					})
 				}),
-				DrawLineFlex(theme.SeparatorColor, unit.Dp(35), unit.Dp(1)),
+				DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						ed := material.Editor(theme.Material(), item.valueEditor, "Value")
@@ -228,12 +228,18 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 		}),
 	)
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return content
 		}),
 		// TODO fix unknown padding issue on right side of the separator, as it should be 0 but it's not.
-		DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// only if it's not the last item
+			if index == len(kv.Items)-1 {
+				return layout.Dimensions{}
+			}
+			return DrawLine(gtx, theme.TableBorderColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X))
+		}),
 	)
 }
 
@@ -280,7 +286,6 @@ func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme 
 						Top:    0,
 						Bottom: unit.Dp(10),
 						Left:   0,
-						Right:  unit.Dp(10),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						kv.addButton.BackgroundColor = theme.Palette.Bg
 						kv.addButton.Color = theme.TextColor
