@@ -3,6 +3,7 @@ package domain
 const (
 	ApiVersion = "v1"
 
+	KindConfig        = "Config"
 	KindWorkspace     = "Workspace"
 	KindEnv           = "Environment"
 	KindRequest       = "Request"

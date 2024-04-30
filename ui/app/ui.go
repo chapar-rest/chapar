@@ -54,7 +54,11 @@ func New(w *app.Window) (*UI, error) {
 		return nil, err
 	}
 
-	repo := &repository.Filesystem{}
+	repo, err := repository.NewFilesystem()
+	if err != nil {
+		return nil, err
+	}
+
 	environmentsState := state.NewEnvironments(repo)
 	requestsState := state.NewRequests(repo)
 

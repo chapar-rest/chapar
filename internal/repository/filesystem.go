@@ -25,6 +25,201 @@ const (
 var _ Repository = &Filesystem{}
 
 type Filesystem struct {
+	ActiveWorkspace *domain.Workspace
+}
+
+func NewFilesystem() (*Filesystem, error) {
+	fs := &Filesystem{}
+	config, err := fs.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	if config.Spec.ActiveWorkspace != "" {
+		ws, err := fs.GetWorkspace(config.Spec.ActiveWorkspace)
+		if err != nil {
+			return nil, err
+		}
+		fs.ActiveWorkspace = ws
+	}
+
+	// if there is no active workspace, create default workspace
+	if fs.ActiveWorkspace == nil {
+		ws := domain.NewWorkspace("default")
+		cDir, err := GetConfigDir()
+		if err != nil {
+			return nil, err
+		}
+
+		ws.FilePath = path.Join(cDir, "default")
+		fmt.Println("Creating default workspace", ws.FilePath)
+		if err := fs.UpdateWorkspace(ws); err != nil {
+			return nil, err
+		}
+
+		fs.ActiveWorkspace = ws
+	}
+
+	return fs, nil
+}
+
+func (f *Filesystem) GetConfig() (*domain.Config, error) {
+	dir, err := GetConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
+	// if config file does not exist, create it
+	if _, err := os.Stat(path.Join(dir, "config.yaml")); os.IsNotExist(err) {
+		config := domain.NewConfig()
+		if err := SaveToYaml(path.Join(dir, "config.yaml"), config); err != nil {
+			return nil, err
+		}
+
+		return config, nil
+	}
+
+	filePath := path.Join(dir, "config.yaml")
+	return LoadFromYaml[domain.Config](filePath)
+}
+
+func (f *Filesystem) UpdateConfig(config *domain.Config) error {
+	dir, err := GetConfigDir()
+	if err != nil {
+		return err
+	}
+
+	filePath := path.Join(dir, "config.yaml")
+	return SaveToYaml(filePath, config)
+}
+
+func (f *Filesystem) LoadWorkspaces() ([]*domain.Workspace, error) {
+	wdir, err := f.GetWorkspacesDir()
+	if err != nil {
+		return nil, err
+	}
+
+	dirs, err := os.ReadDir(wdir)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*domain.Workspace, 0)
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		dirPath := path.Join(wdir, dir.Name())
+		if ws, err := f.GetWorkspace(dirPath); err != nil {
+			return nil, err
+		} else {
+			out = append(out, ws)
+		}
+	}
+
+	return out, nil
+}
+
+func (f *Filesystem) GetWorkspace(dirPath string) (*domain.Workspace, error) {
+	// if directory is not exist, create it
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(dirPath, 0755); err != nil {
+			return nil, err
+		}
+	}
+
+	filePath := filepath.Join(dirPath, "_workspace.yaml")
+
+	// if workspace file does not exist, create it
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		ws := domain.NewWorkspace(path.Base(dirPath))
+		ws.FilePath = filePath
+		if err := SaveToYaml(filePath, ws); err != nil {
+			return nil, err
+		}
+
+		return ws, nil
+	}
+
+	ws, err := LoadFromYaml[domain.Workspace](filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	ws.FilePath = filePath
+	return ws, nil
+}
+
+func (f *Filesystem) GetWorkspacesDir() (string, error) {
+	dir, err := CreateConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	// all folders in the config directory are workspaces
+	return dir, nil
+}
+
+func (f *Filesystem) UpdateWorkspace(workspace *domain.Workspace) error {
+	if !strings.HasSuffix(workspace.FilePath, "_workspace.yaml") {
+		// if directory is not exist, create it
+		if _, err := os.Stat(workspace.FilePath); os.IsNotExist(err) {
+			if err := os.MkdirAll(workspace.FilePath, 0755); err != nil {
+				return err
+			}
+		}
+
+		workspace.FilePath = filepath.Join(workspace.FilePath, "_workspace.yaml")
+	}
+
+	if err := SaveToYaml(workspace.FilePath, workspace); err != nil {
+		return err
+	}
+
+	// Get the directory name
+	dirName := path.Dir(workspace.FilePath)
+	// Change the directory name to the collection name
+	if workspace.MetaData.Name != path.Base(dirName) {
+		// replace last part of the path with the new name
+		newDirName := path.Join(path.Dir(dirName), workspace.MetaData.Name)
+		if err := os.Rename(dirName, newDirName); err != nil {
+			return err
+		}
+		workspace.FilePath = filepath.Join(newDirName, "_workspace.yaml")
+	}
+
+	return nil
+}
+
+func (f *Filesystem) DeleteWorkspace(workspace *domain.Workspace) error {
+	return os.RemoveAll(path.Dir(workspace.FilePath))
+}
+
+func (f *Filesystem) GetNewWorkspaceDir(name string) (*FilePath, error) {
+	wDir, err := f.GetWorkspacesDir()
+	if err != nil {
+		return nil, err
+	}
+
+	dir := path.Join(wDir, name)
+	if !dirExist(dir) {
+		return &FilePath{
+			Path:    dir,
+			NewName: name,
+		}, nil
+	}
+
+	// If the file exists, append a number to the filename.
+	for i := 1; ; i++ {
+		newDirName := fmt.Sprintf("%s%d", dir, i)
+		if !dirExist(newDirName) {
+			return &FilePath{
+				Path:    newDirName,
+				NewName: fmt.Sprintf("%s%d", name, i),
+			}, nil
+		}
+	}
 }
 
 func (f *Filesystem) GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (*FilePath, error) {
@@ -117,7 +312,7 @@ func (f *Filesystem) GetCollectionsDir() (string, error) {
 		return "", err
 	}
 
-	cdir := path.Join(dir, collectionsDir)
+	cdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, collectionsDir)
 	if err := makeDir(cdir); err != nil {
 		return "", err
 	}
@@ -232,7 +427,7 @@ func (f *Filesystem) GetEnvironmentDir() (string, error) {
 		return "", err
 	}
 
-	envDir := path.Join(dir, environmentsDir)
+	envDir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, environmentsDir)
 	if err := makeDir(envDir); err != nil {
 		return "", err
 	}
@@ -275,7 +470,7 @@ func (f *Filesystem) ReadPreferencesData() (*domain.Preferences, error) {
 	if err != nil {
 		return nil, err
 	}
-	pdir := path.Join(dir, preferencesDir)
+	pdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
 	filePath := path.Join(pdir, "preferences.yaml")
 	return LoadFromYaml[domain.Preferences](filePath)
 }
@@ -286,7 +481,7 @@ func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
 		return err
 	}
 
-	pdir := path.Join(dir, preferencesDir)
+	pdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
 	if err := makeDir(pdir); err != nil {
 		return err
 	}
@@ -351,7 +546,7 @@ func (f *Filesystem) GetRequestsDir() (string, error) {
 		return "", err
 	}
 
-	rdir := path.Join(dir, requestsDir)
+	rdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, requestsDir)
 	if err := makeDir(rdir); err != nil {
 		return "", err
 	}

@@ -32,6 +32,16 @@ type Repository interface {
 	UpdateRequest(request *domain.Request) error
 	DeleteRequest(request *domain.Request) error
 	GetNewRequestFilePath(name string) (*FilePath, error)
+
+	LoadWorkspaces() ([]*domain.Workspace, error)
+	GetWorkspace(filepath string) (*domain.Workspace, error)
+	GetWorkspacesDir() (string, error)
+	UpdateWorkspace(workspace *domain.Workspace) error
+	DeleteWorkspace(workspace *domain.Workspace) error
+	GetNewWorkspaceDir(name string) (*FilePath, error)
+
+	GetConfig() (*domain.Config, error)
+	UpdateConfig(config *domain.Config) error
 }
 
 type FilePath struct {
