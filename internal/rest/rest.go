@@ -286,16 +286,22 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	// apply authentication
 	if req.Request.Auth != (domain.Auth{}) {
-		if req.Request.Auth.TokenAuth != nil && req.Request.Auth.TokenAuth.Token != "" {
-			httpReq.Header.Add("Authorization", "Bearer "+req.Request.Auth.TokenAuth.Token)
+		if req.Request.Auth.Type == domain.AuthTypeToken {
+			if req.Request.Auth.TokenAuth != nil && req.Request.Auth.TokenAuth.Token != "" {
+				httpReq.Header.Add("Authorization", "Bearer "+req.Request.Auth.TokenAuth.Token)
+			}
 		}
 
-		if req.Request.Auth.BasicAuth != nil && req.Request.Auth.BasicAuth.Username != "" && req.Request.Auth.BasicAuth.Password != "" {
-			httpReq.SetBasicAuth(req.Request.Auth.BasicAuth.Username, req.Request.Auth.BasicAuth.Password)
+		if req.Request.Auth.Type == domain.AuthTypeBasic {
+			if req.Request.Auth.BasicAuth != nil && req.Request.Auth.BasicAuth.Username != "" && req.Request.Auth.BasicAuth.Password != "" {
+				httpReq.SetBasicAuth(req.Request.Auth.BasicAuth.Username, req.Request.Auth.BasicAuth.Password)
+			}
 		}
 
-		if req.Request.Auth.APIKeyAuth != nil && req.Request.Auth.APIKeyAuth.Key != "" && req.Request.Auth.APIKeyAuth.Value != "" {
-			httpReq.Header.Add(req.Request.Auth.APIKeyAuth.Key, req.Request.Auth.APIKeyAuth.Value)
+		if req.Request.Auth.Type == domain.AuthTypeAPIKey {
+			if req.Request.Auth.APIKeyAuth != nil && req.Request.Auth.APIKeyAuth.Key != "" && req.Request.Auth.APIKeyAuth.Value != "" {
+				httpReq.Header.Add(req.Request.Auth.APIKeyAuth.Key, req.Request.Auth.APIKeyAuth.Value)
+			}
 		}
 	}
 
