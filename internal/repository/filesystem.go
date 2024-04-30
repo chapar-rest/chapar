@@ -35,8 +35,13 @@ func NewFilesystem() (*Filesystem, error) {
 		return nil, err
 	}
 
+	cDir, err := GetConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
 	if config.Spec.ActiveWorkspace != "" {
-		ws, err := fs.GetWorkspace(config.Spec.ActiveWorkspace)
+		ws, err := fs.GetWorkspace(filepath.Join(cDir, config.Spec.ActiveWorkspace))
 		if err != nil {
 			return nil, err
 		}
@@ -46,13 +51,7 @@ func NewFilesystem() (*Filesystem, error) {
 	// if there is no active workspace, create default workspace
 	if fs.ActiveWorkspace == nil {
 		ws := domain.NewWorkspace("default")
-		cDir, err := GetConfigDir()
-		if err != nil {
-			return nil, err
-		}
-
 		ws.FilePath = path.Join(cDir, "default")
-		fmt.Println("Creating default workspace", ws.FilePath)
 		if err := fs.UpdateWorkspace(ws); err != nil {
 			return nil, err
 		}
