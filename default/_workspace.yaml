@@ -1,5 +1,0 @@
-apiVersion: v1
-kind: Workspace
-metadata:
-  id: 07d803c8-c2cc-40c2-bf11-d8f669714d46
-  name: default
