@@ -184,13 +184,19 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	// apply headers
 	for _, h := range req.Request.Headers {
-		if h.Enable {
-			httpReq.Header.Add(h.Key, h.Value)
+		if !h.Enable {
+			continue
 		}
+
+		httpReq.Header.Add(h.Key, h.Value)
 	}
 
 	// apply path params as single brace
 	for _, p := range req.Request.PathParams {
+		if !p.Enable {
+			continue
+		}
+
 		httpReq.URL.Path = strings.ReplaceAll(httpReq.URL.Path, "{"+p.Key+"}", p.Value)
 	}
 
@@ -233,6 +239,10 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 			var b bytes.Buffer
 			w := multipart.NewWriter(&b)
 			for _, field := range req.Request.Body.FormData.Fields {
+				if !field.Enable {
+					continue
+				}
+
 				var fw io.Writer
 
 				if field.Type == domain.FormFieldTypeText {
@@ -278,6 +288,10 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 		if len(req.Request.Body.URLEncoded) > 0 {
 			form := url.Values{}
 			for _, f := range req.Request.Body.URLEncoded {
+				if !f.Enable {
+					continue
+				}
+
 				form.Add(f.Key, f.Value)
 			}
 			httpReq.PostForm = form
@@ -379,6 +393,9 @@ func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HT
 
 		// add env variables to variables
 		for _, kv := range env.Values {
+			if !kv.Enable {
+				continue
+			}
 			variables[kv.Key] = kv.Value
 		}
 	}
