@@ -91,6 +91,16 @@ func (c *DropDown) SetSelectedByTitle(title string) {
 	}
 }
 
+func (c *DropDown) SetSelectedByIdentifier(identifier string) {
+	for i, opt := range c.options {
+		if opt.Identifier == identifier {
+			c.selectedOptionIndex = i
+			c.lastSelectedIndex = i
+			break
+		}
+	}
+}
+
 func (c *DropDown) SetSelectedByValue(value string) {
 	for i, opt := range c.options {
 		if opt.Value == value {
@@ -257,7 +267,7 @@ func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
 		c.menu.Options = append(c.menu.Options, func(gtx layout.Context) layout.Dimensions {
 			if opt.isDivider {
 				dv := component.Divider(theme.Material())
-				dv.Fill = theme.TextColor
+				dv.Fill = theme.BorderColor
 				return dv.Layout(gtx)
 			}
 
