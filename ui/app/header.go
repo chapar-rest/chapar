@@ -16,6 +16,9 @@ type Header struct {
 	selectedEnv   string
 	envDropDown   *widgets.DropDown
 
+	selectedWorkspace string
+	workspaceDropDown *widgets.DropDown
+
 	envState      *state.Environments
 	switchState   *widget.Bool
 	themeSwitcher material.SwitchStyle
@@ -28,8 +31,9 @@ type Header struct {
 }
 
 const (
-	none          = "none"
-	noEnvironment = "No Environment"
+	none             = "none"
+	noEnvironment    = "No Environment"
+	defaultWorkspace = "default"
 )
 
 func NewHeader(envState *state.Environments, theme *chapartheme.Theme) *Header {
@@ -44,6 +48,13 @@ func NewHeader(envState *state.Environments, theme *chapartheme.Theme) *Header {
 
 	h.themeSwitcher = material.Switch(theme.Material(), h.switchState, "")
 	h.envDropDown = widgets.NewDropDown(theme)
+	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
+		theme,
+		widgets.NewDropDownOption("Default Workspace").WithIdentifier(defaultWorkspace),
+		widgets.NewDropDownDivider(),
+		widgets.NewDropDownOption("Manage").WithIdentifier("manage"),
+	)
+	h.workspaceDropDown.SetSelectedByIdentifier(defaultWorkspace)
 	h.envDropDown.MinWidth = unit.Dp(150)
 	return h
 }
@@ -100,13 +111,32 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 		}
 	}
 
+	selectedWorkspace := h.workspaceDropDown.GetSelected().Identifier
+	if selectedWorkspace != h.selectedWorkspace {
+		if selectedWorkspace != "manage" {
+			h.selectedWorkspace = selectedWorkspace
+		} else {
+			// switch back to the previous selected workspace
+			h.workspaceDropDown.SetSelectedByIdentifier(h.selectedWorkspace)
+		}
+	}
+
 	content := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.H6(h.materialTheme, "Chapar").Layout(gtx)
-					})
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return material.H6(h.materialTheme, "Chapar").Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: unit.Dp(20), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return h.workspaceDropDown.Layout(gtx, theme)
+							})
+						}),
+					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,

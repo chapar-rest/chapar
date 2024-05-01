@@ -177,7 +177,6 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							// return layout.Dimensions{}
 							return u.sideBar.Layout(gtx, u.Theme)
 						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
