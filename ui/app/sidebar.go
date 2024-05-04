@@ -40,6 +40,7 @@ func NewSidebar(theme *chapartheme.Theme) *Sidebar {
 		Buttons: []*SideBarButton{
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
 			{Icon: widgets.MenuIcon, Text: "Envs"},
+			{Icon: widgets.WorkspacesIcon, Text: "Workspaces"},
 			// {Icon: widgets.FileFolderIcon, Text: "Proto"},
 			// {Icon: widgets.TunnelIcon, Text: "Tunnels"},
 			// {Icon: widgets.ConsoleIcon, Text: "Console"},
@@ -74,7 +75,7 @@ func (s *Sidebar) makeButtons(theme *chapartheme.Theme) {
 			SpaceBetween:      unit.Dp(5),
 			BackgroundPadding: unit.Dp(1),
 			CornerRadius:      5,
-			MinWidth:          unit.Dp(60),
+			MinWidth:          unit.Dp(70),
 			BackgroundColor:   theme.SideBarBgColor,
 			TextColor:         theme.SideBarTextColor,
 			ContentPadding:    unit.Dp(5),
