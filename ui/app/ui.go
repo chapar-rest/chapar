@@ -6,6 +6,8 @@ import (
 	"image"
 	"os"
 
+	"github.com/chapar-rest/chapar/ui/pages/workspaces"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -39,6 +41,7 @@ type UI struct {
 
 	environmentsView *environments.View
 	requestsView     *requests.View
+	workspacesView   *workspaces.View
 
 	tipsOpen bool
 }
@@ -128,6 +131,12 @@ func New(w *app.Window) (*UI, error) {
 		return nil, err
 	}
 
+	u.workspacesView = workspaces.NewView()
+	workspaceController := workspaces.NewController(u.workspacesView, state.NewWorkspaces(repo), repo)
+	if err := workspaceController.LoadData(); err != nil {
+		return nil, err
+	}
+
 	u.notification = &widgets.Notification{}
 	return u, nil
 }
@@ -185,6 +194,8 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 								return u.requestsView.Layout(gtx, u.Theme)
 							case 1:
 								return u.environmentsView.Layout(gtx, u.Theme)
+							case 2:
+								return u.workspacesView.Layout(gtx, u.Theme)
 								// case 4:
 								//	return u.consolePage.Layout(gtx, u.Theme)
 							}

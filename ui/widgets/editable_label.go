@@ -1,9 +1,13 @@
 package widgets
 
 import (
+	"image"
+
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -18,7 +22,8 @@ type EditableLabel struct {
 
 	onChanged func(text string)
 
-	isEditing bool
+	isEditing  bool
+	isReadOnly bool
 }
 
 func NewEditableLabel(text string) *EditableLabel {
@@ -41,9 +46,17 @@ func (e *EditableLabel) SetText(text string) {
 	e.Text = text
 }
 
+func (e *EditableLabel) SetReadOnly(readOnly bool) {
+	e.isReadOnly = readOnly
+}
+
+func (e *EditableLabel) SetEditing(editing bool) {
+	e.isEditing = editing
+}
+
 func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	for e.clickable.Clicked(gtx) {
-		if !e.isEditing {
+		if !e.isEditing && !e.isReadOnly {
 			e.isEditing = true
 			e.editor.SetText(e.Text)
 		}
@@ -102,12 +115,22 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) lay
 			})
 		}
 
-		return layout.Inset{
-			Top:    unit.Dp(5),
-			Bottom: unit.Dp(5),
-			Left:   unit.Dp(5),
-		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return material.Label(theme.Material(), theme.TextSize, e.Text).Layout(gtx)
-		})
+		return layout.Background{}.Layout(gtx,
+			func(gtx layout.Context) layout.Dimensions {
+				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, gtx.Dp(4)).Push(gtx.Ops).Pop()
+				background := theme.Bg
+				switch {
+				case e.clickable.Hovered() || gtx.Focused(e.clickable):
+					background = Hovered(theme.Bg)
+				}
+				paint.Fill(gtx.Ops, background)
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			},
+			func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Label(theme.Material(), theme.TextSize, e.Text).Layout(gtx)
+				})
+			},
+		)
 	})
 }

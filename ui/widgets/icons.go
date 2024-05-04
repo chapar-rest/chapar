@@ -144,3 +144,8 @@ var SendIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ContentSend)
 	return icon
 }()
+
+var WorkspacesIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.NavigationApps)
+	return icon
+}()

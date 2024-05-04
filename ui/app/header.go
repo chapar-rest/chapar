@@ -51,8 +51,6 @@ func NewHeader(envState *state.Environments, theme *chapartheme.Theme) *Header {
 	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
 		theme,
 		widgets.NewDropDownOption("Default Workspace").WithIdentifier(defaultWorkspace),
-		widgets.NewDropDownDivider(),
-		widgets.NewDropDownOption("Manage").WithIdentifier("manage"),
 	)
 	h.workspaceDropDown.SetSelectedByIdentifier(defaultWorkspace)
 	h.envDropDown.MinWidth = unit.Dp(150)
@@ -113,12 +111,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 
 	selectedWorkspace := h.workspaceDropDown.GetSelected().Identifier
 	if selectedWorkspace != h.selectedWorkspace {
-		if selectedWorkspace != "manage" {
-			h.selectedWorkspace = selectedWorkspace
-		} else {
-			// switch back to the previous selected workspace
-			h.workspaceDropDown.SetSelectedByIdentifier(h.selectedWorkspace)
-		}
+		h.selectedWorkspace = selectedWorkspace
 	}
 
 	content := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
