@@ -24,6 +24,10 @@ type View struct {
 
 	items []*Item
 	list  *widget.List
+
+	onNew    func()
+	onDelete func(w *domain.Workspace)
+	onUpdate func(w *domain.Workspace)
 }
 
 type Item struct {
@@ -60,6 +64,18 @@ func NewView() *View {
 	return v
 }
 
+func (v *View) SetOnNew(f func()) {
+	v.onNew = f
+}
+
+func (v *View) SetOnDelete(f func(w *domain.Workspace)) {
+	v.onDelete = f
+}
+
+func (v *View) SetOnUpdate(f func(w *domain.Workspace)) {
+	v.onUpdate = f
+}
+
 func (v *View) Filter(text string) {
 	v.mx.Lock()
 	defer v.mx.Unlock()
@@ -86,14 +102,59 @@ func (v *View) SetItems(items []*domain.Workspace) {
 		readonly := w.MetaData.Name == "default"
 		nameEditable := widgets.NewEditableLabel(w.MetaData.Name)
 		nameEditable.SetReadOnly(readonly)
+
+		nameEditable.SetOnChanged(func(text string) {
+			if v.onUpdate != nil {
+				w.MetaData.Name = text
+				v.onUpdate(w)
+			}
+		})
+
 		v.items = append(v.items, &Item{w: w, Name: nameEditable, readOnly: readonly})
 	}
+}
+
+func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *Item) layout.Dimensions {
+	return layout.Inset{Top: unit.Dp(10), Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = gtx.Dp(100)
+				return item.Name.Layout(gtx, theme)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if item.readOnly {
+					return layout.Dimensions{}
+				}
+
+				ib := widgets.IconButton{
+					Icon:      widgets.DeleteIcon,
+					Size:      unit.Dp(20),
+					Color:     theme.TextColor,
+					Clickable: &item.deleteButton,
+				}
+
+				ib.OnClick = func() {
+					if v.onDelete != nil {
+						v.onDelete(item.w)
+					}
+				}
+
+				return ib.Layout(gtx, theme)
+			}),
+		)
+	})
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems
+	}
+
+	if v.onNew != nil {
+		if v.newButton.Clicked(gtx) {
+			v.onNew()
+		}
 	}
 
 	return layout.Inset{Top: unit.Dp(30), Left: unit.Dp(250), Right: unit.Dp(250)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -129,27 +190,7 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Rigid(layout.Spacer{Height: unit.Dp(30)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.List(theme.Material(), v.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(10), Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = gtx.Dp(100)
-								return items[i].Name.Layout(gtx, theme)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								if items[i].readOnly {
-									return layout.Dimensions{}
-								}
-
-								ib := widgets.IconButton{
-									Icon:      widgets.DeleteIcon,
-									Size:      unit.Dp(20),
-									Color:     theme.TextColor,
-									Clickable: &items[i].deleteButton,
-								}
-								return ib.Layout(gtx, theme)
-							}),
-						)
-					})
+					return v.itemLayout(gtx, theme, items[i])
 				})
 			}),
 		)

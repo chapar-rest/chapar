@@ -68,8 +68,9 @@ func (m *Workspaces) RemoveWorkspace(workspace *domain.Workspace, source Source,
 	return nil
 }
 
-func (m *Workspaces) GetWorkspace(id string) (*domain.Workspace, bool) {
-	return m.workspaces.Get(id)
+func (m *Workspaces) GetWorkspace(id string) *domain.Workspace {
+	ws, _ := m.workspaces.Get(id)
+	return ws
 }
 
 func (m *Workspaces) UpdateWrorkspace(workspace *domain.Workspace, source Source, stateOnly bool) error {
