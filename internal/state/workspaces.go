@@ -17,13 +17,13 @@ type Workspaces struct {
 	workspaces                     *safemap.Map[*domain.Workspace]
 
 	activeWorkspace *domain.Workspace
-	respository     repository.Repository
+	repository      repository.Repository
 }
 
 func NewWorkspaces(repository repository.Repository) *Workspaces {
 	return &Workspaces{
-		respository: repository,
-		workspaces:  safemap.New[*domain.Workspace](),
+		repository: repository,
+		workspaces: safemap.New[*domain.Workspace](),
 	}
 }
 
@@ -58,7 +58,7 @@ func (m *Workspaces) RemoveWorkspace(workspace *domain.Workspace, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.respository.DeleteWorkspace(workspace); err != nil {
+		if err := m.repository.DeleteWorkspace(workspace); err != nil {
 			return err
 		}
 	}
@@ -73,13 +73,13 @@ func (m *Workspaces) GetWorkspace(id string) *domain.Workspace {
 	return ws
 }
 
-func (m *Workspaces) UpdateWrorkspace(workspace *domain.Workspace, source Source, stateOnly bool) error {
+func (m *Workspaces) UpdateWorkspace(workspace *domain.Workspace, source Source, stateOnly bool) error {
 	if _, ok := m.workspaces.Get(workspace.MetaData.ID); !ok {
 		return ErrNotFound
 	}
 
 	if !stateOnly {
-		if err := m.respository.UpdateWorkspace(workspace); err != nil {
+		if err := m.repository.UpdateWorkspace(workspace); err != nil {
 			return err
 		}
 	}
@@ -108,12 +108,12 @@ func (m *Workspaces) ClearActiveWorkspace() {
 	m.notifyActiveWorkspaceChange(nil)
 }
 
-func (m *Workspaces) GetAllWorkspaces() []*domain.Workspace {
+func (m *Workspaces) GetWorkspaces() []*domain.Workspace {
 	return m.workspaces.Values()
 }
 
 func (m *Workspaces) LoadWorkspacesFromDisk() ([]*domain.Workspace, error) {
-	ws, err := m.respository.LoadWorkspaces()
+	ws, err := m.repository.LoadWorkspaces()
 	if err != nil {
 		return nil, err
 	}

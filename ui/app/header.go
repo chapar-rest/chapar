@@ -19,29 +19,31 @@ type Header struct {
 	selectedWorkspace string
 	workspaceDropDown *widgets.DropDown
 
-	envState      *state.Environments
-	switchState   *widget.Bool
-	themeSwitcher material.SwitchStyle
+	envState        *state.Environments
+	workspacesState *state.Workspaces
+	switchState     *widget.Bool
+	themeSwitcher   material.SwitchStyle
 
 	iconDarkMode  material.LabelStyle
 	iconLightMode material.LabelStyle
 
-	OnSelectedEnvChanged func(env *domain.Environment)
-	OnThemeSwitched      func(isLight bool)
+	OnSelectedEnvChanged       func(env *domain.Environment)
+	OnSelectedWorkspaceChanged func(env *domain.Workspace)
+	OnThemeSwitched            func(isLight bool)
 }
 
 const (
-	none             = "none"
-	noEnvironment    = "No Environment"
-	defaultWorkspace = "default"
+	none          = "none"
+	noEnvironment = "No Environment"
 )
 
-func NewHeader(envState *state.Environments, theme *chapartheme.Theme) *Header {
+func NewHeader(envState *state.Environments, workspacesState *state.Workspaces, theme *chapartheme.Theme) *Header {
 	h := &Header{
-		materialTheme: theme.Material(),
-		selectedEnv:   noEnvironment,
-		envState:      envState,
-		switchState:   new(widget.Bool),
+		materialTheme:   theme.Material(),
+		selectedEnv:     noEnvironment,
+		envState:        envState,
+		workspacesState: workspacesState,
+		switchState:     new(widget.Bool),
 	}
 	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
@@ -50,9 +52,9 @@ func NewHeader(envState *state.Environments, theme *chapartheme.Theme) *Header {
 	h.envDropDown = widgets.NewDropDown(theme)
 	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
 		theme,
-		widgets.NewDropDownOption("Default Workspace").WithIdentifier(defaultWorkspace),
+		widgets.NewDropDownOption(domain.DefaultWorkspaceName).WithIdentifier(domain.DefaultWorkspaceName),
 	)
-	h.workspaceDropDown.SetSelectedByIdentifier(defaultWorkspace)
+	h.workspaceDropDown.SetSelectedByIdentifier(domain.DefaultWorkspaceName)
 	h.envDropDown.MinWidth = unit.Dp(150)
 	return h
 }
@@ -75,6 +77,28 @@ func (h *Header) LoadEnvs(data []*domain.Environment) {
 	if selectEnvExist {
 		h.SetSelectedEnvironment(h.envState.GetEnvironment(h.selectedEnv))
 	}
+}
+
+func (h *Header) LoadWorkspaces(data []*domain.Workspace) {
+	options := make([]*widgets.DropDownOption, 0)
+	selectWsExist := false
+	for _, ws := range data {
+		if h.selectedEnv == ws.MetaData.ID {
+			selectWsExist = true
+		}
+		options = append(options, widgets.NewDropDownOption(ws.MetaData.Name).WithIdentifier(ws.MetaData.ID))
+	}
+
+	h.workspaceDropDown.SetOptions(options...)
+
+	if selectWsExist {
+		h.SetSelectedWorkspace(h.workspacesState.GetWorkspace(h.selectedWorkspace))
+	}
+}
+
+func (h *Header) SetSelectedWorkspace(ws *domain.Workspace) {
+	h.selectedWorkspace = ws.MetaData.ID
+	h.workspaceDropDown.SetSelectedByTitle(ws.MetaData.Name)
 }
 
 func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
@@ -112,6 +136,12 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 	selectedWorkspace := h.workspaceDropDown.GetSelected().Identifier
 	if selectedWorkspace != h.selectedWorkspace {
 		h.selectedWorkspace = selectedWorkspace
+		ws := h.workspacesState.GetWorkspace(selectedWorkspace)
+		h.workspacesState.SetActiveWorkspace(ws)
+
+		if h.OnSelectedWorkspaceChanged != nil {
+			h.OnSelectedWorkspaceChanged(ws)
+		}
 	}
 
 	content := layout.Rigid(func(gtx layout.Context) layout.Dimensions {

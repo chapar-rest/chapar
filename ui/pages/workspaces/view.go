@@ -99,7 +99,7 @@ func (v *View) Filter(text string) {
 func (v *View) SetItems(items []*domain.Workspace) {
 	v.items = make([]*Item, 0)
 	for _, w := range items {
-		readonly := w.MetaData.Name == "default"
+		readonly := w.MetaData.Name == domain.DefaultWorkspaceName
 		nameEditable := widgets.NewEditableLabel(w.MetaData.Name)
 		nameEditable.SetReadOnly(readonly)
 
@@ -114,8 +114,8 @@ func (v *View) SetItems(items []*domain.Workspace) {
 	}
 }
 
-func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *Item) layout.Dimensions {
-	return layout.Inset{Top: unit.Dp(10), Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *Item, isLast bool) layout.Dimensions {
+	content := layout.Inset{Top: unit.Dp(10), Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(100)
@@ -143,6 +143,19 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 			}),
 		)
 	})
+
+	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return content
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// only if it's not the last item
+			if isLast {
+				return layout.Dimensions{}
+			}
+			return widgets.DrawLine(gtx, theme.TableBorderColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X))
+		}),
+	)
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -190,7 +203,7 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Rigid(layout.Spacer{Height: unit.Dp(30)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.List(theme.Material(), v.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-					return v.itemLayout(gtx, theme, items[i])
+					return v.itemLayout(gtx, theme, items[i], i == len(items)-1)
 				})
 			}),
 		)

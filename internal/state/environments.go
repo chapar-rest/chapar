@@ -144,6 +144,8 @@ func (m *Environments) LoadEnvironmentsFromDisk() ([]*domain.Environment, error)
 		return nil, err
 	}
 
+	m.environments.Clear()
+
 	for _, env := range envs {
 		m.environments.Set(env.MetaData.ID, env)
 	}

@@ -94,3 +94,13 @@ func (m *Map[T]) Len() int {
 	m.mux.RUnlock()
 	return length
 }
+
+func (m *Map[T]) Clear() {
+	if m == nil {
+		return
+	}
+
+	m.mux.Lock()
+	m.m = make(map[string]T)
+	m.mux.Unlock()
+}

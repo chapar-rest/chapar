@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
+
+const DefaultWorkspaceName = "Default Workspace"
 
 type Workspace struct {
 	ApiVersion string   `yaml:"apiVersion"`
@@ -16,6 +20,18 @@ func NewWorkspace(name string) *Workspace {
 		MetaData: MetaData{
 			ID:   uuid.NewString(),
 			Name: name,
+		},
+		FilePath: "",
+	}
+}
+
+func NewDefaultWorkspace() *Workspace {
+	return &Workspace{
+		ApiVersion: ApiVersion,
+		Kind:       KindWorkspace,
+		MetaData: MetaData{
+			ID:   "default",
+			Name: DefaultWorkspaceName,
 		},
 		FilePath: "",
 	}

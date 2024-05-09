@@ -210,6 +210,8 @@ func (m *Requests) LoadRequestsFromDisk() ([]*domain.Request, error) {
 		return nil, err
 	}
 
+	m.requests.Clear()
+
 	for _, req := range reqs {
 		m.requests.Set(req.MetaData.ID, req)
 	}
@@ -222,6 +224,8 @@ func (m *Requests) LoadCollectionsFromDisk() ([]*domain.Collection, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	m.collections.Clear()
 
 	for _, col := range cols {
 		m.collections.Set(col.MetaData.ID, col)
