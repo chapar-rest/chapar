@@ -156,6 +156,7 @@ func (c *DropDown) SelectedIndex() int {
 }
 
 func (c *DropDown) SetOptions(options ...*DropDownOption) {
+	c.selectedOptionIndex = 0
 	c.options = options
 	c.menuInit = true
 }

@@ -50,7 +50,7 @@ func NewFilesystem() (*Filesystem, error) {
 
 	// if there is no active workspace, create default workspace
 	if fs.ActiveWorkspace == nil {
-		ws := domain.NewWorkspace("default")
+		ws := domain.NewDefaultWorkspace()
 		ws.FilePath = path.Join(cDir, "default")
 		if err := fs.UpdateWorkspace(ws); err != nil {
 			return nil, err
@@ -60,6 +60,11 @@ func NewFilesystem() (*Filesystem, error) {
 	}
 
 	return fs, nil
+}
+
+func (f *Filesystem) SetActiveWorkspace(workspace *domain.Workspace) error {
+	f.ActiveWorkspace = workspace
+	return nil
 }
 
 func (f *Filesystem) GetConfig() (*domain.Config, error) {

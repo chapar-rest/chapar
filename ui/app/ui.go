@@ -43,6 +43,16 @@ type UI struct {
 	requestsView     *requests.View
 	workspacesView   *workspaces.View
 
+	environmentsController *environments.Controller
+	requestsController     *requests.Controller
+	workspacesController   *workspaces.Controller
+
+	environmentsState *state.Environments
+	requestsState     *state.Requests
+	workspacesState   *state.Workspaces
+
+	repo repository.Repository
+
 	tipsOpen bool
 }
 
@@ -62,62 +72,76 @@ func New(w *app.Window) (*UI, error) {
 		return nil, err
 	}
 
-	environmentsState := state.NewEnvironments(repo)
-	requestsState := state.NewRequests(repo)
+	u.repo = repo
 
-	preferences, err := repo.ReadPreferencesData()
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			preferences = domain.NewPreferences()
-			if err := repo.UpdatePreferences(preferences); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+	u.workspacesView = workspaces.NewView()
+	u.workspacesState = state.NewWorkspaces(repo)
+	u.workspacesController = workspaces.NewController(u.workspacesView, u.workspacesState, repo)
+	if err := u.workspacesController.LoadData(); err != nil {
+		return nil, err
 	}
 
-	restService := rest.New(requestsState, environmentsState)
+	u.environmentsState = state.NewEnvironments(repo)
+	u.requestsState = state.NewRequests(repo)
+
+	restService := rest.New(u.requestsState, u.environmentsState)
 	explorerController := explorer.NewExplorer(w)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
-	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
+	// lest assume is dark theme, we will switch it later
+	u.Theme = chapartheme.New(theme, true)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 
-	u.header = NewHeader(environmentsState, u.Theme)
+	u.header = NewHeader(u.environmentsState, u.workspacesState, u.Theme)
 	u.sideBar = NewSidebar(u.Theme)
+
+	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
+
 	//
 	u.environmentsView = environments.NewView(u.Theme)
-	envController := environments.NewController(u.environmentsView, repo, environmentsState, explorerController)
-	if err := envController.LoadData(); err != nil {
-		return nil, err
-	}
-	//
-	u.header.LoadEnvs(environmentsState.GetEnvironments())
-	environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, source state.Source, action state.Action) {
-		u.header.LoadEnvs(environmentsState.GetEnvironments())
+	u.environmentsController = environments.NewController(u.environmentsView, repo, u.environmentsState, explorerController)
+	u.environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, source state.Source, action state.Action) {
+		u.header.LoadEnvs(u.environmentsState.GetEnvironments())
 	})
-	//
-	if selectedEnv := environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironment.ID); selectedEnv != nil {
-		environmentsState.SetActiveEnvironment(selectedEnv)
-		u.header.SetSelectedEnvironment(environmentsState.GetActiveEnvironment())
-	}
-	//
+
 	u.header.OnSelectedEnvChanged = func(env *domain.Environment) {
+		preferences, err := u.repo.ReadPreferencesData()
+		if err != nil {
+			fmt.Println("failed to read preferences: ", err)
+			return
+		}
+
 		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
 		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
 		if err := repo.UpdatePreferences(preferences); err != nil {
 			fmt.Println("failed to update preferences: ", err)
 		}
 
-		environmentsState.SetActiveEnvironment(env)
+		u.environmentsState.SetActiveEnvironment(env)
 	}
-	//
-	u.header.SetTheme(preferences.Spec.DarkMode)
+
+	u.requestsView = requests.NewView(w, u.Theme)
+	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService)
+
+	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) {
+		_ = repo.SetActiveWorkspace(ws)
+		u.workspacesState.SetActiveWorkspace(ws)
+
+		if err := u.load(); err != nil {
+			fmt.Println("failed to load data: ", err)
+		}
+	}
+
 	u.header.OnThemeSwitched = func(isDark bool) {
 		u.Theme.Switch(isDark)
+
+		preferences, err := u.repo.ReadPreferencesData()
+		if err != nil {
+			fmt.Println("failed to read preferences: ", err)
+			return
+		}
 
 		preferences.Spec.DarkMode = isDark
 		if err := repo.UpdatePreferences(preferences); err != nil {
@@ -125,20 +149,37 @@ func New(w *app.Window) (*UI, error) {
 		}
 	}
 
-	u.requestsView = requests.NewView(w, u.Theme)
-	reqController := requests.NewController(u.requestsView, repo, requestsState, environmentsState, explorerController, restService)
-	if err := reqController.LoadData(); err != nil {
-		return nil, err
-	}
-
-	u.workspacesView = workspaces.NewView()
-	workspaceController := workspaces.NewController(u.workspacesView, state.NewWorkspaces(repo), repo)
-	if err := workspaceController.LoadData(); err != nil {
-		return nil, err
-	}
-
 	u.notification = &widgets.Notification{}
-	return u, nil
+	return u, u.load()
+}
+
+func (u *UI) load() error {
+	preferences, err := u.repo.ReadPreferencesData()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			preferences = domain.NewPreferences()
+			if err := u.repo.UpdatePreferences(preferences); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	u.header.SetTheme(preferences.Spec.DarkMode)
+
+	if err := u.environmentsController.LoadData(); err != nil {
+		return err
+	}
+
+	u.header.LoadEnvs(u.environmentsState.GetEnvironments())
+
+	if selectedEnv := u.environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironment.ID); selectedEnv != nil {
+		u.environmentsState.SetActiveEnvironment(selectedEnv)
+		u.header.SetSelectedEnvironment(u.environmentsState.GetActiveEnvironment())
+	}
+
+	return u.requestsController.LoadData()
 }
 
 func (u *UI) Run() error {

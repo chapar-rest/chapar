@@ -40,6 +40,8 @@ type Repository interface {
 	DeleteWorkspace(workspace *domain.Workspace) error
 	GetNewWorkspaceDir(name string) (*FilePath, error)
 
+	SetActiveWorkspace(workspace *domain.Workspace) error
+
 	GetConfig() (*domain.Config, error)
 	UpdateConfig(config *domain.Config) error
 }

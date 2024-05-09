@@ -74,7 +74,7 @@ func (c *Controller) onUpdate(w *domain.Workspace) {
 		return
 	}
 
-	if err := c.state.UpdateWrorkspace(w, state.SourceController, false); err != nil {
+	if err := c.state.UpdateWorkspace(w, state.SourceController, false); err != nil {
 		fmt.Println("failed to update workspace", err)
 		return
 	}
@@ -87,7 +87,7 @@ func (c *Controller) saveWorkspaceToDisc(id string) {
 		return
 	}
 
-	if err := c.state.UpdateWrorkspace(ws, state.SourceController, false); err != nil {
+	if err := c.state.UpdateWorkspace(ws, state.SourceController, false); err != nil {
 		fmt.Println("failed to update workspace", err)
 		return
 	}
