@@ -52,6 +52,8 @@ func (c *Controller) onNew() {
 	ws.MetaData.Name = filePath.NewName
 
 	c.state.AddWorkspace(ws, state.SourceController)
+	c.saveWorkspaceToDisc(ws.MetaData.ID)
+	c.view.AddItem(ws)
 }
 
 func (c *Controller) onDelete(w *domain.Workspace) {

@@ -622,6 +622,7 @@ func (c *Controller) addRequestToCollection(id string) {
 func (c *Controller) viewRequest(id string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
+		fmt.Println("failed to get request", id)
 		return
 	}
 

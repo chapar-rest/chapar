@@ -134,6 +134,10 @@ func New(w *app.Window) (*UI, error) {
 		}
 	}
 
+	u.workspacesState.AddWorkspaceChangeListener(func(workspace *domain.Workspace, source state.Source, action state.Action) {
+		u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
+	})
+
 	u.header.OnThemeSwitched = func(isDark bool) {
 		u.Theme.Switch(isDark)
 

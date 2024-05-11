@@ -83,7 +83,7 @@ func (h *Header) LoadWorkspaces(data []*domain.Workspace) {
 	options := make([]*widgets.DropDownOption, 0)
 	selectWsExist := false
 	for _, ws := range data {
-		if h.selectedEnv == ws.MetaData.ID {
+		if h.selectedWorkspace == ws.MetaData.ID {
 			selectWsExist = true
 		}
 		options = append(options, widgets.NewDropDownOption(ws.MetaData.Name).WithIdentifier(ws.MetaData.ID))
