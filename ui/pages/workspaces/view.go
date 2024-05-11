@@ -1,6 +1,7 @@
 package workspaces
 
 import (
+	"sort"
 	"strings"
 	"sync"
 
@@ -99,19 +100,31 @@ func (v *View) Filter(text string) {
 func (v *View) SetItems(items []*domain.Workspace) {
 	v.items = make([]*Item, 0)
 	for _, w := range items {
-		readonly := w.MetaData.Name == domain.DefaultWorkspaceName
-		nameEditable := widgets.NewEditableLabel(w.MetaData.Name)
-		nameEditable.SetReadOnly(readonly)
-
-		nameEditable.SetOnChanged(func(text string) {
-			if v.onUpdate != nil {
-				w.MetaData.Name = text
-				v.onUpdate(w)
-			}
-		})
-
-		v.items = append(v.items, &Item{w: w, Name: nameEditable, readOnly: readonly})
+		v.AddItem(w)
 	}
+
+	sort.Slice(v.items, func(i, j int) bool {
+		return v.items[i].w.MetaData.Name < v.items[j].w.MetaData.Name
+	})
+}
+
+func (v *View) AddItem(item *domain.Workspace) {
+	readonly := item.MetaData.Name == domain.DefaultWorkspaceName
+	nameEditable := widgets.NewEditableLabel(item.MetaData.Name)
+	nameEditable.SetReadOnly(readonly)
+
+	nameEditable.SetOnChanged(func(text string) {
+		if v.onUpdate != nil {
+			item.MetaData.Name = text
+			v.onUpdate(item)
+		}
+	})
+
+	v.items = append(v.items, &Item{w: item, Name: nameEditable, readOnly: readonly})
+
+	sort.Slice(v.items, func(i, j int) bool {
+		return v.items[i].w.MetaData.Name < v.items[j].w.MetaData.Name
+	})
 }
 
 func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *Item, isLast bool) layout.Dimensions {
