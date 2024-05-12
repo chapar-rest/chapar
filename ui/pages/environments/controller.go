@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/explorer"
-	"github.com/chapar-rest/chapar/ui/importer"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
