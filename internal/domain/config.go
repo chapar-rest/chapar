@@ -8,7 +8,12 @@ type Config struct {
 }
 
 type ConfigSpec struct {
-	ActiveWorkspace string `yaml:"activeWorkspace"`
+	ActiveWorkspace *ActiveWorkspace `yaml:"activeWorkspace"`
+}
+
+type ActiveWorkspace struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func NewConfig() *Config {
@@ -19,7 +24,10 @@ func NewConfig() *Config {
 			Name: "config",
 		},
 		Spec: ConfigSpec{
-			ActiveWorkspace: "default",
+			ActiveWorkspace: &ActiveWorkspace{
+				ID:   "default",
+				Name: "Default Workspace",
+			},
 		},
 	}
 }

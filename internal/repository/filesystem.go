@@ -40,8 +40,8 @@ func NewFilesystem() (*Filesystem, error) {
 		return nil, err
 	}
 
-	if config.Spec.ActiveWorkspace != "" {
-		ws, err := fs.GetWorkspace(filepath.Join(cDir, config.Spec.ActiveWorkspace))
+	if config.Spec.ActiveWorkspace != nil {
+		ws, err := fs.GetWorkspace(filepath.Join(cDir, config.Spec.ActiveWorkspace.Name))
 		if err != nil {
 			return nil, err
 		}
@@ -63,8 +63,17 @@ func NewFilesystem() (*Filesystem, error) {
 }
 
 func (f *Filesystem) SetActiveWorkspace(workspace *domain.Workspace) error {
+	config, err := f.GetConfig()
+	if err != nil {
+		return err
+	}
+
 	f.ActiveWorkspace = workspace
-	return nil
+	config.Spec.ActiveWorkspace = &domain.ActiveWorkspace{
+		ID:   workspace.MetaData.ID,
+		Name: workspace.MetaData.Name,
+	}
+	return f.UpdateConfig(config)
 }
 
 func (f *Filesystem) GetConfig() (*domain.Config, error) {

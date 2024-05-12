@@ -126,7 +126,11 @@ func New(w *app.Window) (*UI, error) {
 	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService)
 
 	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) {
-		_ = repo.SetActiveWorkspace(ws)
+		fmt.Println("workspace changed: ", ws.MetaData.Name)
+		if err := repo.SetActiveWorkspace(ws); err != nil {
+			fmt.Println("failed to set active workspace: ", err)
+			return
+		}
 		u.workspacesState.SetActiveWorkspace(ws)
 
 		if err := u.load(); err != nil {
@@ -170,6 +174,11 @@ func (u *UI) load() error {
 		}
 	}
 
+	config, err := u.repo.GetConfig()
+	if err != nil {
+		return err
+	}
+
 	u.header.SetTheme(preferences.Spec.DarkMode)
 
 	if err := u.environmentsController.LoadData(); err != nil {
@@ -181,6 +190,11 @@ func (u *UI) load() error {
 	if selectedEnv := u.environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironment.ID); selectedEnv != nil {
 		u.environmentsState.SetActiveEnvironment(selectedEnv)
 		u.header.SetSelectedEnvironment(u.environmentsState.GetActiveEnvironment())
+	}
+
+	if selectedWs := u.workspacesState.GetWorkspace(config.Spec.ActiveWorkspace.ID); selectedWs != nil {
+		u.workspacesState.SetActiveWorkspace(selectedWs)
+		u.header.SetSelectedWorkspace(u.workspacesState.GetActiveWorkspace())
 	}
 
 	return u.requestsController.LoadData()

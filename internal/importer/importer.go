@@ -107,7 +107,12 @@ func convertItemToRequest(item RequestItem) *domain.Request {
 }
 
 func ImportPostmanCollection(data []byte) error {
-	filesystem := &repository.Filesystem{}
+	filesystem, err := repository.NewFilesystem()
+	if err != nil {
+		fmt.Printf("Error creating filesystem: %v\n", err)
+		return err
+	}
+
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
 		fmt.Printf("Error parsing JSON: %v\n", err)
@@ -240,7 +245,12 @@ func findInApiKey(arr []ApiKey, filter func(apiKey ApiKey) bool) (int, bool) {
 }
 
 func ImportPostmanEnvironment(data []byte) error {
-	filesystem := &repository.Filesystem{}
+	filesystem, err := repository.NewFilesystem()
+	if err != nil {
+		fmt.Printf("Error creating filesystem: %v\n", err)
+		return err
+	}
+
 	var env PostmanEnvironment
 	if err := json.Unmarshal(data, &env); err != nil {
 		fmt.Printf("Error parsing JSON: %v\n", err)
