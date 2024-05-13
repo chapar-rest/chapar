@@ -22,12 +22,12 @@ Chapar is currently in the early beta phase, with the first release expected soo
 
 ## Screenshots
 <div align="center">
-  <img src="./screenshots/requests_details.png" alt="Chapar" width="300"/>
-  <img src="./screenshots/environments.png" alt="Chapar" width="300"/>
-  <img src="./screenshots/post_request.png" alt="Chapar" width="300"/>
-  <img src="./screenshots/requests.png" alt="Chapar" width="300"/>
-  <img src="./screenshots/workspaces.png" alt="Chapar" width="300"/>
-  <img src="./screenshots/workspaces.png" alt="Chapar" width="300"/>
+  <img src="./screenshots/requests_details.png" alt="Chapar" width="400"/>
+  <img src="./screenshots/environments.png" alt="Chapar" width="400"/>
+  <img src="./screenshots/post_request.png" alt="Chapar" width="400"/>
+  <img src="./screenshots/requests.png" alt="Chapar" width="400"/>
+  <img src="./screenshots/workspaces.png" alt="Chapar" width="400"/>
+  <img src="./screenshots/workspaces.png" alt="Chapar" width="400"/>
 </div>
 
 
