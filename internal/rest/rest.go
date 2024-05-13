@@ -78,8 +78,17 @@ func (s *Service) handlePostRequest(r domain.PostRequest, response *Response, en
 		return nil
 	}
 
+	if response == nil {
+		return nil
+	}
+
 	switch r.Type {
 	case domain.PostRequestTypeSetEnv:
+		// only handle post request if the status code is the same as the one provided
+		if response.StatusCode != r.PostRequestSet.StatusCode {
+			return nil
+		}
+
 		switch r.PostRequestSet.From {
 		case domain.PostRequestSetFromResponseBody:
 			if err := s.handlePostRequestFromBody(r, response, env); err != nil {

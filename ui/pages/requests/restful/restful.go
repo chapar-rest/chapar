@@ -55,9 +55,9 @@ func (r *Restful) SetPostRequestSetPreview(preview string) {
 	r.Request.PostRequest.SetPreview(preview)
 }
 
-func (r *Restful) SetOnPostRequestSetChanged(f func(id, item, from, fromKey string)) {
-	r.Request.PostRequest.SetOnPostRequestSetChanged(func(item, from, fromKey string) {
-		f(r.Req.MetaData.ID, item, from, fromKey)
+func (r *Restful) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {
+	r.Request.PostRequest.SetOnPostRequestSetChanged(func(statusCode int, item, from, fromKey string) {
+		f(r.Req.MetaData.ID, statusCode, item, from, fromKey)
 	})
 }
 

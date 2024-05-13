@@ -106,7 +106,7 @@ func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 	}, "")
 }
 
-func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
+func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, from, fromKey string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
 		return
@@ -115,12 +115,12 @@ func (c *Controller) onPostRequestSetChanged(id, item, from, fromKey string) {
 	// break the reference
 	clone := req.Clone()
 	clone.MetaData.ID = id
-	req.Spec = clone.Spec
 
 	clone.Spec.HTTP.Request.PostRequest.PostRequestSet = domain.PostRequestSet{
-		Target:  item,
-		From:    from,
-		FromKey: fromKey,
+		Target:     item,
+		StatusCode: statusCode,
+		From:       from,
+		FromKey:    fromKey,
 	}
 	c.onRequestDataChanged(id, clone)
 

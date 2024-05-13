@@ -1,6 +1,8 @@
 package component
 
 import (
+	"strconv"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -21,15 +23,15 @@ type PrePostRequest struct {
 	onDropDownChanged func(selected string)
 
 	setEnvForm          *SetEnvForm
-	onSetEnvFormChanged func(item, from, fromKey string)
+	onSetEnvFormChanged func(statusCode int, item, from, fromKey string)
 }
 
 type SetEnvForm struct {
-	// SetEnvForm
-	targetEditor widget.Editor
-	fromEditor   widget.Editor
-	fromDropDown *widgets.DropDown
-	preview      string
+	statusCodeEditor widget.Editor
+	targetEditor     widget.Editor
+	fromEditor       widget.Editor
+	fromDropDown     *widgets.DropDown
+	preview          string
 }
 
 const (
@@ -94,15 +96,17 @@ func (p *PrePostRequest) SetPreview(preview string) {
 }
 
 func (p *PrePostRequest) SetPostRequestSetValues(set domain.PostRequestSet) {
+	p.setEnvForm.statusCodeEditor.SetText(strconv.Itoa(set.StatusCode))
 	p.setEnvForm.targetEditor.SetText(set.Target)
 	p.setEnvForm.fromEditor.SetText(set.FromKey)
 	p.setEnvForm.fromDropDown.SetSelectedByValue(set.From)
 }
 
-func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(item, from, fromKey string)) {
+func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(statusCode int, item, from, fromKey string)) {
 	p.onSetEnvFormChanged = f
 	p.setEnvForm.fromDropDown.SetOnChanged(func(selected string) {
-		p.onSetEnvFormChanged(p.setEnvForm.targetEditor.Text(), selected, p.setEnvForm.fromEditor.Text())
+		statusCode, _ := strconv.Atoi(p.setEnvForm.statusCodeEditor.Text())
+		p.onSetEnvFormChanged(statusCode, p.setEnvForm.targetEditor.Text(), selected, p.setEnvForm.fromEditor.Text())
 	})
 }
 
@@ -138,19 +142,34 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) la
 	})
 }
 
+func (p *PrePostRequest) handleDataChange() {
+	if p.onSetEnvFormChanged != nil {
+		statusCode, _ := strconv.Atoi(p.setEnvForm.statusCodeEditor.Text())
+
+		p.onSetEnvFormChanged(statusCode, p.setEnvForm.targetEditor.Text(), p.setEnvForm.fromDropDown.GetSelected().Value, p.setEnvForm.fromEditor.Text())
+	}
+}
+
+func (p *PrePostRequest) enforceNumericEditor(editor *widget.Editor) {
+	if _, err := strconv.Atoi(editor.Text()); err != nil {
+		editor.SetText("0")
+	}
+}
+
 func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
 
+	keys.OnEditorChange(gtx, &p.setEnvForm.statusCodeEditor, func() {
+		p.enforceNumericEditor(&p.setEnvForm.statusCodeEditor)
+		p.handleDataChange()
+	})
+
 	keys.OnEditorChange(gtx, &p.setEnvForm.targetEditor, func() {
-		if p.onSetEnvFormChanged != nil {
-			p.onSetEnvFormChanged(p.setEnvForm.targetEditor.Text(), p.setEnvForm.fromDropDown.GetSelected().Value, p.setEnvForm.fromEditor.Text())
-		}
+		p.handleDataChange()
 	})
 
 	keys.OnEditorChange(gtx, &p.setEnvForm.fromEditor, func() {
-		if p.onSetEnvFormChanged != nil {
-			p.onSetEnvFormChanged(p.setEnvForm.targetEditor.Text(), p.setEnvForm.fromDropDown.GetSelected().Value, p.setEnvForm.fromEditor.Text())
-		}
+		p.handleDataChange()
 	})
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -162,6 +181,18 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme
 					MinEditorWidth: unit.Dp(150),
 					MinLabelWidth:  unit.Dp(80),
 					Editor:         &p.setEnvForm.targetEditor,
+				}
+				return lb.Layout(gtx, theme)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				lb := &widgets.LabeledInput{
+					Label:          "Status Code",
+					SpaceBetween:   5,
+					MinEditorWidth: unit.Dp(150),
+					MinLabelWidth:  unit.Dp(80),
+					Editor:         &p.setEnvForm.statusCodeEditor,
 				}
 				return lb.Layout(gtx, theme)
 			})

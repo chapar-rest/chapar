@@ -37,6 +37,7 @@ func (l *LabeledInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layo
 				return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					editor := material.Editor(theme.Material(), l.Editor, "            ")
 					editor.SelectionColor = theme.TextSelectionColor
+
 					return editor.Layout(gtx)
 				})
 			})

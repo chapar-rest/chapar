@@ -63,7 +63,7 @@ type View struct {
 	onSubmit                    func(id, containerType string)
 	onDataChanged               func(id string, data any, containerType string)
 	onCopyResponse              func(gtx layout.Context, response string)
-	onOnPostRequestSetChanged   func(id, item, from, fromKey string)
+	onOnPostRequestSetChanged   func(id string, statusCode int, item, from, fromKey string)
 	onBinaryFileSelect          func(id string)
 	onFromDataFileSelect        func(requestID, fieldID string)
 
@@ -116,7 +116,7 @@ func NewView(w *app.Window, theme *chapartheme.Theme) *View {
 	return v
 }
 
-func (v *View) SetOnPostRequestSetChanged(f func(id, item, from, fromKey string)) {
+func (v *View) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {
 	v.onOnPostRequestSetChanged = f
 }
 
@@ -385,9 +385,9 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		}
 	})
 
-	ct.SetOnPostRequestSetChanged(func(id, item, from, fromKey string) {
+	ct.SetOnPostRequestSetChanged(func(id string, statusCode int, item, from, fromKey string) {
 		if v.onOnPostRequestSetChanged != nil {
-			v.onOnPostRequestSetChanged(id, item, from, fromKey)
+			v.onOnPostRequestSetChanged(id, statusCode, item, from, fromKey)
 		}
 	})
 

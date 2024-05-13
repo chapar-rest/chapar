@@ -252,7 +252,8 @@ const (
 )
 
 type PostRequestSet struct {
-	Target string `yaml:"target"`
+	Target     string `yaml:"target"`
+	StatusCode int    `yaml:"statusCode"`
 	// From can be response header, response body or cookies
 	From    string `yaml:"from"`
 	FromKey string `yaml:"fromKey"`
@@ -637,10 +638,9 @@ func ComparePostRequest(a, b PostRequest) bool {
 }
 
 func ComparePostRequestSet(a, b PostRequestSet) bool {
-	if a.Target != b.Target || a.From != b.From || a.FromKey != b.FromKey {
+	if a.Target != b.Target || a.From != b.From || a.FromKey != b.FromKey || a.StatusCode != b.StatusCode {
 		return false
 	}
-
 	return true
 }
 

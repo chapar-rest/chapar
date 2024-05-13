@@ -35,7 +35,7 @@ type RestContainer interface {
 	SetPathParams(params []domain.KeyValue)
 	SetURL(url string)
 	SetPostRequestSetValues(set domain.PostRequestSet)
-	SetOnPostRequestSetChanged(f func(id, item, from, fromKey string))
+	SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string))
 	SetOnBinaryFileSelect(f func(id string))
 	SetBinaryBodyFilePath(filePath string)
 	SetOnFormDataFileSelect(f func(requestId, fieldId string))
