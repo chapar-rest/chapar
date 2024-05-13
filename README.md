@@ -17,6 +17,21 @@ Herodus described the Chapar as follows:
 >
 > Herodotus, about 440 BC
 
+## State of the project
+Chapar is currently in the early beta phase, with the first release expected soon. The project is under active development, with regular updates and improvements planned to enhance the user experience and functionality.
+
+## Screenshots
+<div align="center">
+  <img src="./screenshots/requests_details.png" alt="Chapar" width="300"/>
+  <img src="./screenshots/environments.png" alt="Chapar" width="300"/>
+  <img src="./screenshots/post_request.png" alt="Chapar" width="300"/>
+  <img src="./screenshots/requests.png" alt="Chapar" width="300"/>
+  <img src="./screenshots/workspaces.png" alt="Chapar" width="300"/>
+  <img src="./screenshots/workspaces.png" alt="Chapar" width="300"/>
+</div>
+
+
+
 ### Key Features
 * User-Friendly Interface: Chapar prioritizes ease of use, ensuring developers can quickly get started with testing their API endpoints.
 
