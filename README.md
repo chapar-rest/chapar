@@ -44,6 +44,12 @@ Chapar is currently in the early beta phase, with the first release expected soo
 * Data is stored locally on your machine. and no data is sent to any server.
 * Import collections and requests from Postman.
 
+### Roadmap
+* Support for gRPC, WebSocket, GraphQL protocol.
+* Syntax highlighting for request body.
+* Python as a scripting language for pre-request and post-request scripts.
+* Support for tunneling to servers and kube clusters as pre request actions.
+
 
 ### Getting Started
 Stay tuned for the upcoming early beta release of Chapar. Once released, clone the repository or download the beta version to get started with testing your API endpoints.
