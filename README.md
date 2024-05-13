@@ -31,24 +31,38 @@ Chapar is currently in the early beta phase, with the first release expected soo
 </div>
 
 
-
-### Key Features
-* User-Friendly Interface: Chapar prioritizes ease of use, ensuring developers can quickly get started with testing their API endpoints.
-
-* Protocol Flexibility: Test endpoints with ease, supporting both HTTP and gRPC protocols.
-Fast-Paced Development: Expect regular updates and improvements as Chapar evolves to meet the needs of developers.
-
-* Efficiency: Conduct tests efficiently without sacrificing accuracy or reliability.
+### Features
+* Create and manage workspaces to organize your API endpoints.
+* Create and manage environments to store variables and configurations for your API endpoints.
+* Create and manage requests to test your API endpoints.
+* Send requests with different methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTION,CONNECT).
+* Send requests with different content types (JSON, XML, Form, Text, HTML).
+* Send requests with different authentication methods (Basic, Bearer, API Key, No Auth).
+* Send requests with different body types (Form, Raw, Binary).
+* Set environment variables from the response of the request using JSONPath.
+* Dark mode support.
+* Data is stored locally on your machine. and no data is sent to any server.
+* Import collections and requests from Postman.
 
 
 ### Getting Started
 Stay tuned for the upcoming early beta release of Chapar. Once released, clone the repository or download the beta version to get started with testing your API endpoints.
 
+### Installation
+To install Chapar, clone the repository install the dependencies, and run the application using the following commands:
+
 ```bash
-  go mod tidy
-  go mod vendor
-  make run
+git clone https://github.com/chapar-rest/chapar.git
+cd chapar
+go build -o chapar .
 ```
+
+## Dependencies
+Chapar is built using [Gio](https://gioui.org) library so you need to install the following dependencies to build the project:
+
+for linux follow instructions in [gio linux](https://gioui.org/doc/install/linux)
+for macOS follow instructions in [gio macos](https://gioui.org/doc/install/macos)
+
 
 ### Contributing
 We welcome contributions from the community once the early beta is released! If you have ideas, feedback, or wish to contribute, please open an issue or submit a pull request.
