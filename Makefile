@@ -1,8 +1,8 @@
 .PHONY: build_macos
 build_macos:
 	@echo "Building Macos..."
-	gogio -icon=appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
-	gogio -icon=appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+	gogio -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
+	gogio -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
 	codesign --force --deep --sign - ./dist/amd64/Chapar.app
 	codesign --force --deep --sign - ./dist/arm64/Chapar.app
 
