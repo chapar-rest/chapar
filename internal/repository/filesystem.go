@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -51,7 +50,7 @@ func NewFilesystem() (*Filesystem, error) {
 	// if there is no active workspace, create default workspace
 	if fs.ActiveWorkspace == nil {
 		ws := domain.NewDefaultWorkspace()
-		ws.FilePath = path.Join(cDir, "default")
+		ws.FilePath = filepath.Join(cDir, "default")
 		if err := fs.UpdateWorkspace(ws); err != nil {
 			return nil, err
 		}
@@ -82,17 +81,18 @@ func (f *Filesystem) GetConfig() (*domain.Config, error) {
 		return nil, err
 	}
 
+	filePath := filepath.Join(dir, "config.yaml")
+
 	// if config file does not exist, create it
-	if _, err := os.Stat(path.Join(dir, "config.yaml")); os.IsNotExist(err) {
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		config := domain.NewConfig()
-		if err := SaveToYaml(path.Join(dir, "config.yaml"), config); err != nil {
+		if err := SaveToYaml(filePath, config); err != nil {
 			return nil, err
 		}
 
 		return config, nil
 	}
 
-	filePath := path.Join(dir, "config.yaml")
 	return LoadFromYaml[domain.Config](filePath)
 }
 
@@ -102,7 +102,7 @@ func (f *Filesystem) UpdateConfig(config *domain.Config) error {
 		return err
 	}
 
-	filePath := path.Join(dir, "config.yaml")
+	filePath := filepath.Join(dir, "config.yaml")
 	return SaveToYaml(filePath, config)
 }
 
@@ -123,7 +123,7 @@ func (f *Filesystem) LoadWorkspaces() ([]*domain.Workspace, error) {
 			continue
 		}
 
-		dirPath := path.Join(wdir, dir.Name())
+		dirPath := filepath.Join(wdir, dir.Name())
 		if ws, err := f.GetWorkspace(dirPath); err != nil {
 			return nil, err
 		} else {
@@ -146,7 +146,7 @@ func (f *Filesystem) GetWorkspace(dirPath string) (*domain.Workspace, error) {
 
 	// if workspace file does not exist, create it
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		ws := domain.NewWorkspace(path.Base(dirPath))
+		ws := domain.NewWorkspace(filepath.Base(dirPath))
 		ws.FilePath = filePath
 		if err := SaveToYaml(filePath, ws); err != nil {
 			return nil, err
@@ -191,11 +191,11 @@ func (f *Filesystem) UpdateWorkspace(workspace *domain.Workspace) error {
 	}
 
 	// Get the directory name
-	dirName := path.Dir(workspace.FilePath)
+	dirName := filepath.Dir(workspace.FilePath)
 	// Change the directory name to the collection name
-	if workspace.MetaData.Name != path.Base(dirName) {
+	if workspace.MetaData.Name != filepath.Base(dirName) {
 		// replace last part of the path with the new name
-		newDirName := path.Join(path.Dir(dirName), workspace.MetaData.Name)
+		newDirName := filepath.Join(filepath.Dir(dirName), workspace.MetaData.Name)
 		if err := os.Rename(dirName, newDirName); err != nil {
 			return err
 		}
@@ -206,7 +206,7 @@ func (f *Filesystem) UpdateWorkspace(workspace *domain.Workspace) error {
 }
 
 func (f *Filesystem) DeleteWorkspace(workspace *domain.Workspace) error {
-	return os.RemoveAll(path.Dir(workspace.FilePath))
+	return os.RemoveAll(filepath.Dir(workspace.FilePath))
 }
 
 func (f *Filesystem) GetNewWorkspaceDir(name string) (*FilePath, error) {
@@ -215,7 +215,7 @@ func (f *Filesystem) GetNewWorkspaceDir(name string) (*FilePath, error) {
 		return nil, err
 	}
 
-	dir := path.Join(wDir, name)
+	dir := filepath.Join(wDir, name)
 	if !dirExist(dir) {
 		return &FilePath{
 			Path:    dir,
@@ -236,7 +236,7 @@ func (f *Filesystem) GetNewWorkspaceDir(name string) (*FilePath, error) {
 }
 
 func (f *Filesystem) GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (*FilePath, error) {
-	dir := path.Dir(collection.FilePath)
+	dir := filepath.Dir(collection.FilePath)
 	return getNewFilePath(dir, name), nil
 }
 
@@ -325,7 +325,7 @@ func (f *Filesystem) GetCollectionsDir() (string, error) {
 		return "", err
 	}
 
-	cdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, collectionsDir)
+	cdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, collectionsDir)
 	if err := makeDir(cdir); err != nil {
 		return "", err
 	}
@@ -350,11 +350,11 @@ func (f *Filesystem) UpdateCollection(collection *domain.Collection) error {
 	}
 
 	// Get the directory name
-	dirName := path.Dir(collection.FilePath)
+	dirName := filepath.Dir(collection.FilePath)
 	// Change the directory name to the collection name
-	if collection.MetaData.Name != path.Base(dirName) {
+	if collection.MetaData.Name != filepath.Base(dirName) {
 		// replace last part of the path with the new name
-		newDirName := path.Join(path.Dir(dirName), collection.MetaData.Name)
+		newDirName := filepath.Join(filepath.Dir(dirName), collection.MetaData.Name)
 		if err := os.Rename(dirName, newDirName); err != nil {
 			return err
 		}
@@ -365,7 +365,7 @@ func (f *Filesystem) UpdateCollection(collection *domain.Collection) error {
 }
 
 func (f *Filesystem) DeleteCollection(collection *domain.Collection) error {
-	return os.RemoveAll(path.Dir(collection.FilePath))
+	return os.RemoveAll(filepath.Dir(collection.FilePath))
 }
 
 func (f *Filesystem) GetNewCollectionDir(name string) (*FilePath, error) {
@@ -374,7 +374,7 @@ func (f *Filesystem) GetNewCollectionDir(name string) (*FilePath, error) {
 		return nil, err
 	}
 
-	dir := path.Join(collectionDir, name)
+	dir := filepath.Join(collectionDir, name)
 	if !dirExist(dir) {
 		return &FilePath{
 			Path:    dir,
@@ -411,7 +411,7 @@ func (f *Filesystem) LoadEnvironments() ([]*domain.Environment, error) {
 			continue
 		}
 
-		filePath := path.Join(dir, file.Name())
+		filePath := filepath.Join(dir, file.Name())
 
 		env, err := LoadFromYaml[domain.Environment](filePath)
 		if err != nil {
@@ -440,7 +440,7 @@ func (f *Filesystem) GetEnvironmentDir() (string, error) {
 		return "", err
 	}
 
-	envDir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, environmentsDir)
+	envDir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, environmentsDir)
 	if err := makeDir(envDir); err != nil {
 		return "", err
 	}
@@ -454,8 +454,8 @@ func (f *Filesystem) UpdateEnvironment(env *domain.Environment) error {
 	}
 
 	// rename the file to the new name
-	if env.MetaData.Name != path.Base(env.FilePath) {
-		newFilePath := path.Join(path.Dir(env.FilePath), env.MetaData.Name+".yaml")
+	if env.MetaData.Name != filepath.Base(env.FilePath) {
+		newFilePath := filepath.Join(filepath.Dir(env.FilePath), env.MetaData.Name+".yaml")
 		if err := os.Rename(env.FilePath, newFilePath); err != nil {
 			return err
 		}
@@ -483,8 +483,8 @@ func (f *Filesystem) ReadPreferencesData() (*domain.Preferences, error) {
 	if err != nil {
 		return nil, err
 	}
-	pdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
-	filePath := path.Join(pdir, "preferences.yaml")
+	pdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
+	filePath := filepath.Join(pdir, "preferences.yaml")
 	return LoadFromYaml[domain.Preferences](filePath)
 }
 
@@ -494,12 +494,12 @@ func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
 		return err
 	}
 
-	pdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
+	pdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
 	if err := makeDir(pdir); err != nil {
 		return err
 	}
 
-	filePath := path.Join(pdir, "preferences.yaml")
+	filePath := filepath.Join(pdir, "preferences.yaml")
 	return SaveToYaml[domain.Preferences](filePath, pref)
 }
 
@@ -520,7 +520,7 @@ func (f *Filesystem) LoadRequests() ([]*domain.Request, error) {
 			continue
 		}
 
-		filePath := path.Join(dir, file.Name())
+		filePath := filepath.Join(dir, file.Name())
 		req, err := f.loadRequest(filePath)
 		if err != nil {
 			return nil, err
@@ -559,7 +559,7 @@ func (f *Filesystem) GetRequestsDir() (string, error) {
 		return "", err
 	}
 
-	rdir := path.Join(dir, f.ActiveWorkspace.MetaData.Name, requestsDir)
+	rdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, requestsDir)
 	if err := makeDir(rdir); err != nil {
 		return "", err
 	}
@@ -583,8 +583,8 @@ func (f *Filesystem) UpdateRequest(request *domain.Request) error {
 	}
 
 	// rename the file to the new name
-	if request.MetaData.Name != path.Base(request.FilePath) {
-		newFilePath := path.Join(path.Dir(request.FilePath), request.MetaData.Name+".yaml")
+	if request.MetaData.Name != filepath.Base(request.FilePath) {
+		newFilePath := filepath.Join(filepath.Dir(request.FilePath), request.MetaData.Name+".yaml")
 		if err := os.Rename(request.FilePath, newFilePath); err != nil {
 			return err
 		}
@@ -606,7 +606,7 @@ func (f *Filesystem) DeleteRequest(request *domain.Request) error {
 }
 
 func getNewFilePath(dir, name string) *FilePath {
-	fileName := path.Join(dir, name)
+	fileName := filepath.Join(dir, name)
 	fName := generateNewFileName(fileName, "yaml")
 
 	return &FilePath{
@@ -655,7 +655,7 @@ func GetConfigDir() (string, error) {
 		return "", err
 	}
 
-	return path.Join(dir, configDir), nil
+	return filepath.Join(dir, configDir), nil
 }
 
 func CreateConfigDir() (string, error) {

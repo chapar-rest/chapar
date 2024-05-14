@@ -2,6 +2,7 @@ package state
 
 import (
 	"path"
+	"path/filepath"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
@@ -158,7 +159,7 @@ func (m *Requests) UpdateCollection(collection *domain.Collection, stateOnly boo
 func fixRequestFilePath(request *domain.Request, collection *domain.Collection) string {
 	collectionDir, _ := path.Split(collection.FilePath)
 	requestFileName := path.Base(request.FilePath)
-	return path.Join(collectionDir, requestFileName)
+	return filepath.Join(collectionDir, requestFileName)
 }
 
 func (m *Requests) GetRequests() []*domain.Request {
