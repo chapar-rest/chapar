@@ -655,7 +655,8 @@ func GetConfigDir() (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(dir, configDir), nil
+	path := filepath.Join(dir, configDir)
+	return path, makeDir(path)
 }
 
 func CreateConfigDir() (string, error) {
