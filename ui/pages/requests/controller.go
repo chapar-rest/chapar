@@ -199,12 +199,12 @@ func (c *Controller) onSubmit(id, containerType string) {
 	}
 }
 
-func (c *Controller) onCopyResponse(gtx layout.Context, response string) {
+func (c *Controller) onCopyResponse(gtx layout.Context, dataType, data string) {
 	gtx.Execute(clipboard.WriteCmd{
-		Data: io.NopCloser(strings.NewReader(response)),
+		Data: io.NopCloser(strings.NewReader(data)),
 	})
 
-	notify.Send("Response copied to clipboard", 2*time.Second)
+	notify.Send(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
 }
 
 func (c *Controller) onSubmitRequest(id string) {

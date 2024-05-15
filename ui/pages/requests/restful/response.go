@@ -34,7 +34,7 @@ type Response struct {
 	message  string
 	err      error
 
-	onCopyResponse func(gtx layout.Context, response string)
+	onCopyResponse func(gtx layout.Context, dataType, data string)
 
 	isResponseUpdated   bool
 	responseIsAvailable bool
@@ -65,7 +65,7 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 	return r
 }
 
-func (r *Response) SetOnCopyResponse(f func(gtx layout.Context, response string)) {
+func (r *Response) SetOnCopyResponse(f func(gtx layout.Context, dataType, data string)) {
 	r.onCopyResponse = f
 }
 
@@ -113,7 +113,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 	}
 
 	if r.copyClickable.Clicked(gtx) {
-		r.onCopyResponse(gtx, r.response)
+		r.handleCopy(gtx)
 	}
 
 	inset := layout.Inset{Top: unit.Dp(10)}
@@ -168,4 +168,15 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 
 func formatStatus(statueCode int, duration time.Duration, size uint64) string {
 	return fmt.Sprintf("%d %s, %s, %s", statueCode, http.StatusText(statueCode), duration, humanize.Bytes(size))
+}
+
+func (r *Response) handleCopy(gtx layout.Context) {
+	switch r.Tabs.Selected() {
+	case 1:
+		r.onCopyResponse(gtx, "Headers", domain.KeyValuesToText(r.responseHeaders.GetData()))
+	case 2:
+		r.onCopyResponse(gtx, "Cookies", domain.KeyValuesToText(r.responseCookies.GetData()))
+	default:
+		r.onCopyResponse(gtx, "Response", r.response)
+	}
 }

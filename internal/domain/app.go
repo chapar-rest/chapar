@@ -38,3 +38,11 @@ func CompareKeyValues(a, b []KeyValue) bool {
 
 	return true
 }
+
+func KeyValuesToText(values []KeyValue) string {
+	var text string
+	for _, v := range values {
+		text += v.Key + ": " + v.Value + "\n"
+	}
+	return text
+}
