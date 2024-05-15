@@ -71,6 +71,8 @@ func (r *Response) SetOnCopyResponse(f func(gtx layout.Context, response string)
 
 func (r *Response) SetResponse(response string) {
 	r.response = response
+	r.err = nil
+	r.message = ""
 	r.isResponseUpdated = false
 	r.responseIsAvailable = true
 }
