@@ -62,7 +62,7 @@ type View struct {
 	onSave                      func(id string)
 	onSubmit                    func(id, containerType string)
 	onDataChanged               func(id string, data any, containerType string)
-	onCopyResponse              func(gtx layout.Context, response string)
+	onCopyResponse              func(gtx layout.Context, dataType, data string)
 	onOnPostRequestSetChanged   func(id string, statusCode int, item, from, fromKey string)
 	onBinaryFileSelect          func(id string)
 	onFromDataFileSelect        func(requestID, fieldID string)
@@ -172,7 +172,7 @@ func (v *View) RemoveTreeViewNode(id string) {
 	v.treeViewNodes.Delete(id)
 }
 
-func (v *View) SetOnCopyResponse(onCopyResponse func(gtx layout.Context, response string)) {
+func (v *View) SetOnCopyResponse(onCopyResponse func(gtx layout.Context, dataType, data string)) {
 	v.onCopyResponse = onCopyResponse
 }
 
@@ -379,9 +379,9 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		}
 	})
 
-	ct.SetOnCopyResponse(func(gtx layout.Context, response string) {
+	ct.SetOnCopyResponse(func(gtx layout.Context, dataType, data string) {
 		if v.onCopyResponse != nil {
-			v.onCopyResponse(gtx, response)
+			v.onCopyResponse(gtx, dataType, data)
 		}
 	})
 
