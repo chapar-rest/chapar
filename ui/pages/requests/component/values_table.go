@@ -71,6 +71,7 @@ func (v *ValuesTable) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 					l := material.Label(theme.Material(), theme.TextSize, v.Values[i].Key+":")
 					l.Font.Weight = font.Bold
 					l.State = &v.Values[i].keySelectable
+					l.SelectionColor = theme.TextSelectionColor
 					return l.Layout(gtx)
 				})
 			}),
@@ -78,6 +79,7 @@ func (v *ValuesTable) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 				return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					l := material.Label(theme.Material(), theme.TextSize, v.Values[i].Value)
 					l.State = &v.Values[i].valueSelectable
+					l.SelectionColor = theme.TextSelectionColor
 					return l.Layout(gtx)
 				})
 			}),
