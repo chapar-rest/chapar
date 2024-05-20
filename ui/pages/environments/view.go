@@ -5,6 +5,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	giox "gioui.org/x/component"
+	"github.com/google/uuid"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
@@ -12,7 +14,6 @@ import (
 	"github.com/chapar-rest/chapar/ui/keys"
 	"github.com/chapar-rest/chapar/ui/pages/tips"
 	"github.com/chapar-rest/chapar/ui/widgets"
-	"github.com/google/uuid"
 )
 
 const (

@@ -7,17 +7,17 @@ import (
 	"strings"
 
 	"gioui.org/font"
-	"gioui.org/op"
-
 	"gioui.org/io/input"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 )

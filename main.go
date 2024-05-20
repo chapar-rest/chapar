@@ -4,12 +4,12 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"os"
-
 	_ "net/http/pprof"
+	"os"
 
 	"gioui.org/app"
 	"gioui.org/unit"
+
 	mainApp "github.com/chapar-rest/chapar/ui/app"
 )
 

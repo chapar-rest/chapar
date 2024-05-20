@@ -1,11 +1,11 @@
 package requests
 
 import (
+	"gioui.org/layout"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
-
-	"gioui.org/layout"
-	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 const (

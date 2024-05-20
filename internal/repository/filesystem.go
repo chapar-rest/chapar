@@ -8,8 +8,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"gopkg.in/yaml.v2"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 const (
