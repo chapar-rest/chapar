@@ -1,0 +1,34 @@
+name: ci
+on: [pull_request]
+permissions:
+  contents: 'read'
+  pull-requests: 'read'
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+          cache: false
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.58.2
+          args: --config=golangci.yaml --issues-exit-code=0
+          only-new-issues: true
+          skip-cache: true
+          install-mode: "binary"
+
+  tests:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "1.22"
+      - name: Test
+        run: go test -v ./...

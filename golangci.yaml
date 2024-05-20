@@ -1,0 +1,47 @@
+linters:
+  enable-all: false
+  disable:
+    - gochecknoglobals
+    - lll
+    - maligned
+    - varnamelen
+    - wrapcheck
+    - testpackage
+    - forbidigo
+    - funlen
+    - exhaustivestruct
+    - paralleltest
+    - nlreturn
+    - wsl
+    - ireturn
+    - containedctx
+    - golint
+    - interfacer
+    - scopelint
+    - godot
+    - nilnil
+    - godox
+    - contextcheck
+    - rowserrcheck
+    - sqlclosecheck
+    - structcheck
+    - wastedassign
+    - ifshort
+    - gomnd
+    - gofumpt
+    - exhaustive
+    - revive
+    - stylecheck
+    - nolintlint
+    - tagliatelle
+    - goconst
+    - deadcode
+    - gocritic
+    - varcheck
+
+  linters-settings:
+    errcheck:
+      ignore: fmt:.*
+
+  run:
+    modules-download-mode: vendor
