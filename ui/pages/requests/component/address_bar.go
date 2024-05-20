@@ -33,6 +33,7 @@ func NewAddressBar(theme *chapartheme.Theme, address, method string) *AddressBar
 	}
 
 	a.url.SingleLine = true
+	a.url.Submit = true
 	a.url.SetText(address)
 
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
@@ -88,7 +89,15 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		if !ok {
 			break
 		}
-		if _, ok := event.(widget.ChangeEvent); ok {
+
+		switch event.(type) {
+		// on carriage return event
+		case widget.SubmitEvent:
+			if a.onSubmit != nil {
+				go a.onSubmit()
+			}
+		// on change event
+		case widget.ChangeEvent:
 			if a.onURLChanged != nil {
 				a.onURLChanged(a.url.Text())
 			}
