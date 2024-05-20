@@ -24,7 +24,7 @@ type CodeEditor struct {
 	list  *widget.List
 
 	onChange func(text string)
-	monoFont font.FontFace
+	// monoFont font.FontFace
 
 	//lexer         chroma.Lexer
 	//lastStyleName string
@@ -143,8 +143,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return listInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
-						l := material.LabelStyle{}
-						l = material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
+						l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
 						l.Font.Weight = font.Medium
 						l.Color = theme.TextColor
 						l.TextSize = unit.Sp(14)
@@ -156,8 +155,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return inset4.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					ee := material.EditorStyle{}
-					ee = material.Editor(theme.Material(), c.editor, hint)
+					ee := material.Editor(theme.Material(), c.editor, hint)
 					//ee.Font = c.font.Font
 					//ee.LineHeight = unit.Sp(14.73)
 					//// ee.Font.Typeface = "JetBrainsMono"

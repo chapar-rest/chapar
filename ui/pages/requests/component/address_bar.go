@@ -18,7 +18,7 @@ type AddressBar struct {
 	methodDropDown     *widgets.DropDown
 
 	sendClickable widget.Clickable
-	sendButton    material.ButtonStyle
+	// sendButton    material.ButtonStyle
 
 	onURLChanged    func(url string)
 	onMethodChanged func(method string)

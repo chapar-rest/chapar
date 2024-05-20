@@ -53,7 +53,7 @@ type UI struct {
 
 	repo repository.Repository
 
-	tipsOpen bool
+	// tipsOpen bool
 }
 
 // New creates a new UI using the Go Fonts.

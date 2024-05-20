@@ -15,8 +15,8 @@ import (
 type Console struct {
 	logs []domain.Log
 
-	selectables []*widget.Selectable
-	list        *widget.List
+	// selectables []*widget.Selectable
+	list *widget.List
 
 	clearButton *widget.Clickable
 }
@@ -33,16 +33,6 @@ func New() *Console {
 
 	// bus.Subscribe(state.LogSubmitted, c.handleIncomingLog)
 	return c
-}
-
-func (c *Console) handleIncomingLog(log any) {
-	if log == nil {
-		return
-	}
-
-	if l, ok := log.(domain.Log); ok {
-		c.logs = append(c.logs, l)
-	}
 }
 
 func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *domain.Log) layout.Dimensions {

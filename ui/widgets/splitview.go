@@ -37,7 +37,7 @@ func (s *SplitView) Layout(gtx layout.Context, theme *chapartheme.Theme, left, r
 		func(gtx layout.Context) layout.Dimensions {
 			rect := image.Rectangle{
 				Max: image.Point{
-					X: gtx.Dp(unit.Dp(2)),
+					X: bar,
 					Y: gtx.Constraints.Max.Y,
 				},
 			}

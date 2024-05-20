@@ -28,7 +28,7 @@ type Controller struct {
 
 	repo repository.Repository
 
-	activeTabID string
+	// activeTabID string
 
 	explorer *explorer.Explorer
 
@@ -291,7 +291,6 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	inComingRequest, ok := data.(*domain.Request)
 	if !ok {
 		panic("failed to convert data to Request")
-		return
 	}
 
 	// is data changed?

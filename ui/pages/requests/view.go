@@ -71,7 +71,7 @@ type View struct {
 	containers    *safemap.Map[Container]
 	openTabs      *safemap.Map[*widgets.Tab]
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
-	selectedTabId string
+	// selectedTabId string
 
 	tipsView *tips.Tips
 }

@@ -51,7 +51,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 		Auth:    NewAuth(req.Spec.HTTP.Request.Auth, theme),
 	}
 
-	if req != nil && req.Spec != (domain.RequestSpec{}) && req.Spec.HTTP != nil && req.Spec.HTTP.Request != nil {
+	if req.Spec != (domain.RequestSpec{}) && req.Spec.HTTP != nil && req.Spec.HTTP.Request != nil {
 		r.Params.SetQueryParams(req.Spec.HTTP.Request.QueryParams)
 		r.Params.SetPathParams(req.Spec.HTTP.Request.PathParams)
 		r.Headers.SetHeaders(req.Spec.HTTP.Request.Headers)
