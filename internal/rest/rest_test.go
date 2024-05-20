@@ -18,7 +18,9 @@ func Test_applyVariables(t *testing.T) {
 		},
 	}
 
-	sampleReq := &domain.HTTPRequestSpec{}
+	sampleReq := &domain.HTTPRequestSpec{
+		Request: &domain.HTTPRequest{},
+	}
 
 	applyVariables(sampleReq, sampleEnv)
 
