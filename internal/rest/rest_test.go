@@ -3,8 +3,9 @@ package rest
 import (
 	"testing"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/google/uuid"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 func Test_applyVariables(t *testing.T) {

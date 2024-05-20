@@ -4,8 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"gopkg.in/yaml.v2"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 type Repository interface {

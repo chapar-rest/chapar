@@ -5,18 +5,16 @@ import (
 	"image/color"
 	"unicode"
 
+	"gioui.org/layout"
 	"gioui.org/op"
-
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-
-	"github.com/chapar-rest/chapar/internal/safemap"
-	"github.com/chapar-rest/chapar/ui/chapartheme"
-
-	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 type Tabs struct {

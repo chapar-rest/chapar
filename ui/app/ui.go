@@ -6,8 +6,6 @@ import (
 	"image"
 	"os"
 
-	"github.com/chapar-rest/chapar/ui/pages/workspaces"
-
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -15,6 +13,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget/material"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/notify"
 	"github.com/chapar-rest/chapar/internal/repository"
@@ -26,6 +25,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/console"
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
+	"github.com/chapar-rest/chapar/ui/pages/workspaces"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 

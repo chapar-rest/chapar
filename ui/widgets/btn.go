@@ -6,17 +6,17 @@ import (
 	"math"
 
 	"gioui.org/font"
-	"gioui.org/op"
-	"gioui.org/text"
-	"gioui.org/widget/material"
-	"github.com/chapar-rest/chapar/ui/chapartheme"
-
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
+
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 type ButtonStyle struct {

@@ -4,8 +4,9 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"golang.org/x/exp/shiny/materialdesign/icons"
+
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 func MaterialIcons(name string, theme *chapartheme.Theme) material.LabelStyle {
