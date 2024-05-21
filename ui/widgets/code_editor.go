@@ -25,11 +25,6 @@ type CodeEditor struct {
 	list  *widget.List
 
 	onChange func(text string)
-	monoFont font.FontFace
-
-	//lexer         chroma.Lexer
-	//lastStyleName string
-	//codeStyle     *chroma.Style
 
 	font font.FontFace
 
@@ -38,7 +33,7 @@ type CodeEditor struct {
 	border widget.Border
 }
 
-func NewCodeEditor(code string, language string, theme *chapartheme.Theme) *CodeEditor {
+func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor {
 	c := &CodeEditor{
 		editor: new(widget.Editor),
 		code:   code,
@@ -63,19 +58,6 @@ func NewCodeEditor(code string, language string, theme *chapartheme.Theme) *Code
 	c.editor.SetText(code)
 	c.lines = strings.Split(code, "\n")
 
-	//lexer := lexers.Get(language)
-	//if lexer == nil {
-	//	lexer = lexers.Fallback
-	//}
-	//c.lexer = chroma.Coalesce(lexer)
-
-	//style := styles.Get("monokai")
-	//if style == nil {
-	//	style = styles.Fallback
-	//}
-	//c.codeStyle = style
-	//c.lastStyleName = style.Name
-
 	return c
 }
 
@@ -89,12 +71,7 @@ func (c *CodeEditor) SetCode(code string) {
 	c.code = code
 }
 
-func (c *CodeEditor) SetLanguage(language string) {
-	//lexer := lexers.Get(language)
-	//if lexer == nil {
-	//	lexer = lexers.Fallback
-	//}
-	//c.lexer = chroma.Coalesce(lexer)
+func (c *CodeEditor) SetLanguage(_ string) {
 }
 
 func (c *CodeEditor) Code() string {
@@ -102,8 +79,6 @@ func (c *CodeEditor) Code() string {
 }
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
-	// c.handleThemeChange(theme)
-
 	for {
 		ev, ok := gtx.Event(
 			key.Filter{
@@ -144,8 +119,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return listInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
-						l := material.LabelStyle{}
-						l = material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
+						l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
 						l.Font.Weight = font.Medium
 						l.Color = theme.TextColor
 						l.TextSize = unit.Sp(14)
@@ -157,63 +131,12 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return inset4.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					ee := material.EditorStyle{}
-					ee = material.Editor(theme.Material(), c.editor, hint)
-					//ee.Font = c.font.Font
-					//ee.LineHeight = unit.Sp(14.73)
-					//// ee.Font.Typeface = "JetBrainsMono"
+					ee := material.Editor(theme.Material(), c.editor, hint)
 					ee.TextSize = unit.Sp(14)
-					//// make it almost invisible
-					//ee.Color = Hovered(theme.ContrastBg)
 					ee.SelectionColor = theme.TextSelectionColor
-					//ee.Layout(gtx)
-					//t := styledtext.Text(theme.Shaper, c.getSpans()...)
-					// t.WrapPolicy = styledtext.WrapGraphemes
-					//return t.Layout(gtx, nil)
 					return ee.Layout(gtx)
 				})
 			}),
 		)
 	})
 }
-
-//func (c *CodeEditor) getSpans() []styledtext.SpanStyle {
-//	iterator, err := c.lexer.Tokenise(nil, c.code) // sourceCode is a string containing your code
-//	if err != nil {
-//		panic(err)
-//	}
-//	spans := make([]styledtext.SpanStyle, 0)
-//	for _, t := range iterator.Tokens() {
-//		// Create your span using the determined color
-//		span := styledtext.SpanStyle{
-//			Content: t.Value,
-//			Size:    unit.Sp(13),
-//			Color:   c.getTokenColor(t),
-//			Font:    c.font.Font,
-//		}
-//		spans = append(spans, span)
-//	}
-//	return spans
-//}
-//
-//func (c *CodeEditor) getTokenColor(t chroma.Token) color.NRGBA {
-//	st := c.codeStyle.Get(t.Type)
-//
-//	// Convert the chroma style to a color.NRGBA
-//	return color.NRGBA{
-//		R: st.Colour.Red(),
-//		G: st.Colour.Green(),
-//		B: st.Colour.Blue(),
-//		A: 0xff,
-//	}
-//}
-//
-//func (c *CodeEditor) handleThemeChange(theme *chapartheme.Theme) {
-//	if theme.IsDark() && c.lastStyleName != "monokai" {
-//		c.codeStyle = styles.Get("monokai")
-//		c.lastStyleName = "monokai"
-//	} else if !theme.IsDark() && c.lastStyleName != "monokailight" {
-//		c.codeStyle = styles.Get("monokailight")
-//		c.lastStyleName = "monokailight"
-//	}
-//}

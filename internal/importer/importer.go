@@ -137,7 +137,7 @@ func ImportPostmanCollection(data []byte) error {
 	fmt.Println("collection auth", collection.Auth)
 
 	// Convert each item in the collection to our Request structure
-	var requests []*domain.Request
+	var requests = make([]*domain.Request, 0, len(collection.Item))
 	for _, item := range collection.Item {
 		if item.Item != nil {
 			// Convert the folder to a collection
@@ -270,7 +270,7 @@ func ImportPostmanEnvironment(data []byte) error {
 	environment.MetaData.Name = fp.NewName
 
 	// Convert each variable in the Postman environment to our KeyValue structure
-	var variables []domain.KeyValue
+	var variables = make([]domain.KeyValue, 0, len(env.Values))
 	for _, variable := range env.Values {
 		variables = append(variables, domain.KeyValue{
 			ID:     uuid.NewString(),

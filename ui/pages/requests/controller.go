@@ -29,8 +29,6 @@ type Controller struct {
 
 	repo repository.Repository
 
-	activeTabID string
-
 	explorer *explorer.Explorer
 
 	restService *rest.Service
@@ -242,7 +240,7 @@ func (c *Controller) onSubmitRequest(id string) {
 }
 
 func cookieToKeyValue(cookies []*http.Cookie) []domain.KeyValue {
-	var kvs []domain.KeyValue
+	var kvs = make([]domain.KeyValue, 0, len(cookies))
 	for _, c := range cookies {
 		kvs = append(kvs, domain.KeyValue{Key: c.Name, Value: c.Value})
 	}
@@ -250,7 +248,7 @@ func cookieToKeyValue(cookies []*http.Cookie) []domain.KeyValue {
 }
 
 func mapToKeyValue(m map[string]string) []domain.KeyValue {
-	var kvs []domain.KeyValue
+	var kvs = make([]domain.KeyValue, 0, len(m))
 	for k, v := range m {
 		kvs = append(kvs, domain.KeyValue{Key: k, Value: v})
 	}
@@ -292,7 +290,6 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	inComingRequest, ok := data.(*domain.Request)
 	if !ok {
 		panic("failed to convert data to Request")
-		return
 	}
 
 	// is data changed?
@@ -665,7 +662,7 @@ func (c *Controller) duplicateRequest(id string) {
 	}
 
 	newReq := reqFromFile.Clone()
-	newReq.MetaData.Name = newReq.MetaData.Name + " (copy)"
+	newReq.MetaData.Name += " (copy)"
 	newReq.FilePath = repository.AddSuffixBeforeExt(newReq.FilePath, "-copy")
 	c.model.AddRequest(newReq)
 	if reqFromFile.CollectionID == "" {

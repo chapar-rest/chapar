@@ -28,8 +28,6 @@ type FlatButton struct {
 	IconPosition int
 	SpaceBetween unit.Dp
 
-	label widget.Label
-
 	Clickable *widget.Clickable
 
 	MinWidth        unit.Dp

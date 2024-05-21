@@ -119,7 +119,7 @@ func (m *Environments) GetEnvironmentFromDisc(id string) (*domain.Environment, e
 }
 
 func (m *Environments) ReloadEnvironmentFromDisc(id string, source Source) {
-	env, ok := m.environments.Get(id)
+	_, ok := m.environments.Get(id)
 	if !ok {
 		// log error and handle it
 		return

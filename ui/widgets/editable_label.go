@@ -92,8 +92,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) lay
 	return e.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if e.isEditing {
 			if ev, ok := e.editor.Update(gtx); ok {
-				switch ev.(type) {
-				case widget.SubmitEvent:
+				if _, ok := ev.(widget.SubmitEvent); ok {
 					e.isEditing = false
 					e.Text = e.editor.Text()
 					if e.onChanged != nil {
@@ -120,8 +119,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) lay
 			func(gtx layout.Context) layout.Dimensions {
 				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, gtx.Dp(4)).Push(gtx.Ops).Pop()
 				background := theme.Bg
-				switch {
-				case e.clickable.Hovered() || gtx.Focused(e.clickable):
+				if e.clickable.Hovered() || gtx.Focused(e.clickable) {
 					background = Hovered(theme.Bg)
 				}
 				paint.Fill(gtx.Ops, background)

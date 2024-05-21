@@ -29,10 +29,7 @@ func (c *Collection) Clone() *Collection {
 		FilePath: c.FilePath,
 	}
 
-	for i, v := range c.Spec.Requests {
-		clone.Spec.Requests[i] = v
-	}
-
+	copy(clone.Spec.Requests, c.Spec.Requests)
 	return clone
 }
 

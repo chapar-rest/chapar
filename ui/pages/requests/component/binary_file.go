@@ -20,10 +20,10 @@ type BinaryFile struct {
 	onChanged    func(filePath string)
 }
 
-func NewBinaryFile(Filename string) *BinaryFile {
+func NewBinaryFile(filename string) *BinaryFile {
 	bf := &BinaryFile{
-		FileName:  Filename,
-		textField: widgets.NewTextField(Filename, "File"),
+		FileName:  filename,
+		textField: widgets.NewTextField(filename, "File"),
 	}
 
 	bf.textField.Icon = widgets.FileFolderIcon

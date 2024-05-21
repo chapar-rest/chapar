@@ -28,9 +28,9 @@ type KeyValue struct {
 	valueSelectable widget.Selectable
 }
 
-func NewValuesTable(Title string, values []KeyValue) *ValuesTable {
+func NewValuesTable(title string, values []KeyValue) *ValuesTable {
 	return &ValuesTable{
-		Title:  Title,
+		Title:  title,
 		Values: values,
 		list: &widget.List{
 			List: layout.List{

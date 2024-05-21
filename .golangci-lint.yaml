@@ -15,19 +15,12 @@ linters:
     - prealloc
     - unconvert
     - unparam
-    - gci
-  disable:
     - staticcheck
 
-  errcheck:
-    exclude-functions:
-     - fmt:.*
-
-  gci:
-    sections:
-      - standard
-      - default
-      - localmodule
+  linters-settings:
+    errcheck:
+      exclude-functions:
+       - fmt:.*
 
 run:
   modules-download-mode: vendor

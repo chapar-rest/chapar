@@ -262,7 +262,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 	}
 
 	newEnv := envFromFile.Clone()
-	newEnv.MetaData.Name = newEnv.MetaData.Name + " (copy)"
+	newEnv.MetaData.Name += " (copy)"
 	newEnv.FilePath = repository.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
 	c.state.AddEnvironment(newEnv, state.SourceController)
 	c.view.AddTreeViewNode(newEnv)
