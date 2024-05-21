@@ -1,0 +1,34 @@
+linters:
+  enable-all: false
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - unused
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - misspell
+    - nakedret
+    - prealloc
+    - unconvert
+    - unparam
+    - gci
+  disable:
+    - staticcheck
+
+  errcheck:
+    exclude-functions:
+     - fmt:.*
+
+  gci:
+    sections:
+      - standard
+      - default
+      - localmodule
+
+run:
+  modules-download-mode: vendor
+  tests: false
