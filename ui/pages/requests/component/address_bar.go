@@ -94,6 +94,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		// on carriage return event
 		case widget.SubmitEvent:
 			if a.onSubmit != nil {
+				// goroutine to prevent blocking the ui update
 				go a.onSubmit()
 			}
 		// on change event
