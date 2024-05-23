@@ -16,20 +16,18 @@ build_windows:
 	gogio -icon=./build/appicon.png -buildmode=archive -target=windows -arch=amd64 -o ./dist/amd64/Chapar.exe .
 	gogio -icon=./build/appicon.png -buildmode=archive -target=windows -arch=386 -o ./dist/i386/Chapar.exe .
 	rm *.syso
-	zip -r -j ./dist/Chapar_windows_amd64.tar.xz ./dist/amd64/Chapar.exe
-	zip -r -j ./dist/Chapar_windows_i386.tar.xz ./dist/i386/Chapar.exe
+	zip -r -j ./dist/Chapar_windows_amd64.zip ./dist/amd64/Chapar.exe
+	zip -r -j ./dist/Chapar_windows_i386.zip ./dist/i386/Chapar.exe
 	rm -rf ./dist/amd64
 	rm -rf ./dist/i386
 
 .PHONY: build_linux
 build_linux:
-	@echo "Building Linux..."
+	@echo "Building Linux amd64..."
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ./dist/amd64/chapar .
-	CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -o ./dist/arm64/chapar .
 	tar -cJf ./dist/Chapar_linux_amd64.tar.xz ./dist/amd64/chapar ./build/desktop-assets ./build/install-linux.sh ./build/appicon.png ./LICENSE
-	tar -cJf ./dist/Chapar_linux_arm64.tar.xz ./dist/arm64/chapar ./build/desktop-assets ./build/install-linux.sh ./build/appicon.png ./LICENSE
 	rm -rf ./dist/amd64
-	rm -rf ./dist/arm64
+
 
 .PHONY: build
 build: build_macos
