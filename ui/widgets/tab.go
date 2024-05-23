@@ -152,8 +152,6 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		tabs.selected = 0
 	}
 
-	//return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-	//	layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 	return tabs.list.Layout(gtx, len(tabs.tabs), func(gtx layout.Context, tabIdx int) layout.Dimensions {
 		if tabIdx > len(tabs.tabs)-1 {
 			tabIdx = len(tabs.tabs) - 1
@@ -248,9 +246,6 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}),
 		)
 	})
-	//	}),
-	//DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
-	//)
 }
 
 func ellipticalTruncate(text string, maxLen int) string {

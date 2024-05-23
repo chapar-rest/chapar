@@ -1,0 +1,27 @@
+linters:
+  enable-all: false
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - unused
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - misspell
+    - nakedret
+    - prealloc
+    - unconvert
+    - unparam
+    - staticcheck
+
+  linters-settings:
+    errcheck:
+      exclude-functions:
+       - fmt:.*
+
+run:
+  modules-download-mode: vendor
+  tests: false

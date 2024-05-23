@@ -15,7 +15,7 @@ import (
 type SplitView struct {
 	// Ratio keeps the current layout.
 	// 0 is center, -1 completely to the left, 1 completely to the right.
-	//Bar is the width for resizing the layout
+	// Bar is the width for resizing the layout
 	BarWidth unit.Dp
 	component.Resize
 }
@@ -38,7 +38,7 @@ func (s *SplitView) Layout(gtx layout.Context, theme *chapartheme.Theme, left, r
 		func(gtx layout.Context) layout.Dimensions {
 			rect := image.Rectangle{
 				Max: image.Point{
-					X: gtx.Dp(unit.Dp(2)),
+					X: bar,
 					Y: gtx.Constraints.Max.Y,
 				},
 			}

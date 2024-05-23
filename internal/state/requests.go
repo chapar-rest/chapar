@@ -190,7 +190,7 @@ func (m *Requests) GetRequestFromDisc(id string) (*domain.Request, error) {
 }
 
 func (m *Requests) ReloadRequestFromDisc(id string) {
-	env, ok := m.requests.Get(id)
+	_, ok := m.requests.Get(id)
 	if !ok {
 		// log error and handle it
 		return

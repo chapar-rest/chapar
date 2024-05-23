@@ -22,3 +22,19 @@ clean:
 .PHONY: install_deps
 install_deps:
 	go install gioui.org/cmd/gogio@latest
+
+.PHONY: lint
+lint:
+	docker run --rm \
+		-e CGO_ENABLED=1 \
+		-v $(PWD):/app \
+		-w /app ghcr.io/chapar-rest/builder:latest \
+		 golangci-lint -c .golangci-lint.yaml run --timeout 5m
+
+.PHONY: test
+test:
+	docker run --rm \
+		-e CGO_ENABLED=1 \
+		-v $(PWD):/app \
+		-w /app ghcr.io/chapar-rest/builder:latest \
+		go test -v ./...

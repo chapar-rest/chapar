@@ -52,8 +52,6 @@ type UI struct {
 	workspacesState   *state.Workspaces
 
 	repo repository.Repository
-
-	tipsOpen bool
 }
 
 // New creates a new UI using the Go Fonts.

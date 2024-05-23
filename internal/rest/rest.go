@@ -83,8 +83,7 @@ func (s *Service) handlePostRequest(r domain.PostRequest, response *Response, en
 		return nil
 	}
 
-	switch r.Type {
-	case domain.PostRequestTypeSetEnv:
+	if r.Type == domain.PostRequestTypeSetEnv {
 		// only handle post request if the status code is the same as the one provided
 		if response.StatusCode != r.PostRequestSet.StatusCode {
 			return nil
@@ -219,93 +218,8 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	// httpReq.URL.RawQuery = query.Encode()
 
-	// apply body
-	switch req.Request.Body.Type {
-	case domain.BodyTypeJSON, domain.BodyTypeXML, domain.BodyTypeText:
-		if req.Request.Body.Data != "" {
-			httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
-		}
-
-	case domain.BodyTypeBinary:
-		if req.Request.Body.BinaryFilePath != "" {
-			// read file
-			file, err := os.ReadFile(req.Request.Body.BinaryFilePath)
-			if err != nil {
-				return nil, err
-			}
-
-			httpReq.Body = io.NopCloser(bytes.NewReader(file))
-			httpReq.ContentLength = int64(len(file))
-			httpReq.Header.Add("Content-Type", "application/octet-stream")
-			httpReq.Header.Add("Content-Disposition", "attachment; filename="+req.Request.Body.BinaryFilePath)
-			httpReq.Header.Add("Content-Transfer-Encoding", "binary")
-			httpReq.Header.Add("Connection", "Keep-Alive")
-			httpReq.Header.Add("Content-Length", strconv.Itoa(len(file)))
-		}
-
-	case domain.BodyTypeFormData:
-		// apply form body
-		if len(req.Request.Body.FormData.Fields) > 0 {
-			var b bytes.Buffer
-			w := multipart.NewWriter(&b)
-			for _, field := range req.Request.Body.FormData.Fields {
-				if !field.Enable {
-					continue
-				}
-
-				var fw io.Writer
-
-				if field.Type == domain.FormFieldTypeText {
-					if fw, err = w.CreateFormField(field.Key); err != nil {
-						return nil, err
-					}
-					if _, err = io.Copy(fw, strings.NewReader(field.Value)); err != nil {
-						return nil, err
-					}
-				}
-
-				if field.Type == domain.FormFieldTypeFile {
-					for _, ff := range field.Files {
-						file, err := os.Open(ff)
-						if err != nil {
-							return nil, err
-						}
-						defer file.Close()
-
-						if fw, err = w.CreateFormFile(field.Key, file.Name()); err != nil {
-							return nil, err
-						}
-						if _, err = io.Copy(fw, file); err != nil {
-							return nil, err
-						}
-					}
-				}
-			}
-
-			if err := w.Close(); err != nil {
-				return nil, err
-			}
-
-			httpReq.Body = io.NopCloser(&b)
-			httpReq.Header.Set("Content-Type", w.FormDataContentType())
-			httpReq.Header.Add("Connection", "Keep-Alive")
-			httpReq.Header.Add("Content-Length", strconv.Itoa(b.Len()))
-			httpReq.ContentLength = int64(b.Len())
-		}
-
-	case domain.BodyTypeUrlencoded:
-		// apply url encoded
-		if len(req.Request.Body.URLEncoded) > 0 {
-			form := url.Values{}
-			for _, f := range req.Request.Body.URLEncoded {
-				if !f.Enable {
-					continue
-				}
-
-				form.Add(f.Key, f.Value)
-			}
-			httpReq.PostForm = form
-		}
+	if err := s.applyBody(req, httpReq); err != nil {
+		return nil, err
 	}
 
 	// apply authentication
@@ -380,7 +294,102 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	return response, nil
 }
 
-func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HTTPRequestSpec {
+func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) error {
+	// apply body
+	switch req.Request.Body.Type {
+	case domain.BodyTypeJSON, domain.BodyTypeXML, domain.BodyTypeText:
+		if req.Request.Body.Data != "" {
+			httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
+		}
+
+	case domain.BodyTypeBinary:
+		if req.Request.Body.BinaryFilePath != "" {
+			// read file
+			file, err := os.ReadFile(req.Request.Body.BinaryFilePath)
+			if err != nil {
+				return err
+			}
+
+			httpReq.Body = io.NopCloser(bytes.NewReader(file))
+			httpReq.ContentLength = int64(len(file))
+			httpReq.Header.Add("Content-Type", "application/octet-stream")
+			httpReq.Header.Add("Content-Disposition", "attachment; filename="+req.Request.Body.BinaryFilePath)
+			httpReq.Header.Add("Content-Transfer-Encoding", "binary")
+			httpReq.Header.Add("Connection", "Keep-Alive")
+			httpReq.Header.Add("Content-Length", strconv.Itoa(len(file)))
+		}
+
+	case domain.BodyTypeFormData:
+		// apply form body
+		if len(req.Request.Body.FormData.Fields) > 0 {
+			var b bytes.Buffer
+			w := multipart.NewWriter(&b)
+			for _, field := range req.Request.Body.FormData.Fields {
+				if !field.Enable {
+					continue
+				}
+
+				if field.Type == domain.FormFieldTypeText {
+					fw, err := w.CreateFormField(field.Key)
+					if err != nil {
+						return err
+					}
+					if _, err := io.Copy(fw, strings.NewReader(field.Value)); err != nil {
+						return err
+					}
+				}
+
+				if field.Type == domain.FormFieldTypeFile {
+					for _, ff := range field.Files {
+						file, err := os.Open(ff)
+						if err != nil {
+							return err
+						}
+						defer file.Close()
+
+						fw, err := w.CreateFormFile(field.Key, file.Name())
+						if err != nil {
+							return err
+						}
+						if _, err = io.Copy(fw, file); err != nil {
+							return err
+						}
+					}
+				}
+			}
+
+			if err := w.Close(); err != nil {
+				return err
+			}
+
+			httpReq.Body = io.NopCloser(&b)
+			httpReq.Header.Set("Content-Type", w.FormDataContentType())
+			httpReq.Header.Add("Connection", "Keep-Alive")
+			httpReq.Header.Add("Content-Length", strconv.Itoa(b.Len()))
+			httpReq.ContentLength = int64(b.Len())
+		}
+
+	case domain.BodyTypeUrlencoded:
+		// apply url encoded
+		if len(req.Request.Body.URLEncoded) > 0 {
+			form := url.Values{}
+			for _, f := range req.Request.Body.URLEncoded {
+				if !f.Enable {
+					continue
+				}
+
+				form.Add(f.Key, f.Value)
+			}
+			httpReq.PostForm = form
+		}
+	}
+
+	return nil
+}
+
+// TODO refactor
+// nolint:gocyclo
+func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) {
 	// apply internal variables to environment
 	// apply environment to request
 	variables := map[string]string{
@@ -485,7 +494,6 @@ func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) *domain.HT
 		}
 
 	}
-	return req
 }
 
 func IsJSON(s string) bool {

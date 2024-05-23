@@ -1,0 +1,25 @@
+name: Linters and Tests
+
+on: [pull_request]
+
+permissions:
+  contents: 'read'
+  pull-requests: 'read'
+  packages: 'read'
+
+jobs:
+  lint:
+    name: Linters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Lint
+        run: make lint
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Tests
+        run: make test
