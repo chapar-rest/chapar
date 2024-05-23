@@ -5,8 +5,8 @@ build_macos:
 	gogio -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
 	codesign --force --deep --sign - ./dist/amd64/Chapar.app
 	codesign --force --deep --sign - ./dist/arm64/Chapar.app
-	tar -cJf ./dist/Chapar_macos_amd64.tar.xz ./dist/amd64/Chapar.app
-	tar -cJf ./dist/Chapar_macos_arm64.tar.xz ./dist/arm64/Chapar.app
+	tar -cJf ./dist/Chapar_macos_amd64.tar.xz --directory=./dist/amd64 Chapar.app
+	tar -cJf ./dist/Chapar_macos_arm64.tar.xz --directory=./dist/arm64 Chapar.app
 	rm -rf ./dist/amd64
 	rm -rf ./dist/arm64
 
@@ -16,8 +16,8 @@ build_windows:
 	gogio -icon=./build/appicon.png -buildmode=archive -target=windows -arch=amd64 -o ./dist/amd64/Chapar.exe .
 	gogio -icon=./build/appicon.png -buildmode=archive -target=windows -arch=386 -o ./dist/i386/Chapar.exe .
 	rm *.syso
-	tar -cJf ./dist/Chapar_windows_amd64.tar.xz ./dist/amd64/Chapar.exe
-	tar -cJf ./dist/Chapar_windows_i386.tar.xz ./dist/i386/Chapar.exe
+	zip -r -j ./dist/Chapar_windows_amd64.tar.xz ./dist/amd64/Chapar.exe
+	zip -r -j ./dist/Chapar_windows_i386.tar.xz ./dist/i386/Chapar.exe
 	rm -rf ./dist/amd64
 	rm -rf ./dist/i386
 
