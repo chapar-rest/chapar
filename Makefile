@@ -28,7 +28,7 @@ lint:
 	docker run --rm \
 		-e CGO_ENABLED=1 \
 		-v $(PWD):/app \
-		-w /app ghcr.io/chapar-rest/builder:latest \
+		-w /app chapar/builder:0.1.3 \
 		 golangci-lint -c .golangci-lint.yaml run --timeout 5m
 
 .PHONY: test
@@ -36,5 +36,5 @@ test:
 	docker run --rm \
 		-e CGO_ENABLED=1 \
 		-v $(PWD):/app \
-		-w /app ghcr.io/chapar-rest/builder:latest \
+		-w /app chapar/builder:0.1.3 \
 		go test -v ./...

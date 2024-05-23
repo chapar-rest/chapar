@@ -1,0 +1,37 @@
+name: Build MacOS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.22.1
+
+    - name: Install gogio tool
+      run: go install gioui.org/cmd/gogio@latest
+
+    - name: Build macos amd64
+      run: make build_macos
+
+    - name: Zip app
+      run: |
+        cd ./dist
+        zip -r chapar_macos_amd64.zip ./dist/macos_amd64/Chapar.app
+        zip -r chapar_macos_arm64.zip ./dist/macos_arm64/Chapar.app
+        rm -rf ./dist/macos_amd64
+        rm -rf ./dist/macos_arm64
+
+    - name: Archive build
+      uses: actions/upload-artifact@v4
+      with:
+        name: Build MacOS
+        path: dist
