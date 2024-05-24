@@ -60,7 +60,7 @@ Stay tuned for the upcoming early beta release of Chapar. Once released, clone t
 
 ### Installation
 #### Download the latest release
-You can download the latest release from the [releases page](github.com/chapar-rest/chapar/releases).
+You can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
 
 #### Install From Source
 To install Chapar from source, clone the repository install the dependencies, and run the application using the following commands:
@@ -71,6 +71,7 @@ go build -o chapar .
 ```
 
 ## Dependencies
+If you want to build the project from source, you need to install the following dependencies:
 Chapar is built using [Gio](https://gioui.org) library so you need to install the following dependencies to build the project:
 
 for linux follow instructions in [gio linux](https://gioui.org/doc/install/linux)
