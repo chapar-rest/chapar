@@ -13,13 +13,14 @@ build_macos:
 .PHONY: build_windows
 build_windows:
 	@echo "Building Windows..."
-	gogio -icon=build\appicon.png -buildmode=archive -target=windows -arch=amd64 -o dist\amd64\Chapar.exe .
-	gogio -icon=build\appicon.png -buildmode=archive -target=windows -arch=386 -o dist\i386\Chapar.exe .
+	cp build\appicon.png .
+	gogio -target=windows -arch=amd64 -o dist\amd64\Chapar.exe .
+	gogio -target=windows -arch=386 -o dist\i386\Chapar.exe .
 	rm *.syso
-	zip -r -j dist\Chapar_windows_amd64.zip dist\amd64\Chapar.exe
-	zip -r -j dist\Chapar_windows_i386.zip dist\i386\Chapar.exe
-	rm -rf dist\amd64
-	rm -rf dist\i386
+	Compress-Archive -Path .\dist\amd64\Chapar.exe -Destination .\dist\Chapar_windows_amd64.zip
+	Compress-Archive -Path .\dist\i386\Chapar.exe -Destination .\dist\Chapar_windows_i386.zip
+	rm -rf ./dist/amd64
+	rm -rf ./dist/i386
 
 .PHONY: build_linux
 build_linux:
@@ -31,10 +32,6 @@ build_linux:
 	cp -r ./build/desktop-assets ./dist/amd64
 	tar -cJf ./dist/Chapar_linux_amd64.tar.xz --directory=./dist/amd64 desktop-assets install-linux.sh appicon.png ./LICENSE
 	rm -rf ./dist/amd64
-
-
-.PHONY: build
-build: build_macos
 
 .PHONY: run
 run:
