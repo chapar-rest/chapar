@@ -33,5 +33,5 @@ jobs:
         gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_amd64.tar.xz
         gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_arm64.tar.xz
       env:
-        GITHUB_TOKEN: ${{ github.TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash

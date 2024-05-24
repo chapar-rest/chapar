@@ -33,5 +33,5 @@ jobs:
         gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_windows_amd64.zip
         gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_windows_i386.zip
       env:
-        GITHUB_TOKEN: ${{ github.TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash
