@@ -1,9 +1,8 @@
 name: Build Windows
 
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -29,9 +28,8 @@ jobs:
 
     - name: Upload Release Asset
       run: |
-        cd ${{github.workspace}}
-        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_windows_amd64.zip
-        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_windows_i386.zip
+        gh release upload ${{ github.event.release.tag_name }} ./dist/Chapar_windows_amd64.zip
+        gh release upload ${{ github.event.release.tag_name }} ./dist/Chapar_windows_i386.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash

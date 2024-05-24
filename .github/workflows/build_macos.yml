@@ -1,9 +1,8 @@
 name: Build MacOS
 
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -29,7 +28,6 @@ jobs:
 
     - name: Upload Release Asset
       run: |
-        cd ${{github.workspace}}
         gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_amd64.tar.xz
         gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_arm64.tar.xz
       env:
