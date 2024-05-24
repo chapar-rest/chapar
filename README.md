@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/appicon.png" alt="Chapar"/>
+  <img src="./build/appicon.png" alt="Chapar"/>
 </div>
 
 # Chapar - Native API Testing Tool
