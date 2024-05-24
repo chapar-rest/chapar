@@ -19,8 +19,8 @@ build_windows:
 	rm *.syso
 	powershell -Command "Compress-Archive -Path dist\amd64\Chapar.exe -Destination dist\Chapar_windows_amd64.zip"
 	powershell -Command "Compress-Archive -Path dist\i386\Chapar.exe -Destination dist\Chapar_windows_i386.zip"
-	rd /s /q dist\amd64
-	rd /s /q dist\i386
+	rm -rf .\dist\amd64
+	rm -rf .\dist\i386
 
 .PHONY: build_linux
 build_linux:
