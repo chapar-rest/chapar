@@ -1,5 +1,9 @@
 <div align="center">
   <img src="./build/appicon.png" alt="Chapar"/>
+  <br/>
+  <br/>
+  <a href="https://img.shields.io/github/v/release/chapar-rest/chapar?include_prereleases" title="Latest Release" rel="nofollow"><img src="https://img.shields.io/github/v/release/chapar-rest/chapar?include_prereleases" alt="Latest Release"></a>
+  <a href='https://gophers.slack.com/messages/chapar'><img src='https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=blue' alt='Join us on Slack' /></a>
 </div>
 
 # Chapar - Native API Testing Tool
@@ -27,7 +31,7 @@ Chapar is currently in the early beta phase, with the first release expected soo
   <img src="./screenshots/post_request.png" alt="Chapar" width="400"/>
   <img src="./screenshots/requests.png" alt="Chapar" width="400"/>
   <img src="./screenshots/workspaces.png" alt="Chapar" width="400"/>
-  <img src="./screenshots/workspaces.png" alt="Chapar" width="400"/>
+  <img src="./screenshots/params.png" alt="Chapar" width="400"/>
 </div>
 
 
@@ -55,8 +59,11 @@ Chapar is currently in the early beta phase, with the first release expected soo
 Stay tuned for the upcoming early beta release of Chapar. Once released, clone the repository or download the beta version to get started with testing your API endpoints.
 
 ### Installation
-To install Chapar, clone the repository install the dependencies, and run the application using the following commands:
+#### Download the latest release
+You can download the latest release from the [releases page](github.com/chapar-rest/chapar/releases).
 
+#### Install From Source
+To install Chapar from source, clone the repository install the dependencies, and run the application using the following commands:
 ```bash
 git clone https://github.com/chapar-rest/chapar.git
 cd chapar
