@@ -17,10 +17,10 @@ build_windows:
 	gogio -target=windows -arch=amd64 -o dist\amd64\Chapar.exe .
 	gogio -target=windows -arch=386 -o dist\i386\Chapar.exe .
 	rm *.syso
-	Compress-Archive -Path .\dist\amd64\Chapar.exe -Destination .\dist\Chapar_windows_amd64.zip
-	Compress-Archive -Path .\dist\i386\Chapar.exe -Destination .\dist\Chapar_windows_i386.zip
-	rm -rf ./dist/amd64
-	rm -rf ./dist/i386
+	Compress-Archive -Path dist\amd64\Chapar.exe -Destination dist\Chapar_windows_amd64.zip
+	Compress-Archive -Path dist\i386\Chapar.exe -Destination dist\Chapar_windows_i386.zip
+	rd -r dist\amd64
+	rd -r dist\i386
 
 .PHONY: build_linux
 build_linux:
