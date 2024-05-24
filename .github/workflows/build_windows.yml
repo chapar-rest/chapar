@@ -5,6 +5,9 @@ on:
     tags:
       - '*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -24,8 +27,11 @@ jobs:
     - name: Build windows
       run: make build_windows
 
-    - name: Upload build
-      uses: actions/upload-artifact@v4
-      with:
-        name: Upload Windows
-        path: dist
+    - name: Upload Release Asset
+      run: |
+        cd ${{github.workspace}}
+        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_windows_amd64.zip
+        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_windows_i386.zip
+      env:
+        GITHUB_TOKEN: ${{ github.TOKEN }}
+      shell: bash

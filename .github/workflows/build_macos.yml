@@ -5,6 +5,9 @@ on:
     tags:
       - '*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -24,8 +27,11 @@ jobs:
     - name: Build macos amd64
       run: make build_macos
 
-    - name: Upload build
-      uses: actions/upload-artifact@v4
-      with:
-        name: Upload MacOS
-        path: dist
+    - name: Upload Release Asset
+      run: |
+        cd ${{github.workspace}}
+        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_amd64.tar.xz
+        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_arm64.tar.xz
+      env:
+        GITHUB_TOKEN: ${{ github.TOKEN }}
+      shell: bash
