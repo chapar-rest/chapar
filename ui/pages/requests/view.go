@@ -142,6 +142,8 @@ func (v *View) AddRequestTreeViewNode(req *domain.Request) {
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 		Meta:        safemap.New[string](),
+		Prefix:      req.Spec.HTTP.Method,
+		PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 	}
 
 	node.Meta.Set(TypeMeta, TypeRequest)
@@ -571,6 +573,8 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuDuplicate, MenuDelete},
 		Meta:        safemap.New[string](),
+		Prefix:      req.Spec.HTTP.Method,
+		PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 	}
 	node.Meta.Set(TypeMeta, TypeRequest)
 	if parentID == "" {

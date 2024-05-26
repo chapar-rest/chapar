@@ -425,6 +425,7 @@ func (c *Controller) onRequestTabClose(id string) {
 
 			c.view.CloseTab(id)
 			c.model.ReloadRequestFromDisc(id)
+			c.view.SetTreeViewNodePrefix(id, reqFromFile.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(reqFromFile.Spec.HTTP.Method))
 		},
 		[]widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
