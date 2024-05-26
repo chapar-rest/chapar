@@ -16,7 +16,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
-	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -333,7 +332,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
-	c.view.SetTreeViewNodePrefix(id, req.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method))
+	c.view.SetTreeViewNodePrefix(id, req)
 }
 
 func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) string {
@@ -425,7 +424,7 @@ func (c *Controller) onRequestTabClose(id string) {
 
 			c.view.CloseTab(id)
 			c.model.ReloadRequestFromDisc(id)
-			c.view.SetTreeViewNodePrefix(id, reqFromFile.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(reqFromFile.Spec.HTTP.Method))
+			c.view.SetTreeViewNodePrefix(id, reqFromFile)
 		},
 		[]widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
@@ -473,8 +472,13 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	c.view.UpdateTabTitle(col.MetaData.ID, col.MetaData.Name)
 }
 
-func (c *Controller) onNewRequest() {
-	req := domain.NewRequest("New Request")
+func (c *Controller) onNewRequest(requestType string) {
+	var req *domain.Request
+	if requestType == domain.RequestTypeHTTP {
+		req = domain.NewHTTPRequest("New Request")
+	} else {
+		req = domain.NewGRPCRequest("New Request")
+	}
 
 	newFilePath, err := c.repo.GetNewRequestFilePath(req.MetaData.Name)
 	if err != nil {
@@ -589,7 +593,7 @@ func (c *Controller) onTreeViewMenuClicked(id, action string) {
 }
 
 func (c *Controller) addRequestToCollection(id string) {
-	req := domain.NewRequest("New Request")
+	req := domain.NewHTTPRequest("New Request")
 	col := c.model.GetCollection(id)
 	if col == nil {
 		return

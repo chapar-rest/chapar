@@ -132,6 +132,8 @@ func argb(c uint32) color.NRGBA {
 
 func GetRequestPrefixColor(method string) color.NRGBA {
 	switch method {
+	case "gRPC":
+		return LightGreen
 	case "GET":
 		return LightGreen
 	case "POST":

@@ -310,7 +310,7 @@ func (r *RequestSpec) Clone() *RequestSpec {
 	return &clone
 }
 
-func NewRequest(name string) *Request {
+func NewHTTPRequest(name string) *Request {
 	return &Request{
 		ApiVersion: ApiVersion,
 		Kind:       KindRequest,
@@ -328,6 +328,24 @@ func NewRequest(name string) *Request {
 						{Key: "Content-Type", Value: "application/json"},
 					},
 				},
+			},
+		},
+	}
+}
+
+func NewGRPCRequest(name string) *Request {
+	return &Request{
+		ApiVersion: ApiVersion,
+		Kind:       KindRequest,
+		MetaData: RequestMeta{
+			ID:   uuid.NewString(),
+			Name: name,
+			Type: RequestTypeGRPC,
+		},
+		Spec: RequestSpec{
+			GRPC: &GRPCRequestSpec{
+				Host:   "localhost:50051",
+				Method: "grpc.method",
 			},
 		},
 	}
@@ -671,6 +689,21 @@ func (r *Request) SetDefaultValues() {
 		r.MetaData.Type = KindRequest
 	}
 
+	if r.MetaData.ID == "" {
+		r.MetaData.ID = uuid.NewString()
+	}
+
+	if r.MetaData.Type == RequestTypeHTTP {
+		r.SetDefaultValuesForHTTP()
+		return
+	}
+
+	if r.MetaData.Type == RequestTypeGRPC {
+		r.SetDefaultValuesForGRPC()
+	}
+}
+
+func (r *Request) SetDefaultValuesForHTTP() {
 	if r.Spec.HTTP.Method == "" {
 		r.Spec.HTTP.Method = "GET"
 	}
@@ -695,6 +728,16 @@ func (r *Request) SetDefaultValues() {
 		r.Spec.HTTP.Request.PreRequest = PreRequest{
 			Type: "None",
 		}
+	}
+}
+
+func (r *Request) SetDefaultValuesForGRPC() {
+	if r.Spec.GRPC.Host == "" {
+		r.Spec.GRPC.Host = "localhost:50051"
+	}
+
+	if r.Spec.GRPC.Method == "" {
+		r.Spec.GRPC.Method = "grpc.method"
 	}
 }
 

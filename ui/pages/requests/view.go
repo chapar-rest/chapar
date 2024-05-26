@@ -2,7 +2,8 @@ package requests
 
 import (
 	"image"
-	"image/color"
+
+	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
 
 	"gioui.org/app"
 	"gioui.org/io/pointer"
@@ -52,7 +53,7 @@ type View struct {
 
 	// callbacks
 	onTitleChanged              func(id, title, containerType string)
-	onNewRequest                func()
+	onNewRequest                func(requestType string)
 	onImport                    func()
 	onNewCollection             func()
 	onTabClose                  func(id string)
@@ -142,9 +143,9 @@ func (v *View) AddRequestTreeViewNode(req *domain.Request) {
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 		Meta:        safemap.New[string](),
-		Prefix:      req.Spec.HTTP.Method,
-		PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 	}
+
+	setNodePrefix(req, node)
 
 	node.Meta.Set(TypeMeta, TypeRequest)
 	v.treeView.AddNode(node)
@@ -202,7 +203,7 @@ func (v *View) AddFileToFormData(requestId, fieldId, filePath string) {
 	}
 }
 
-func (v *View) SetOnNewRequest(onNewRequest func()) {
+func (v *View) SetOnNewRequest(onNewRequest func(requestType string)) {
 	v.onNewRequest = onNewRequest
 }
 
@@ -356,7 +357,46 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		return
 	}
 
+	if req.MetaData.Type == domain.RequestTypeHTTP {
+		ct := v.createRestfulContainer(req)
+		v.containers.Set(req.MetaData.ID, ct)
+		return
+	}
+
+	if req.MetaData.Type == domain.RequestTypeGRPC {
+		ct := v.createGrpcContainer(req)
+		v.containers.Set(req.MetaData.ID, ct)
+		return
+	}
+}
+
+func (v *View) createGrpcContainer(req *domain.Request) Container {
+	ct := grpc.New(req, v.theme)
+
+	ct.SetOnDataChanged(func(id string, data any) {
+		if v.onDataChanged != nil {
+			v.onDataChanged(id, data, TypeRequest)
+		}
+	})
+
+	ct.SetOnSubmit(func(id string) {
+		if v.onSubmit != nil {
+			v.onSubmit(id, TypeRequest)
+		}
+	})
+
+	ct.SetOnSave(func(id string) {
+		if v.onSave != nil {
+			v.onSave(id)
+		}
+	})
+
+	return ct
+}
+
+func (v *View) createRestfulContainer(req *domain.Request) Container {
 	ct := restful.New(req, v.theme)
+
 	ct.SetOnTitleChanged(func(text string) {
 		if v.onTitleChanged != nil {
 			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
@@ -405,7 +445,7 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		}
 	})
 
-	v.containers.Set(req.MetaData.ID, ct)
+	return ct
 }
 
 func (v *View) SetSendingRequestLoading(id string) {
@@ -518,9 +558,10 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 				Identifier:  req.MetaData.ID,
 				MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 				Meta:        safemap.New[string](),
-				Prefix:      req.Spec.HTTP.Method,
-				PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 			}
+
+			setNodePrefix(req, node)
+
 			node.Meta.Set(TypeMeta, TypeRequest)
 			parentNode.AddChildNode(node)
 			v.treeViewNodes.Set(req.MetaData.ID, node)
@@ -536,9 +577,10 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 			Identifier:  req.MetaData.ID,
 			MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 			Meta:        safemap.New[string](),
-			Prefix:      req.Spec.HTTP.Method,
-			PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 		}
+
+		setNodePrefix(req, node)
+
 		node.Meta.Set(TypeMeta, TypeRequest)
 		treeViewNodes = append(treeViewNodes, node)
 		v.treeViewNodes.Set(req.MetaData.ID, node)
@@ -555,10 +597,9 @@ func (v *View) AddChildTreeViewNode(parentID string, req *domain.Request) {
 	v.addTreeViewNode(parentID, req)
 }
 
-func (v *View) SetTreeViewNodePrefix(id string, prefix string, color color.NRGBA) {
+func (v *View) SetTreeViewNodePrefix(id string, req *domain.Request) {
 	if node, ok := v.treeViewNodes.Get(id); ok {
-		node.PrefixColor = color
-		node.Prefix = prefix
+		setNodePrefix(req, node)
 		v.window.Invalidate()
 	}
 }
@@ -573,9 +614,10 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuDuplicate, MenuDelete},
 		Meta:        safemap.New[string](),
-		Prefix:      req.Spec.HTTP.Method,
-		PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 	}
+
+	setNodePrefix(req, node)
+
 	node.Meta.Set(TypeMeta, TypeRequest)
 	if parentID == "" {
 		v.treeView.AddNode(node)
@@ -583,6 +625,16 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 		v.treeView.AddChildNode(parentID, node)
 	}
 	v.treeViewNodes.Set(req.MetaData.ID, node)
+}
+
+func setNodePrefix(req *domain.Request, node *widgets.TreeNode) {
+	if req.MetaData.Type == domain.RequestTypeGRPC {
+		node.Prefix = "gRPC"
+		node.PrefixColor = chapartheme.GetRequestPrefixColor("gRPC")
+	} else {
+		node.Prefix = req.Spec.HTTP.Method
+		node.PrefixColor = chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method)
+	}
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -611,7 +663,13 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 
 	if v.newHttpRequestButton.Clicked(gtx) {
 		if v.onNewRequest != nil {
-			v.onNewRequest()
+			v.onNewRequest(domain.RequestTypeHTTP)
+		}
+	}
+
+	if v.newGrpcRequestButton.Clicked(gtx) {
+		if v.onNewRequest != nil {
+			v.onNewRequest(domain.RequestTypeGRPC)
 		}
 	}
 
