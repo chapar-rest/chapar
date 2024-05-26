@@ -333,7 +333,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
-	c.view.SetTreeViewNodePrefix(id, inComingRequest.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(inComingRequest.Spec.HTTP.Method))
+	c.view.SetTreeViewNodePrefix(id, req.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method))
 }
 
 func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) string {
@@ -425,6 +425,7 @@ func (c *Controller) onRequestTabClose(id string) {
 
 			c.view.CloseTab(id)
 			c.model.ReloadRequestFromDisc(id)
+			c.view.SetTreeViewNodePrefix(id, reqFromFile.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(reqFromFile.Spec.HTTP.Method))
 		},
 		[]widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
