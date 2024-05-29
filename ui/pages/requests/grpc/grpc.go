@@ -3,7 +3,6 @@ package grpc
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget/material"
 	giox "gioui.org/x/component"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
@@ -19,6 +18,9 @@ type Grpc struct {
 	Breadcrumb *component.Breadcrumb
 	AddressBar *AddressBar
 
+	Request  *Request
+	Response *Response
+
 	split widgets.SplitView
 
 	onSave        func(id string)
@@ -32,8 +34,7 @@ func (r *Grpc) SetOnTitleChanged(f func(title string)) {
 }
 
 func (r *Grpc) SetDataChanged(changed bool) {
-	//TODO implement me
-	panic("implement me")
+
 }
 
 func New(req *domain.Request, theme *chapartheme.Theme) *Grpc {
@@ -48,6 +49,8 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Grpc {
 			BarWidth: unit.Dp(2),
 		},
 		AddressBar: NewAddressBar(theme, req.Spec.GRPC.Host, req.Spec.GRPC.Method),
+		Request:    NewRequest(req, theme),
+		Response:   NewResponse(theme),
 	}
 
 	return r
@@ -97,10 +100,10 @@ func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return r.split.Layout(gtx, theme,
 					func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme.Material(), unit.Sp(20), "Request").Layout(gtx)
+						return r.Request.Layout(gtx, theme)
 					},
 					func(gtx layout.Context) layout.Dimensions {
-						return material.Label(theme.Material(), unit.Sp(20), "Response").Layout(gtx)
+						return r.Response.Layout(gtx, theme)
 					},
 				)
 			}),

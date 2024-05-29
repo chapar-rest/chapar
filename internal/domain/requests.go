@@ -60,8 +60,10 @@ type RequestSpec struct {
 }
 
 type GRPCRequestSpec struct {
-	Host   string `yaml:"host"`
-	Method string `yaml:"method"`
+	Host     string     `yaml:"host"`
+	Method   string     `yaml:"method"`
+	Metadata []KeyValue `yaml:"metadata"`
+	Auth     Auth       `yaml:"auth"`
 }
 
 func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {

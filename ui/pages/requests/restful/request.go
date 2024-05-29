@@ -19,7 +19,7 @@ type Request struct {
 	Body    *Body
 	Params  *Params
 	Headers *Headers
-	Auth    *Auth
+	Auth    *component.Auth
 }
 
 func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
@@ -49,7 +49,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 		Body:    NewBody(req.Spec.HTTP.Request.Body, theme),
 		Params:  NewParams(nil, nil),
 		Headers: NewHeaders(nil),
-		Auth:    NewAuth(req.Spec.HTTP.Request.Auth, theme),
+		Auth:    component.NewAuth(req.Spec.HTTP.Request.Auth, theme),
 	}
 
 	if req.Spec != (domain.RequestSpec{}) && req.Spec.HTTP != nil && req.Spec.HTTP.Request != nil {

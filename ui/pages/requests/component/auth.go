@@ -1,4 +1,4 @@
-package restful
+package component
 
 import (
 	"gioui.org/layout"
@@ -6,7 +6,6 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
@@ -15,9 +14,9 @@ type Auth struct {
 
 	auth domain.Auth
 
-	TokenForm  *component.Form
-	BasicForm  *component.Form
-	APIKeyForm *component.Form
+	TokenForm  *Form
+	BasicForm  *Form
+	APIKeyForm *Form
 
 	onChange func(auth domain.Auth)
 }
@@ -33,14 +32,14 @@ func NewAuth(auth domain.Auth, theme *chapartheme.Theme) *Auth {
 			widgets.NewDropDownOption("API Key").WithValue(domain.AuthTypeAPIKey),
 		),
 
-		TokenForm: component.NewForm([]*component.Field{
+		TokenForm: NewForm([]*Field{
 			{Label: "Token", Value: ""},
 		}),
-		BasicForm: component.NewForm([]*component.Field{
+		BasicForm: NewForm([]*Field{
 			{Label: "Username", Value: ""},
 			{Label: "Password", Value: ""},
 		}),
-		APIKeyForm: component.NewForm([]*component.Field{
+		APIKeyForm: NewForm([]*Field{
 			{Label: "Key", Value: ""},
 			{Label: "Value", Value: ""},
 		}),
@@ -136,30 +135,32 @@ func (a *Auth) SetAuth(auth domain.Auth) {
 }
 
 func (a *Auth) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis:      layout.Vertical,
-		Alignment: layout.Start,
-	}.Layout(gtx,
-		layout.Rigid(layout.Spacer{Height: unit.Dp(15)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return a.DropDown.Layout(gtx, theme)
-				}),
-			)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(15)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			switch a.DropDown.GetSelected().Text {
-			case "Token":
-				return a.TokenForm.Layout(gtx, theme)
-			case "Basic":
-				return a.BasicForm.Layout(gtx, theme)
-			case "API Key":
-				return a.APIKeyForm.Layout(gtx, theme)
-			default:
-				return layout.Dimensions{}
-			}
-		}),
-	)
+	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
+	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{
+			Axis:      layout.Vertical,
+			Alignment: layout.Start,
+		}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return a.DropDown.Layout(gtx, theme)
+					}),
+				)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(15)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				switch a.DropDown.GetSelected().Text {
+				case "Token":
+					return a.TokenForm.Layout(gtx, theme)
+				case "Basic":
+					return a.BasicForm.Layout(gtx, theme)
+				case "API Key":
+					return a.APIKeyForm.Layout(gtx, theme)
+				default:
+					return layout.Dimensions{}
+				}
+			}),
+		)
+	})
 }
