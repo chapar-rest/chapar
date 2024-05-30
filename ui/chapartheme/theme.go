@@ -26,6 +26,7 @@ type Theme struct {
 	TextColor             color.NRGBA
 	ButtonTextColor       color.NRGBA
 	SendButtonBgColor     color.NRGBA
+	SwitchBgColor         color.NRGBA
 	TabInactiveColor      color.NRGBA
 	SeparatorColor        color.NRGBA
 	SideBarBgColor        color.NRGBA
@@ -74,6 +75,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.BorderColor = rgb(0x6c6f76)
 		t.TabInactiveColor = rgb(0x4589f5)
 		t.SendButtonBgColor = rgb(0x4589f5)
+		t.SwitchBgColor = rgb(0x4589f5)
 		t.TextColor = rgb(0xffffff)
 		t.ButtonTextColor = rgb(0xffffff)
 		t.SeparatorColor = rgb(0x2b2d31)
@@ -98,6 +100,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.BorderColor = rgb(0x6c6f76)
 		t.TabInactiveColor = rgb(0x4589f5)
 		t.SendButtonBgColor = rgb(0x4589f5)
+		t.SwitchBgColor = rgb(0x4589f5)
 		t.TextColor = rgb(0x000000)
 		t.ButtonTextColor = rgb(0xffffff)
 		t.SeparatorColor = rgb(0x9c9c9c)

@@ -42,7 +42,7 @@ func NewSidebar(theme *chapartheme.Theme) *Sidebar {
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
 			{Icon: widgets.MenuIcon, Text: "Envs"},
 			{Icon: widgets.WorkspacesIcon, Text: "Workspaces"},
-			// {Icon: widgets.FileFolderIcon, Text: "Proto"},
+			{Icon: widgets.FileFolderIcon, Text: "Proto files"},
 			// {Icon: widgets.TunnelIcon, Text: "Tunnels"},
 			// {Icon: widgets.ConsoleIcon, Text: "Console"},
 			// {Icon: widgets.LogsIcon, Text: "Logs"},
