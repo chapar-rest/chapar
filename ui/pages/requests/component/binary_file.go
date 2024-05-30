@@ -9,7 +9,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
-type BinaryFile struct {
+type FileSelector struct {
 	selectFileButton widget.Clickable
 	removeButton     widget.Clickable
 
@@ -20,8 +20,8 @@ type BinaryFile struct {
 	onChanged    func(filePath string)
 }
 
-func NewBinaryFile(filename string) *BinaryFile {
-	bf := &BinaryFile{
+func NewFileSelector(filename string) *FileSelector {
+	bf := &FileSelector{
 		FileName:  filename,
 		textField: widgets.NewTextField(filename, "File"),
 	}
@@ -32,15 +32,15 @@ func NewBinaryFile(filename string) *BinaryFile {
 	return bf
 }
 
-func (b *BinaryFile) SetOnSelectFile(f func()) {
+func (b *FileSelector) SetOnSelectFile(f func()) {
 	b.onSelectFile = f
 }
 
-func (b *BinaryFile) SetOnChanged(f func(filePath string)) {
+func (b *FileSelector) SetOnChanged(f func(filePath string)) {
 	b.onChanged = f
 }
 
-func (b *BinaryFile) SetFileName(name string) {
+func (b *FileSelector) SetFileName(name string) {
 	b.FileName = name
 	b.textField.SetText(name)
 	if b.onChanged != nil {
@@ -48,16 +48,16 @@ func (b *BinaryFile) SetFileName(name string) {
 	}
 }
 
-func (b *BinaryFile) RemoveFile() {
+func (b *FileSelector) RemoveFile() {
 	b.FileName = ""
 	b.textField.SetText("")
 }
 
-func (b *BinaryFile) GetFilePath() string {
+func (b *FileSelector) GetFilePath() string {
 	return b.FileName
 }
 
-func (b *BinaryFile) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (b *FileSelector) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = gtx.Dp(32)

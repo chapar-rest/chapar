@@ -14,21 +14,23 @@ import (
 type Request struct {
 	Tabs *widgets.Tabs
 
-	Body     *widgets.CodeEditor
-	Metadata *widgets.KeyValue
-	Auth     *component.Auth
+	ServerInfo *ServerInfo
+	Body       *widgets.CodeEditor
+	Metadata   *widgets.KeyValue
+	Auth       *component.Auth
 }
 
 func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 	r := &Request{
 		Tabs: widgets.NewTabs([]*widgets.Tab{
+			{Title: "Server Info"},
 			{Title: "Body"},
 			{Title: "Auth"},
 			{Title: "Meta Data"},
-			{Title: "Proto files"},
 			{Title: "Settings"},
 		}, nil),
-		Body: widgets.NewCodeEditor("", "JSON", theme),
+		ServerInfo: NewServerInfo(),
+		Body:       widgets.NewCodeEditor("", "JSON", theme),
 		Metadata: widgets.NewKeyValue(
 			converter.WidgetItemsFromKeyValue(req.Spec.GRPC.Metadata)...,
 		),
@@ -50,6 +52,10 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				switch r.Tabs.SelectedTab().Title {
+				case "Server Info":
+					return layout.Inset{Top: unit.Dp(5), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return r.ServerInfo.Layout(gtx, theme)
+					})
 				case "Body":
 					return layout.Inset{Top: unit.Dp(5), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return r.Body.Layout(gtx, theme, "JSON")
