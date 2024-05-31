@@ -7,6 +7,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type ServerInfo struct {
@@ -39,12 +40,12 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(5)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				r := material.RadioButton(theme.Material(), s.definitionFrom, "reflection", "Server reflection")
+				r := widgets.RadioButton(theme.Material(), s.definitionFrom, "reflection", "Server reflection")
 				r.IconColor = theme.CheckBoxColor
 				return r.Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				r := material.RadioButton(theme.Material(), s.definitionFrom, "proto_files", "Proto files")
+				r := widgets.RadioButton(theme.Material(), s.definitionFrom, "proto_files", "Proto files")
 				r.IconColor = theme.CheckBoxColor
 				return r.Layout(gtx)
 			}),

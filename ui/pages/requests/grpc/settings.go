@@ -1,7 +1,10 @@
 package grpc
 
 import (
+	"strconv"
+
 	"gioui.org/layout"
+	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -43,13 +46,15 @@ type Item struct {
 }
 
 func NewTextItem(title, description string, value string) *Item {
-	return &Item{
+	i := &Item{
 		Title:       title,
 		Description: description,
 		Type:        ItemTypeText,
 		Value:       value,
-		editor:      &widget.Editor{SingleLine: true},
+		editor:      &widget.Editor{SingleLine: true, Alignment: text.Middle},
 	}
+	i.editor.SetText(value)
+	return i
 }
 
 func NewBoolItem(title, description string, value bool) *Item {
@@ -63,13 +68,15 @@ func NewBoolItem(title, description string, value bool) *Item {
 }
 
 func NewNumberItem(title, description string, value int) *Item {
-	return &Item{
+	i := &Item{
 		Title:       title,
 		Description: description,
 		Type:        ItemTypeLNumber,
 		Value:       value,
-		editor:      &widget.Editor{SingleLine: true},
+		editor:      &widget.Editor{SingleLine: true, Alignment: text.Middle},
 	}
+	i.editor.SetText(strconv.Itoa(value))
+	return i
 }
 
 func (i *Item) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -99,10 +106,7 @@ func (i *Item) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 					case ItemTypeText:
 						return i.editorLayout(gtx, theme)
 					case ItemTypeBool:
-						s := material.Switch(theme.Material(), i.boolState, "")
-						s.Color.Enabled = theme.SwitchBgColor
-						s.Color.Disabled = theme.Palette.Fg
-						return s.Layout(gtx)
+						return i.switchLayout(gtx, theme)
 					case ItemTypeLNumber:
 						return i.editorLayout(gtx, theme)
 					default:
@@ -112,6 +116,28 @@ func (i *Item) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			}),
 		)
 	})
+}
+
+func (i *Item) switchLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	desc := "OFF"
+	if i.boolState.Value {
+		desc = "ON"
+	}
+	return layout.Flex{
+		Axis:      layout.Horizontal,
+		Alignment: layout.Middle,
+	}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			s := material.Switch(theme.Material(), i.boolState, "")
+			s.Color.Enabled = theme.SwitchBgColor
+			s.Color.Disabled = theme.Palette.Fg
+			return s.Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Label(theme.Material(), unit.Sp(12), desc).Layout(gtx)
+		}),
+	)
 }
 
 func (i *Item) editorLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

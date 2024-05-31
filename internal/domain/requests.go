@@ -389,6 +389,14 @@ func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
 }
 
 func CompareHTTPRequestSpecs(a, b *HTTPRequestSpec) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
 	if a.Method != b.Method || a.URL != b.URL {
 		return false
 	}
