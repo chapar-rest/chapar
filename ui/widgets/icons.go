@@ -150,3 +150,8 @@ var WorkspacesIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.NavigationApps)
 	return icon
 }()
+
+var RefreshIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.NavigationRefresh)
+	return icon
+}()

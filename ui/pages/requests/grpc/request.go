@@ -38,7 +38,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 		Auth: component.NewAuth(req.Spec.GRPC.Auth, theme),
 		Settings: NewSettings([]*Item{
 			NewBoolItem("Insecure", "Insecure connection", false),
-			NewNumberItem("Timeout", "Timeout for the request", 1000),
+			NewNumberItem("Timeout", "Timeout for the request in milliseconds", 1000),
 			NewTextItem("Overwrite server name for certificate verification", "The value used to validate the common name in the server certificate.", ""),
 		}),
 	}
