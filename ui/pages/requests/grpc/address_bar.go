@@ -98,7 +98,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 						Axis:      layout.Horizontal,
 						Alignment: layout.Middle,
 					}.Layout(gtx,
-						layout.Flexed(0.5, func(gtx layout.Context) layout.Dimensions {
+						layout.Flexed(0.3, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.Y = gtx.Dp(20)
 								editor := material.Editor(theme.Material(), a.url, "example.com")
@@ -108,7 +108,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 							})
 						}),
 						widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(20), unit.Dp(1)),
-						layout.Flexed(0.5, func(gtx layout.Context) layout.Dimensions {
+						layout.Flexed(0.7, func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.Y = gtx.Dp(20)
 							return a.methodDropDown.Layout(gtx, theme)
 						}),

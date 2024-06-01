@@ -58,7 +58,8 @@ func NewHeader(envState *state.Environments, workspacesState *state.Workspaces, 
 		widgets.NewDropDownOption(domain.DefaultWorkspaceName).WithIdentifier(domain.DefaultWorkspaceName),
 	)
 	h.workspaceDropDown.SetSelectedByIdentifier(domain.DefaultWorkspaceName)
-	h.envDropDown.MinWidth = unit.Dp(150)
+	h.envDropDown.MaxWidth = unit.Dp(150)
+	h.workspaceDropDown.MaxWidth = unit.Dp(150)
 	return h
 }
 

@@ -20,6 +20,7 @@ type DropDown struct {
 	theme           *chapartheme.Theme
 
 	MinWidth unit.Dp
+	MaxWidth unit.Dp
 	menuInit bool
 
 	isOpen              bool
@@ -166,7 +167,7 @@ func (c *DropDown) GetSelected() *DropDownOption {
 	return c.options[c.selectedOptionIndex]
 }
 
-func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string, minWidth unit.Dp) layout.Dimensions {
+func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string, maxWidth unit.Dp) layout.Dimensions {
 	borderColor := theme.BorderColor
 	if c.isOpen {
 		borderColor = theme.BorderColorFocused
@@ -178,10 +179,15 @@ func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string
 		CornerRadius: c.cornerRadius,
 	}
 
-	c.size.X = gtx.Dp(minWidth)
+	if maxWidth == 0 {
+		maxWidth = unit.Dp(gtx.Constraints.Max.X)
+	}
+
+	c.size.X = gtx.Dp(maxWidth)
+
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		// calculate the minimum width of the box, considering icon and padding
-		gtx.Constraints.Min.X = gtx.Dp(minWidth) - gtx.Dp(8)
+		gtx.Constraints.Min.X = gtx.Dp(maxWidth) - gtx.Dp(8)
 		return layout.Inset{
 			Top:    4,
 			Bottom: 4,
@@ -239,7 +245,7 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		c.MinWidth = unit.Dp(150)
 	}
 
-	box := c.box(gtx, theme, c.options[c.selectedOptionIndex].Text, c.MinWidth)
+	box := c.box(gtx, theme, c.options[c.selectedOptionIndex].Text, c.MaxWidth)
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return box
@@ -251,7 +257,10 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					Left: unit.Dp(4),
 				}
 				return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Max.X = gtx.Dp(c.MinWidth)
+					gtx.Constraints.Min.X = gtx.Dp(c.MinWidth)
+					if c.MaxWidth != 0 {
+						gtx.Constraints.Max.X = gtx.Dp(c.MaxWidth)
+					}
 					m := component.Menu(theme.Material(), &c.menu)
 					m.SurfaceStyle.Fill = theme.DropDownMenuBgColor
 					return m.Layout(gtx)
