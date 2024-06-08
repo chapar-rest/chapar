@@ -53,7 +53,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 
 	b.script.SetCode(body.Data)
 	b.DropDown.SetSelectedByValue(body.Type)
-	b.DropDown.MinWidth = unit.Dp(150)
+	b.DropDown.MaxWidth = unit.Dp(150)
 
 	return b
 }

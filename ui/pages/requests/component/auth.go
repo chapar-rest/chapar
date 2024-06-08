@@ -46,7 +46,7 @@ func NewAuth(auth domain.Auth, theme *chapartheme.Theme) *Auth {
 	}
 
 	a.DropDown.SetSelectedByValue(auth.Type)
-	a.DropDown.MinWidth = unit.Dp(150)
+	a.DropDown.MaxWidth = unit.Dp(150)
 
 	if auth.BasicAuth != nil {
 		a.BasicForm.SetValues(map[string]string{
