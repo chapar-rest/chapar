@@ -183,6 +183,11 @@ func (r *Restful) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
+	r.Request.Body.BinaryFile.SetOnChanged(func(filePath string) {
+		r.Req.Spec.HTTP.Request.Body.BinaryFilePath = filePath
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
 	r.Request.Auth.SetOnChange(func(auth domain.Auth) {
 		r.Req.Spec.HTTP.Request.Auth = auth
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)

@@ -94,6 +94,18 @@ func (r *Grpc) setupHooks() {
 		r.Req.Spec.GRPC.Settings = convertSettingsToItems(values)
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
+
+	r.Request.ServerInfo.FileSelector.SetOnChanged(func(filePath string) {
+		if r.Req.Spec.GRPC.ServerInfo.ProtoFiles == nil {
+			r.Req.Spec.GRPC.ServerInfo.ProtoFiles = make([]domain.ProtoFile, 0)
+		}
+
+		r.Req.Spec.GRPC.ServerInfo.ProtoFiles = append(r.Req.Spec.GRPC.ServerInfo.ProtoFiles, domain.ProtoFile{
+			Path: filePath,
+		})
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
 }
 
 func convertSettingsToItems(values map[string]any) domain.Settings {
@@ -111,6 +123,9 @@ func (r *Grpc) SetOnProtoFileSelect(f func(id string)) {
 
 func (r *Grpc) SetProtoBodyFilePath(filePath string) {
 	r.Request.ServerInfo.FileSelector.SetFileName(filePath)
+	if r.onDataChanged != nil {
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	}
 }
 
 func (r *Grpc) SetOnDataChanged(f func(id string, data any)) {
