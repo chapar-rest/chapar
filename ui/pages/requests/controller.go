@@ -57,6 +57,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnSubmit(c.onSubmit)
 	view.SetOnCopyResponse(c.onCopyResponse)
 	view.SetOnBinaryFileSelect(c.onSelectBinaryFile)
+	view.SetOnProtoFileSelect(c.onProtoFileSelect)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
 	return c
@@ -102,6 +103,20 @@ func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 		c.view.AddFileToFormData(requestId, fieldId, result.FilePath)
 
 	}, "")
+}
+
+func (c *Controller) onProtoFileSelect(id string) {
+	c.explorer.ChoseFile(func(result explorer.Result) {
+		if result.Error != nil {
+			fmt.Println("failed to get proto file", result.Error)
+			return
+		}
+		if result.FilePath == "" {
+			return
+		}
+		c.view.SetProtoFilePath(id, result.FilePath)
+
+	}, ".proto")
 }
 
 func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, from, fromKey string) {
@@ -296,25 +311,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 
-	queryParamsChanged := !domain.CompareKeyValues(req.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.Request.QueryParams)
-	urlChanged := inComingRequest.Spec.HTTP.URL != req.Spec.HTTP.URL
-
-	// if query params and url are changed, update the url base on the query params
-	if (queryParamsChanged && urlChanged) || queryParamsChanged {
-		newURL := c.getNewURLWithParams(inComingRequest.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.URL)
-		c.view.SetURL(id, newURL)
-		inComingRequest.Spec.HTTP.URL = newURL
-	} else if urlChanged {
-		// update query params based on the new url
-		newParams := c.getUrlParams(inComingRequest.Spec.HTTP.URL)
-		c.view.SetQueryParams(id, newParams)
-		inComingRequest.Spec.HTTP.Request.QueryParams = newParams
-
-		// update the path params based on the new url
-		newPathParams := domain.ParsePathParams(inComingRequest.Spec.HTTP.URL)
-		c.view.SetPathParams(id, newPathParams)
-		inComingRequest.Spec.HTTP.Request.PathParams = newPathParams
-	}
+	c.checkForHTTPRequestParams(req, inComingRequest)
 
 	// break the reference
 	clone := inComingRequest.Clone()
@@ -333,6 +330,32 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
 	c.view.SetTreeViewNodePrefix(id, req)
+}
+
+func (c *Controller) checkForHTTPRequestParams(req *domain.Request, inComingRequest *domain.Request) {
+	if req.MetaData.Type != domain.RequestTypeHTTP {
+		return
+	}
+
+	queryParamsChanged := !domain.CompareKeyValues(req.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.Request.QueryParams)
+	urlChanged := inComingRequest.Spec.HTTP.URL != req.Spec.HTTP.URL
+
+	// if query params and url are changed, update the url base on the query params
+	if (queryParamsChanged && urlChanged) || queryParamsChanged {
+		newURL := c.getNewURLWithParams(inComingRequest.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.URL)
+		c.view.SetURL(req.MetaData.ID, newURL)
+		inComingRequest.Spec.HTTP.URL = newURL
+	} else if urlChanged {
+		// update query params based on the new url
+		newParams := c.getUrlParams(inComingRequest.Spec.HTTP.URL)
+		c.view.SetQueryParams(req.MetaData.ID, newParams)
+		inComingRequest.Spec.HTTP.Request.QueryParams = newParams
+
+		// update the path params based on the new url
+		newPathParams := domain.ParsePathParams(inComingRequest.Spec.HTTP.URL)
+		c.view.SetPathParams(req.MetaData.ID, newPathParams)
+		inComingRequest.Spec.HTTP.Request.PathParams = newPathParams
+	}
 }
 
 func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) string {

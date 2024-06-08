@@ -67,6 +67,7 @@ type View struct {
 	onCopyResponse              func(gtx layout.Context, dataType, data string)
 	onOnPostRequestSetChanged   func(id string, statusCode int, item, from, fromKey string)
 	onBinaryFileSelect          func(id string)
+	onProtoFileSelect           func(id string)
 	onFromDataFileSelect        func(requestID, fieldID string)
 
 	// state
@@ -183,10 +184,22 @@ func (v *View) SetOnBinaryFileSelect(f func(id string)) {
 	v.onBinaryFileSelect = f
 }
 
+func (v *View) SetOnProtoFileSelect(f func(id string)) {
+	v.onProtoFileSelect = f
+}
+
 func (v *View) SetBinaryBodyFilePath(id, filePath string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetBinaryBodyFilePath(filePath)
+		}
+	}
+}
+
+func (v *View) SetProtoFilePath(id, filePath string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetProtoBodyFilePath(filePath)
 		}
 	}
 }
@@ -373,6 +386,18 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 func (v *View) createGrpcContainer(req *domain.Request) Container {
 	ct := grpc.New(req, v.theme)
 
+	ct.SetOnTitleChanged(func(text string) {
+		if v.onTitleChanged != nil {
+			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
+		}
+	})
+
+	ct.SetOnSave(func(id string) {
+		if v.onSave != nil {
+			v.onSave(id)
+		}
+	})
+
 	ct.SetOnDataChanged(func(id string, data any) {
 		if v.onDataChanged != nil {
 			v.onDataChanged(id, data, TypeRequest)
@@ -385,9 +410,9 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 		}
 	})
 
-	ct.SetOnSave(func(id string) {
-		if v.onSave != nil {
-			v.onSave(id)
+	ct.SetOnProtoFileSelect(func(id string) {
+		if v.onProtoFileSelect != nil {
+			v.onProtoFileSelect(id)
 		}
 	})
 

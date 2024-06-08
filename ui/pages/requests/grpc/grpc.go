@@ -103,6 +103,16 @@ func convertSettingsToItems(values map[string]any) domain.Settings {
 	}
 }
 
+func (r *Grpc) SetOnProtoFileSelect(f func(id string)) {
+	r.Request.ServerInfo.FileSelector.SetOnSelectFile(func() {
+		f(r.Req.MetaData.ID)
+	})
+}
+
+func (r *Grpc) SetProtoBodyFilePath(filePath string) {
+	r.Request.ServerInfo.FileSelector.SetFileName(filePath)
+}
+
 func (r *Grpc) SetOnDataChanged(f func(id string, data any)) {
 	r.onDataChanged = f
 }
@@ -135,7 +145,6 @@ func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.Prompt.Layout(gtx, theme)
-				// return layout.Dimensions{}
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

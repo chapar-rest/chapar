@@ -25,7 +25,14 @@ type Container interface {
 	HidePrompt()
 }
 
+type GrpcContainer interface {
+	Container
+	SetOnProtoFileSelect(func(id string))
+	SetProtoBodyFilePath(filePath string)
+}
+
 type RestContainer interface {
+	Container
 	SetHTTPResponse(response domain.HTTPResponseDetail)
 	GetHTTPResponse() *domain.HTTPResponseDetail
 	SetPostRequestSetPreview(preview string)
