@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,10 +61,32 @@ type RequestSpec struct {
 }
 
 type GRPCRequestSpec struct {
-	Host     string     `yaml:"host"`
-	Method   string     `yaml:"method"`
-	Metadata []KeyValue `yaml:"metadata"`
-	Auth     Auth       `yaml:"auth"`
+	Methods           []string   `yaml:"methods"`
+	LasSelectedMethod string     `yaml:"lastSelectedMethod"`
+	Metadata          []KeyValue `yaml:"metadata"`
+	Auth              Auth       `yaml:"auth"`
+	ServerInfo        ServerInfo `yaml:"serverInfo"`
+	Settings          Settings   `yaml:"settings"`
+	Body              string     `yaml:"body"`
+}
+
+type ServerInfo struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+
+	ServerReflection bool        `yaml:"serverReflection"`
+	ProtoFiles       []ProtoFile `yaml:"protoFiles"`
+}
+
+type Settings struct {
+	UseSSL       bool          `yaml:"useSSL"`
+	Timeout      time.Duration `yaml:"timeout"`
+	NameOverride string        `yaml:"nameOverride"`
+}
+
+type ProtoFile struct {
+	Name string `yaml:"name"`
+	Path string `yaml:"path"`
 }
 
 func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {
@@ -346,8 +369,11 @@ func NewGRPCRequest(name string) *Request {
 		},
 		Spec: RequestSpec{
 			GRPC: &GRPCRequestSpec{
-				Host:   "localhost:50051",
-				Method: "grpc.method",
+				LasSelectedMethod: "",
+				ServerInfo: ServerInfo{
+					Host: "localhost:50051",
+					Port: 50051,
+				},
 			},
 		},
 	}
@@ -382,9 +408,14 @@ func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
 		return false
 	}
 
-	if a.Host != b.Host || a.Method != b.Method {
+	if a.ServerInfo.Host != b.ServerInfo.Host || a.LasSelectedMethod != b.LasSelectedMethod {
 		return false
 	}
+
+	if len(a.Methods) != len(b.Methods) || slices.Compare(a.Methods, b.Methods) != 0 {
+		return false
+	}
+
 	return true
 }
 
@@ -742,12 +773,9 @@ func (r *Request) SetDefaultValuesForHTTP() {
 }
 
 func (r *Request) SetDefaultValuesForGRPC() {
-	if r.Spec.GRPC.Host == "" {
-		r.Spec.GRPC.Host = "localhost:50051"
-	}
-
-	if r.Spec.GRPC.Method == "" {
-		r.Spec.GRPC.Method = "grpc.method"
+	if r.Spec.GRPC.ServerInfo.Host == "" {
+		r.Spec.GRPC.ServerInfo.Host = "localhost:50051"
+		r.Spec.GRPC.ServerInfo.Port = 50051
 	}
 }
 

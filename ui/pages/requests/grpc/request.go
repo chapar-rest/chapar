@@ -18,7 +18,7 @@ type Request struct {
 	Body       *widgets.CodeEditor
 	Metadata   *widgets.KeyValue
 	Auth       *component.Auth
-	Settings   *Settings
+	Settings   *widgets.Settings
 }
 
 func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
@@ -36,10 +36,10 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 			converter.WidgetItemsFromKeyValue(req.Spec.GRPC.Metadata)...,
 		),
 		Auth: component.NewAuth(req.Spec.GRPC.Auth, theme),
-		Settings: NewSettings([]*Item{
-			NewBoolItem("Insecure", "Insecure connection", false),
-			NewNumberItem("Timeout", "Timeout for the request in milliseconds", 1000),
-			NewTextItem("Overwrite server name for certificate verification", "The value used to validate the common name in the server certificate.", ""),
+		Settings: widgets.NewSettings([]*widgets.SettingItem{
+			widgets.NewBoolItem("Insecure", "insecure", "Insecure connection", false),
+			widgets.NewNumberItem("Timeout", "timeout_ms", "Timeout for the request in milliseconds", 1000),
+			widgets.NewTextItem("Overwrite server name for certificate verification", "overwrite_server_name", "The value used to validate the common name in the server certificate.", ""),
 		}),
 	}
 

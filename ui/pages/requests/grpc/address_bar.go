@@ -1,8 +1,6 @@
 package grpc
 
 import (
-	"strings"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -12,7 +10,7 @@ import (
 )
 
 type AddressBar struct {
-	url *widget.Editor
+	serverAddress *widget.Editor
 
 	lastSelectedMethod string
 	methodDropDown     *widgets.DropDown
@@ -24,31 +22,48 @@ type AddressBar struct {
 	onSubmit               func()
 }
 
-func NewAddressBar(theme *chapartheme.Theme, address, method string) *AddressBar {
+func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string, methods []string) *AddressBar {
 	a := &AddressBar{
-		url:                &widget.Editor{},
+		serverAddress:      &widget.Editor{},
 		methodDropDown:     widgets.NewDropDownWithoutBorder(theme),
-		lastSelectedMethod: method,
+		lastSelectedMethod: lastSelectedMethod,
 	}
 
-	a.url.SingleLine = true
-	a.url.Submit = true
-	a.url.SetText(address)
+	a.serverAddress.SingleLine = true
+	a.serverAddress.Submit = true
+	a.serverAddress.SetText(address)
 
-	methods := []string{"Create", "Update", "Delete", "Get", "List", "Watch"}
 	opts := make([]*widgets.DropDownOption, 0, len(methods))
 	for _, m := range methods {
 		opts = append(opts, widgets.NewDropDownOption(m))
 	}
+
 	a.methodDropDown.SetOptions(opts...)
 	a.methodDropDown.MinWidth = unit.Dp(200)
-	a.methodDropDown.SetSelectedByTitle(strings.ToUpper(method))
+	a.methodDropDown.SetSelectedByTitle(lastSelectedMethod)
 	return a
+}
+
+func (a *AddressBar) SetSelectedMethod(method string) {
+	a.methodDropDown.SetSelectedByTitle(method)
+	a.lastSelectedMethod = method
+}
+
+func (a *AddressBar) SetOnServerAddressChanged(onServerAddressChanged func(url string)) {
+	a.onServerAddressChanged = onServerAddressChanged
+}
+
+func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
+	a.onMethodChanged = onMethodChanged
+}
+
+func (a *AddressBar) SetOnSubmit(onSubmit func()) {
+	a.onSubmit = onSubmit
 }
 
 func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	borderColor := theme.BorderColor
-	if gtx.Source.Focused(a.url) {
+	if gtx.Source.Focused(a.serverAddress) {
 		borderColor = theme.BorderColorFocused
 	}
 
@@ -59,7 +74,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 	}
 
 	for {
-		event, ok := a.url.Update(gtx)
+		event, ok := a.serverAddress.Update(gtx)
 		if !ok {
 			break
 		}
@@ -74,7 +89,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		// on change event
 		case widget.ChangeEvent:
 			if a.onServerAddressChanged != nil {
-				a.onServerAddressChanged(a.url.Text())
+				a.onServerAddressChanged(a.serverAddress.Text())
 			}
 		}
 	}
@@ -101,7 +116,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 						layout.Flexed(0.3, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.Y = gtx.Dp(20)
-								editor := material.Editor(theme.Material(), a.url, "example.com")
+								editor := material.Editor(theme.Material(), a.serverAddress, "localhost:8080")
 								editor.SelectionColor = theme.TextSelectionColor
 								editor.TextSize = unit.Sp(14)
 								return editor.Layout(gtx)

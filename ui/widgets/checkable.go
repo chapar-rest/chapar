@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense OR MIT
-// Copied from: gioui material/checkable.go
+// Copied from: gioui material/checkable.go with some modifications
 
 package widgets
 
@@ -28,7 +28,7 @@ type checkable struct {
 	uncheckedStateIcon *widget.Icon
 }
 
-func (c *checkable) layout(gtx layout.Context, checked, hovered bool) layout.Dimensions {
+func (c *checkable) layout(gtx layout.Context, checked bool) layout.Dimensions {
 	var icon *widget.Icon
 	if checked {
 		icon = c.checkedStateIcon

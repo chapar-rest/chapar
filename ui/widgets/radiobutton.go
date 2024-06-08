@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense OR MIT
-// Copied from: gioui material/radiobutton.go
+// Copied from: gioui material/radiobutton.go with some modifications
 package widgets
 
 import (
@@ -40,11 +40,8 @@ func RadioButton(th *material.Theme, group *widget.Enum, key, label string) Radi
 // Layout updates enum and displays the radio button.
 func (r RadioButtonStyle) Layout(gtx layout.Context) layout.Dimensions {
 	r.Group.Update(gtx)
-	hovered, hovering := r.Group.Hovered()
-	focus, focused := r.Group.Focused()
 	return r.Group.Layout(gtx, r.Key, func(gtx layout.Context) layout.Dimensions {
 		semantic.RadioButton.Add(gtx.Ops)
-		highlight := hovering && hovered == r.Key || focused && focus == r.Key
-		return r.layout(gtx, r.Group.Value == r.Key, highlight)
+		return r.layout(gtx, r.Group.Value == r.Key)
 	})
 }

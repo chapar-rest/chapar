@@ -1,4 +1,4 @@
-package grpc
+package widgets
 
 import (
 	"strconv"
@@ -9,7 +9,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 const (
@@ -19,13 +18,15 @@ const (
 )
 
 type Settings struct {
-	Items []*Item
+	Items []*SettingItem
 
 	list *widget.List
+
+	onChange func(values map[string]any)
 }
 
-func NewSettings(Items []*Item) *Settings {
-	return &Settings{
+func NewSettings(Items []*SettingItem) *Settings {
+	s := &Settings{
 		Items: Items,
 		list: &widget.List{
 			List: layout.List{
@@ -33,21 +34,57 @@ func NewSettings(Items []*Item) *Settings {
 			},
 		},
 	}
+
+	for _, i := range Items {
+		i.onChange = s.onChanged
+	}
+
+	return s
 }
 
-type Item struct {
+func (s *Settings) SetOnChange(f func(values map[string]any)) {
+	s.onChange = f
+}
+
+func (s *Settings) onChanged() {
+	if s.onChange == nil {
+		return
+	}
+
+	values := make(map[string]any, len(s.Items))
+	for _, i := range s.Items {
+		if i.Type == ItemTypeBool {
+			values[i.Key] = i.boolState.Value
+		} else if i.Type == ItemTypeLNumber {
+			v, err := strconv.Atoi(i.editor.Text())
+			if err != nil {
+				continue
+			}
+			values[i.Key] = v
+		} else {
+			values[i.Key] = i.editor.Text()
+		}
+	}
+	s.onChange(values)
+}
+
+type SettingItem struct {
 	Title       string
+	Key         string
 	Description string
 	Type        string
 	Value       any
 
 	boolState *widget.Bool
 	editor    *widget.Editor
+
+	onChange func()
 }
 
-func NewTextItem(title, description string, value string) *Item {
-	i := &Item{
+func NewTextItem(title, key, description string, value string) *SettingItem {
+	i := &SettingItem{
 		Title:       title,
+		Key:         key,
 		Description: description,
 		Type:        ItemTypeText,
 		Value:       value,
@@ -57,9 +94,10 @@ func NewTextItem(title, description string, value string) *Item {
 	return i
 }
 
-func NewBoolItem(title, description string, value bool) *Item {
-	return &Item{
+func NewBoolItem(title, key, description string, value bool) *SettingItem {
+	return &SettingItem{
 		Title:       title,
+		Key:         key,
 		Description: description,
 		Type:        ItemTypeBool,
 		Value:       value,
@@ -67,9 +105,10 @@ func NewBoolItem(title, description string, value bool) *Item {
 	}
 }
 
-func NewNumberItem(title, description string, value int) *Item {
-	i := &Item{
+func NewNumberItem(title, key, description string, value int) *SettingItem {
+	i := &SettingItem{
 		Title:       title,
+		Key:         key,
 		Description: description,
 		Type:        ItemTypeLNumber,
 		Value:       value,
@@ -79,7 +118,7 @@ func NewNumberItem(title, description string, value int) *Item {
 	return i
 }
 
-func (i *Item) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	inset := layout.Inset{Top: unit.Dp(5), Bottom: unit.Dp(15)}
 
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -95,7 +134,7 @@ func (i *Item) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						lb := material.Label(theme.Material(), unit.Sp(12), i.Description)
-						lb.Color = widgets.Disabled(theme.TextColor)
+						lb.Color = Disabled(theme.TextColor)
 						return lb.Layout(gtx)
 					}),
 				)
@@ -118,11 +157,12 @@ func (i *Item) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 	})
 }
 
-func (i *Item) switchLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (i *SettingItem) switchLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	desc := "OFF"
 	if i.boolState.Value {
 		desc = "ON"
 	}
+
 	return layout.Flex{
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,
@@ -140,7 +180,7 @@ func (i *Item) switchLayout(gtx layout.Context, theme *chapartheme.Theme) layout
 	)
 }
 
-func (i *Item) editorLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	gtx.Constraints.Min.X = gtx.Dp(50)
 	border := widget.Border{
 		Color:        theme.BorderColor,
