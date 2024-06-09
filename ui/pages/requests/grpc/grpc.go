@@ -1,8 +1,6 @@
 package grpc
 
 import (
-	"time"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	giox "gioui.org/x/component"
@@ -84,10 +82,15 @@ func (r *Grpc) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
+	r.Request.Auth.SetOnChange(func(auth domain.Auth) {
+		r.Req.Spec.GRPC.Auth = auth
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
 	r.Request.Metadata.SetOnChanged(func(items []*widgets.KeyValueItem) {
 		data := converter.KeyValueFromWidgetItems(items)
 		r.Req.Spec.GRPC.Metadata = data
-		r.onDataChanged(r.Req.MetaData.ID, data)
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
 	r.Request.Settings.SetOnChange(func(values map[string]any) {
@@ -109,10 +112,25 @@ func (r *Grpc) setupHooks() {
 }
 
 func convertSettingsToItems(values map[string]any) domain.Settings {
-	return domain.Settings{
-		UseSSL:  false,
-		Timeout: time.Hour,
+	out := domain.Settings{
+		UseSSL:              false,
+		TimeoutMilliseconds: 1000,
+		NameOverride:        "",
 	}
+
+	if v, ok := values["useSSL"]; ok {
+		out.UseSSL = v.(bool)
+	}
+
+	if v, ok := values["timeoutMilliseconds"]; ok {
+		out.TimeoutMilliseconds = v.(int)
+	}
+
+	if v, ok := values["nameOverride"]; ok {
+		out.NameOverride = v.(string)
+	}
+
+	return out
 }
 
 func (r *Grpc) SetOnProtoFileSelect(f func(id string)) {

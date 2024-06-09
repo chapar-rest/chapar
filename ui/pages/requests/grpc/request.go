@@ -30,16 +30,16 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 			{Title: "Meta Data"},
 			{Title: "Settings"},
 		}, nil),
-		ServerInfo: NewServerInfo(),
-		Body:       widgets.NewCodeEditor("", "JSON", theme),
+		ServerInfo: NewServerInfo(req.Spec.GRPC.ServerInfo),
+		Body:       widgets.NewCodeEditor(req.Spec.GRPC.Body, "JSON", theme),
 		Metadata: widgets.NewKeyValue(
 			converter.WidgetItemsFromKeyValue(req.Spec.GRPC.Metadata)...,
 		),
 		Auth: component.NewAuth(req.Spec.GRPC.Auth, theme),
 		Settings: widgets.NewSettings([]*widgets.SettingItem{
-			widgets.NewBoolItem("Insecure", "insecure", "Insecure connection", false),
-			widgets.NewNumberItem("Timeout", "timeout_ms", "Timeout for the request in milliseconds", 1000),
-			widgets.NewTextItem("Overwrite server name for certificate verification", "overwrite_server_name", "The value used to validate the common name in the server certificate.", ""),
+			widgets.NewBoolItem("Use SSL", "useSSL", "Insecure connection", req.Spec.GRPC.Settings.UseSSL),
+			widgets.NewNumberItem("Timeout", "timeoutMilliseconds", "Timeout for the request in milliseconds", req.Spec.GRPC.Settings.TimeoutMilliseconds),
+			widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride),
 		}),
 	}
 

@@ -215,7 +215,6 @@ func CompareRequests(a, b *Request) bool {
 }
 
 func CompareAuth(a, b Auth) bool {
-
 	if a.Type != b.Type {
 		return false
 	}

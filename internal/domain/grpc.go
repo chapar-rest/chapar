@@ -2,7 +2,6 @@ package domain
 
 import (
 	"slices"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -26,9 +25,9 @@ type ServerInfo struct {
 }
 
 type Settings struct {
-	UseSSL       bool          `yaml:"useSSL"`
-	Timeout      time.Duration `yaml:"timeout"`
-	NameOverride string        `yaml:"nameOverride"`
+	UseSSL              bool   `yaml:"useSSL"`
+	TimeoutMilliseconds int    `yaml:"timeoutMilliseconds"`
+	NameOverride        string `yaml:"nameOverride"`
 }
 
 type ProtoFile struct {
@@ -70,7 +69,27 @@ func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
 		return false
 	}
 
-	if a.ServerInfo.Host != b.ServerInfo.Host || a.LasSelectedMethod != b.LasSelectedMethod {
+	if a.Body != b.Body {
+		return false
+	}
+
+	if !CompareKeyValues(a.Metadata, b.Metadata) {
+		return false
+	}
+
+	if !CompareAuth(a.Auth, b.Auth) {
+		return false
+	}
+
+	if !CompareServerInfo(a.ServerInfo, b.ServerInfo) {
+		return false
+	}
+
+	if !CompareSettings(a.Settings, b.Settings) {
+		return false
+	}
+
+	if a.LasSelectedMethod != b.LasSelectedMethod {
 		return false
 	}
 
@@ -86,4 +105,30 @@ func (r *Request) SetDefaultValuesForGRPC() {
 		r.Spec.GRPC.ServerInfo.Host = "localhost:50051"
 		r.Spec.GRPC.ServerInfo.Port = 50051
 	}
+}
+
+func CompareSettings(a, b Settings) bool {
+	if a.UseSSL != b.UseSSL || a.TimeoutMilliseconds != b.TimeoutMilliseconds || a.NameOverride != b.NameOverride {
+		return false
+	}
+
+	return true
+}
+
+func CompareServerInfo(a, b ServerInfo) bool {
+	if a.Host != b.Host || a.Port != b.Port || a.ServerReflection != b.ServerReflection {
+		return false
+	}
+
+	if len(a.ProtoFiles) != len(b.ProtoFiles) {
+		return false
+	}
+
+	for i, v := range a.ProtoFiles {
+		if v.Path != b.ProtoFiles[i].Path {
+			return false
+		}
+	}
+
+	return true
 }

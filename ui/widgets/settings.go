@@ -3,6 +3,8 @@ package widgets
 import (
 	"strconv"
 
+	"github.com/chapar-rest/chapar/ui/keys"
+
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"
@@ -95,7 +97,7 @@ func NewTextItem(title, key, description string, value string) *SettingItem {
 }
 
 func NewBoolItem(title, key, description string, value bool) *SettingItem {
-	return &SettingItem{
+	b := &SettingItem{
 		Title:       title,
 		Key:         key,
 		Description: description,
@@ -103,6 +105,9 @@ func NewBoolItem(title, key, description string, value bool) *SettingItem {
 		Value:       value,
 		boolState:   new(widget.Bool),
 	}
+
+	b.boolState.Value = value
+	return b
 }
 
 func NewNumberItem(title, key, description string, value int) *SettingItem {
@@ -163,6 +168,10 @@ func (i *SettingItem) switchLayout(gtx layout.Context, theme *chapartheme.Theme)
 		desc = "ON"
 	}
 
+	if i.boolState.Update(gtx) {
+		i.onChange()
+	}
+
 	return layout.Flex{
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,
@@ -187,6 +196,10 @@ func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme)
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
 	}
+
+	keys.OnEditorChange(gtx, i.editor, func() {
+		i.onChange()
+	})
 
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {

@@ -5,6 +5,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -17,14 +18,25 @@ type ServerInfo struct {
 	FileSelector *component.FileSelector
 }
 
-func NewServerInfo() *ServerInfo {
+func NewServerInfo(info domain.ServerInfo) *ServerInfo {
+	// For now, we only support one proto file
+	fileName := ""
+	if info.ProtoFiles != nil && len(info.ProtoFiles) == 1 {
+		fileName = info.ProtoFiles[0].Path
+	}
+
 	s := &ServerInfo{
 		definitionFrom: new(widget.Enum),
-		FileSelector:   component.NewFileSelector(""),
+		FileSelector:   component.NewFileSelector(fileName),
 		ReloadButton:   new(widget.Clickable),
 	}
 
-	s.definitionFrom.Value = "reflection"
+	if info.ServerReflection == true {
+		s.definitionFrom.Value = "reflection"
+	} else {
+		s.definitionFrom.Value = "proto_files"
+	}
+
 	return s
 }
 
