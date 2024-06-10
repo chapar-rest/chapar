@@ -44,6 +44,19 @@ func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string,
 	return a
 }
 
+func (a *AddressBar) GetServerAddress() string {
+	return a.serverAddress.Text()
+}
+
+func (a *AddressBar) SetMethods(methods []string) {
+	opts := make([]*widgets.DropDownOption, 0, len(methods))
+	for _, m := range methods {
+		opts = append(opts, widgets.NewDropDownOption(m))
+	}
+
+	a.methodDropDown.SetOptions(opts...)
+}
+
 func (a *AddressBar) SetSelectedMethod(method string) {
 	a.methodDropDown.SetSelectedByTitle(method)
 	a.lastSelectedMethod = method
@@ -94,8 +107,8 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		}
 	}
 
-	if a.methodDropDown.GetSelected().Text != a.lastSelectedMethod {
-		a.lastSelectedMethod = a.methodDropDown.GetSelected().Text
+	if a.methodDropDown.GetSelected().GetText() != a.lastSelectedMethod {
+		a.lastSelectedMethod = a.methodDropDown.GetSelected().GetText()
 		if a.onMethodChanged != nil {
 			a.onMethodChanged(a.lastSelectedMethod)
 		}

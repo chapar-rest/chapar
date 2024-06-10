@@ -21,6 +21,7 @@ type Theme struct {
 	*material.Theme
 	isDark bool
 
+	LoaderColor           color.NRGBA
 	BorderColor           color.NRGBA
 	BorderColorFocused    color.NRGBA
 	TextColor             color.NRGBA
@@ -67,6 +68,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 
 	if isDark {
 		t.Theme.Palette.Fg = rgb(0xd7dade)
+		t.LoaderColor = rgb(0xd7dade)
 		t.Theme.Palette.Bg = rgb(0x202224)
 		t.Theme.Palette.ContrastBg = rgb(0x202224)
 		t.Theme.Palette.ContrastFg = rgb(0xffffff)
@@ -92,6 +94,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.WarningColor = rgb(0xffe073)
 		t.BadgeBgColor = rgb(0x2b2d31)
 	} else {
+		t.LoaderColor = rgb(0x000000)
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
 		t.Theme.Palette.ContrastBg = rgb(0x4589f5)

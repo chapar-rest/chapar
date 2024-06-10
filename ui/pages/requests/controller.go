@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chapar-rest/chapar/internal/grpc"
+
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 
@@ -31,6 +33,7 @@ type Controller struct {
 	explorer *explorer.Explorer
 
 	restService *rest.Service
+	grpcService *grpc.Service
 }
 
 func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
@@ -43,6 +46,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 		explorer: explorer,
 
 		restService: restService,
+		grpcService: grpc.NewService(),
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
@@ -60,6 +64,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnProtoFileSelect(c.onProtoFileSelect)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
+	view.SetOnServerReflectionReload(c.onServerReflectionReload)
 	return c
 }
 
@@ -103,6 +108,31 @@ func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 		c.view.AddFileToFormData(requestId, fieldId, result.FilePath)
 
 	}, "")
+}
+
+func (c *Controller) onServerReflectionReload(id string) {
+	c.view.SetGRPCMethodsLoading(id, true)
+	defer c.view.SetGRPCMethodsLoading(id, false)
+
+	var envID = ""
+	activeEnvironment := c.envState.GetActiveEnvironment()
+	if activeEnvironment != nil {
+		envID = activeEnvironment.MetaData.ID
+	}
+
+	res, err := c.grpcService.GetServerReflection(envID)
+	if err != nil {
+		//c.view.SetGRPCMethods(id, domain.ServerReflectionResponse{
+		//	Error: err,
+		//})
+		return
+	}
+
+	c.view.SetGRPCMethods(id, res)
+
+	//c.view.SetServerReflectionResponse(id, domain.ServerReflectionResponse{
+	//	Services: res.Services,
+	//})
 }
 
 func (c *Controller) onProtoFileSelect(id string) {

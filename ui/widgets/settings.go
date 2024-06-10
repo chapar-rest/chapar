@@ -3,14 +3,14 @@ package widgets
 import (
 	"strconv"
 
-	"github.com/chapar-rest/chapar/ui/keys"
-
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/keys"
 )
 
 const (

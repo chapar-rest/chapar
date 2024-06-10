@@ -16,6 +16,9 @@ type ServerInfo struct {
 
 	ReloadButton *widget.Clickable
 	FileSelector *component.FileSelector
+
+	IsLoading bool
+	onReload  func()
 }
 
 func NewServerInfo(info domain.ServerInfo) *ServerInfo {
@@ -29,6 +32,7 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 		definitionFrom: new(widget.Enum),
 		FileSelector:   component.NewFileSelector(fileName),
 		ReloadButton:   new(widget.Clickable),
+		IsLoading:      false,
 	}
 
 	if info.ServerReflection == true {
@@ -38,6 +42,10 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 	}
 
 	return s
+}
+
+func (s *ServerInfo) SetOnReload(f func()) {
+	s.onReload = f
 }
 
 func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -74,6 +82,12 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 							Left: 4, Right: 4,
 						}
 
+						if s.ReloadButton.Clicked(gtx) {
+							if s.onReload != nil {
+								s.onReload()
+							}
+						}
+
 						return btn.Layout(gtx, theme)
 					}),
 				)
@@ -99,6 +113,18 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 				}
 				return layout.Dimensions{}
 			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if s.IsLoading {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						l := material.Loader(theme.Material())
+						l.Color = theme.LoaderColor
+						return l.Layout(gtx)
+					})
+				}
+				return layout.Dimensions{}
+			}),
 		)
 	})
+
 }

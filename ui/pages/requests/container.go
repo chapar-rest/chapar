@@ -29,6 +29,10 @@ type GrpcContainer interface {
 	Container
 	SetOnProtoFileSelect(func(id string))
 	SetProtoBodyFilePath(filePath string)
+	SetOnReflectionReload(func(id string))
+	SetMethods(methods []domain.GRPCMethod)
+	ShowMethodsLoading()
+	HideMethodsLoading()
 }
 
 type RestContainer interface {

@@ -34,6 +34,11 @@ type ProtoFile struct {
 	Path string `yaml:"path"`
 }
 
+type GRPCMethod struct {
+	Name string `yaml:"name"`
+	Type string `yaml:"type"`
+}
+
 func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {
 	clone := *g
 	return &clone

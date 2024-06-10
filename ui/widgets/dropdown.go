@@ -74,6 +74,14 @@ func (o *DropDownOption) DefaultSelected() *DropDownOption {
 	return o
 }
 
+func (o *DropDownOption) GetText() string {
+	if o == nil {
+		return ""
+	}
+
+	return o.Text
+}
+
 func (c *DropDown) SetSelected(index int) {
 	c.selectedOptionIndex = index
 	c.lastSelectedIndex = index
@@ -84,6 +92,10 @@ func (c *DropDown) SetOnChanged(f func(value string)) {
 }
 
 func (c *DropDown) SetSelectedByTitle(title string) {
+	if len(c.options) == 0 {
+		return
+	}
+
 	for i, opt := range c.options {
 		if opt.Text == title {
 			c.selectedOptionIndex = i
@@ -160,10 +172,16 @@ func (c *DropDown) SelectedIndex() int {
 func (c *DropDown) SetOptions(options ...*DropDownOption) {
 	c.selectedOptionIndex = 0
 	c.options = options
-	c.menuInit = true
+	if len(c.options) > 0 {
+		c.menuInit = true
+	}
 }
 
 func (c *DropDown) GetSelected() *DropDownOption {
+	if len(c.options) == 0 {
+		return nil
+	}
+
 	return c.options[c.selectedOptionIndex]
 }
 
@@ -245,7 +263,12 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		c.MinWidth = unit.Dp(150)
 	}
 
-	box := c.box(gtx, theme, c.options[c.selectedOptionIndex].Text, c.MaxWidth)
+	text := ""
+	if c.selectedOptionIndex >= 0 && c.selectedOptionIndex < len(c.options) {
+		text = c.options[c.selectedOptionIndex].Text
+	}
+
+	box := c.box(gtx, theme, text, c.MaxWidth)
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return box

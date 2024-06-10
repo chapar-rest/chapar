@@ -173,6 +173,32 @@ func (r *Grpc) ShowPrompt(title, content, modalType string, onSubmit func(select
 	r.Prompt.Show()
 }
 
+func (r *Grpc) SetOnReflectionReload(f func(id string)) {
+	if r.Request.ServerInfo == nil {
+		return
+	}
+
+	r.Request.ServerInfo.SetOnReload(func() {
+		f(r.Req.MetaData.ID)
+	})
+}
+
+func (r *Grpc) SetMethods(methods []domain.GRPCMethod) {
+	methodsStr := make([]string, 0, len(methods))
+	for _, m := range methods {
+		methodsStr = append(methodsStr, m.Name)
+	}
+	r.AddressBar.SetMethods(methodsStr)
+}
+
+func (r *Grpc) ShowMethodsLoading() {
+	r.Request.ServerInfo.IsLoading = true
+}
+
+func (r *Grpc) HideMethodsLoading() {
+	r.Request.ServerInfo.IsLoading = false
+}
+
 func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,

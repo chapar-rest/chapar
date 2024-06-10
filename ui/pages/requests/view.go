@@ -69,6 +69,7 @@ type View struct {
 	onBinaryFileSelect          func(id string)
 	onProtoFileSelect           func(id string)
 	onFromDataFileSelect        func(requestID, fieldID string)
+	onServerReflectionReload    func(id string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -188,6 +189,10 @@ func (v *View) SetOnProtoFileSelect(f func(id string)) {
 	v.onProtoFileSelect = f
 }
 
+func (v *View) SetOnServerReflectionReload(f func(id string)) {
+	v.onServerReflectionReload = f
+}
+
 func (v *View) SetBinaryBodyFilePath(id, filePath string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
@@ -200,6 +205,26 @@ func (v *View) SetProtoFilePath(id, filePath string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(GrpcContainer); ok {
 			ct.SetProtoBodyFilePath(filePath)
+		}
+	}
+}
+
+func (v *View) SetGRPCMethods(id string, methods []domain.GRPCMethod) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetMethods(methods)
+		}
+	}
+}
+
+func (v *View) SetGRPCMethodsLoading(id string, loading bool) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			if loading {
+				ct.ShowMethodsLoading()
+			} else {
+				ct.HideMethodsLoading()
+			}
 		}
 	}
 }
@@ -413,6 +438,12 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 	ct.SetOnProtoFileSelect(func(id string) {
 		if v.onProtoFileSelect != nil {
 			v.onProtoFileSelect(id)
+		}
+	})
+
+	ct.SetOnReflectionReload(func(id string) {
+		if v.onServerReflectionReload != nil {
+			v.onServerReflectionReload(id)
 		}
 	})
 
