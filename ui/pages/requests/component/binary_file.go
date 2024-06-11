@@ -12,12 +12,14 @@ import (
 type FileSelector struct {
 	selectFileButton widget.Clickable
 	removeButton     widget.Clickable
+	refreshButton    widget.Clickable
 
 	textField *widgets.TextField
 	FileName  string
 
 	onSelectFile func()
 	onChanged    func(filePath string)
+	onRefresh    func()
 }
 
 func NewFileSelector(filename string) *FileSelector {
@@ -26,7 +28,7 @@ func NewFileSelector(filename string) *FileSelector {
 		textField: widgets.NewTextField(filename, "File"),
 	}
 
-	bf.textField.Icon = widgets.FileFolderIcon
+	bf.textField.Icon = widgets.UploadIcon
 	bf.textField.IconPosition = widgets.IconPositionEnd
 	bf.textField.SetMinWidth(200)
 	return bf
@@ -34,15 +36,32 @@ func NewFileSelector(filename string) *FileSelector {
 
 func (b *FileSelector) SetOnSelectFile(f func()) {
 	b.onSelectFile = f
+	b.textField.SetOnIconClick(func() {
+		if b.FileName != "" {
+			b.RemoveFile()
+			if b.onChanged != nil {
+				b.onChanged("")
+			}
+			return
+		} else {
+			// Select file
+			f()
+		}
+	})
 }
 
 func (b *FileSelector) SetOnChanged(f func(filePath string)) {
 	b.onChanged = f
 }
 
+func (b *FileSelector) SetOnRefresh(f func()) {
+	b.onRefresh = f
+}
+
 func (b *FileSelector) SetFileName(name string) {
 	b.FileName = name
 	b.textField.SetText(name)
+	b.textField.SetIcon(widgets.DeleteIcon, widgets.IconPositionEnd)
 	if b.onChanged != nil {
 		b.onChanged(name)
 	}
@@ -51,6 +70,7 @@ func (b *FileSelector) SetFileName(name string) {
 func (b *FileSelector) RemoveFile() {
 	b.FileName = ""
 	b.textField.SetText("")
+	b.textField.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
 }
 
 func (b *FileSelector) GetFilePath() string {
@@ -61,31 +81,24 @@ func (b *FileSelector) Layout(gtx layout.Context, theme *chapartheme.Theme) layo
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = gtx.Dp(32)
-			gtx.Constraints.Max.X = gtx.Dp(250)
+			gtx.Constraints.Max.X = gtx.Dp(200)
 			return b.textField.Layout(gtx, theme)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = gtx.Dp(32)
-			if b.onSelectFile != nil && b.selectFileButton.Clicked(gtx) {
-				b.onSelectFile()
-			}
-
-			btn := widgets.Button(theme.Material(), &b.selectFileButton, widgets.UploadIcon, widgets.IconPositionStart, "Select File")
-			btn.Color = theme.ButtonTextColor
-			return btn.Layout(gtx, theme)
-		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.Y = gtx.Dp(32)
-			if b.removeButton.Clicked(gtx) {
-				b.RemoveFile()
-				if b.onChanged != nil {
-					b.onChanged("")
+			if b.refreshButton.Clicked(gtx) {
+				if b.onRefresh != nil {
+					b.onRefresh()
 				}
 			}
 
-			btn := widgets.Button(theme.Material(), &b.removeButton, widgets.DeleteIcon, widgets.IconPositionStart, "Remove")
+			if b.FileName == "" {
+				return layout.Dimensions{}
+			}
+
+			btn := widgets.Button(theme.Material(), &b.refreshButton, widgets.RefreshIcon, widgets.IconPositionStart, "")
+			btn.Inset = layout.Inset{Top: unit.Dp(6), Bottom: unit.Dp(4), Left: unit.Dp(6), Right: unit.Dp(2)}
 			btn.Color = theme.ButtonTextColor
 			return btn.Layout(gtx, theme)
 		}),
