@@ -3,6 +3,8 @@ package requests
 import (
 	"image"
 
+	"gioui.org/widget/material"
+
 	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
 
 	"gioui.org/app"
@@ -35,6 +37,7 @@ type View struct {
 	theme  *chapartheme.Theme
 	window *app.Window
 
+	modal *component.ModalLayer
 	// add menu
 	newRequestButton     widget.Clickable
 	importButton         widget.Clickable
@@ -104,7 +107,16 @@ func NewView(w *app.Window, theme *chapartheme.Theme) *View {
 			AbsolutePosition: true,
 		},
 
+		modal:    component.NewModal(),
 		tipsView: tips.New(),
+	}
+
+	v.modal.Widget = func(gtx layout.Context, th *material.Theme, anim *component.VisibilityAnimation) layout.Dimensions {
+		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return component.Surface(th).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Label(th, unit.Sp(16), "Hello, World!").Layout(gtx)
+			})
+		})
 	}
 
 	v.tabHeader.SetMaxTitleWidth(20)

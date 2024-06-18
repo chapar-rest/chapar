@@ -6,6 +6,8 @@ import (
 	"image"
 	"os"
 
+	"github.com/chapar-rest/chapar/internal/modal"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -26,7 +28,6 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
-	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type UI struct {
@@ -36,8 +37,7 @@ type UI struct {
 	sideBar *Sidebar
 	header  *Header
 
-	consolePage  *console.Console
-	notification *widgets.Notification
+	consolePage *console.Console
 
 	environmentsView *environments.View
 	requestsView     *requests.View
@@ -155,7 +155,7 @@ func New(w *app.Window) (*UI, error) {
 		}
 	}
 
-	u.notification = &widgets.Notification{}
+	// u.notification = &widgets.Notification{}
 	return u, u.load()
 }
 
@@ -208,7 +208,7 @@ func (u *UI) Run() error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 			// render and handle UI.
-			u.Layout(gtx, gtx.Constraints.Max.X)
+			u.Layout(gtx)
 			// render and handle the operations from the UI.
 			e.Frame(gtx.Ops)
 		// this is sent when the application is closed.
@@ -219,7 +219,7 @@ func (u *UI) Run() error {
 }
 
 // Layout displays the main program layout.
-func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
+func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 	// set the background color
 	macro := op.Record(gtx.Ops)
 	rect := image.Rectangle{
@@ -263,7 +263,14 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
+			if modal.Visible() {
+				macro := op.Record(gtx.Ops)
+				dims := modal.Layout(gtx, u.Theme.Theme)
+				op.Defer(gtx.Ops, macro.Stop())
+				return dims
+			}
+
+			return notify.NotificationController.Layout(gtx, u.Theme)
 		}),
 	)
 
