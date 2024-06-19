@@ -48,7 +48,7 @@ func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(address, opts...)
 }
 
-func (s *Service) GetServerReflection(id string) ([]domain.GRPCMethod, error) {
+func (s *Service) GetServerReflection(id string) ([]domain.GRPCService, error) {
 	conn, err := s.Dial(id)
 	if err != nil {
 		return nil, err
@@ -63,22 +63,32 @@ func (s *Service) GetServerReflection(id string) ([]domain.GRPCMethod, error) {
 		return nil, err
 	}
 
-	methods := make([]domain.GRPCMethod, 0)
+	fmt.Println(svcs)
+
+	services := make([]domain.GRPCService, 0)
 
 	for _, svc := range svcs {
 		mds, err := ss.ListMethods(svc)
 		if err != nil {
+			fmt.Println("ListMethods", err)
 			return nil, err
 		}
 
+		srv := domain.GRPCService{
+			Name:    svc,
+			Methods: make([]domain.GRPCMethod, 0, len(mds)),
+		}
+
 		for _, md := range mds {
-			methods = append(methods, domain.GRPCMethod{
+			srv.Methods = append(srv.Methods, domain.GRPCMethod{
 				Name: md,
 			})
 		}
+
+		services = append(services, srv)
 	}
 
-	return methods, nil
+	return services, nil
 }
 
 type serverSource struct {

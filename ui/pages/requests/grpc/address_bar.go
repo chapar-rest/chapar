@@ -5,11 +5,14 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type AddressBar struct {
+	theme         *chapartheme.Theme
 	serverAddress *widget.Editor
 
 	lastSelectedMethod string
@@ -22,8 +25,9 @@ type AddressBar struct {
 	onSubmit               func()
 }
 
-func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string, methods []string) *AddressBar {
+func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string, services []domain.GRPCService) *AddressBar {
 	a := &AddressBar{
+		theme:              theme,
 		serverAddress:      &widget.Editor{},
 		methodDropDown:     widgets.NewDropDownWithoutBorder(theme),
 		lastSelectedMethod: lastSelectedMethod,
@@ -33,12 +37,16 @@ func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string,
 	a.serverAddress.Submit = true
 	a.serverAddress.SetText(address)
 
-	opts := make([]*widgets.DropDownOption, 0, len(methods))
-	for _, m := range methods {
-		opts = append(opts, widgets.NewDropDownOption(m))
-	}
+	//opts := make([]*widgets.DropDownOption, 0)
+	//for _, srv := range services {
+	//	for _, m := range srv.Methods {
+	//		opts = append(opts, widgets.NewDropDownOption(m.Name))
+	//	}
+	//}
+	//
+	//a.methodDropDown.SetOptions(opts...)
+	a.SetServices(services)
 
-	a.methodDropDown.SetOptions(opts...)
 	a.methodDropDown.MinWidth = unit.Dp(200)
 	a.methodDropDown.SetSelectedByTitle(lastSelectedMethod)
 	return a
@@ -48,10 +56,17 @@ func (a *AddressBar) GetServerAddress() string {
 	return a.serverAddress.Text()
 }
 
-func (a *AddressBar) SetMethods(methods []string) {
-	opts := make([]*widgets.DropDownOption, 0, len(methods))
-	for _, m := range methods {
-		opts = append(opts, widgets.NewDropDownOption(m))
+func (a *AddressBar) SetServices(services []domain.GRPCService) {
+	opts := make([]*widgets.DropDownOption, 0, len(services))
+	for i, srv := range services {
+		opts = append(opts, widgets.NewDropDownOption(srv.Name))
+		for _, m := range srv.Methods {
+			opts = append(opts, widgets.NewDropDownOption(m.Name).WithIcon(widgets.ForwardIcon, a.theme.WarningColor))
+		}
+
+		if i < len(services)-1 {
+			opts = append(opts, widgets.NewDropDownDivider())
+		}
 	}
 
 	a.methodDropDown.SetOptions(opts...)

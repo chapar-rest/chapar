@@ -49,7 +49,7 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Grpc {
 			},
 			BarWidth: unit.Dp(2),
 		},
-		AddressBar: NewAddressBar(theme, req.Spec.GRPC.ServerInfo.Address, req.Spec.GRPC.LasSelectedMethod, req.Spec.GRPC.Methods),
+		AddressBar: NewAddressBar(theme, req.Spec.GRPC.ServerInfo.Address, req.Spec.GRPC.LasSelectedMethod, req.Spec.GRPC.Services),
 		Request:    NewRequest(req, theme),
 		Response:   NewResponse(theme),
 	}
@@ -184,12 +184,8 @@ func (r *Grpc) SetOnReflectionReload(f func(id string)) {
 	})
 }
 
-func (r *Grpc) SetMethods(methods []domain.GRPCMethod) {
-	methodsStr := make([]string, 0, len(methods))
-	for _, m := range methods {
-		methodsStr = append(methodsStr, m.Name)
-	}
-	r.AddressBar.SetMethods(methodsStr)
+func (r *Grpc) SetServices(services []domain.GRPCService) {
+	r.AddressBar.SetServices(services)
 }
 
 func (r *Grpc) ShowMethodsLoading() {

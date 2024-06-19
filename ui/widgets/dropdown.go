@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -42,6 +43,9 @@ type DropDownOption struct {
 	Identifier string
 	clickable  widget.Clickable
 
+	Icon      *widget.Icon
+	IconColor color.NRGBA
+
 	isDivider bool
 	isDefault bool
 }
@@ -66,6 +70,12 @@ func (o *DropDownOption) WithIdentifier(identifier string) *DropDownOption {
 
 func (o *DropDownOption) WithValue(value string) *DropDownOption {
 	o.Value = value
+	return o
+}
+
+func (o *DropDownOption) WithIcon(icon *widget.Icon, color color.NRGBA) *DropDownOption {
+	o.Icon = icon
+	o.IconColor = color
 	return o
 }
 
@@ -306,6 +316,11 @@ func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
 			}
 
 			itm := component.MenuItem(theme.Material(), &opt.clickable, opt.Text)
+			if opt.Icon != nil {
+				itm.Icon = opt.Icon
+				itm.IconColor = opt.IconColor
+			}
+
 			itm.Label.Color = chapartheme.White
 			return itm.Layout(gtx)
 		})

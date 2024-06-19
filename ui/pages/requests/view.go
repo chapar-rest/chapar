@@ -221,10 +221,10 @@ func (v *View) SetProtoFilePath(id, filePath string) {
 	}
 }
 
-func (v *View) SetGRPCMethods(id string, methods []domain.GRPCMethod) {
+func (v *View) SetGRPCServices(id string, services []domain.GRPCService) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(GrpcContainer); ok {
-			ct.SetMethods(methods)
+			ct.SetServices(services)
 		}
 	}
 }

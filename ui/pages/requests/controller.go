@@ -129,7 +129,7 @@ func (c *Controller) onServerReflectionReload(id string) {
 		return
 	}
 
-	c.view.SetGRPCMethods(id, res)
+	c.view.SetGRPCServices(id, res)
 
 	//c.view.SetServerReflectionResponse(id, domain.ServerReflectionResponse{
 	//	Services: res.Services,

@@ -1,19 +1,22 @@
 package domain
 
 import (
-	"slices"
-
 	"github.com/google/uuid"
 )
 
 type GRPCRequestSpec struct {
-	Methods           []string   `yaml:"methods"`
-	LasSelectedMethod string     `yaml:"lastSelectedMethod"`
-	Metadata          []KeyValue `yaml:"metadata"`
-	Auth              Auth       `yaml:"auth"`
-	ServerInfo        ServerInfo `yaml:"serverInfo"`
-	Settings          Settings   `yaml:"settings"`
-	Body              string     `yaml:"body"`
+	LasSelectedMethod string        `yaml:"lastSelectedMethod"`
+	Metadata          []KeyValue    `yaml:"metadata"`
+	Auth              Auth          `yaml:"auth"`
+	ServerInfo        ServerInfo    `yaml:"serverInfo"`
+	Settings          Settings      `yaml:"settings"`
+	Body              string        `yaml:"body"`
+	Services          []GRPCService `yaml:"services"`
+}
+
+type GRPCService struct {
+	Name    string `yaml:"name"`
+	Methods []GRPCMethod
 }
 
 type ServerInfo struct {
@@ -96,7 +99,7 @@ func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
 		return false
 	}
 
-	if len(a.Methods) != len(b.Methods) || slices.Compare(a.Methods, b.Methods) != 0 {
+	if !CompareGRPCServices(a.Services, b.Services) {
 		return false
 	}
 
@@ -128,6 +131,34 @@ func CompareServerInfo(a, b ServerInfo) bool {
 
 	for i, v := range a.ProtoFiles {
 		if v.Path != b.ProtoFiles[i].Path {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CompareGRPCMethods(a, b []GRPCMethod) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, v := range a {
+		if v.Name != b[i].Name || v.Type != b[i].Type {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CompareGRPCServices(a, b []GRPCService) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, v := range a {
+		if v.Name != b[i].Name || !CompareGRPCMethods(v.Methods, b[i].Methods) {
 			return false
 		}
 	}
