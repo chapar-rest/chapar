@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	giox "gioui.org/x/component"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/converter"
@@ -48,7 +49,7 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Grpc {
 			},
 			BarWidth: unit.Dp(2),
 		},
-		AddressBar: NewAddressBar(theme, req.Spec.GRPC.ServerInfo.Host, req.Spec.GRPC.LasSelectedMethod, req.Spec.GRPC.Methods),
+		AddressBar: NewAddressBar(theme, req.Spec.GRPC.ServerInfo.Address, req.Spec.GRPC.LasSelectedMethod, req.Spec.GRPC.Methods),
 		Request:    NewRequest(req, theme),
 		Response:   NewResponse(theme),
 	}
@@ -59,8 +60,8 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Grpc {
 }
 
 func (r *Grpc) setupHooks() {
-	r.AddressBar.SetOnServerAddressChanged(func(url string) {
-		r.Req.Spec.GRPC.ServerInfo.Host = url
+	r.AddressBar.SetOnServerAddressChanged(func(address string) {
+		r.Req.Spec.GRPC.ServerInfo.Address = address
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 

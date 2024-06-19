@@ -17,8 +17,7 @@ type GRPCRequestSpec struct {
 }
 
 type ServerInfo struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Address string `yaml:"address"`
 
 	ServerReflection bool        `yaml:"serverReflection"`
 	ProtoFiles       []ProtoFile `yaml:"protoFiles"`
@@ -57,8 +56,7 @@ func NewGRPCRequest(name string) *Request {
 			GRPC: &GRPCRequestSpec{
 				LasSelectedMethod: "",
 				ServerInfo: ServerInfo{
-					Host: "localhost:50051",
-					Port: 50051,
+					Address: "localhost:8090",
 				},
 			},
 		},
@@ -106,9 +104,8 @@ func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
 }
 
 func (r *Request) SetDefaultValuesForGRPC() {
-	if r.Spec.GRPC.ServerInfo.Host == "" {
-		r.Spec.GRPC.ServerInfo.Host = "localhost:50051"
-		r.Spec.GRPC.ServerInfo.Port = 50051
+	if r.Spec.GRPC.ServerInfo.Address == "" {
+		r.Spec.GRPC.ServerInfo.Address = "localhost:8090"
 	}
 }
 
@@ -121,7 +118,7 @@ func CompareSettings(a, b Settings) bool {
 }
 
 func CompareServerInfo(a, b ServerInfo) bool {
-	if a.Host != b.Host || a.Port != b.Port || a.ServerReflection != b.ServerReflection {
+	if a.Address != b.Address || a.ServerReflection != b.ServerReflection {
 		return false
 	}
 

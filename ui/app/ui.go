@@ -6,6 +6,7 @@ import (
 	"image"
 	"os"
 
+	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/modal"
 
 	"gioui.org/app"
@@ -82,6 +83,8 @@ func New(w *app.Window) (*UI, error) {
 	u.environmentsState = state.NewEnvironments(repo)
 	u.requestsState = state.NewRequests(repo)
 
+	grpcService := grpc.NewService(u.requestsState, u.environmentsState)
+
 	restService := rest.New(u.requestsState, u.environmentsState)
 	explorerController := explorer.NewExplorer(w)
 
@@ -121,7 +124,7 @@ func New(w *app.Window) (*UI, error) {
 	}
 
 	u.requestsView = requests.NewView(w, u.Theme)
-	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService)
+	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService, grpcService)
 
 	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) {
 		fmt.Println("workspace changed: ", ws.MetaData.Name)

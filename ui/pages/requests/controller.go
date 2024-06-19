@@ -36,7 +36,7 @@ type Controller struct {
 	grpcService *grpc.Service
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service, grpcService *grpc.Service) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
@@ -46,7 +46,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 		explorer: explorer,
 
 		restService: restService,
-		grpcService: grpc.NewService(),
+		grpcService: grpcService,
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
@@ -114,17 +114,18 @@ func (c *Controller) onServerReflectionReload(id string) {
 	c.view.SetGRPCMethodsLoading(id, true)
 	defer c.view.SetGRPCMethodsLoading(id, false)
 
-	var envID = ""
-	activeEnvironment := c.envState.GetActiveEnvironment()
-	if activeEnvironment != nil {
-		envID = activeEnvironment.MetaData.ID
-	}
+	//var envID = ""
+	//activeEnvironment := c.envState.GetActiveEnvironment()
+	//if activeEnvironment != nil {
+	//	envID = activeEnvironment.MetaData.ID
+	//}
 
-	res, err := c.grpcService.GetServerReflection(envID)
+	res, err := c.grpcService.GetServerReflection(id)
 	if err != nil {
 		//c.view.SetGRPCMethods(id, domain.ServerReflectionResponse{
 		//	Error: err,
 		//})
+		fmt.Println("failed to get server reflection", err)
 		return
 	}
 
