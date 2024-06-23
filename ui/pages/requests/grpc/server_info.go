@@ -5,6 +5,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
@@ -19,6 +20,8 @@ type ServerInfo struct {
 
 	IsLoading bool
 	onReload  func()
+
+	onChanged func()
 }
 
 func NewServerInfo(info domain.ServerInfo) *ServerInfo {
@@ -44,11 +47,21 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 	return s
 }
 
+func (s *ServerInfo) SetOnChanged(f func()) {
+	s.onChanged = f
+}
+
 func (s *ServerInfo) SetOnReload(f func()) {
 	s.onReload = f
 }
 
 func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if s.definitionFrom.Update(gtx) {
+		if s.onChanged != nil {
+			s.onChanged()
+		}
+	}
+
 	inset := layout.Inset{Top: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{

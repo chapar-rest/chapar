@@ -110,6 +110,10 @@ func (r *Grpc) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
+	r.Request.ServerInfo.SetOnChanged(func() {
+		r.Req.Spec.GRPC.ServerInfo.ServerReflection = r.Request.ServerInfo.definitionFrom.Value == "reflection"
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
 }
 
 func convertSettingsToItems(values map[string]any) domain.Settings {
@@ -185,6 +189,11 @@ func (r *Grpc) SetOnReflectionReload(f func(id string)) {
 }
 
 func (r *Grpc) SetServices(services []domain.GRPCService) {
+	r.Req.Spec.GRPC.Services = services
+	if r.onDataChanged != nil {
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	}
+
 	r.AddressBar.SetServices(services)
 }
 
