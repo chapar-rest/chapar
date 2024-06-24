@@ -525,6 +525,11 @@ func (v *View) SetSendingRequestLoading(id string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.ShowSendingRequestLoading()
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetResponseLoading(true)
 		}
 	}
 }
@@ -533,6 +538,11 @@ func (v *View) SetSendingRequestLoaded(id string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.HideSendingRequestLoading()
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetResponseLoading(false)
 		}
 	}
 }
@@ -580,6 +590,15 @@ func (v *View) SetHTTPResponse(id string, response domain.HTTPResponseDetail) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetHTTPResponse(response)
+			v.window.Invalidate()
+		}
+	}
+}
+
+func (v *View) SetGRPCResponse(id string, response domain.GRPCResponseDetail) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetResponse(response)
 			v.window.Invalidate()
 		}
 	}

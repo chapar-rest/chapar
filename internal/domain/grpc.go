@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -37,6 +39,15 @@ type GRPCMethod struct {
 	Name              string `yaml:"name"`
 	IsStreamingClient bool   `yaml:"IsStreamingClient"`
 	IsStreamingServer bool   `yaml:"IsStreamingServer"`
+}
+
+type GRPCResponseDetail struct {
+	Response   string
+	Metadata   []KeyValue
+	StatusCode int
+	Duration   time.Duration
+	Size       int
+	Error      error
 }
 
 func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {

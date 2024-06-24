@@ -157,6 +157,21 @@ func (r *Grpc) SetOnInvoke(f func(id string)) {
 	r.onInvoke = f
 }
 
+func (r *Grpc) SetResponseLoading(loading bool) {
+	if loading {
+		r.Response.SetMessage("Sending request...")
+		return
+	}
+
+	r.Response.SetMessage("")
+}
+
+func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
+	r.Response.SetResponse(detail.Response)
+	r.Response.SetMetadata(detail.Metadata)
+	r.Response.SetError(detail.Error)
+}
+
 func (r *Grpc) SetOnSave(f func(id string)) {
 	r.onSave = f
 	r.Breadcrumb.SetOnSave(f)

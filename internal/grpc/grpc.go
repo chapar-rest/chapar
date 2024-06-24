@@ -39,6 +39,10 @@ type Service struct {
 	protoFiles *safemap.Map[*protoregistry.Files]
 }
 
+type Response struct {
+	Body string
+}
+
 func NewService(requests *state.Requests, envs *state.Environments) *Service {
 	return &Service{
 		requests:     requests,
@@ -62,7 +66,7 @@ func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(address, opts...)
 }
 
-func (s *Service) Invoke(id string, envID string) (any, error) {
+func (s *Service) Invoke(id string, envID string) (*Response, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
 		return nil, ErrRequestNotFound
@@ -94,13 +98,18 @@ func (s *Service) Invoke(id string, envID string) (any, error) {
 	}
 
 	resp := dynamicpb.NewMessage(md.Output())
-	if err := conn.Invoke(ctx, string(md.FullName()), request, resp); err != nil {
+	if err := conn.Invoke(ctx, method, request, resp); err != nil {
 		return nil, err
 	}
 
-	fmt.Println(resp)
+	respJSON, err := (protojson.MarshalOptions{}).Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
 
-	return resp, nil
+	return &Response{
+		Body: string(respJSON),
+	}, nil
 }
 
 func (s *Service) getMethodDesc(id, fullname string) (protoreflect.MethodDescriptor, error) {

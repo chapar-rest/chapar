@@ -138,8 +138,8 @@ func (c *Controller) onServerInfoReload(id string) {
 }
 
 func (c *Controller) onGrpcInvoke(id string) {
-	//c.view.SetGRPCRequestLoading(id)
-	//defer c.view.SetGRPCRequestLoaded(id)
+	c.view.SetSendingRequestLoading(id)
+	defer c.view.SetSendingRequestLoaded(id)
 
 	var envID = ""
 	activeEnvironment := c.envState.GetActiveEnvironment()
@@ -147,7 +147,7 @@ func (c *Controller) onGrpcInvoke(id string) {
 		envID = activeEnvironment.MetaData.ID
 	}
 
-	_, err := c.grpcService.Invoke(id, envID)
+	resp, err := c.grpcService.Invoke(id, envID)
 	if err != nil {
 		//c.view.SetGRPCResponse(id, domain.GRPCResponse{
 		//	Error: err,
@@ -156,9 +156,9 @@ func (c *Controller) onGrpcInvoke(id string) {
 		return
 	}
 
-	//c.view.SetGRPCResponse(id, domain.GRPCResponse{
-	//	Response: res,
-	//})
+	c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
+		Response: resp.Body,
+	})
 }
 
 func (c *Controller) onProtoFileSelect(id string) {
