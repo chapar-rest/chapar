@@ -61,7 +61,7 @@ func (a *AddressBar) SetServices(services []domain.GRPCService) {
 	for i, srv := range services {
 		opts = append(opts, widgets.NewDropDownOption(srv.Name))
 		for _, m := range srv.Methods {
-			opts = append(opts, widgets.NewDropDownOption(m.Name).WithIcon(widgets.ForwardIcon, a.theme.WarningColor))
+			opts = append(opts, widgets.NewDropDownOption(m.Name).WithIcon(widgets.ForwardIcon, a.theme.WarningColor).WithValue(m.FullName))
 		}
 
 		if i < len(services)-1 {
@@ -73,7 +73,7 @@ func (a *AddressBar) SetServices(services []domain.GRPCService) {
 }
 
 func (a *AddressBar) SetSelectedMethod(method string) {
-	a.methodDropDown.SetSelectedByTitle(method)
+	a.methodDropDown.SetSelectedByValue(method)
 	a.lastSelectedMethod = method
 }
 
@@ -122,8 +122,8 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		}
 	}
 
-	if a.methodDropDown.GetSelected().GetText() != a.lastSelectedMethod {
-		a.lastSelectedMethod = a.methodDropDown.GetSelected().GetText()
+	if a.methodDropDown.GetSelected().GetValue() != a.lastSelectedMethod {
+		a.lastSelectedMethod = a.methodDropDown.GetSelected().GetValue()
 		if a.onMethodChanged != nil {
 			a.onMethodChanged(a.lastSelectedMethod)
 		}

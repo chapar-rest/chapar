@@ -27,7 +27,7 @@ type Grpc struct {
 
 	onSave        func(id string)
 	onDataChanged func(id string, data any)
-	onSubmit      func(id string)
+	onInvoke      func(id string)
 }
 
 func (r *Grpc) SetOnTitleChanged(f func(title string)) {
@@ -71,7 +71,7 @@ func (r *Grpc) setupHooks() {
 	})
 
 	r.AddressBar.SetOnSubmit(func() {
-		r.onSubmit(r.Req.MetaData.ID)
+		r.onInvoke(r.Req.MetaData.ID)
 	})
 
 	r.Breadcrumb.SetOnSave(func(id string) {
@@ -153,8 +153,8 @@ func (r *Grpc) SetOnDataChanged(f func(id string, data any)) {
 	r.onDataChanged = f
 }
 
-func (r *Grpc) SetOnSubmit(f func(id string)) {
-	r.onSubmit = f
+func (r *Grpc) SetOnInvoke(f func(id string)) {
+	r.onInvoke = f
 }
 
 func (r *Grpc) SetOnSave(f func(id string)) {

@@ -65,6 +65,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
 	view.SetOnServerInfoReload(c.onServerInfoReload)
+	view.SetOnGrpcInvoke(c.onGrpcInvoke)
 	return c
 }
 
@@ -133,6 +134,30 @@ func (c *Controller) onServerInfoReload(id string) {
 
 	//c.view.SetServerReflectionResponse(id, domain.ServerReflectionResponse{
 	//	Services: res.Services,
+	//})
+}
+
+func (c *Controller) onGrpcInvoke(id string) {
+	//c.view.SetGRPCRequestLoading(id)
+	//defer c.view.SetGRPCRequestLoaded(id)
+
+	var envID = ""
+	activeEnvironment := c.envState.GetActiveEnvironment()
+	if activeEnvironment != nil {
+		envID = activeEnvironment.MetaData.ID
+	}
+
+	_, err := c.grpcService.Invoke(id, envID)
+	if err != nil {
+		//c.view.SetGRPCResponse(id, domain.GRPCResponse{
+		//	Error: err,
+		//})
+		fmt.Println("failed to invoke grpc", err)
+		return
+	}
+
+	//c.view.SetGRPCResponse(id, domain.GRPCResponse{
+	//	Response: res,
 	//})
 }
 

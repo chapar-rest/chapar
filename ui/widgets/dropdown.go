@@ -92,6 +92,14 @@ func (o *DropDownOption) GetText() string {
 	return o.Text
 }
 
+func (o *DropDownOption) GetValue() string {
+	if o == nil {
+		return ""
+	}
+
+	return o.Value
+}
+
 func (c *DropDown) SetSelected(index int) {
 	c.selectedOptionIndex = index
 	c.lastSelectedIndex = index

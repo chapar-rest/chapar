@@ -33,6 +33,7 @@ type GrpcContainer interface {
 	SetServices(services []domain.GRPCService)
 	ShowMethodsLoading()
 	HideMethodsLoading()
+	SetOnInvoke(f func(id string))
 }
 
 type RestContainer interface {

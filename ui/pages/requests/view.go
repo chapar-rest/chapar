@@ -73,6 +73,7 @@ type View struct {
 	onProtoFileSelect           func(id string)
 	onFromDataFileSelect        func(requestID, fieldID string)
 	onServerInfoReload          func(id string)
+	onGrpcInvoke                func(id string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -203,6 +204,10 @@ func (v *View) SetOnProtoFileSelect(f func(id string)) {
 
 func (v *View) SetOnServerInfoReload(f func(id string)) {
 	v.onServerInfoReload = f
+}
+
+func (v *View) SetOnGrpcInvoke(f func(id string)) {
+	v.onGrpcInvoke = f
 }
 
 func (v *View) SetBinaryBodyFilePath(id, filePath string) {
@@ -441,12 +446,6 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 		}
 	})
 
-	ct.SetOnSubmit(func(id string) {
-		if v.onSubmit != nil {
-			v.onSubmit(id, TypeRequest)
-		}
-	})
-
 	ct.SetOnProtoFileSelect(func(id string) {
 		if v.onProtoFileSelect != nil {
 			v.onProtoFileSelect(id)
@@ -456,6 +455,12 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 	ct.SetOnReload(func(id string) {
 		if v.onServerInfoReload != nil {
 			v.onServerInfoReload(id)
+		}
+	})
+
+	ct.SetOnInvoke(func(id string) {
+		if v.onGrpcInvoke != nil {
+			v.onGrpcInvoke(id)
 		}
 	})
 

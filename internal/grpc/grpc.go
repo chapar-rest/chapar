@@ -10,10 +10,14 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/internal/state"
 
 	//lint:ignore SA1019 we have to import this because it appears in exported API
@@ -31,12 +35,15 @@ var (
 type Service struct {
 	requests     *state.Requests
 	environments *state.Environments
+
+	protoFiles *safemap.Map[*protoregistry.Files]
 }
 
 func NewService(requests *state.Requests, envs *state.Environments) *Service {
 	return &Service{
 		requests:     requests,
 		environments: envs,
+		protoFiles:   safemap.New[*protoregistry.Files](),
 	}
 }
 
@@ -55,6 +62,73 @@ func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(address, opts...)
 }
 
+func (s *Service) Invoke(id string, envID string) (any, error) {
+	req := s.requests.GetRequest(id)
+	if req == nil {
+		return nil, ErrRequestNotFound
+	}
+
+	method := req.Spec.GRPC.LasSelectedMethod
+	rawJSON := []byte(req.Spec.GRPC.Body)
+
+	conn, err := s.Dial(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// get the method descriptor
+	md, err := s.getMethodDesc(id, method)
+	if err != nil {
+		return nil, err
+	}
+
+	// create the message
+	request := dynamicpb.NewMessage(md.Input())
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(rawJSON, request); err != nil {
+		return nil, err
+	}
+
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.New(nil))
+	for _, item := range req.Spec.GRPC.Metadata {
+		ctx = metadata.AppendToOutgoingContext(ctx, item.Key, item.Value)
+	}
+
+	resp := dynamicpb.NewMessage(md.Output())
+	if err := conn.Invoke(ctx, string(md.FullName()), request, resp); err != nil {
+		return nil, err
+	}
+
+	fmt.Println(resp)
+
+	return resp, nil
+}
+
+func (s *Service) getMethodDesc(id, fullname string) (protoreflect.MethodDescriptor, error) {
+	registryFiles, exist := s.protoFiles.Get(id)
+	if !exist {
+		// reload the proto files we don't have them in registry
+		if _, err := s.GetServices(id); err != nil {
+			return nil, err
+		}
+
+		// get the proto files from the registry
+		registryFiles, _ = s.protoFiles.Get(id)
+	}
+
+	name := strings.Replace(fullname[1:], "/", ".", 1)
+	desc, err := registryFiles.FindDescriptorByName(protoreflect.FullName(name))
+	if err != nil {
+		return nil, fmt.Errorf("app: failed to find descriptor: %v", err)
+	}
+
+	methodDesc, ok := desc.(protoreflect.MethodDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("app: descriptor was not a method: %T", desc)
+	}
+
+	return methodDesc, nil
+}
+
 func (s *Service) GetServices(id string) ([]domain.GRPCService, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
@@ -67,19 +141,22 @@ func (s *Service) GetServices(id string) ([]domain.GRPCService, error) {
 	}
 
 	if req.Spec.GRPC.ServerInfo.ServerReflection {
-		protoRegistry, err := ProtoFilesFromReflectionAPI(context.Background(), conn)
+		protoRegistryFiles, err := ProtoFilesFromReflectionAPI(context.Background(), conn)
 		if err != nil {
 			return nil, err
 		}
 
-		return s.parseRegistryFiles(protoRegistry)
+		s.protoFiles.Set(id, protoRegistryFiles)
+
+		return s.parseRegistryFiles(protoRegistryFiles)
 	} else if len(req.Spec.GRPC.ServerInfo.ProtoFiles) > 0 {
-		protoRegistry, err := ProtoFilesFromDisk(getImportPaths(req.Spec.GRPC.ServerInfo.ProtoFiles))
+		protoRegistryFiles, err := ProtoFilesFromDisk(getImportPaths(req.Spec.GRPC.ServerInfo.ProtoFiles))
 		if err != nil {
 			return nil, err
 		}
 
-		return s.parseRegistryFiles(protoRegistry)
+		s.protoFiles.Set(id, protoRegistryFiles)
+		return s.parseRegistryFiles(protoRegistryFiles)
 	}
 
 	return nil, fmt.Errorf("no server reflection or proto files found")
@@ -146,8 +223,9 @@ func (s *Service) parseRegistryFiles(in *protoregistry.Files) ([]domain.GRPCServ
 
 			for j := 0; j < svc.Methods().Len(); j++ {
 				mth := svc.Methods().Get(j)
+				fname := fmt.Sprintf("/%s/%s", svc.FullName(), mth.Name())
 				srv.Methods = append(srv.Methods, domain.GRPCMethod{
-					FullName:          string(mth.FullName()),
+					FullName:          fname,
 					Name:              string(mth.Name()),
 					IsStreamingClient: mth.IsStreamingClient(),
 					IsStreamingServer: mth.IsStreamingServer(),
