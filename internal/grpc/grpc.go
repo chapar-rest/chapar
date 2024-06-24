@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -19,7 +23,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var ErrReflectionNotSupported = errors.New("server does not support the reflection API")
+var (
+	ErrReflectionNotSupported = errors.New("server does not support the reflection API")
+	ErrRequestNotFound        = errors.New("request not found")
+)
 
 type Service struct {
 	requests     *state.Requests
@@ -36,7 +43,7 @@ func NewService(requests *state.Requests, envs *state.Environments) *Service {
 func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
 	req := s.requests.GetRequest(requestID)
 	if req == nil {
-		return nil, fmt.Errorf("request not found: %s", requestID)
+		return nil, ErrRequestNotFound
 	}
 
 	address := req.Spec.GRPC.ServerInfo.Address
@@ -48,48 +55,148 @@ func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(address, opts...)
 }
 
+func (s *Service) GetServices(id string) ([]domain.GRPCService, error) {
+	req := s.requests.GetRequest(id)
+	if req == nil {
+		return nil, ErrRequestNotFound
+	}
+
+	conn, err := s.Dial(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Spec.GRPC.ServerInfo.ServerReflection {
+		protoRegistry, err := ProtoFilesFromReflectionAPI(context.Background(), conn)
+		if err != nil {
+			return nil, err
+		}
+
+		return s.parseRegistryFiles(protoRegistry)
+	} else if len(req.Spec.GRPC.ServerInfo.ProtoFiles) > 0 {
+		protoRegistry, err := ProtoFilesFromDisk(getImportPaths(req.Spec.GRPC.ServerInfo.ProtoFiles))
+		if err != nil {
+			return nil, err
+		}
+
+		return s.parseRegistryFiles(protoRegistry)
+	}
+
+	return nil, fmt.Errorf("no server reflection or proto files found")
+}
+
+func getImportPaths(files []string) ([]string, []string) {
+	importPaths := make([]string, 0, len(files))
+	fileNames := make([]string, 0, len(files))
+	for _, file := range files {
+		// extract the directory path from the file path
+		importPaths = append(importPaths, filepath.Dir(file))
+		fileNames = append(fileNames, filepath.Base(file))
+	}
+	return importPaths, fileNames
+}
+
 func (s *Service) GetServerReflection(id string) ([]domain.GRPCService, error) {
 	conn, err := s.Dial(id)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := context.Background()
-	ss := serverSource{client: grpcreflect.NewClientAuto(ctx, conn)}
-	defer ss.client.Reset()
-
-	svcs, err := ss.ListServices()
+	res, err := ProtoFilesFromReflectionAPI(context.Background(), conn)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println(svcs)
-
 	services := make([]domain.GRPCService, 0)
+	res.RangeFiles(func(ds protoreflect.FileDescriptor) bool {
+		for i := 0; i < ds.Services().Len(); i++ {
+			svc := ds.Services().Get(i)
+			srv := domain.GRPCService{
+				Name:    string(svc.Name()),
+				Methods: make([]domain.GRPCMethod, 0, svc.Methods().Len()),
+			}
 
-	for _, svc := range svcs {
-		mds, err := ss.ListMethods(svc)
-		if err != nil {
-			fmt.Println("ListMethods", err)
-			return nil, err
+			for j := 0; j < svc.Methods().Len(); j++ {
+				mth := svc.Methods().Get(j)
+				srv.Methods = append(srv.Methods, domain.GRPCMethod{
+					FullName:          string(mth.FullName()),
+					Name:              string(mth.Name()),
+					IsStreamingClient: mth.IsStreamingClient(),
+					IsStreamingServer: mth.IsStreamingServer(),
+				})
+			}
+
+			services = append(services, srv)
 		}
-
-		srv := domain.GRPCService{
-			Name:    svc,
-			Methods: make([]domain.GRPCMethod, 0, len(mds)),
-		}
-
-		for _, md := range mds {
-			srv.Methods = append(srv.Methods, domain.GRPCMethod{
-				Name: md,
-			})
-		}
-
-		services = append(services, srv)
-	}
+		return true
+	})
 
 	return services, nil
 }
+
+func (s *Service) parseRegistryFiles(in *protoregistry.Files) ([]domain.GRPCService, error) {
+	services := make([]domain.GRPCService, 0)
+	in.RangeFiles(func(ds protoreflect.FileDescriptor) bool {
+		for i := 0; i < ds.Services().Len(); i++ {
+			svc := ds.Services().Get(i)
+			srv := domain.GRPCService{
+				Name:    string(svc.Name()),
+				Methods: make([]domain.GRPCMethod, 0, svc.Methods().Len()),
+			}
+
+			for j := 0; j < svc.Methods().Len(); j++ {
+				mth := svc.Methods().Get(j)
+				srv.Methods = append(srv.Methods, domain.GRPCMethod{
+					FullName:          string(mth.FullName()),
+					Name:              string(mth.Name()),
+					IsStreamingClient: mth.IsStreamingClient(),
+					IsStreamingServer: mth.IsStreamingServer(),
+				})
+			}
+
+			services = append(services, srv)
+		}
+		return true
+	})
+
+	return services, nil
+}
+
+//func (s *Service) InvokeMethod(id string, method string) error {
+//	conn, err := s.Dial(id)
+//	if err != nil {
+//		return err
+//	}
+//
+//	svc, mth := parseSymbol(method)
+//	if svc == "" || mth == "" {
+//		return fmt.Errorf("given method name %q is not in expected format: 'service/method' or 'service.method'", method)
+//	}
+//
+//	ctx := context.Background()
+//	ss := serverSource{client: grpcreflect.NewClientAuto(ctx, conn)}
+//	defer ss.client.Reset()
+//
+//	dsc, err := ss.FindSymbol(method)
+//	if err != nil {
+//		return err
+//	}
+//
+//	sd, ok := dsc.(*desc.ServiceDescriptor)
+//	if !ok {
+//		return fmt.Errorf("target server does not expose service %q", svc)
+//	}
+//	mtd := sd.FindMethodByName(mth)
+//	if mtd == nil {
+//		return fmt.Errorf("service %q does not include a method named %q", svc, mth)
+//	}
+//
+//	msgFactory := dynamic.NewMessageFactoryWithDefaults()
+//	req := msgFactory.NewMessage(mtd.GetInputType())
+//
+//	return nil
+//
+//}
 
 type serverSource struct {
 	client *grpcreflect.Client
@@ -155,4 +262,15 @@ func reflectionSupport(err error) error {
 		return ErrReflectionNotSupported
 	}
 	return err
+}
+
+func parseSymbol(svcAndMethod string) (string, string) {
+	pos := strings.LastIndex(svcAndMethod, "/")
+	if pos < 0 {
+		pos = strings.LastIndex(svcAndMethod, ".")
+		if pos < 0 {
+			return "", ""
+		}
+	}
+	return svcAndMethod[:pos], svcAndMethod[pos+1:]
 }

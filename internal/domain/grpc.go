@@ -22,8 +22,8 @@ type GRPCService struct {
 type ServerInfo struct {
 	Address string `yaml:"address"`
 
-	ServerReflection bool        `yaml:"serverReflection"`
-	ProtoFiles       []ProtoFile `yaml:"protoFiles"`
+	ServerReflection bool     `yaml:"serverReflection"`
+	ProtoFiles       []string `yaml:"protoFiles"`
 }
 
 type Settings struct {
@@ -32,13 +32,11 @@ type Settings struct {
 	NameOverride        string `yaml:"nameOverride"`
 }
 
-type ProtoFile struct {
-	Path string `yaml:"path"`
-}
-
 type GRPCMethod struct {
-	Name string `yaml:"name"`
-	Type string `yaml:"type"`
+	FullName          string `yaml:"fullName"`
+	Name              string `yaml:"name"`
+	IsStreamingClient bool   `yaml:"IsStreamingClient"`
+	IsStreamingServer bool   `yaml:"IsStreamingServer"`
 }
 
 func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {
@@ -130,7 +128,7 @@ func CompareServerInfo(a, b ServerInfo) bool {
 	}
 
 	for i, v := range a.ProtoFiles {
-		if v.Path != b.ProtoFiles[i].Path {
+		if v != b.ProtoFiles[i] {
 			return false
 		}
 	}
@@ -144,7 +142,7 @@ func CompareGRPCMethods(a, b []GRPCMethod) bool {
 	}
 
 	for i, v := range a {
-		if v.Name != b[i].Name || v.Type != b[i].Type {
+		if v.Name != b[i].Name || v.FullName != b[i].FullName || v.IsStreamingClient != b[i].IsStreamingClient || v.IsStreamingServer != b[i].IsStreamingServer {
 			return false
 		}
 	}

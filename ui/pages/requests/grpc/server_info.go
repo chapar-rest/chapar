@@ -28,7 +28,7 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 	// For now, we only support one proto file
 	fileName := ""
 	if info.ProtoFiles != nil && len(info.ProtoFiles) == 1 {
-		fileName = info.ProtoFiles[0].Path
+		fileName = info.ProtoFiles[0]
 	}
 
 	s := &ServerInfo{
@@ -53,6 +53,8 @@ func (s *ServerInfo) SetOnChanged(f func()) {
 
 func (s *ServerInfo) SetOnReload(f func()) {
 	s.onReload = f
+
+	s.FileSelector.SetOnRefresh(f)
 }
 
 func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

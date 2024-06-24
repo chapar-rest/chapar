@@ -64,7 +64,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnProtoFileSelect(c.onProtoFileSelect)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
-	view.SetOnServerReflectionReload(c.onServerReflectionReload)
+	view.SetOnServerInfoReload(c.onServerInfoReload)
 	return c
 }
 
@@ -110,7 +110,7 @@ func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 	}, "")
 }
 
-func (c *Controller) onServerReflectionReload(id string) {
+func (c *Controller) onServerInfoReload(id string) {
 	c.view.SetGRPCMethodsLoading(id, true)
 	defer c.view.SetGRPCMethodsLoading(id, false)
 
@@ -120,7 +120,7 @@ func (c *Controller) onServerReflectionReload(id string) {
 	//	envID = activeEnvironment.MetaData.ID
 	//}
 
-	res, err := c.grpcService.GetServerReflection(id)
+	res, err := c.grpcService.GetServices(id)
 	if err != nil {
 		//c.view.SetGRPCMethods(id, domain.ServerReflectionResponse{
 		//	Error: err,

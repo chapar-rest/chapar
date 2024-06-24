@@ -101,12 +101,10 @@ func (r *Grpc) setupHooks() {
 
 	r.Request.ServerInfo.FileSelector.SetOnChanged(func(filePath string) {
 		if r.Req.Spec.GRPC.ServerInfo.ProtoFiles == nil {
-			r.Req.Spec.GRPC.ServerInfo.ProtoFiles = make([]domain.ProtoFile, 0)
+			r.Req.Spec.GRPC.ServerInfo.ProtoFiles = make([]string, 0)
 		}
 
-		r.Req.Spec.GRPC.ServerInfo.ProtoFiles = append(r.Req.Spec.GRPC.ServerInfo.ProtoFiles, domain.ProtoFile{
-			Path: filePath,
-		})
+		r.Req.Spec.GRPC.ServerInfo.ProtoFiles = append(r.Req.Spec.GRPC.ServerInfo.ProtoFiles, filePath)
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
@@ -178,7 +176,7 @@ func (r *Grpc) ShowPrompt(title, content, modalType string, onSubmit func(select
 	r.Prompt.Show()
 }
 
-func (r *Grpc) SetOnReflectionReload(f func(id string)) {
+func (r *Grpc) SetOnReload(f func(id string)) {
 	if r.Request.ServerInfo == nil {
 		return
 	}
