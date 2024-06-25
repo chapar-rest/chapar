@@ -66,6 +66,32 @@ func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(address, opts...)
 }
 
+func (s *Service) GetRequestStruct(id string) (string, error) {
+	req := s.requests.GetRequest(id)
+	if req == nil {
+		return "", ErrRequestNotFound
+	}
+
+	method := req.Spec.GRPC.LasSelectedMethod
+	// get the method descriptor
+	md, err := s.getMethodDesc(id, method)
+	if err != nil {
+		return "", err
+	}
+
+	request := dynamicpb.NewMessage(md.Input())
+	reqJSON, err := (protojson.MarshalOptions{
+		Indent:          "  ",
+		EmitUnpopulated: true,
+		UseProtoNames:   true,
+	}).Marshal(request)
+	if err != nil {
+		return "", err
+	}
+
+	return string(reqJSON), nil
+}
+
 func (s *Service) Invoke(id string, envID string) (*Response, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
@@ -88,6 +114,17 @@ func (s *Service) Invoke(id string, envID string) (*Response, error) {
 
 	// create the message
 	request := dynamicpb.NewMessage(md.Input())
+	reqJSON, err := (protojson.MarshalOptions{
+		Indent:          "  ",
+		EmitUnpopulated: true,
+		UseProtoNames:   true,
+	}).Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("reqJSON", string(reqJSON))
+
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(rawJSON, request); err != nil {
 		return nil, err
 	}

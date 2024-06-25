@@ -166,6 +166,16 @@ func (r *Grpc) SetResponseLoading(loading bool) {
 	r.Response.SetMessage("")
 }
 
+func (r *Grpc) SetOnLoadRequestExample(f func(id string)) {
+	r.Request.Body.SetOnLoadExample(func() {
+		f(r.Req.MetaData.ID)
+	})
+}
+
+func (r *Grpc) SetRequestBody(body string) {
+	r.Request.Body.SetCode(body)
+}
+
 func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
 	r.Response.SetResponse(detail.Response)
 	r.Response.SetMetadata(detail.Metadata)

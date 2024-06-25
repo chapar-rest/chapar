@@ -31,6 +31,12 @@ type CodeEditor struct {
 	rhState richtext.InteractiveText
 
 	border widget.Border
+
+	beatufier   widget.Clickable
+	loadExample widget.Clickable
+
+	onBeautify    func()
+	onLoadExample func()
 }
 
 func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor {
@@ -63,6 +69,14 @@ func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor 
 
 func (c *CodeEditor) SetOnChanged(f func(text string)) {
 	c.onChange = f
+}
+
+func (c *CodeEditor) SetOnBeautify(f func()) {
+	c.onBeautify = f
+}
+
+func (c *CodeEditor) SetOnLoadExample(f func()) {
+	c.onLoadExample = f
 }
 
 func (c *CodeEditor) SetCode(code string) {
@@ -114,29 +128,75 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	flexH := layout.Flex{Axis: layout.Horizontal}
 	listInset := layout.Inset{Left: unit.Dp(10), Top: unit.Dp(4)}
 	inset4 := layout.UniformInset(unit.Dp(4))
-	return c.border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return flexH.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return listInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
-						l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
-						l.Font.Weight = font.Medium
-						l.Color = theme.TextColor
-						l.TextSize = unit.Sp(14)
-						l.Alignment = text.End
-						return l.Layout(gtx)
-					})
-				})
-			}),
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Axis:    layout.Horizontal,
+				Spacing: layout.SpaceStart,
+			}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if c.onLoadExample == nil {
+						return layout.Dimensions{}
+					}
 
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return inset4.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					ee := material.Editor(theme.Material(), c.editor, hint)
-					ee.TextSize = unit.Sp(14)
-					ee.SelectionColor = theme.TextSelectionColor
-					return ee.Layout(gtx)
-				})
-			}),
-		)
-	})
+					btn := Button(theme.Material(), &c.loadExample, RefreshIcon, IconPositionStart, "Load Example")
+					btn.Color = theme.ButtonTextColor
+					btn.Inset = layout.Inset{
+						Top: 4, Bottom: 4,
+						Left: 4, Right: 4,
+					}
+
+					if c.loadExample.Clicked(gtx) {
+						c.onLoadExample()
+					}
+
+					return btn.Layout(gtx, theme)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if c.onBeautify == nil {
+						return layout.Dimensions{}
+					}
+
+					btn := Button(theme.Material(), &c.beatufier, CleanIcon, IconPositionStart, "Beautify")
+					btn.Color = theme.ButtonTextColor
+					btn.Inset = layout.Inset{
+						Top: 4, Bottom: 4,
+						Left: 4, Right: 4,
+					}
+
+					if c.beatufier.Clicked(gtx) {
+						c.onBeautify()
+					}
+
+					return btn.Layout(gtx, theme)
+				}),
+			)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return c.border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return flexH.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return listInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
+								l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
+								l.Font.Weight = font.Medium
+								l.Color = theme.TextColor
+								l.TextSize = unit.Sp(14)
+								l.Alignment = text.End
+								return l.Layout(gtx)
+							})
+						})
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return inset4.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							ee := material.Editor(theme.Material(), c.editor, hint)
+							ee.TextSize = unit.Sp(14)
+							ee.SelectionColor = theme.TextSelectionColor
+							return ee.Layout(gtx)
+						})
+					}),
+				)
+			})
+		}),
+	)
 }

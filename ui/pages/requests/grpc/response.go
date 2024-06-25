@@ -120,7 +120,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(5), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.LabelStyle{
 								Text:     formatStatus(r.responseCode, r.duration, uint64(r.responseSize)),
 								Color:    theme.ResponseStatusColor,
@@ -134,13 +134,17 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						btn := widgets.Button(theme.Material(), &r.copyClickable, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
 						btn.Color = theme.ButtonTextColor
+						btn.Inset = layout.Inset{
+							Top: 4, Bottom: 4,
+							Left: 4, Right: 4,
+						}
 						return btn.Layout(gtx, theme)
 					}),
 				)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				if r.Tabs.Selected() == 0 {
-					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Left: unit.Dp(5), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if !r.isResponseUpdated {
 							r.jsonViewer.SetData(r.response)
 							r.isResponseUpdated = true

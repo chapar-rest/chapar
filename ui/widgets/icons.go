@@ -155,3 +155,8 @@ var RefreshIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.NavigationRefresh)
 	return icon
 }()
+
+var CleanIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.EditorFormatColorText)
+	return icon
+}()

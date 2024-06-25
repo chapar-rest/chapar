@@ -66,6 +66,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
 	view.SetOnServerInfoReload(c.onServerInfoReload)
 	view.SetOnGrpcInvoke(c.onGrpcInvoke)
+	view.SetOnGrpcLoadRequestExample(c.onLoadRequestExample)
 	return c
 }
 
@@ -159,6 +160,21 @@ func (c *Controller) onGrpcInvoke(id string) {
 	c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
 		Response: resp.Body,
 	})
+}
+
+func (c *Controller) onLoadRequestExample(id string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	example, err := c.grpcService.GetRequestStruct(id)
+	if err != nil {
+		fmt.Println("failed to get request struct", err)
+		return
+	}
+
+	c.view.SetSetGrpcRequestBody(id, example)
 }
 
 func (c *Controller) onProtoFileSelect(id string) {
