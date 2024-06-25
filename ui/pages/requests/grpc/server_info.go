@@ -38,7 +38,7 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 		IsLoading:      false,
 	}
 
-	if info.ServerReflection == true {
+	if info.ServerReflection {
 		s.definitionFrom.Value = "reflection"
 	} else {
 		s.definitionFrom.Value = "proto_files"

@@ -27,9 +27,9 @@ type Settings struct {
 	onChange func(values map[string]any)
 }
 
-func NewSettings(Items []*SettingItem) *Settings {
+func NewSettings(items []*SettingItem) *Settings {
 	s := &Settings{
-		Items: Items,
+		Items: items,
 		list: &widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -37,7 +37,7 @@ func NewSettings(Items []*SettingItem) *Settings {
 		},
 	}
 
-	for _, i := range Items {
+	for _, i := range items {
 		i.onChange = s.onChanged
 	}
 
@@ -55,15 +55,16 @@ func (s *Settings) onChanged() {
 
 	values := make(map[string]any, len(s.Items))
 	for _, i := range s.Items {
-		if i.Type == ItemTypeBool {
+		switch i.Type {
+		case ItemTypeBool:
 			values[i.Key] = i.boolState.Value
-		} else if i.Type == ItemTypeLNumber {
+		case ItemTypeLNumber:
 			v, err := strconv.Atoi(i.editor.Text())
 			if err != nil {
 				continue
 			}
 			values[i.Key] = v
-		} else {
+		default:
 			values[i.Key] = i.editor.Text()
 		}
 	}

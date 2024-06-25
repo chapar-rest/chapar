@@ -5,12 +5,10 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/widget/material"
-	"gioui.org/x/component"
 )
 
 type Modal struct {
-	modal *component.ModalLayer
-	w     layout.Widget
+	w layout.Widget
 }
 
 func NewModal() *Modal {

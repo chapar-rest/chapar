@@ -116,26 +116,26 @@ func (c *Controller) onServerInfoReload(id string) {
 	c.view.SetGRPCMethodsLoading(id, true)
 	defer c.view.SetGRPCMethodsLoading(id, false)
 
-	//var envID = ""
-	//activeEnvironment := c.envState.GetActiveEnvironment()
-	//if activeEnvironment != nil {
+	// var envID = ""
+	// activeEnvironment := c.envState.GetActiveEnvironment()
+	// if activeEnvironment != nil {
 	//	envID = activeEnvironment.MetaData.ID
-	//}
+	// }
 
 	res, err := c.grpcService.GetServices(id)
 	if err != nil {
-		//c.view.SetGRPCMethods(id, domain.ServerReflectionResponse{
+		// c.view.SetGRPCMethods(id, domain.ServerReflectionResponse{
 		//	Error: err,
-		//})
+		// })
 		fmt.Println("failed to get server reflection", err)
 		return
 	}
 
 	c.view.SetGRPCServices(id, res)
 
-	//c.view.SetServerReflectionResponse(id, domain.ServerReflectionResponse{
+	// c.view.SetServerReflectionResponse(id, domain.ServerReflectionResponse{
 	//	Services: res.Services,
-	//})
+	// })
 }
 
 func (c *Controller) onGrpcInvoke(id string) {
@@ -150,9 +150,9 @@ func (c *Controller) onGrpcInvoke(id string) {
 
 	resp, err := c.grpcService.Invoke(id, envID)
 	if err != nil {
-		//c.view.SetGRPCResponse(id, domain.GRPCResponse{
+		// c.view.SetGRPCResponse(id, domain.GRPCResponse{
 		//	Error: err,
-		//})
+		// })
 		fmt.Println("failed to invoke grpc", err)
 		return
 	}

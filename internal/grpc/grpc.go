@@ -19,17 +19,10 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/internal/state"
-
-	//lint:ignore SA1019 we have to import this because it appears in exported API
-	"github.com/jhump/protoreflect/desc"
-	"github.com/jhump/protoreflect/grpcreflect"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var (
-	ErrReflectionNotSupported = errors.New("server does not support the reflection API")
-	ErrRequestNotFound        = errors.New("request not found")
+	ErrRequestNotFound = errors.New("request not found")
 )
 
 type Service struct {
@@ -92,7 +85,7 @@ func (s *Service) GetRequestStruct(id string) (string, error) {
 	return string(reqJSON), nil
 }
 
-func (s *Service) Invoke(id string, envID string) (*Response, error) {
+func (s *Service) Invoke(id string, _ string) (*Response, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
 		return nil, ErrRequestNotFound
@@ -114,17 +107,6 @@ func (s *Service) Invoke(id string, envID string) (*Response, error) {
 
 	// create the message
 	request := dynamicpb.NewMessage(md.Input())
-	reqJSON, err := (protojson.MarshalOptions{
-		Indent:          "  ",
-		EmitUnpopulated: true,
-		UseProtoNames:   true,
-	}).Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println("reqJSON", string(reqJSON))
-
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(rawJSON, request); err != nil {
 		return nil, err
 	}
@@ -256,117 +238,4 @@ func (s *Service) parseRegistryFiles(in *protoregistry.Files) ([]domain.GRPCServ
 	})
 
 	return services, nil
-}
-
-//func (s *Service) InvokeMethod(id string, method string) error {
-//	conn, err := s.Dial(id)
-//	if err != nil {
-//		return err
-//	}
-//
-//	svc, mth := parseSymbol(method)
-//	if svc == "" || mth == "" {
-//		return fmt.Errorf("given method name %q is not in expected format: 'service/method' or 'service.method'", method)
-//	}
-//
-//	ctx := context.Background()
-//	ss := serverSource{client: grpcreflect.NewClientAuto(ctx, conn)}
-//	defer ss.client.Reset()
-//
-//	dsc, err := ss.FindSymbol(method)
-//	if err != nil {
-//		return err
-//	}
-//
-//	sd, ok := dsc.(*desc.ServiceDescriptor)
-//	if !ok {
-//		return fmt.Errorf("target server does not expose service %q", svc)
-//	}
-//	mtd := sd.FindMethodByName(mth)
-//	if mtd == nil {
-//		return fmt.Errorf("service %q does not include a method named %q", svc, mth)
-//	}
-//
-//	msgFactory := dynamic.NewMessageFactoryWithDefaults()
-//	req := msgFactory.NewMessage(mtd.GetInputType())
-//
-//	return nil
-//
-//}
-
-type serverSource struct {
-	client *grpcreflect.Client
-}
-
-func (ss serverSource) ListServices() ([]string, error) {
-	svcs, err := ss.client.ListServices()
-	return svcs, reflectionSupport(err)
-}
-
-func (ss serverSource) FindSymbol(fullyQualifiedName string) (desc.Descriptor, error) {
-	file, err := ss.client.FileContainingSymbol(fullyQualifiedName)
-	if err != nil {
-		return nil, reflectionSupport(err)
-	}
-	d := file.FindSymbol(fullyQualifiedName)
-	if d == nil {
-		return nil, fmt.Errorf("%s not found: %s", "Symbol", fullyQualifiedName)
-	}
-	return d, nil
-}
-
-// ListMethods uses the given descriptor source to return a sorted list of method names
-// for the specified fully-qualified service name.
-func (ss serverSource) ListMethods(serviceName string) ([]string, error) {
-	dsc, err := ss.FindSymbol(serviceName)
-	if err != nil {
-		return nil, err
-	}
-	if sd, ok := dsc.(*desc.ServiceDescriptor); !ok {
-		return nil, fmt.Errorf("%s not found: %s", "Service", serviceName)
-	} else {
-		methods := make([]string, 0, len(sd.GetMethods()))
-		for _, method := range sd.GetMethods() {
-			methods = append(methods, method.GetFullyQualifiedName())
-		}
-		sort.Strings(methods)
-		return methods, nil
-	}
-}
-
-func (ss serverSource) AllExtensionsForType(typeName string) ([]*desc.FieldDescriptor, error) {
-	var exts []*desc.FieldDescriptor
-	nums, err := ss.client.AllExtensionNumbersForType(typeName)
-	if err != nil {
-		return nil, reflectionSupport(err)
-	}
-	for _, fieldNum := range nums {
-		ext, err := ss.client.ResolveExtension(typeName, fieldNum)
-		if err != nil {
-			return nil, reflectionSupport(err)
-		}
-		exts = append(exts, ext)
-	}
-	return exts, nil
-}
-
-func reflectionSupport(err error) error {
-	if err == nil {
-		return nil
-	}
-	if stat, ok := status.FromError(err); ok && stat.Code() == codes.Unimplemented {
-		return ErrReflectionNotSupported
-	}
-	return err
-}
-
-func parseSymbol(svcAndMethod string) (string, string) {
-	pos := strings.LastIndex(svcAndMethod, "/")
-	if pos < 0 {
-		pos = strings.LastIndex(svcAndMethod, ".")
-		if pos < 0 {
-			return "", ""
-		}
-	}
-	return svcAndMethod[:pos], svcAndMethod[pos+1:]
 }

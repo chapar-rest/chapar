@@ -10,9 +10,7 @@ import (
 )
 
 type FileSelector struct {
-	selectFileButton widget.Clickable
-	removeButton     widget.Clickable
-	refreshButton    widget.Clickable
+	refreshButton widget.Clickable
 
 	textField *widgets.TextField
 	FileName  string

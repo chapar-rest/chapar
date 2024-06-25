@@ -15,8 +15,7 @@ func main() {
 		panic("no command provided")
 	}
 
-	switch args[0] {
-	case "fix-request-types":
+	if args[0] == "fix-request-types" {
 		fixRequestTypes()
 	}
 }
