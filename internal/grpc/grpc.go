@@ -102,7 +102,9 @@ func (s *Service) Invoke(id string, envID string) (*Response, error) {
 		return nil, err
 	}
 
-	respJSON, err := (protojson.MarshalOptions{}).Marshal(resp)
+	respJSON, err := (protojson.MarshalOptions{
+		Indent: "  ",
+	}).Marshal(resp)
 	if err != nil {
 		return nil, err
 	}
