@@ -182,52 +182,6 @@ func getImportPaths(files []string) ([]string, []string) {
 	return importPaths, fileNames
 }
 
-func (s *Service) GetServerReflection(id string) ([]domain.GRPCService, error) {
-	conn, err := s.Dial(id)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := ProtoFilesFromReflectionAPI(context.Background(), conn)
-	if err != nil {
-		return nil, err
-	}
-
-	services := make([]domain.GRPCService, 0)
-	res.RangeFiles(func(ds protoreflect.FileDescriptor) bool {
-		for i := 0; i < ds.Services().Len(); i++ {
-			svc := ds.Services().Get(i)
-			srv := domain.GRPCService{
-				Name:    string(svc.FullName()),
-				Methods: make([]domain.GRPCMethod, 0, svc.Methods().Len()),
-			}
-
-			for j := 0; j < svc.Methods().Len(); j++ {
-				mth := svc.Methods().Get(j)
-				srv.Methods = append(srv.Methods, domain.GRPCMethod{
-					FullName:          string(mth.FullName()),
-					Name:              string(mth.Name()),
-					IsStreamingClient: mth.IsStreamingClient(),
-					IsStreamingServer: mth.IsStreamingServer(),
-				})
-			}
-
-			sort.SliceStable(srv.Methods, func(i, j int) bool {
-				return srv.Methods[i].Name < srv.Methods[j].Name
-			})
-
-			services = append(services, srv)
-		}
-		return true
-	})
-
-	sort.SliceStable(services, func(i, j int) bool {
-		return services[i].Name < services[j].Name
-	})
-
-	return services, nil
-}
-
 func (s *Service) parseRegistryFiles(in *protoregistry.Files) ([]domain.GRPCService, error) {
 	services := make([]domain.GRPCService, 0)
 	in.RangeFiles(func(ds protoreflect.FileDescriptor) bool {
@@ -249,9 +203,17 @@ func (s *Service) parseRegistryFiles(in *protoregistry.Files) ([]domain.GRPCServ
 				})
 			}
 
+			sort.SliceStable(srv.Methods, func(i, j int) bool {
+				return srv.Methods[i].Name < srv.Methods[j].Name
+			})
+
 			services = append(services, srv)
 		}
 		return true
+	})
+
+	sort.SliceStable(services, func(i, j int) bool {
+		return services[i].Name < services[j].Name
 	})
 
 	return services, nil
