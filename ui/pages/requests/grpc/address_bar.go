@@ -37,18 +37,9 @@ func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string,
 	a.serverAddress.Submit = true
 	a.serverAddress.SetText(address)
 
-	//opts := make([]*widgets.DropDownOption, 0)
-	//for _, srv := range services {
-	//	for _, m := range srv.Methods {
-	//		opts = append(opts, widgets.NewDropDownOption(m.Name))
-	//	}
-	//}
-	//
-	//a.methodDropDown.SetOptions(opts...)
 	a.SetServices(services)
-
 	a.methodDropDown.MinWidth = unit.Dp(200)
-	a.methodDropDown.SetSelectedByTitle(lastSelectedMethod)
+	a.methodDropDown.SetSelectedByValue(lastSelectedMethod)
 	return a
 }
 

@@ -198,7 +198,7 @@ func (s *Service) GetServerReflection(id string) ([]domain.GRPCService, error) {
 		for i := 0; i < ds.Services().Len(); i++ {
 			svc := ds.Services().Get(i)
 			srv := domain.GRPCService{
-				Name:    string(svc.Name()),
+				Name:    string(svc.FullName()),
 				Methods: make([]domain.GRPCMethod, 0, svc.Methods().Len()),
 			}
 
@@ -212,9 +212,17 @@ func (s *Service) GetServerReflection(id string) ([]domain.GRPCService, error) {
 				})
 			}
 
+			sort.SliceStable(srv.Methods, func(i, j int) bool {
+				return srv.Methods[i].Name < srv.Methods[j].Name
+			})
+
 			services = append(services, srv)
 		}
 		return true
+	})
+
+	sort.SliceStable(services, func(i, j int) bool {
+		return services[i].Name < services[j].Name
 	})
 
 	return services, nil
