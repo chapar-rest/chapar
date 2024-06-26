@@ -133,6 +133,30 @@ func (s *Service) Invoke(id string, _ string) (*Response, error) {
 	}, nil
 }
 
+func (s *Service) prepareAuth(req *domain.Request) *metadata.MD {
+	if req.Spec.GRPC.Auth.Type == domain.AuthTypeNone {
+		return nil
+	}
+
+	md := metadata.New(nil)
+	if req.Spec.GRPC.Auth.Type == domain.AuthTypeToken {
+		md.Append("Authorization", fmt.Sprintf("Bearer %s", req.Spec.GRPC.Auth.TokenAuth.Token))
+		return &md
+	}
+
+	if req.Spec.GRPC.Auth.Type == domain.AuthTypeBasic {
+		md.Append("Authorization", fmt.Sprintf("Basic %s:%s", req.Spec.GRPC.Auth.BasicAuth.Username, req.Spec.GRPC.Auth.BasicAuth.Password))
+		return &md
+	}
+
+	if req.Spec.GRPC.Auth.Type == domain.AuthTypeAPIKey {
+		md.Append(req.Spec.GRPC.Auth.APIKeyAuth.Key, req.Spec.GRPC.Auth.APIKeyAuth.Value)
+		return &md
+	}
+
+	return nil
+}
+
 func (s *Service) getMethodDesc(id, fullname string) (protoreflect.MethodDescriptor, error) {
 	registryFiles, exist := s.protoFiles.Get(id)
 	if !exist {
