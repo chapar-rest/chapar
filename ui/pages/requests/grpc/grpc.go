@@ -173,6 +173,10 @@ func (r *Grpc) SetOnLoadRequestExample(f func(id string)) {
 }
 
 func (r *Grpc) SetRequestBody(body string) {
+	r.Req.Spec.GRPC.Body = body
+	if r.onDataChanged != nil {
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	}
 	r.Request.Body.SetCode(body)
 }
 
