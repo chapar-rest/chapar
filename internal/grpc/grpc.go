@@ -146,6 +146,7 @@ func (s *Service) Invoke(id string, _ string) (*Response, error) {
 		Error:      respErr,
 		StatueCode: int(status.Code(respErr)),
 		Status:     status.Code(respErr).String(),
+		Size:       len(resp.String()),
 	}
 
 	if respErr != nil {
