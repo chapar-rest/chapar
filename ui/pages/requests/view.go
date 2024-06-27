@@ -483,6 +483,12 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 		}
 	})
 
+	ct.SetOnCopyResponse(func(gtx layout.Context, dataType, data string) {
+		if v.onCopyResponse != nil {
+			v.onCopyResponse(gtx, dataType, data)
+		}
+	})
+
 	return ct
 }
 

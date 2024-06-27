@@ -172,6 +172,10 @@ func (r *Grpc) SetOnLoadRequestExample(f func(id string)) {
 	})
 }
 
+func (r *Grpc) SetOnCopyResponse(f func(gtx layout.Context, dataType, data string)) {
+	r.Response.SetOnCopyResponse(f)
+}
+
 func (r *Grpc) SetRequestBody(body string) {
 	r.Req.Spec.GRPC.Body = body
 	if r.onDataChanged != nil {
