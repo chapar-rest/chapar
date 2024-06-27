@@ -132,10 +132,6 @@ func (c *Controller) onServerInfoReload(id string) {
 	}
 
 	c.view.SetGRPCServices(id, res)
-
-	// c.view.SetServerReflectionResponse(id, domain.ServerReflectionResponse{
-	//	Services: res.Services,
-	// })
 }
 
 func (c *Controller) onGrpcInvoke(id string) {
@@ -150,15 +146,21 @@ func (c *Controller) onGrpcInvoke(id string) {
 
 	resp, err := c.grpcService.Invoke(id, envID)
 	if err != nil {
-		// c.view.SetGRPCResponse(id, domain.GRPCResponse{
-		//	Error: err,
-		// })
+		c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
+			Error: err,
+		})
 		fmt.Println("failed to invoke grpc", err)
 		return
 	}
 
 	c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
-		Response: resp.Body,
+		Response:   resp.Body,
+		Metadata:   resp.Metadata,
+		Trailers:   resp.Trailers,
+		StatusCode: resp.StatueCode,
+		Duration:   resp.TimePassed,
+		Status:     resp.Status,
+		Size:       resp.Size,
 	})
 }
 

@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -33,7 +36,16 @@ type Service struct {
 }
 
 type Response struct {
-	Body string
+	Body       string
+	Metadata   []domain.KeyValue
+	Trailers   []domain.KeyValue
+	Cookies    []*http.Cookie
+	TimePassed time.Duration
+	Size       int
+	Error      error
+
+	StatueCode int
+	Status     string
 }
 
 func NewService(requests *state.Requests, envs *state.Environments) *Service {
@@ -116,21 +128,39 @@ func (s *Service) Invoke(id string, _ string) (*Response, error) {
 		ctx = metadata.AppendToOutgoingContext(ctx, item.Key, item.Value)
 	}
 
+	if authHeaders := s.prepareAuth(req); authHeaders != nil {
+		ctx = metadata.NewOutgoingContext(ctx, *authHeaders)
+	}
+
+	var respHeaders, respTrailers metadata.MD
 	resp := dynamicpb.NewMessage(md.Output())
-	if err := conn.Invoke(ctx, method, request, resp); err != nil {
-		return nil, err
+
+	start := time.Now()
+	respErr := conn.Invoke(ctx, method, request, resp, grpc.Header(&respHeaders), grpc.Trailer(&respTrailers))
+	elapsed := time.Since(start)
+
+	out := &Response{
+		TimePassed: elapsed,
+		Metadata:   domain.MetadataToKeyValue(respHeaders),
+		Trailers:   domain.MetadataToKeyValue(respTrailers),
+		Error:      respErr,
+		StatueCode: int(status.Code(respErr)),
+		Status:     status.Code(respErr).String(),
+	}
+
+	if respErr != nil {
+		return out, respErr
 	}
 
 	respJSON, err := (protojson.MarshalOptions{
 		Indent: "  ",
 	}).Marshal(resp)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
-	return &Response{
-		Body: string(respJSON),
-	}, nil
+	out.Body = string(respJSON)
+	return out, nil
 }
 
 func (s *Service) prepareAuth(req *domain.Request) *metadata.MD {
@@ -144,7 +174,7 @@ func (s *Service) prepareAuth(req *domain.Request) *metadata.MD {
 		return &md
 	}
 
-	if req.Spec.GRPC.Auth.Type == domain.AuthTypeBasic {
+	if req.Spec.GRPC.Auth.Type == domain.AuthTypeBasic && req.Spec.GRPC.Auth.BasicAuth != nil {
 		md.Append("Authorization", fmt.Sprintf("Basic %s:%s", req.Spec.GRPC.Auth.BasicAuth.Username, req.Spec.GRPC.Auth.BasicAuth.Password))
 		return &md
 	}

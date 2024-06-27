@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"gioui.org/layout"
@@ -24,10 +23,12 @@ type Response struct {
 	copyClickable widget.Clickable
 
 	responseCode int
+	status       string
 	duration     time.Duration
 	responseSize int
 
 	Metadata *component.ValuesTable
+	Trailers *component.ValuesTable
 
 	response string
 	message  string
@@ -55,9 +56,11 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Body"},
 			{Title: "Metadata"},
+			{Title: "Trailers"},
 		}, nil),
 		jsonViewer: widgets.NewJsonViewer(),
 		Metadata:   component.NewValuesTable("Metadata", nil),
+		Trailers:   component.NewValuesTable("Trailers", nil),
 	}
 	return r
 }
@@ -74,14 +77,19 @@ func (r *Response) SetResponse(response string) {
 	r.responseIsAvailable = true
 }
 
-func (r *Response) SetStatusParams(code int, duration time.Duration, size int) {
+func (r *Response) SetStatusParams(code int, status string, duration time.Duration, size int) {
 	r.responseCode = code
 	r.duration = duration
 	r.responseSize = size
+	r.status = status
 }
 
 func (r *Response) SetMetadata(metadata []domain.KeyValue) {
 	r.Metadata.SetData(metadata)
+}
+
+func (r *Response) SetTrailers(trailers []domain.KeyValue) {
+	r.Trailers.SetData(trailers)
 }
 
 func (r *Response) SetMessage(message string) {
@@ -122,7 +130,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Left: unit.Dp(5), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							l := material.LabelStyle{
-								Text:     formatStatus(r.responseCode, r.duration, uint64(r.responseSize)),
+								Text:     formatStatus(r.responseCode, r.status, r.duration, uint64(r.responseSize)),
 								Color:    theme.ResponseStatusColor,
 								TextSize: theme.TextSize,
 								Shaper:   theme.Shaper,
@@ -143,25 +151,27 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 				)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				if r.Tabs.Selected() == 0 {
+				switch r.Tabs.Selected() {
+				case 0:
 					return layout.Inset{Left: unit.Dp(5), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if !r.isResponseUpdated {
 							r.jsonViewer.SetData(r.response)
 							r.isResponseUpdated = true
 						}
-
 						return r.jsonViewer.Layout(gtx, theme)
 					})
-				} else {
+				case 1:
 					return r.Metadata.Layout(gtx, theme)
+				default:
+					return r.Trailers.Layout(gtx, theme)
 				}
 			}),
 		)
 	})
 }
 
-func formatStatus(statueCode int, duration time.Duration, size uint64) string {
-	return fmt.Sprintf("%d %s, %s, %s", statueCode, http.StatusText(statueCode), duration, humanize.Bytes(size))
+func formatStatus(statueCode int, status string, duration time.Duration, size uint64) string {
+	return fmt.Sprintf("%d %s, %s, %s", statueCode, status, duration, humanize.Bytes(size))
 }
 
 func (r *Response) handleCopy(gtx layout.Context) {
@@ -169,9 +179,12 @@ func (r *Response) handleCopy(gtx layout.Context) {
 		return
 	}
 
-	if r.Tabs.Selected() == 1 {
-		r.onCopyResponse(gtx, "Metadata", domain.KeyValuesToText(r.Metadata.GetData()))
-	} else {
+	switch r.Tabs.Selected() {
+	case 0:
 		r.onCopyResponse(gtx, "Response", r.response)
+	case 1:
+		r.onCopyResponse(gtx, "Metadata", domain.KeyValuesToText(r.Metadata.GetData()))
+	default:
+		r.onCopyResponse(gtx, "Trailers", domain.KeyValuesToText(r.Trailers.GetData()))
 	}
 }

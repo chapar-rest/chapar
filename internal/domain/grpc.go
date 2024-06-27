@@ -1,9 +1,11 @@
 package domain
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc/metadata"
 )
 
 type GRPCRequestSpec struct {
@@ -44,10 +46,14 @@ type GRPCMethod struct {
 type GRPCResponseDetail struct {
 	Response   string
 	Metadata   []KeyValue
+	Trailers   []KeyValue
 	StatusCode int
 	Duration   time.Duration
 	Size       int
 	Error      error
+
+	StatueCode int
+	Status     string
 }
 
 func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {
@@ -173,4 +179,16 @@ func CompareGRPCServices(a, b []GRPCService) bool {
 	}
 
 	return true
+}
+
+func MetadataToKeyValue(md metadata.MD) []KeyValue {
+	headers := make([]KeyValue, 0, len(md))
+	for k, v := range md {
+		headers = append(headers, KeyValue{
+			Key:   k,
+			Value: strings.Join(v, ","),
+		})
+	}
+
+	return headers
 }

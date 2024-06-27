@@ -183,7 +183,9 @@ func (r *Grpc) SetRequestBody(body string) {
 func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
 	r.Response.SetResponse(detail.Response)
 	r.Response.SetMetadata(detail.Metadata)
+	r.Response.SetTrailers(detail.Trailers)
 	r.Response.SetError(detail.Error)
+	r.Response.SetStatusParams(detail.StatusCode, detail.Status, detail.Duration, detail.Size)
 }
 
 func (r *Grpc) SetOnSave(f func(id string)) {
