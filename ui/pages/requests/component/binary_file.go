@@ -26,9 +26,11 @@ func NewFileSelector(filename string) *FileSelector {
 		textField: widgets.NewTextField(filename, "File"),
 	}
 
-	bf.textField.Icon = widgets.UploadIcon
+	bf.textField.SetText(filename)
 	bf.textField.IconPosition = widgets.IconPositionEnd
 	bf.textField.SetMinWidth(200)
+
+	bf.updateIcon()
 	return bf
 }
 
@@ -59,7 +61,7 @@ func (b *FileSelector) SetOnRefresh(f func()) {
 func (b *FileSelector) SetFileName(name string) {
 	b.FileName = name
 	b.textField.SetText(name)
-	b.textField.SetIcon(widgets.DeleteIcon, widgets.IconPositionEnd)
+	b.updateIcon()
 	if b.onChanged != nil {
 		b.onChanged(name)
 	}
@@ -68,11 +70,19 @@ func (b *FileSelector) SetFileName(name string) {
 func (b *FileSelector) RemoveFile() {
 	b.FileName = ""
 	b.textField.SetText("")
-	b.textField.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
+	b.updateIcon()
 }
 
 func (b *FileSelector) GetFilePath() string {
 	return b.FileName
+}
+
+func (b *FileSelector) updateIcon() {
+	if b.FileName != "" {
+		b.textField.SetIcon(widgets.DeleteIcon, widgets.IconPositionEnd)
+	} else {
+		b.textField.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
+	}
 }
 
 func (b *FileSelector) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
