@@ -25,10 +25,10 @@ type ServerInfo struct {
 }
 
 func NewServerInfo(info domain.ServerInfo) *ServerInfo {
-	// For now, we only support one proto file
+	// For now, we only support one proto file, and we will use the last one
 	fileName := ""
-	if info.ProtoFiles != nil && len(info.ProtoFiles) == 1 {
-		fileName = info.ProtoFiles[0]
+	if len(info.ProtoFiles) > 0 {
+		fileName = info.ProtoFiles[len(info.ProtoFiles)-1]
 	}
 
 	s := &ServerInfo{

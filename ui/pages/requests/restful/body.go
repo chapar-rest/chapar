@@ -25,7 +25,6 @@ type Body struct {
 }
 
 func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
-
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
