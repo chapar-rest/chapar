@@ -3,6 +3,7 @@ package grpc
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+
 	"github.com/chapar-rest/chapar/ui/converter"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 
@@ -37,7 +38,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 		),
 		Auth: component.NewAuth(req.Spec.GRPC.Auth, theme),
 		Settings: widgets.NewSettings([]*widgets.SettingItem{
-			widgets.NewBoolItem("Use SSL", "useSSL", "Insecure connection", req.Spec.GRPC.Settings.UseSSL),
+			widgets.NewBoolItem("Plain Text", "insecure", "Insecure connection", req.Spec.GRPC.Settings.Insecure),
 			widgets.NewNumberItem("Timeout", "timeoutMilliseconds", "Timeout for the request in milliseconds", req.Spec.GRPC.Settings.TimeoutMilliseconds),
 			widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride),
 		}),

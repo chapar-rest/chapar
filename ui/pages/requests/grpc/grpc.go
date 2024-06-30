@@ -116,13 +116,13 @@ func (r *Grpc) setupHooks() {
 
 func convertSettingsToItems(values map[string]any) domain.Settings {
 	out := domain.Settings{
-		UseSSL:              false,
+		Insecure:            false,
 		TimeoutMilliseconds: 1000,
 		NameOverride:        "",
 	}
 
-	if v, ok := values["useSSL"]; ok {
-		out.UseSSL = v.(bool)
+	if v, ok := values["insecure"]; ok {
+		out.Insecure = v.(bool)
 	}
 
 	if v, ok := values["timeoutMilliseconds"]; ok {
