@@ -1,5 +1,5 @@
-# gioui.org v0.6.0
-## explicit; go 1.19
+# gioui.org v0.7.0
+## explicit; go 1.21
 gioui.org/app
 gioui.org/app/internal/windows
 gioui.org/app/internal/xkb
@@ -51,8 +51,8 @@ gioui.org/cpu
 gioui.org/shader
 gioui.org/shader/gio
 gioui.org/shader/piet
-# gioui.org/x v0.6.1
-## explicit; go 1.18
+# gioui.org/x v0.7.0
+## explicit; go 1.21
 gioui.org/x/component
 gioui.org/x/explorer
 gioui.org/x/outlay
@@ -104,23 +104,19 @@ github.com/go-text/typesetting/unicodedata
 github.com/godbus/dbus/v5
 # github.com/golang/protobuf v1.5.4
 ## explicit; go 1.17
-github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
 # github.com/jhump/protoreflect v1.16.0
 ## explicit; go 1.19
-github.com/jhump/protoreflect/codec
 github.com/jhump/protoreflect/desc
 github.com/jhump/protoreflect/desc/internal
 github.com/jhump/protoreflect/desc/protoparse
 github.com/jhump/protoreflect/desc/protoparse/ast
 github.com/jhump/protoreflect/desc/sourceinfo
-github.com/jhump/protoreflect/dynamic
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
-github.com/jhump/protoreflect/internal/codec
 # github.com/shopspring/decimal v1.3.1
 ## explicit; go 1.13
 github.com/shopspring/decimal

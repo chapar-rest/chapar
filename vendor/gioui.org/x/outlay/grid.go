@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"gioui.org/gesture"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -133,11 +134,17 @@ func (g *Grid) Update(gtx layout.Context, rows, cols int, dimensioner Dimensione
 	rowHeight := dimensioner(layout.Vertical, 0, gtx.Constraints.Max.Y)
 
 	// Update horizontal scroll position.
-	hScrollDelta := g.Hscroll.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Horizontal, image.Rect(-gtx.Constraints.Max.X/2, 0, gtx.Constraints.Max.X/2, 0))
+	hScrollDelta := g.Hscroll.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Horizontal,
+		pointer.ScrollRange{Min: -gtx.Constraints.Max.X / 2, Max: gtx.Constraints.Max.X / 2},
+		pointer.ScrollRange{},
+	)
 	g.Horizontal.Offset += hScrollDelta
 
 	// Get vertical scroll info.
-	vScrollDelta := g.Vscroll.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Vertical, image.Rect(0, -gtx.Constraints.Max.Y/2, 0, gtx.Constraints.Max.Y/2))
+	vScrollDelta := g.Vscroll.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Vertical,
+		pointer.ScrollRange{},
+		pointer.ScrollRange{Min: -gtx.Constraints.Max.Y / 2, Max: gtx.Constraints.Max.Y / 2},
+	)
 	g.Vertical.Offset += vScrollDelta
 
 	g.Horizontal.update(gtx, layout.Horizontal, cols, gtx.Constraints.Max.X, dimensioner)

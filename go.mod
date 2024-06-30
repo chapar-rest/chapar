@@ -3,8 +3,8 @@ module github.com/chapar-rest/chapar
 go 1.22.1
 
 require (
-	gioui.org v0.6.0
-	gioui.org/x v0.6.1
+	gioui.org v0.7.0
+	gioui.org/x v0.7.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0

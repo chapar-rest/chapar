@@ -131,7 +131,8 @@ func (in *TextField) Update(gtx C, th *material.Theme, hint string) {
 	if in.click.Hovered() && !disabled {
 		in.state = hovered
 	}
-	if in.Editor.Len() > 0 {
+	hasContents := in.Editor.Len() > 0
+	if hasContents {
 		in.state = activated
 	}
 	if gtx.Source.Focused(&in.Editor) && !disabled {
@@ -143,13 +144,13 @@ func (in *TextField) Update(gtx C, th *material.Theme, hint string) {
 	if in.anim == nil {
 		in.anim = &Progress{}
 	}
-	if in.state == activated {
+	if in.state == activated || hasContents {
 		in.anim.Start(gtx.Now, Forward, 0)
 	}
-	if in.state == focused && in.Editor.Len() == 0 && !in.anim.Started() {
+	if in.state == focused && !hasContents && !in.anim.Started() {
 		in.anim.Start(gtx.Now, Forward, duration)
 	}
-	if in.state == inactive && in.Editor.Len() == 0 && in.anim.Finished() {
+	if in.state == inactive && !hasContents && in.anim.Finished() {
 		in.anim.Start(gtx.Now, Reverse, duration)
 	}
 	if in.anim.Started() {
