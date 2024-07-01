@@ -112,17 +112,19 @@ func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 	}, "")
 }
 
+func (c *Controller) getActiveEnvID() string {
+	activeEnvironment := c.envState.GetActiveEnvironment()
+	if activeEnvironment == nil {
+		return ""
+	}
+	return activeEnvironment.MetaData.ID
+}
+
 func (c *Controller) onServerInfoReload(id string) {
 	c.view.SetGRPCMethodsLoading(id, true)
 	defer c.view.SetGRPCMethodsLoading(id, false)
 
-	// var envID = ""
-	// activeEnvironment := c.envState.GetActiveEnvironment()
-	// if activeEnvironment != nil {
-	//	envID = activeEnvironment.MetaData.ID
-	// }
-
-	res, err := c.grpcService.GetServices(id)
+	res, err := c.grpcService.GetServices(id, c.getActiveEnvID())
 	if err != nil {
 		// c.view.SetGRPCMethods(id, domain.ServerReflectionResponse{
 		//	Error: err,
@@ -138,13 +140,7 @@ func (c *Controller) onGrpcInvoke(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	var envID = ""
-	activeEnvironment := c.envState.GetActiveEnvironment()
-	if activeEnvironment != nil {
-		envID = activeEnvironment.MetaData.ID
-	}
-
-	resp, err := c.grpcService.Invoke(id, envID)
+	resp, err := c.grpcService.Invoke(id, c.getActiveEnvID())
 	if err != nil {
 		c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
 			Error: err,
@@ -170,7 +166,7 @@ func (c *Controller) onLoadRequestExample(id string) {
 		return
 	}
 
-	example, err := c.grpcService.GetRequestStruct(id)
+	example, err := c.grpcService.GetRequestStruct(id, c.getActiveEnvID())
 	if err != nil {
 		fmt.Println("failed to get request struct", err)
 		return
@@ -298,13 +294,7 @@ func (c *Controller) onSubmitRequest(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	var envID = ""
-	activeEnvironment := c.envState.GetActiveEnvironment()
-	if activeEnvironment != nil {
-		envID = activeEnvironment.MetaData.ID
-	}
-
-	res, err := c.restService.SendRequest(id, envID)
+	res, err := c.restService.SendRequest(id, c.getActiveEnvID())
 	if err != nil {
 		c.view.SetHTTPResponse(id, domain.HTTPResponseDetail{
 			Error: err,

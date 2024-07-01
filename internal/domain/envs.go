@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"strings"
+
 	"github.com/google/uuid"
 )
 
@@ -90,4 +92,50 @@ func (e *Environment) SetKey(key string, value string) {
 		Value:  value,
 		Enable: true,
 	})
+}
+
+func (e *Environment) ApplyToGRPCRequest(req *GRPCRequestSpec) {
+	if e == nil || req == nil {
+		return
+	}
+
+	for _, kv := range e.Spec.Values {
+		if strings.Contains(req.ServerInfo.Address, "{{"+kv.Key+"}}") {
+			req.ServerInfo.Address = strings.ReplaceAll(req.ServerInfo.Address, "{{"+kv.Key+"}}", kv.Value)
+		}
+
+		if strings.Contains(req.Body, "{{"+kv.Key+"}}") {
+			req.Body = strings.ReplaceAll(req.Body, "{{"+kv.Key+"}}", kv.Value)
+		}
+
+		for i, kv := range req.Metadata {
+			if strings.Contains(kv.Value, "{{"+kv.Key+"}}") {
+				req.Metadata[i].Value = strings.ReplaceAll(kv.Value, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		if req.Auth != (Auth{}) {
+			if req.Auth.APIKeyAuth != nil {
+				if strings.Contains(req.Auth.APIKeyAuth.Key, "{{"+kv.Key+"}}") {
+					req.Auth.APIKeyAuth.Key = strings.ReplaceAll(req.Auth.APIKeyAuth.Key, "{{"+kv.Key+"}}", kv.Value)
+				}
+			}
+
+			if req.Auth.BasicAuth != nil {
+				if strings.Contains(req.Auth.BasicAuth.Username, "{{"+kv.Key+"}}") {
+					req.Auth.BasicAuth.Username = strings.ReplaceAll(req.Auth.BasicAuth.Username, "{{"+kv.Key+"}}", kv.Value)
+				}
+
+				if strings.Contains(req.Auth.BasicAuth.Password, "{{"+kv.Key+"}}") {
+					req.Auth.BasicAuth.Password = strings.ReplaceAll(req.Auth.BasicAuth.Password, "{{"+kv.Key+"}}", kv.Value)
+				}
+			}
+
+			if req.Auth.TokenAuth != nil {
+				if strings.Contains(req.Auth.TokenAuth.Token, "{{"+kv.Key+"}}") {
+					req.Auth.TokenAuth.Token = strings.ReplaceAll(req.Auth.TokenAuth.Token, "{{"+kv.Key+"}}", kv.Value)
+				}
+			}
+		}
+	}
 }

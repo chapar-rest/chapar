@@ -22,6 +22,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/internal/state"
+	"github.com/chapar-rest/chapar/internal/variables"
 )
 
 var (
@@ -56,14 +57,7 @@ func NewService(requests *state.Requests, envs *state.Environments) *Service {
 	}
 }
 
-func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
-	req := s.requests.GetRequest(requestID)
-	if req == nil {
-		return nil, ErrRequestNotFound
-	}
-
-	address := req.Spec.GRPC.ServerInfo.Address
-
+func (s *Service) Dial(address string) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
@@ -71,7 +65,7 @@ func (s *Service) Dial(requestID string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(address, opts...)
 }
 
-func (s *Service) GetRequestStruct(id string) (string, error) {
+func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
 		return "", ErrRequestNotFound
@@ -79,7 +73,7 @@ func (s *Service) GetRequestStruct(id string) (string, error) {
 
 	method := req.Spec.GRPC.LasSelectedMethod
 	// get the method descriptor
-	md, err := s.getMethodDesc(id, method)
+	md, err := s.getMethodDesc(id, environmentID, method)
 	if err != nil {
 		return "", err
 	}
@@ -97,22 +91,35 @@ func (s *Service) GetRequestStruct(id string) (string, error) {
 	return string(reqJSON), nil
 }
 
-func (s *Service) Invoke(id string, _ string) (*Response, error) {
+func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
 		return nil, ErrRequestNotFound
 	}
 
-	method := req.Spec.GRPC.LasSelectedMethod
-	rawJSON := []byte(req.Spec.GRPC.Body)
+	r := req.Clone()
 
-	conn, err := s.Dial(id)
+	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
+
+	return s.invoke(id, r.Spec.GRPC, activeEnvironment)
+}
+
+func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Environment) (*Response, error) {
+	vars := variables.GetVariables()
+	variables.ApplyToEnv(vars, &env.Spec)
+	variables.ApplyToGRPCRequest(vars, req)
+	env.ApplyToGRPCRequest(req)
+
+	method := req.LasSelectedMethod
+	rawJSON := []byte(req.Body)
+
+	conn, err := s.Dial(req.ServerInfo.Address)
 	if err != nil {
 		return nil, err
 	}
 
 	// get the method descriptor
-	md, err := s.getMethodDesc(id, method)
+	md, err := s.getMethodDesc(id, env.MetaData.ID, method)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +131,7 @@ func (s *Service) Invoke(id string, _ string) (*Response, error) {
 	}
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.New(nil))
-	for _, item := range req.Spec.GRPC.Metadata {
+	for _, item := range req.Metadata {
 		ctx = metadata.AppendToOutgoingContext(ctx, item.Key, item.Value)
 	}
 
@@ -164,35 +171,35 @@ func (s *Service) Invoke(id string, _ string) (*Response, error) {
 	return out, nil
 }
 
-func (s *Service) prepareAuth(req *domain.Request) *metadata.MD {
-	if req.Spec.GRPC.Auth.Type == domain.AuthTypeNone {
+func (s *Service) prepareAuth(req *domain.GRPCRequestSpec) *metadata.MD {
+	if req.Auth.Type == domain.AuthTypeNone {
 		return nil
 	}
 
 	md := metadata.New(nil)
-	if req.Spec.GRPC.Auth.Type == domain.AuthTypeToken {
-		md.Append("Authorization", fmt.Sprintf("Bearer %s", req.Spec.GRPC.Auth.TokenAuth.Token))
+	if req.Auth.Type == domain.AuthTypeToken {
+		md.Append("Authorization", fmt.Sprintf("Bearer %s", req.Auth.TokenAuth.Token))
 		return &md
 	}
 
-	if req.Spec.GRPC.Auth.Type == domain.AuthTypeBasic && req.Spec.GRPC.Auth.BasicAuth != nil {
-		md.Append("Authorization", fmt.Sprintf("Basic %s:%s", req.Spec.GRPC.Auth.BasicAuth.Username, req.Spec.GRPC.Auth.BasicAuth.Password))
+	if req.Auth.Type == domain.AuthTypeBasic && req.Auth.BasicAuth != nil {
+		md.Append("Authorization", fmt.Sprintf("Basic %s:%s", req.Auth.BasicAuth.Username, req.Auth.BasicAuth.Password))
 		return &md
 	}
 
-	if req.Spec.GRPC.Auth.Type == domain.AuthTypeAPIKey {
-		md.Append(req.Spec.GRPC.Auth.APIKeyAuth.Key, req.Spec.GRPC.Auth.APIKeyAuth.Value)
+	if req.Auth.Type == domain.AuthTypeAPIKey {
+		md.Append(req.Auth.APIKeyAuth.Key, req.Auth.APIKeyAuth.Value)
 		return &md
 	}
 
 	return nil
 }
 
-func (s *Service) getMethodDesc(id, fullname string) (protoreflect.MethodDescriptor, error) {
+func (s *Service) getMethodDesc(id, envID, fullname string) (protoreflect.MethodDescriptor, error) {
 	registryFiles, exist := s.protoFiles.Get(id)
 	if !exist {
 		// reload the proto files we don't have them in registry
-		if _, err := s.GetServices(id); err != nil {
+		if _, err := s.GetServices(id, envID); err != nil {
 			return nil, err
 		}
 
@@ -214,13 +221,24 @@ func (s *Service) getMethodDesc(id, fullname string) (protoreflect.MethodDescrip
 	return methodDesc, nil
 }
 
-func (s *Service) GetServices(id string) ([]domain.GRPCService, error) {
+func (s *Service) GetServices(id, activeEnvironmentID string) ([]domain.GRPCService, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
 		return nil, ErrRequestNotFound
 	}
 
-	conn, err := s.Dial(id)
+	req = req.Clone()
+
+	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
+	vars := variables.GetVariables()
+	variables.ApplyToGRPCRequest(vars, req.Spec.GRPC)
+
+	if activeEnvironment != nil {
+		variables.ApplyToEnv(vars, &activeEnvironment.Spec)
+		activeEnvironment.ApplyToGRPCRequest(req.Spec.GRPC)
+	}
+
+	conn, err := s.Dial(req.Spec.GRPC.ServerInfo.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +263,19 @@ func (s *Service) GetServices(id string) ([]domain.GRPCService, error) {
 	}
 
 	return nil, fmt.Errorf("no server reflection or proto files found")
+}
+
+func (s *Service) getActiveEnvironment(id string) *domain.Environment {
+	if id == "" {
+		return nil
+	}
+
+	activeEnvironment := s.environments.GetEnvironment(id)
+	if activeEnvironment == nil {
+		return nil
+	}
+
+	return activeEnvironment
 }
 
 func getImportPaths(files []string) ([]string, []string) {
