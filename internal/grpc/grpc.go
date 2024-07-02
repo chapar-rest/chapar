@@ -142,6 +142,14 @@ func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Env
 	var respHeaders, respTrailers metadata.MD
 	resp := dynamicpb.NewMessage(md.Output())
 
+	timeOut := 5000 * time.Millisecond
+	if req.Settings.TimeoutMilliseconds > 0 {
+		timeOut = time.Duration(req.Settings.TimeoutMilliseconds) * time.Millisecond
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+	defer cancel()
+
 	start := time.Now()
 	respErr := conn.Invoke(ctx, method, request, resp, grpc.Header(&respHeaders), grpc.Trailer(&respTrailers))
 	elapsed := time.Since(start)

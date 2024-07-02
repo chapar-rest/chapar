@@ -40,7 +40,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 		Settings: widgets.NewSettings([]*widgets.SettingItem{
 			widgets.NewBoolItem("Plain Text", "insecure", "Insecure connection", req.Spec.GRPC.Settings.Insecure),
 			widgets.NewNumberItem("Timeout", "timeoutMilliseconds", "Timeout for the request in milliseconds", req.Spec.GRPC.Settings.TimeoutMilliseconds),
-			widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride),
+			//	widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride),
 		}),
 	}
 
