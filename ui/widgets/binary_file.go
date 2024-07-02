@@ -8,7 +8,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
-type FileSelector struct {
+type BinaryFile struct {
 	refreshButton widget.Clickable
 
 	textField *TextField
@@ -19,8 +19,8 @@ type FileSelector struct {
 	onRefresh    func()
 }
 
-func NewFileSelector(filename string) *FileSelector {
-	bf := &FileSelector{
+func NewBinaryFile(filename string) *BinaryFile {
+	bf := &BinaryFile{
 		FileName:  filename,
 		textField: NewTextField(filename, "File"),
 	}
@@ -33,7 +33,7 @@ func NewFileSelector(filename string) *FileSelector {
 	return bf
 }
 
-func (b *FileSelector) SetOnSelectFile(f func()) {
+func (b *BinaryFile) SetOnSelectFile(f func()) {
 	b.onSelectFile = f
 	b.textField.SetOnIconClick(func() {
 		if b.FileName != "" {
@@ -49,15 +49,15 @@ func (b *FileSelector) SetOnSelectFile(f func()) {
 	})
 }
 
-func (b *FileSelector) SetOnChanged(f func(filePath string)) {
+func (b *BinaryFile) SetOnChanged(f func(filePath string)) {
 	b.onChanged = f
 }
 
-func (b *FileSelector) SetOnRefresh(f func()) {
+func (b *BinaryFile) SetOnRefresh(f func()) {
 	b.onRefresh = f
 }
 
-func (b *FileSelector) SetFileName(name string) {
+func (b *BinaryFile) SetFileName(name string) {
 	b.FileName = name
 	b.textField.SetText(name)
 	b.updateIcon()
@@ -66,17 +66,17 @@ func (b *FileSelector) SetFileName(name string) {
 	}
 }
 
-func (b *FileSelector) RemoveFile() {
+func (b *BinaryFile) RemoveFile() {
 	b.FileName = ""
 	b.textField.SetText("")
 	b.updateIcon()
 }
 
-func (b *FileSelector) GetFilePath() string {
+func (b *BinaryFile) GetFilePath() string {
 	return b.FileName
 }
 
-func (b *FileSelector) updateIcon() {
+func (b *BinaryFile) updateIcon() {
 	if b.FileName != "" {
 		b.textField.SetIcon(DeleteIcon, IconPositionEnd)
 	} else {
@@ -84,7 +84,7 @@ func (b *FileSelector) updateIcon() {
 	}
 }
 
-func (b *FileSelector) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (b *BinaryFile) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = gtx.Dp(32)

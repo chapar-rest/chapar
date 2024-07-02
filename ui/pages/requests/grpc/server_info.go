@@ -15,7 +15,7 @@ type ServerInfo struct {
 	definitionFrom *widget.Enum
 
 	ReloadButton *widget.Clickable
-	FileSelector *widgets.FileSelector
+	FileSelector *widgets.BinaryFile
 
 	IsLoading bool
 	onReload  func()
@@ -32,7 +32,7 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 
 	s := &ServerInfo{
 		definitionFrom: new(widget.Enum),
-		FileSelector:   widgets.NewFileSelector(fileName),
+		FileSelector:   widgets.NewBinaryFile(fileName),
 		ReloadButton:   new(widget.Clickable),
 		IsLoading:      false,
 	}

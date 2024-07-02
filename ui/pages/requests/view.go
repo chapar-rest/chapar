@@ -5,6 +5,7 @@ import (
 
 	"gioui.org/widget/material"
 
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
 
 	"gioui.org/app"
@@ -82,9 +83,11 @@ type View struct {
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
 
 	tipsView *tips.Tips
+
+	explorer *explorer.Explorer
 }
 
-func NewView(w *app.Window, theme *chapartheme.Theme) *View {
+func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explorer) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
@@ -111,6 +114,7 @@ func NewView(w *app.Window, theme *chapartheme.Theme) *View {
 
 		modal:    component.NewModal(),
 		tipsView: tips.New(),
+		explorer: explorer,
 	}
 
 	v.modal.Widget = func(gtx layout.Context, th *material.Theme, anim *component.VisibilityAnimation) layout.Dimensions {
@@ -439,7 +443,7 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 }
 
 func (v *View) createGrpcContainer(req *domain.Request) Container {
-	ct := grpc.New(req, v.theme)
+	ct := grpc.New(req, v.theme, v.explorer)
 
 	ct.SetOnTitleChanged(func(text string) {
 		if v.onTitleChanged != nil {

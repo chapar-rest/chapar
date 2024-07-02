@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -57,9 +58,22 @@ func NewService(requests *state.Requests, envs *state.Environments) *Service {
 	}
 }
 
-func (s *Service) Dial(address string) (*grpc.ClientConn, error) {
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+func (s *Service) Dial(address, caCertFile, serverNameOverride string) (*grpc.ClientConn, error) {
+	var opts []grpc.DialOption
+
+	if caCertFile != "" {
+		// Create tls based credential.
+		creds, err := credentials.NewClientTLSFromFile(caCertFile, serverNameOverride)
+		if err != nil {
+			return nil, err
+		}
+
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+
+		fmt.Println("TLS")
+
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	return grpc.NewClient(address, opts...)
@@ -113,7 +127,12 @@ func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Env
 	method := req.LasSelectedMethod
 	rawJSON := []byte(req.Body)
 
-	conn, err := s.Dial(req.ServerInfo.Address)
+	certFile := req.Settings.ServerCertFile
+	if req.Settings.Insecure {
+		certFile = ""
+	}
+
+	conn, err := s.Dial(req.ServerInfo.Address, certFile, req.Settings.NameOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +265,12 @@ func (s *Service) GetServices(id, activeEnvironmentID string) ([]domain.GRPCServ
 		activeEnvironment.ApplyToGRPCRequest(req.Spec.GRPC)
 	}
 
-	conn, err := s.Dial(req.Spec.GRPC.ServerInfo.Address)
+	certFile := req.Spec.GRPC.Settings.ServerCertFile
+	if req.Spec.GRPC.Settings.Insecure {
+		certFile = ""
+	}
+
+	conn, err := s.Dial(req.Spec.GRPC.ServerInfo.Address, certFile, req.Spec.GRPC.Settings.NameOverride)
 	if err != nil {
 		return nil, err
 	}

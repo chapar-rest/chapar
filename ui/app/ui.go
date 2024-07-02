@@ -123,7 +123,7 @@ func New(w *app.Window) (*UI, error) {
 		u.environmentsState.SetActiveEnvironment(env)
 	}
 
-	u.requestsView = requests.NewView(w, u.Theme)
+	u.requestsView = requests.NewView(w, u.Theme, explorerController)
 	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService, grpcService)
 
 	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) {

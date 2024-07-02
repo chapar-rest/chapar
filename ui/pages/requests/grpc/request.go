@@ -5,6 +5,7 @@ import (
 	"gioui.org/unit"
 
 	"github.com/chapar-rest/chapar/ui/converter"
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -22,7 +23,13 @@ type Request struct {
 	Settings   *widgets.Settings
 }
 
-func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
+func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Request {
+	visibilityFunc := func(values map[string]any) bool {
+		return !values["insecure"].(bool)
+	}
+
+	certExt := []string{"pem", "crt"}
+
 	r := &Request{
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Server Info"},
@@ -39,8 +46,9 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 		Auth: component.NewAuth(req.Spec.GRPC.Auth, theme),
 		Settings: widgets.NewSettings([]*widgets.SettingItem{
 			widgets.NewBoolItem("Plain Text", "insecure", "Insecure connection", req.Spec.GRPC.Settings.Insecure),
+			widgets.NewFileItem(explorer, "Server cert", "server_cert", "x509 pem server certificate", req.Spec.GRPC.Settings.ServerCertFile, certExt...).SetVisibleWhen(visibilityFunc),
+			widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride).SetVisibleWhen(visibilityFunc),
 			widgets.NewNumberItem("Timeout", "timeoutMilliseconds", "Timeout for the request in milliseconds", req.Spec.GRPC.Settings.TimeoutMilliseconds),
-			//	widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride),
 		}),
 	}
 

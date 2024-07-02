@@ -19,7 +19,7 @@ type Body struct {
 	FormData   *component.FormData
 	urlencoded *widgets.KeyValue
 	script     *widgets.CodeEditor
-	BinaryFile *widgets.FileSelector
+	BinaryFile *widgets.BinaryFile
 
 	onChange func(body domain.Body)
 }
@@ -41,7 +41,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 		// formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
 		script:     widgets.NewCodeEditor("", "JSON", theme),
-		BinaryFile: widgets.NewFileSelector(""),
+		BinaryFile: widgets.NewBinaryFile(""),
 	}
 
 	b.FormData.SetValues(body.FormData.Fields)

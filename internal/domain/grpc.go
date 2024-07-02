@@ -34,6 +34,8 @@ type Settings struct {
 	Insecure            bool   `yaml:"insecure"`
 	TimeoutMilliseconds int    `yaml:"timeoutMilliseconds"`
 	NameOverride        string `yaml:"nameOverride"`
+
+	ServerCertFile string `yaml:"serverCertFile"`
 }
 
 type GRPCMethod struct {
@@ -128,7 +130,10 @@ func (r *Request) SetDefaultValuesForGRPC() {
 }
 
 func CompareSettings(a, b Settings) bool {
-	if a.Insecure != b.Insecure || a.TimeoutMilliseconds != b.TimeoutMilliseconds || a.NameOverride != b.NameOverride {
+	if a.Insecure != b.Insecure ||
+		a.TimeoutMilliseconds != b.TimeoutMilliseconds ||
+		a.NameOverride != b.NameOverride ||
+		a.ServerCertFile != b.ServerCertFile {
 		return false
 	}
 

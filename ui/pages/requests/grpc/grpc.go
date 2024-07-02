@@ -8,6 +8,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/converter"
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -38,7 +39,7 @@ func (r *Grpc) SetDataChanged(changed bool) {
 	r.Breadcrumb.SetDataChanged(changed)
 }
 
-func New(req *domain.Request, theme *chapartheme.Theme) *Grpc {
+func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Grpc {
 	r := &Grpc{
 		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
@@ -50,7 +51,7 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Grpc {
 			BarWidth: unit.Dp(2),
 		},
 		AddressBar: NewAddressBar(theme, req.Spec.GRPC.ServerInfo.Address, req.Spec.GRPC.LasSelectedMethod, req.Spec.GRPC.Services),
-		Request:    NewRequest(req, theme),
+		Request:    NewRequest(req, theme, explorer),
 		Response:   NewResponse(theme),
 	}
 
@@ -131,6 +132,10 @@ func convertSettingsToItems(values map[string]any) domain.Settings {
 
 	if v, ok := values["nameOverride"]; ok {
 		out.NameOverride = v.(string)
+	}
+
+	if v, ok := values["server_cert"]; ok {
+		out.ServerCertFile = v.(string)
 	}
 
 	return out

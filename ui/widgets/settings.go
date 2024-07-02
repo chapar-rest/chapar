@@ -10,11 +10,13 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/keys"
 )
 
 const (
 	ItemTypeText    = "text"
+	ItemTypeFile    = "file"
 	ItemTypeBool    = "bool"
 	ItemTypeLNumber = "number"
 )
@@ -48,11 +50,7 @@ func (s *Settings) SetOnChange(f func(values map[string]any)) {
 	s.onChange = f
 }
 
-func (s *Settings) onChanged() {
-	if s.onChange == nil {
-		return
-	}
-
+func (s *Settings) getValues() map[string]any {
 	values := make(map[string]any, len(s.Items))
 	for _, i := range s.Items {
 		switch i.Type {
@@ -64,11 +62,21 @@ func (s *Settings) onChanged() {
 				continue
 			}
 			values[i.Key] = v
+		case ItemTypeFile:
+			values[i.Key] = i.FileSelector.GetFilePath()
 		default:
 			values[i.Key] = i.editor.Text()
 		}
 	}
-	s.onChange(values)
+	return values
+}
+
+func (s *Settings) onChanged() {
+	if s.onChange == nil {
+		return
+	}
+
+	s.onChange(s.getValues())
 }
 
 type SettingItem struct {
@@ -81,7 +89,26 @@ type SettingItem struct {
 	boolState *widget.Bool
 	editor    *widget.Editor
 
+	FileSelector *FileSelector
+
+	visible     bool
+	visibleWhen func(values map[string]any) bool
+
 	onChange func()
+}
+
+func NewFileItem(explorer *explorer.Explorer, title, key, description string, value string, extensions ...string) *SettingItem {
+	i := &SettingItem{
+		Title:        title,
+		Key:          key,
+		Description:  description,
+		Type:         ItemTypeFile,
+		Value:        value,
+		FileSelector: NewFileSelector(value, explorer, extensions...),
+		visible:      true,
+	}
+
+	return i
 }
 
 func NewTextItem(title, key, description string, value string) *SettingItem {
@@ -92,6 +119,7 @@ func NewTextItem(title, key, description string, value string) *SettingItem {
 		Type:        ItemTypeText,
 		Value:       value,
 		editor:      &widget.Editor{SingleLine: true, Alignment: text.Middle},
+		visible:     true,
 	}
 	i.editor.SetText(value)
 	return i
@@ -105,6 +133,7 @@ func NewBoolItem(title, key, description string, value bool) *SettingItem {
 		Type:        ItemTypeBool,
 		Value:       value,
 		boolState:   new(widget.Bool),
+		visible:     true,
 	}
 
 	b.boolState.Value = value
@@ -119,12 +148,22 @@ func NewNumberItem(title, key, description string, value int) *SettingItem {
 		Type:        ItemTypeLNumber,
 		Value:       value,
 		editor:      &widget.Editor{SingleLine: true, Alignment: text.Middle},
+		visible:     true,
 	}
 	i.editor.SetText(strconv.Itoa(value))
 	return i
 }
 
+func (i *SettingItem) SetVisibleWhen(f func(values map[string]any) bool) *SettingItem {
+	i.visibleWhen = f
+	return i
+}
+
 func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if !i.visible {
+		return layout.Dimensions{}
+	}
+
 	inset := layout.Inset{Top: unit.Dp(5), Bottom: unit.Dp(15)}
 
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -154,6 +193,8 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 						return i.switchLayout(gtx, theme)
 					case ItemTypeLNumber:
 						return i.editorLayout(gtx, theme)
+					case ItemTypeFile:
+						return i.fileLayout(gtx, theme)
 					default:
 						return layout.Dimensions{}
 					}
@@ -161,6 +202,14 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 			}),
 		)
 	})
+}
+
+func (i *SettingItem) fileLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if i.FileSelector.Changed() {
+		i.onChange()
+	}
+
+	return i.FileSelector.Layout(gtx, theme)
 }
 
 func (i *SettingItem) switchLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -212,6 +261,14 @@ func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme)
 }
 
 func (s *Settings) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	// update visibility
+	values := s.getValues()
+	for _, i := range s.Items {
+		if i.visibleWhen != nil {
+			i.visible = i.visibleWhen(values)
+		}
+	}
+
 	inset := layout.Inset{Top: unit.Dp(10), Bottom: unit.Dp(15), Right: unit.Dp(20)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return s.list.Layout(gtx, len(s.Items), func(gtx layout.Context, i int) layout.Dimensions {
