@@ -1,4 +1,4 @@
-package component
+package widgets
 
 import (
 	"gioui.org/layout"
@@ -6,13 +6,12 @@ import (
 	"gioui.org/widget"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type FileSelector struct {
 	refreshButton widget.Clickable
 
-	textField *widgets.TextField
+	textField *TextField
 	FileName  string
 
 	onSelectFile func()
@@ -23,11 +22,11 @@ type FileSelector struct {
 func NewFileSelector(filename string) *FileSelector {
 	bf := &FileSelector{
 		FileName:  filename,
-		textField: widgets.NewTextField(filename, "File"),
+		textField: NewTextField(filename, "File"),
 	}
 
 	bf.textField.SetText(filename)
-	bf.textField.IconPosition = widgets.IconPositionEnd
+	bf.textField.IconPosition = IconPositionEnd
 	bf.textField.SetMinWidth(200)
 
 	bf.updateIcon()
@@ -79,9 +78,9 @@ func (b *FileSelector) GetFilePath() string {
 
 func (b *FileSelector) updateIcon() {
 	if b.FileName != "" {
-		b.textField.SetIcon(widgets.DeleteIcon, widgets.IconPositionEnd)
+		b.textField.SetIcon(DeleteIcon, IconPositionEnd)
 	} else {
-		b.textField.SetIcon(widgets.UploadIcon, widgets.IconPositionEnd)
+		b.textField.SetIcon(UploadIcon, IconPositionEnd)
 	}
 }
 
@@ -105,7 +104,7 @@ func (b *FileSelector) Layout(gtx layout.Context, theme *chapartheme.Theme) layo
 				return layout.Dimensions{}
 			}
 
-			btn := widgets.Button(theme.Material(), &b.refreshButton, widgets.RefreshIcon, widgets.IconPositionStart, "")
+			btn := Button(theme.Material(), &b.refreshButton, RefreshIcon, IconPositionStart, "")
 			btn.Inset = layout.Inset{Top: unit.Dp(6), Bottom: unit.Dp(4), Left: unit.Dp(6), Right: unit.Dp(2)}
 			btn.Color = theme.ButtonTextColor
 			return btn.Layout(gtx, theme)

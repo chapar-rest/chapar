@@ -8,7 +8,6 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
@@ -16,7 +15,7 @@ type ServerInfo struct {
 	definitionFrom *widget.Enum
 
 	ReloadButton *widget.Clickable
-	FileSelector *component.FileSelector
+	FileSelector *widgets.FileSelector
 
 	IsLoading bool
 	onReload  func()
@@ -33,7 +32,7 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 
 	s := &ServerInfo{
 		definitionFrom: new(widget.Enum),
-		FileSelector:   component.NewFileSelector(fileName),
+		FileSelector:   widgets.NewFileSelector(fileName),
 		ReloadButton:   new(widget.Clickable),
 		IsLoading:      false,
 	}
