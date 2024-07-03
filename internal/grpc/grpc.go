@@ -2,9 +2,12 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -50,6 +53,11 @@ type Response struct {
 	Status     string
 }
 
+var (
+	appName = "Chapar"
+	semver  = "0.1.0-beta1"
+)
+
 func NewService(requests *state.Requests, envs *state.Environments) *Service {
 	return &Service{
 		requests:     requests,
@@ -58,25 +66,52 @@ func NewService(requests *state.Requests, envs *state.Environments) *Service {
 	}
 }
 
-func (s *Service) Dial(address, caCertFile, serverNameOverride string) (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
+func (s *Service) Dial(req *domain.GRPCRequestSpec) (*grpc.ClientConn, error) {
+	opts := []grpc.DialOption{
+		grpc.WithUserAgent(fmt.Sprintf("%s/%s", appName, semver)),
+	}
 
-	if caCertFile != "" {
-		// Create tls based credential.
-		creds, err := credentials.NewClientTLSFromFile(caCertFile, serverNameOverride)
-		if err != nil {
-			return nil, err
+	if !req.Settings.Insecure {
+		var tlsCfg tls.Config
+		tlsCfg.InsecureSkipVerify = req.Settings.Insecure
+
+		if req.Settings.ClientCertFile != "" {
+			certFile, err := os.ReadFile(req.Settings.ClientCertFile)
+			if err != nil {
+				return nil, err
+			}
+
+			keyFile, err := os.ReadFile(req.Settings.ClientCertFile)
+			if err != nil {
+				return nil, err
+			}
+
+			cert, err := tls.X509KeyPair(certFile, keyFile)
+			if err != nil {
+				return nil, err
+			}
+			tlsCfg.Certificates = []tls.Certificate{cert}
 		}
 
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+		var err error
+		tlsCfg.RootCAs, err = x509.SystemCertPool()
+		if err != nil {
+			tlsCfg.RootCAs = x509.NewCertPool()
+		}
+		if req.Settings.RootCertFile != "" {
+			rootFile, err := os.ReadFile(req.Settings.RootCertFile)
+			if err != nil {
+				return nil, err
+			}
 
-		fmt.Println("TLS")
-
+			tlsCfg.RootCAs.AppendCertsFromPEM(rootFile)
+		}
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tlsCfg)))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	return grpc.NewClient(address, opts...)
+	return grpc.NewClient(req.ServerInfo.Address, opts...)
 }
 
 func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
@@ -127,12 +162,7 @@ func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Env
 	method := req.LasSelectedMethod
 	rawJSON := []byte(req.Body)
 
-	certFile := req.Settings.ServerCertFile
-	if req.Settings.Insecure {
-		certFile = ""
-	}
-
-	conn, err := s.Dial(req.ServerInfo.Address, certFile, req.Settings.NameOverride)
+	conn, err := s.Dial(req)
 	if err != nil {
 		return nil, err
 	}
@@ -265,12 +295,7 @@ func (s *Service) GetServices(id, activeEnvironmentID string) ([]domain.GRPCServ
 		activeEnvironment.ApplyToGRPCRequest(req.Spec.GRPC)
 	}
 
-	certFile := req.Spec.GRPC.Settings.ServerCertFile
-	if req.Spec.GRPC.Settings.Insecure {
-		certFile = ""
-	}
-
-	conn, err := s.Dial(req.Spec.GRPC.ServerInfo.Address, certFile, req.Spec.GRPC.Settings.NameOverride)
+	conn, err := s.Dial(req.Spec.GRPC)
 	if err != nil {
 		return nil, err
 	}

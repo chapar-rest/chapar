@@ -46,7 +46,9 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 		Auth: component.NewAuth(req.Spec.GRPC.Auth, theme),
 		Settings: widgets.NewSettings([]*widgets.SettingItem{
 			widgets.NewBoolItem("Plain Text", "insecure", "Insecure connection", req.Spec.GRPC.Settings.Insecure),
-			widgets.NewFileItem(explorer, "Server cert", "server_cert", "x509 pem server certificate", req.Spec.GRPC.Settings.ServerCertFile, certExt...).SetVisibleWhen(visibilityFunc),
+			widgets.NewFileItem(explorer, "Trusted Root certificate", "root_cert", "x509 pem trusted root certificate", req.Spec.GRPC.Settings.RootCertFile, certExt...).SetVisibleWhen(visibilityFunc),
+			widgets.NewFileItem(explorer, "Client certificate", "client_public_key", "Public key", req.Spec.GRPC.Settings.ClientCertFile, certExt...).SetVisibleWhen(visibilityFunc),
+			widgets.NewFileItem(explorer, "Client key", "client_private_key", "Private key", req.Spec.GRPC.Settings.ClientKeyFile, certExt...).SetVisibleWhen(visibilityFunc),
 			widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride).SetVisibleWhen(visibilityFunc),
 			widgets.NewNumberItem("Timeout", "timeoutMilliseconds", "Timeout for the request in milliseconds", req.Spec.GRPC.Settings.TimeoutMilliseconds),
 		}),

@@ -134,8 +134,16 @@ func convertSettingsToItems(values map[string]any) domain.Settings {
 		out.NameOverride = v.(string)
 	}
 
-	if v, ok := values["server_cert"]; ok {
-		out.ServerCertFile = v.(string)
+	if v, ok := values["root_cert"]; ok {
+		out.RootCertFile = v.(string)
+	}
+
+	if v, ok := values["client_public_key"]; ok {
+		out.ClientCertFile = v.(string)
+	}
+
+	if v, ok := values["client_private_key"]; ok {
+		out.ClientKeyFile = v.(string)
 	}
 
 	return out

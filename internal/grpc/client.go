@@ -14,11 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var (
-	appName = "Chapar"
-	semver  = "0.1.0-beta1"
-)
-
 var errNoConn = errors.New("app: no connection available")
 
 type protos struct {
