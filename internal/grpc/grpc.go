@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -189,7 +190,6 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	}
 
 	var respHeaders, respTrailers metadata.MD
-	resp := dynamicpb.NewMessage(md.Output())
 
 	timeOut := 5000 * time.Millisecond
 	if spec.Settings.TimeoutMilliseconds > 0 {
@@ -204,8 +204,17 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 		grpc.Trailer(&respTrailers),
 	}
 
+	var (
+		respErr error
+		respStr string
+	)
+
 	start := time.Now()
-	respErr := s.invokeUnary(ctx, conn, method, request, resp, callOpts...)
+	if md.IsStreamingServer() {
+		respStr, respErr = s.invokeServerStream(ctx, conn, method, request, md, callOpts...)
+	} else {
+		respStr, respErr = s.invokeUnary(ctx, conn, method, request, md, callOpts...)
+	}
 	elapsed := time.Since(start)
 
 	out := &Response{
@@ -215,30 +224,90 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 		Error:      respErr,
 		StatueCode: int(status.Code(respErr)),
 		Status:     status.Code(respErr).String(),
-		Size:       len(resp.String()),
+		Size:       len(respStr),
 	}
 
 	if respErr != nil {
 		return out, respErr
 	}
 
+	out.Body = respStr
+	return out, nil
+}
+
+func (s *Service) invokeServerStream(ctx context.Context, conn *grpc.ClientConn, method string, req proto.Message, md protoreflect.MethodDescriptor, opts ...grpc.CallOption) (string, error) {
+	if conn == nil {
+		return "", errors.New("no connection")
+	}
+
+	sd := &grpc.StreamDesc{
+		StreamName:    method,
+		ClientStreams: false,
+		ServerStreams: true,
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := conn.NewStream(ctx, sd, method, opts...)
+	if err != nil {
+		return "", err
+	}
+
+	if err := stream.SendMsg(req); err != nil {
+		return "", err
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return "", err
+	}
+
+	var out string
+	counter := 0
+	for {
+		resp := dynamicpb.NewMessage(md.Output())
+		err := stream.RecvMsg(resp)
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return "", err
+		}
+
+		respJSON, err := (protojson.MarshalOptions{
+			Indent: "  ",
+		}).Marshal(resp)
+		if err != nil {
+			return "", err
+		}
+
+		// concat responses with a new line and message counter
+		out += fmt.Sprintf("Message %d:\n%s\n\n", counter, string(respJSON))
+		counter++
+	}
+
+	return out, nil
+}
+
+func (s *Service) invokeUnary(ctx context.Context, conn *grpc.ClientConn, method string, req proto.Message, md protoreflect.MethodDescriptor, opts ...grpc.CallOption) (string, error) {
+	if conn == nil {
+		return "", errors.New("no connection")
+	}
+
+	resp := dynamicpb.NewMessage(md.Output())
+	if err := conn.Invoke(ctx, method, req, resp, opts...); err != nil {
+		return "", err
+	}
+
 	respJSON, err := (protojson.MarshalOptions{
 		Indent: "  ",
 	}).Marshal(resp)
 	if err != nil {
-		return out, err
+		return "", err
 	}
 
-	out.Body = string(respJSON)
-	return out, nil
-}
-
-func (s *Service) invokeUnary(ctx context.Context, conn *grpc.ClientConn, method string, req, resp proto.Message, opts ...grpc.CallOption) error {
-	if conn == nil {
-		return errors.New("no connection")
-	}
-
-	return conn.Invoke(ctx, method, req, resp, opts...)
+	return string(respJSON), nil
 }
 
 func (s *Service) prepareAuth(req *domain.GRPCRequestSpec) *metadata.MD {
