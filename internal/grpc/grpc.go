@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/dynamicpb"
@@ -146,29 +147,25 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 		return nil, ErrRequestNotFound
 	}
 
-	r := req.Clone()
+	spec := req.Clone().Spec.GRPC
 
 	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
 
-	return s.invoke(id, r.Spec.GRPC, activeEnvironment)
-}
-
-func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Environment) (*Response, error) {
 	vars := variables.GetVariables()
-	variables.ApplyToEnv(vars, &env.Spec)
-	variables.ApplyToGRPCRequest(vars, req)
-	env.ApplyToGRPCRequest(req)
+	variables.ApplyToEnv(vars, &activeEnvironment.Spec)
+	variables.ApplyToGRPCRequest(vars, spec)
+	activeEnvironment.ApplyToGRPCRequest(spec)
 
-	method := req.LasSelectedMethod
-	rawJSON := []byte(req.Body)
+	method := spec.LasSelectedMethod
+	rawJSON := []byte(spec.Body)
 
-	conn, err := s.Dial(req)
+	conn, err := s.Dial(spec)
 	if err != nil {
 		return nil, err
 	}
 
 	// get the method descriptor
-	md, err := s.getMethodDesc(id, env.MetaData.ID, method)
+	md, err := s.getMethodDesc(id, activeEnvironment.MetaData.ID, method)
 	if err != nil {
 		return nil, err
 	}
@@ -180,11 +177,14 @@ func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Env
 	}
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.New(nil))
-	for _, item := range req.Metadata {
+	for _, item := range spec.Metadata {
+		if !item.Enable {
+			continue
+		}
 		ctx = metadata.AppendToOutgoingContext(ctx, item.Key, item.Value)
 	}
 
-	if authHeaders := s.prepareAuth(req); authHeaders != nil {
+	if authHeaders := s.prepareAuth(spec); authHeaders != nil {
 		ctx = metadata.NewOutgoingContext(ctx, *authHeaders)
 	}
 
@@ -192,15 +192,20 @@ func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Env
 	resp := dynamicpb.NewMessage(md.Output())
 
 	timeOut := 5000 * time.Millisecond
-	if req.Settings.TimeoutMilliseconds > 0 {
-		timeOut = time.Duration(req.Settings.TimeoutMilliseconds) * time.Millisecond
+	if spec.Settings.TimeoutMilliseconds > 0 {
+		timeOut = time.Duration(spec.Settings.TimeoutMilliseconds) * time.Millisecond
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 	defer cancel()
 
+	callOpts := []grpc.CallOption{
+		grpc.Header(&respHeaders),
+		grpc.Trailer(&respTrailers),
+	}
+
 	start := time.Now()
-	respErr := conn.Invoke(ctx, method, request, resp, grpc.Header(&respHeaders), grpc.Trailer(&respTrailers))
+	respErr := s.invokeUnary(ctx, conn, method, request, resp, callOpts...)
 	elapsed := time.Since(start)
 
 	out := &Response{
@@ -226,6 +231,14 @@ func (s *Service) invoke(id string, req *domain.GRPCRequestSpec, env *domain.Env
 
 	out.Body = string(respJSON)
 	return out, nil
+}
+
+func (s *Service) invokeUnary(ctx context.Context, conn *grpc.ClientConn, method string, req, resp proto.Message, opts ...grpc.CallOption) error {
+	if conn == nil {
+		return errors.New("no connection")
+	}
+
+	return conn.Invoke(ctx, method, req, resp, opts...)
 }
 
 func (s *Service) prepareAuth(req *domain.GRPCRequestSpec) *metadata.MD {
