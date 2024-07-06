@@ -95,6 +95,15 @@ func (v *View) AddItem(item *domain.ProtoFile) {
 	})
 }
 
+func (v *View) RemoveItem(item *domain.ProtoFile) {
+	for i, it := range v.items {
+		if it.p.MetaData.ID == item.MetaData.ID {
+			v.items = append(v.items[:i], v.items[i+1:]...)
+			break
+		}
+	}
+}
+
 func (v *View) SetOnAdd(f func()) {
 	v.onAdd = f
 }

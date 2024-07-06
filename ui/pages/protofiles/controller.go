@@ -79,6 +79,8 @@ func (c *Controller) onDelete(p *domain.ProtoFile) {
 		fmt.Println("failed to remove proto-file", err)
 		return
 	}
+
+	c.view.RemoveItem(p)
 }
 
 func (c *Controller) saveProtoFileToDisc(id string) {
