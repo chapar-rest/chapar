@@ -3,13 +3,13 @@ package domain
 const (
 	ApiVersion = "v1"
 
-	KindConfig        = "Config"
-	KindWorkspace     = "Workspace"
-	KindEnv           = "Environment"
-	KindRequest       = "Request"
-	KindPreferences   = "Preferences"
-	KindCollection    = "Collection"
-	KindProtoFileList = "ProtoFileList"
+	KindConfig      = "Config"
+	KindWorkspace   = "Workspace"
+	KindProtoFile   = "ProtoFile"
+	KindEnv         = "Environment"
+	KindRequest     = "Request"
+	KindPreferences = "Preferences"
+	KindCollection  = "Collection"
 )
 
 type MetaData struct {

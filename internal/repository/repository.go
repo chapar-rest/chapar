@@ -41,6 +41,12 @@ type Repository interface {
 	DeleteWorkspace(workspace *domain.Workspace) error
 	GetNewWorkspaceDir(name string) (*FilePath, error)
 
+	GetProtoFilesDir() (string, error)
+	LoadProtoFiles() ([]*domain.ProtoFile, error)
+	DeleteProtoFile(protoFile *domain.ProtoFile) error
+	UpdateProtoFile(protoFile *domain.ProtoFile) error
+	GetNewProtoFilePath(name string) (*FilePath, error)
+
 	SetActiveWorkspace(workspace *domain.Workspace) error
 
 	GetConfig() (*domain.Config, error)

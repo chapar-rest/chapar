@@ -8,6 +8,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/modal"
+	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -43,14 +44,17 @@ type UI struct {
 	environmentsView *environments.View
 	requestsView     *requests.View
 	workspacesView   *workspaces.View
+	protoFilesView   *protofiles.View
 
 	environmentsController *environments.Controller
 	requestsController     *requests.Controller
 	workspacesController   *workspaces.Controller
+	protoFilesController   *protofiles.Controller
 
 	environmentsState *state.Environments
 	requestsState     *state.Requests
 	workspacesState   *state.Workspaces
+	protoFilesState   *state.ProtoFiles
 
 	repo repository.Repository
 }
@@ -99,6 +103,14 @@ func New(w *app.Window) (*UI, error) {
 	u.sideBar = NewSidebar(u.Theme)
 
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
+
+	//
+	u.protoFilesView = protofiles.NewView()
+	u.protoFilesState = state.NewProtoFiles(repo)
+	u.protoFilesController = protofiles.NewController(u.protoFilesView, u.protoFilesState, repo, explorerController)
+	if err := u.protoFilesController.LoadData(); err != nil {
+		return nil, err
+	}
 
 	//
 	u.environmentsView = environments.NewView(u.Theme)
@@ -255,6 +267,8 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 								return u.environmentsView.Layout(gtx, u.Theme)
 							case 2:
 								return u.workspacesView.Layout(gtx, u.Theme)
+							case 3:
+								return u.protoFilesView.Layout(gtx, u.Theme)
 								// case 4:
 								//	return u.consolePage.Layout(gtx, u.Theme)
 							}
