@@ -133,7 +133,7 @@ func (v *View) Filter(text string) {
 
 	var items []*Item
 	for _, item := range v.items {
-		if strings.Contains(item.Path, text) || strings.Contains(item.Path, text) || strings.Contains(item.Package, text) || strings.Contains(item.Services, text) {
+		if strings.Contains(item.Path, text) || strings.Contains(item.Package, text) || strings.Contains(item.Services, text) {
 			items = append(items, item)
 		}
 	}

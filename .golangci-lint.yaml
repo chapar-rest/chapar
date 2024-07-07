@@ -17,10 +17,9 @@ linters:
     - unparam
     - staticcheck
 
-  linters-settings:
-    errcheck:
-      exclude-functions:
-       - fmt:.*
+  errcheck:
+    exclude-functions:
+     - fmt:.*
 
 run:
   modules-download-mode: vendor

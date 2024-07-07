@@ -198,7 +198,7 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 		timeOut = time.Duration(spec.Settings.TimeoutMilliseconds) * time.Millisecond
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+	ctx, cancel := context.WithTimeout(ctx, timeOut)
 	defer cancel()
 
 	callOpts := []grpc.CallOption{
