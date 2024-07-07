@@ -580,7 +580,9 @@ func (c *Controller) onNewRequest(requestType string) {
 	c.view.AddRequestTreeViewNode(req)
 	c.saveRequestToDisc(req.MetaData.ID)
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
-	c.view.OpenRequestContainer(req)
+	clone, _ := domain.Clone[domain.Request](req)
+	clone.MetaData.ID = req.MetaData.ID
+	c.view.OpenRequestContainer(clone)
 	c.view.SwitchToTab(req.MetaData.ID)
 }
 
@@ -710,7 +712,10 @@ func (c *Controller) addRequestToCollection(id string, requestType string) {
 	c.view.AddChildTreeViewNode(col.MetaData.ID, req)
 	c.view.ExpandTreeViewNode(col.MetaData.ID)
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
-	c.view.OpenRequestContainer(req)
+
+	clone, _ := domain.Clone[domain.Request](req)
+	clone.MetaData.ID = id
+	c.view.OpenRequestContainer(clone)
 	c.view.SwitchToTab(req.MetaData.ID)
 }
 
