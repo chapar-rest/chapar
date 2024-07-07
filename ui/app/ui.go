@@ -75,6 +75,8 @@ func New(w *app.Window) (*UI, error) {
 		return nil, err
 	}
 
+	explorerController := explorer.NewExplorer(w)
+
 	u.repo = repo
 
 	u.workspacesView = workspaces.NewView()
@@ -87,10 +89,16 @@ func New(w *app.Window) (*UI, error) {
 	u.environmentsState = state.NewEnvironments(repo)
 	u.requestsState = state.NewRequests(repo)
 
-	grpcService := grpc.NewService(u.requestsState, u.environmentsState)
+	//
+	u.protoFilesView = protofiles.NewView()
+	u.protoFilesState = state.NewProtoFiles(repo)
+	u.protoFilesController = protofiles.NewController(u.protoFilesView, u.protoFilesState, repo, explorerController)
+	if err := u.protoFilesController.LoadData(); err != nil {
+		return nil, err
+	}
 
+	grpcService := grpc.NewService(u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState)
-	explorerController := explorer.NewExplorer(w)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
@@ -103,14 +111,6 @@ func New(w *app.Window) (*UI, error) {
 	u.sideBar = NewSidebar(u.Theme)
 
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
-
-	//
-	u.protoFilesView = protofiles.NewView()
-	u.protoFilesState = state.NewProtoFiles(repo)
-	u.protoFilesController = protofiles.NewController(u.protoFilesView, u.protoFilesState, repo, explorerController)
-	if err := u.protoFilesController.LoadData(); err != nil {
-		return nil, err
-	}
 
 	//
 	u.environmentsView = environments.NewView(u.Theme)
@@ -169,7 +169,6 @@ func New(w *app.Window) (*UI, error) {
 		}
 	}
 
-	// u.notification = &widgets.Notification{}
 	return u, u.load()
 }
 

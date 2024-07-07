@@ -38,8 +38,9 @@ var (
 type Service struct {
 	requests     *state.Requests
 	environments *state.Environments
+	protoFiles   *state.ProtoFiles
 
-	protoFiles *safemap.Map[*protoregistry.Files]
+	protoFilesRegistry *safemap.Map[*protoregistry.Files]
 }
 
 type Response struct {
@@ -60,11 +61,12 @@ var (
 	semver  = "0.1.0-beta1"
 )
 
-func NewService(requests *state.Requests, envs *state.Environments) *Service {
+func NewService(requests *state.Requests, envs *state.Environments, protoFiles *state.ProtoFiles) *Service {
 	return &Service{
-		requests:     requests,
-		environments: envs,
-		protoFiles:   safemap.New[*protoregistry.Files](),
+		requests:           requests,
+		environments:       envs,
+		protoFiles:         protoFiles,
+		protoFilesRegistry: safemap.New[*protoregistry.Files](),
 	}
 }
 
@@ -335,7 +337,7 @@ func (s *Service) prepareAuth(req *domain.GRPCRequestSpec) *metadata.MD {
 }
 
 func (s *Service) getMethodDesc(id, envID, fullname string) (protoreflect.MethodDescriptor, error) {
-	registryFiles, exist := s.protoFiles.Get(id)
+	registryFiles, exist := s.protoFilesRegistry.Get(id)
 	if !exist {
 		// reload the proto files we don't have them in registry
 		if _, err := s.GetServices(id, envID); err != nil {
@@ -343,7 +345,7 @@ func (s *Service) getMethodDesc(id, envID, fullname string) (protoreflect.Method
 		}
 
 		// get the proto files from the registry
-		registryFiles, _ = s.protoFiles.Get(id)
+		registryFiles, _ = s.protoFilesRegistry.Get(id)
 	}
 
 	name := strings.Replace(fullname[1:], "/", ".", 1)
@@ -388,16 +390,21 @@ func (s *Service) GetServices(id, activeEnvironmentID string) ([]domain.GRPCServ
 			return nil, err
 		}
 
-		s.protoFiles.Set(id, protoRegistryFiles)
+		s.protoFilesRegistry.Set(id, protoRegistryFiles)
 
 		return s.parseRegistryFiles(protoRegistryFiles)
 	} else if len(req.Spec.GRPC.ServerInfo.ProtoFiles) > 0 {
-		protoRegistryFiles, err := ProtoFilesFromDisk(getImportPaths(req.Spec.GRPC.ServerInfo.ProtoFiles))
+		protoFiles, err := s.protoFiles.LoadProtoFilesFromDisk()
 		if err != nil {
 			return nil, err
 		}
 
-		s.protoFiles.Set(id, protoRegistryFiles)
+		protoRegistryFiles, err := ProtoFilesFromDisk(s.getImportPaths(protoFiles, req.Spec.GRPC.ServerInfo.ProtoFiles))
+		if err != nil {
+			return nil, err
+		}
+
+		s.protoFilesRegistry.Set(id, protoRegistryFiles)
 		return s.parseRegistryFiles(protoRegistryFiles)
 	}
 
@@ -417,14 +424,20 @@ func (s *Service) getActiveEnvironment(id string) *domain.Environment {
 	return activeEnvironment
 }
 
-func getImportPaths(files []string) ([]string, []string) {
-	importPaths := make([]string, 0, len(files))
-	fileNames := make([]string, 0, len(files))
+func (s *Service) getImportPaths(protoFiles []*domain.ProtoFile, files []string) ([]string, []string) {
+	importPaths := make([]string, 0, len(protoFiles)+len(files))
+	fileNames := make([]string, 0, len(protoFiles)+len(files))
 	for _, file := range files {
 		// extract the directory path from the file path
 		importPaths = append(importPaths, filepath.Dir(file))
 		fileNames = append(fileNames, filepath.Base(file))
 	}
+
+	for _, protoFile := range protoFiles {
+		importPaths = append(importPaths, filepath.Dir(protoFile.Spec.Path))
+		fileNames = append(fileNames, filepath.Base(protoFile.Spec.Path))
+	}
+
 	return importPaths, fileNames
 }
 
