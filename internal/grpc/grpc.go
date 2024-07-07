@@ -125,6 +125,10 @@ func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
 	}
 
 	method := req.Spec.GRPC.LasSelectedMethod
+	if method == "" {
+		return "", errors.New("no method selected")
+	}
+
 	// get the method descriptor
 	md, err := s.getMethodDesc(id, environmentID, method)
 	if err != nil {
@@ -160,6 +164,10 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	activeEnvironment.ApplyToGRPCRequest(spec)
 
 	method := spec.LasSelectedMethod
+	if method == "" {
+		return nil, errors.New("no method selected")
+	}
+
 	rawJSON := []byte(spec.Body)
 
 	conn, err := s.Dial(spec)

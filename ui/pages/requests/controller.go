@@ -668,8 +668,8 @@ func (c *Controller) onTreeViewMenuClicked(id, action string) {
 		case TypeCollection:
 			c.deleteCollection(id)
 		}
-	case MenuAddRequest:
-		c.addRequestToCollection(id)
+	case MenuAddHTTPRequest, MenuAddGRPCRequest:
+		c.addRequestToCollection(id, action)
 	case MenuView:
 		if nodeType == TypeCollection {
 			c.viewCollection(id)
@@ -679,8 +679,14 @@ func (c *Controller) onTreeViewMenuClicked(id, action string) {
 	}
 }
 
-func (c *Controller) addRequestToCollection(id string) {
-	req := domain.NewHTTPRequest("New Request")
+func (c *Controller) addRequestToCollection(id string, requestType string) {
+	var req *domain.Request
+	if requestType == domain.RequestTypeHTTP {
+		req = domain.NewHTTPRequest("New Request")
+	} else {
+		req = domain.NewGRPCRequest("New Request")
+	}
+
 	col := c.model.GetCollection(id)
 	if col == nil {
 		return

@@ -28,10 +28,11 @@ import (
 )
 
 const (
-	MenuDuplicate  = "Duplicate"
-	MenuDelete     = "Delete"
-	MenuAddRequest = "Add Request"
-	MenuView       = "View"
+	MenuDuplicate      = "Duplicate"
+	MenuDelete         = "Delete"
+	MenuAddHTTPRequest = "Add HTTP Request"
+	MenuAddGRPCRequest = "Add GRPC Request"
+	MenuView           = "View"
 )
 
 type View struct {
@@ -177,7 +178,7 @@ func (v *View) AddCollectionTreeViewNode(collection *domain.Collection) {
 		Text:        collection.MetaData.Name,
 		Identifier:  collection.MetaData.ID,
 		Children:    make([]*widgets.TreeNode, 0),
-		MenuOptions: []string{MenuAddRequest, MenuView, MenuDelete},
+		MenuOptions: []string{MenuAddHTTPRequest, MenuAddGRPCRequest, MenuView, MenuDelete},
 		Meta:        safemap.New[string](),
 	}
 
@@ -668,7 +669,7 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 			Text:        cl.MetaData.Name,
 			Identifier:  cl.MetaData.ID,
 			Children:    make([]*widgets.TreeNode, 0),
-			MenuOptions: []string{MenuAddRequest, MenuView, MenuDelete},
+			MenuOptions: []string{MenuAddHTTPRequest, MenuAddGRPCRequest, MenuView, MenuDelete},
 			Meta:        safemap.New[string](),
 		}
 		parentNode.Meta.Set(TypeMeta, TypeCollection)
