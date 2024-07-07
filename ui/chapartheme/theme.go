@@ -27,6 +27,7 @@ type Theme struct {
 	TextColor             color.NRGBA
 	ButtonTextColor       color.NRGBA
 	SendButtonBgColor     color.NRGBA
+	DeleteButtonBgColor   color.NRGBA
 	SwitchBgColor         color.NRGBA
 	TabInactiveColor      color.NRGBA
 	SeparatorColor        color.NRGBA
@@ -93,6 +94,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.ErrorColor = rgb(0xff7373)
 		t.WarningColor = rgb(0xffe073)
 		t.BadgeBgColor = rgb(0x2b2d31)
+		t.DeleteButtonBgColor = rgb(0xff7373)
 	} else {
 		t.LoaderColor = rgb(0x000000)
 		t.Theme.Palette.Fg = rgb(0x000000)
@@ -119,6 +121,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.ErrorColor = rgb(0xff7373)
 		t.WarningColor = rgb(0xffe073)
 		t.BadgeBgColor = rgb(0x2b2d31)
+		t.DeleteButtonBgColor = rgb(0xff7373)
 	}
 
 	return t.Theme

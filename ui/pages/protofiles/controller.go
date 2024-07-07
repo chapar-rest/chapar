@@ -29,6 +29,7 @@ func NewController(view *View, state *state.ProtoFiles, repo repository.Reposito
 
 	view.SetOnAdd(c.onAdd)
 	view.SetOnDelete(c.onDelete)
+	view.SetOnDeleteSelected(c.onDeleteSelected)
 
 	return c
 }
@@ -69,18 +70,35 @@ func (c *Controller) onAdd() {
 }
 
 func (c *Controller) onDelete(p *domain.ProtoFile) {
-	ws := c.state.GetProtoFile(p.MetaData.ID)
-	if ws == nil {
+	pr := c.state.GetProtoFile(p.MetaData.ID)
+	if pr == nil {
 		fmt.Println("failed to get proto-file", p.MetaData.ID)
 		return
 	}
 
-	if err := c.state.RemoveProtoFile(p, false); err != nil {
+	if err := c.state.RemoveProtoFile(pr, false); err != nil {
 		fmt.Println("failed to remove proto-file", err)
 		return
 	}
 
 	c.view.RemoveItem(p)
+}
+
+func (c *Controller) onDeleteSelected(ids []string) {
+	for _, id := range ids {
+		pr := c.state.GetProtoFile(id)
+		if pr == nil {
+			fmt.Println("failed to get proto-file", id)
+			continue
+		}
+
+		if err := c.state.RemoveProtoFile(pr, false); err != nil {
+			fmt.Println("failed to remove proto-file", err)
+			continue
+		}
+
+		c.view.RemoveItem(pr)
+	}
 }
 
 func (c *Controller) saveProtoFileToDisc(id string) {

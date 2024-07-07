@@ -23,7 +23,9 @@ import (
 )
 
 type View struct {
-	addButton widget.Clickable
+	addButton            widget.Clickable
+	deleteSelectedButton widget.Clickable
+
 	searchBox *widgets.TextField
 	grid      component.GridState
 
@@ -34,8 +36,9 @@ type View struct {
 	items         []*Item
 	filteredItems []*Item
 
-	onAdd    func()
-	onDelete func(w *domain.ProtoFile)
+	onAdd            func()
+	onDelete         func(p *domain.ProtoFile)
+	onDeleteSelected func(ids []string)
 }
 
 type Item struct {
@@ -54,6 +57,7 @@ func NewView() *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	v := &View{
+		mx:        &sync.Mutex{},
 		searchBox: search,
 	}
 
@@ -112,6 +116,10 @@ func (v *View) SetOnDelete(f func(w *domain.ProtoFile)) {
 	v.onDelete = f
 }
 
+func (v *View) SetOnDeleteSelected(f func(ids []string)) {
+	v.onDeleteSelected = f
+}
+
 func (v *View) Filter(text string) {
 	v.mx.Lock()
 	defer v.mx.Unlock()
@@ -139,6 +147,29 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 		}
 	}
 
+	shouldShowDeleteSelected := false
+	for _, item := range v.items {
+		if item.checkBox.Value {
+			shouldShowDeleteSelected = true
+			break
+		}
+	}
+
+	if shouldShowDeleteSelected {
+		if v.deleteSelectedButton.Clicked(gtx) {
+			var ids []string
+			for _, item := range v.items {
+				if item.checkBox.Value {
+					ids = append(ids, item.p.MetaData.ID)
+				}
+			}
+
+			if v.onDeleteSelected != nil {
+				v.onDeleteSelected(ids)
+			}
+		}
+	}
+
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{
@@ -158,6 +189,16 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !shouldShowDeleteSelected {
+						return layout.Dimensions{}
+					}
+					deleteSelectedBtn := widgets.Button(theme.Material(), &v.deleteSelectedButton, widgets.DeleteIcon, widgets.IconPositionStart, "Delete Selected")
+					deleteSelectedBtn.Color = theme.ButtonTextColor
+					deleteSelectedBtn.Background = theme.DeleteButtonBgColor
+					return deleteSelectedBtn.Layout(gtx, theme)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					newBtn := widgets.Button(theme.Material(), &v.addButton, widgets.PlusIcon, widgets.IconPositionStart, "Add Proto file")
 					newBtn.Color = theme.ButtonTextColor
@@ -180,6 +221,13 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems
+	}
+
+	// if checkbox is clicked, check all checkboxes
+	if v.checkAllBook.Update(gtx) {
+		for _, item := range items {
+			item.checkBox.Value = v.checkAllBook.Value
+		}
 	}
 
 	// minSize := gtx.Dp(unit.Dp(50))
