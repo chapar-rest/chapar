@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"google.golang.org/protobuf/reflect/protoreflect"
+
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/explorer"
@@ -52,6 +55,7 @@ func (c *Controller) onAdd() {
 		}
 
 		fileName := filepath.Base(result.FilePath)
+		fileDir := filepath.Dir(result.FilePath)
 		proto := domain.NewProtoFile(fileName)
 		filePath, err := c.repo.GetNewProtoFilePath(proto.MetaData.Name)
 		if err != nil {
@@ -59,14 +63,46 @@ func (c *Controller) onAdd() {
 			return
 		}
 
+		pInfo, err := c.getProtoInfo(fileDir, fileName)
+		if err != nil {
+			fmt.Println("failed to get proto info", err)
+			return
+		}
+
 		proto.FilePath = filePath.Path
-		proto.Spec.Path = result.FilePath
 		proto.MetaData.Name = filePath.NewName
+		proto.Spec.Path = result.FilePath
+		proto.Spec.Package = pInfo.Package
+		proto.Spec.Services = pInfo.Services
 
 		c.state.AddProtoFile(proto)
 		c.saveProtoFileToDisc(proto.MetaData.ID)
 		c.view.AddItem(proto)
 	}, "proto")
+}
+
+type info struct {
+	Package  string
+	Services []string
+}
+
+func (c *Controller) getProtoInfo(path, filename string) (*info, error) {
+	pInfo, err := grpc.ProtoFilesFromDisk([]string{path}, []string{filename})
+	if err != nil {
+		return nil, err
+	}
+
+	out := &info{}
+
+	pInfo.RangeFiles(func(f protoreflect.FileDescriptor) bool {
+		out.Package = string(f.Package())
+		for i := 0; i < f.Services().Len(); i++ {
+			out.Services = append(out.Services, string(f.Services().Get(i).FullName()))
+		}
+		return true
+	})
+
+	return out, nil
 }
 
 func (c *Controller) onDelete(p *domain.ProtoFile) {
