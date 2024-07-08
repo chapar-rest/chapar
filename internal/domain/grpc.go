@@ -80,6 +80,9 @@ func NewGRPCRequest(name string) *Request {
 				ServerInfo: ServerInfo{
 					Address: "localhost:8090",
 				},
+				Settings: Settings{
+					Insecure: true,
+				},
 			},
 		},
 	}
