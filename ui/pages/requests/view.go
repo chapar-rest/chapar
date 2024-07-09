@@ -2,7 +2,11 @@ package requests
 
 import (
 	"image"
-	"image/color"
+
+	"gioui.org/widget/material"
+
+	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
 
 	"gioui.org/app"
 	"gioui.org/io/pointer"
@@ -24,16 +28,18 @@ import (
 )
 
 const (
-	MenuDuplicate  = "Duplicate"
-	MenuDelete     = "Delete"
-	MenuAddRequest = "Add Request"
-	MenuView       = "View"
+	MenuDuplicate      = "Duplicate"
+	MenuDelete         = "Delete"
+	MenuAddHTTPRequest = "Add HTTP Request"
+	MenuAddGRPCRequest = "Add GRPC Request"
+	MenuView           = "View"
 )
 
 type View struct {
 	theme  *chapartheme.Theme
 	window *app.Window
 
+	modal *component.ModalLayer
 	// add menu
 	newRequestButton     widget.Clickable
 	importButton         widget.Clickable
@@ -52,7 +58,7 @@ type View struct {
 
 	// callbacks
 	onTitleChanged              func(id, title, containerType string)
-	onNewRequest                func()
+	onNewRequest                func(requestType string)
 	onImport                    func()
 	onNewCollection             func()
 	onTabClose                  func(id string)
@@ -66,7 +72,11 @@ type View struct {
 	onCopyResponse              func(gtx layout.Context, dataType, data string)
 	onOnPostRequestSetChanged   func(id string, statusCode int, item, from, fromKey string)
 	onBinaryFileSelect          func(id string)
+	onProtoFileSelect           func(id string)
 	onFromDataFileSelect        func(requestID, fieldID string)
+	onServerInfoReload          func(id string)
+	onGrpcInvoke                func(id string)
+	onGrpcLoadRequestExample    func(id string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -74,9 +84,11 @@ type View struct {
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
 
 	tipsView *tips.Tips
+
+	explorer *explorer.Explorer
 }
 
-func NewView(w *app.Window, theme *chapartheme.Theme) *View {
+func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explorer) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
@@ -101,7 +113,17 @@ func NewView(w *app.Window, theme *chapartheme.Theme) *View {
 			AbsolutePosition: true,
 		},
 
+		modal:    component.NewModal(),
 		tipsView: tips.New(),
+		explorer: explorer,
+	}
+
+	v.modal.Widget = func(gtx layout.Context, th *material.Theme, anim *component.VisibilityAnimation) layout.Dimensions {
+		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return component.Surface(th).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Label(th, unit.Sp(16), "Hello, World!").Layout(gtx)
+			})
+		})
 	}
 
 	v.tabHeader.SetMaxTitleWidth(20)
@@ -142,9 +164,9 @@ func (v *View) AddRequestTreeViewNode(req *domain.Request) {
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 		Meta:        safemap.New[string](),
-		Prefix:      req.Spec.HTTP.Method,
-		PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 	}
+
+	setNodePrefix(req, node)
 
 	node.Meta.Set(TypeMeta, TypeRequest)
 	v.treeView.AddNode(node)
@@ -156,7 +178,7 @@ func (v *View) AddCollectionTreeViewNode(collection *domain.Collection) {
 		Text:        collection.MetaData.Name,
 		Identifier:  collection.MetaData.ID,
 		Children:    make([]*widgets.TreeNode, 0),
-		MenuOptions: []string{MenuAddRequest, MenuView, MenuDelete},
+		MenuOptions: []string{MenuAddHTTPRequest, MenuAddGRPCRequest, MenuView, MenuDelete},
 		Meta:        safemap.New[string](),
 	}
 
@@ -182,10 +204,58 @@ func (v *View) SetOnBinaryFileSelect(f func(id string)) {
 	v.onBinaryFileSelect = f
 }
 
+func (v *View) SetOnProtoFileSelect(f func(id string)) {
+	v.onProtoFileSelect = f
+}
+
+func (v *View) SetOnServerInfoReload(f func(id string)) {
+	v.onServerInfoReload = f
+}
+
+func (v *View) SetOnGrpcInvoke(f func(id string)) {
+	v.onGrpcInvoke = f
+}
+
+func (v *View) SetOnGrpcLoadRequestExample(f func(id string)) {
+	v.onGrpcLoadRequestExample = f
+}
+
+func (v *View) SetSetGrpcRequestBody(id, body string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetRequestBody(body)
+		}
+	}
+}
+
 func (v *View) SetBinaryBodyFilePath(id, filePath string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetBinaryBodyFilePath(filePath)
+		}
+	}
+}
+
+func (v *View) SetProtoFilePath(id, filePath string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetProtoBodyFilePath(filePath)
+		}
+	}
+}
+
+func (v *View) SetGRPCServices(id string, services []domain.GRPCService) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetServices(services)
+		}
+	}
+}
+
+func (v *View) SetGRPCMethodsLoading(id string, loading bool) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetMethodsLoading(loading)
 		}
 	}
 }
@@ -202,7 +272,7 @@ func (v *View) AddFileToFormData(requestId, fieldId, filePath string) {
 	}
 }
 
-func (v *View) SetOnNewRequest(onNewRequest func()) {
+func (v *View) SetOnNewRequest(onNewRequest func(requestType string)) {
 	v.onNewRequest = onNewRequest
 }
 
@@ -356,7 +426,76 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		return
 	}
 
+	if req.MetaData.Type == domain.RequestTypeHTTP {
+		ct := v.createRestfulContainer(req)
+		v.containers.Set(req.MetaData.ID, ct)
+		return
+	}
+
+	if req.MetaData.Type == domain.RequestTypeGRPC {
+		ct := v.createGrpcContainer(req)
+		v.containers.Set(req.MetaData.ID, ct)
+		return
+	}
+}
+
+func (v *View) createGrpcContainer(req *domain.Request) Container {
+	ct := grpc.New(req, v.theme, v.explorer)
+
+	ct.SetOnTitleChanged(func(text string) {
+		if v.onTitleChanged != nil {
+			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
+		}
+	})
+
+	ct.SetOnSave(func(id string) {
+		if v.onSave != nil {
+			v.onSave(id)
+		}
+	})
+
+	ct.SetOnDataChanged(func(id string, data any) {
+		if v.onDataChanged != nil {
+			v.onDataChanged(id, data, TypeRequest)
+		}
+	})
+
+	ct.SetOnProtoFileSelect(func(id string) {
+		if v.onProtoFileSelect != nil {
+			v.onProtoFileSelect(id)
+		}
+	})
+
+	ct.SetOnReload(func(id string) {
+		if v.onServerInfoReload != nil {
+			v.onServerInfoReload(id)
+		}
+	})
+
+	ct.SetOnInvoke(func(id string) {
+		if v.onGrpcInvoke != nil {
+			v.onGrpcInvoke(id)
+		}
+	})
+
+	ct.SetOnLoadRequestExample(func(id string) {
+		if v.onGrpcLoadRequestExample != nil {
+			v.onGrpcLoadRequestExample(id)
+		}
+	})
+
+	ct.SetOnCopyResponse(func(gtx layout.Context, dataType, data string) {
+		if v.onCopyResponse != nil {
+			v.onCopyResponse(gtx, dataType, data)
+		}
+	})
+
+	return ct
+}
+
+func (v *View) createRestfulContainer(req *domain.Request) Container {
 	ct := restful.New(req, v.theme)
+
 	ct.SetOnTitleChanged(func(text string) {
 		if v.onTitleChanged != nil {
 			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
@@ -405,13 +544,18 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		}
 	})
 
-	v.containers.Set(req.MetaData.ID, ct)
+	return ct
 }
 
 func (v *View) SetSendingRequestLoading(id string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.ShowSendingRequestLoading()
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetResponseLoading(true)
 		}
 	}
 }
@@ -420,6 +564,11 @@ func (v *View) SetSendingRequestLoaded(id string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.HideSendingRequestLoading()
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetResponseLoading(false)
 		}
 	}
 }
@@ -472,6 +621,15 @@ func (v *View) SetHTTPResponse(id string, response domain.HTTPResponseDetail) {
 	}
 }
 
+func (v *View) SetGRPCResponse(id string, response domain.GRPCResponseDetail) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetResponse(response)
+			v.window.Invalidate()
+		}
+	}
+}
+
 func (v *View) GetHTTPResponse(id string) *domain.HTTPResponseDetail {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
@@ -491,6 +649,23 @@ func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(se
 	ct.ShowPrompt(title, content, modalType, onSubmit, options...)
 }
 
+func (v *View) ShowGRPCRequestError(id, title, content string) {
+	ct, ok := v.containers.Get(id)
+	if !ok {
+		return
+	}
+
+	if ct, ok := ct.(GrpcContainer); ok {
+		ct.ShowRequestPrompt(title, content, widgets.ModalTypeErr, func(selectedOption string, remember bool) {
+			if selectedOption == "Ok" {
+				ct.HideRequestPrompt()
+				return
+			}
+
+		}, []widgets.Option{{Text: "Ok"}}...)
+	}
+}
+
 func (v *View) HidePrompt(id string) {
 	ct, ok := v.containers.Get(id)
 	if !ok {
@@ -507,7 +682,7 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 			Text:        cl.MetaData.Name,
 			Identifier:  cl.MetaData.ID,
 			Children:    make([]*widgets.TreeNode, 0),
-			MenuOptions: []string{MenuAddRequest, MenuView, MenuDelete},
+			MenuOptions: []string{MenuAddHTTPRequest, MenuAddGRPCRequest, MenuView, MenuDelete},
 			Meta:        safemap.New[string](),
 		}
 		parentNode.Meta.Set(TypeMeta, TypeCollection)
@@ -518,9 +693,10 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 				Identifier:  req.MetaData.ID,
 				MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 				Meta:        safemap.New[string](),
-				Prefix:      req.Spec.HTTP.Method,
-				PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 			}
+
+			setNodePrefix(req, node)
+
 			node.Meta.Set(TypeMeta, TypeRequest)
 			parentNode.AddChildNode(node)
 			v.treeViewNodes.Set(req.MetaData.ID, node)
@@ -536,9 +712,10 @@ func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domai
 			Identifier:  req.MetaData.ID,
 			MenuOptions: []string{MenuView, MenuDuplicate, MenuDelete},
 			Meta:        safemap.New[string](),
-			Prefix:      req.Spec.HTTP.Method,
-			PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 		}
+
+		setNodePrefix(req, node)
+
 		node.Meta.Set(TypeMeta, TypeRequest)
 		treeViewNodes = append(treeViewNodes, node)
 		v.treeViewNodes.Set(req.MetaData.ID, node)
@@ -555,10 +732,9 @@ func (v *View) AddChildTreeViewNode(parentID string, req *domain.Request) {
 	v.addTreeViewNode(parentID, req)
 }
 
-func (v *View) SetTreeViewNodePrefix(id string, prefix string, color color.NRGBA) {
+func (v *View) SetTreeViewNodePrefix(id string, req *domain.Request) {
 	if node, ok := v.treeViewNodes.Get(id); ok {
-		node.PrefixColor = color
-		node.Prefix = prefix
+		setNodePrefix(req, node)
 		v.window.Invalidate()
 	}
 }
@@ -573,9 +749,10 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 		Identifier:  req.MetaData.ID,
 		MenuOptions: []string{MenuDuplicate, MenuDelete},
 		Meta:        safemap.New[string](),
-		Prefix:      req.Spec.HTTP.Method,
-		PrefixColor: chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method),
 	}
+
+	setNodePrefix(req, node)
+
 	node.Meta.Set(TypeMeta, TypeRequest)
 	if parentID == "" {
 		v.treeView.AddNode(node)
@@ -583,6 +760,16 @@ func (v *View) addTreeViewNode(parentID string, req *domain.Request) {
 		v.treeView.AddChildNode(parentID, node)
 	}
 	v.treeViewNodes.Set(req.MetaData.ID, node)
+}
+
+func setNodePrefix(req *domain.Request, node *widgets.TreeNode) {
+	if req.MetaData.Type == domain.RequestTypeGRPC {
+		node.Prefix = "gRPC"
+		node.PrefixColor = chapartheme.GetRequestPrefixColor("gRPC")
+	} else {
+		node.Prefix = req.Spec.HTTP.Method
+		node.PrefixColor = chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method)
+	}
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -611,7 +798,13 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 
 	if v.newHttpRequestButton.Clicked(gtx) {
 		if v.onNewRequest != nil {
-			v.onNewRequest()
+			v.onNewRequest(domain.RequestTypeHTTP)
+		}
+	}
+
+	if v.newGrpcRequestButton.Clicked(gtx) {
+		if v.onNewRequest != nil {
+			v.onNewRequest(domain.RequestTypeGRPC)
 		}
 	}
 

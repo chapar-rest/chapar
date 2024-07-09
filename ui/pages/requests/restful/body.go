@@ -19,13 +19,12 @@ type Body struct {
 	FormData   *component.FormData
 	urlencoded *widgets.KeyValue
 	script     *widgets.CodeEditor
-	BinaryFile *component.BinaryFile
+	BinaryFile *widgets.BinaryFile
 
 	onChange func(body domain.Body)
 }
 
 func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
-
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
@@ -42,7 +41,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 		// formData:   widgets.NewKeyValue(),
 		urlencoded: widgets.NewKeyValue(),
 		script:     widgets.NewCodeEditor("", "JSON", theme),
-		BinaryFile: component.NewBinaryFile(""),
+		BinaryFile: widgets.NewBinaryFile(""),
 	}
 
 	b.FormData.SetValues(body.FormData.Fields)
@@ -53,7 +52,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 
 	b.script.SetCode(body.Data)
 	b.DropDown.SetSelectedByValue(body.Type)
-	b.DropDown.MinWidth = unit.Dp(150)
+	b.DropDown.MaxWidth = unit.Dp(150)
 
 	return b
 }

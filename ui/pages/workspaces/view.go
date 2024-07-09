@@ -109,6 +109,15 @@ func (v *View) SetItems(items []*domain.Workspace) {
 	})
 }
 
+func (v *View) RemoveItem(item *domain.Workspace) {
+	for i, it := range v.items {
+		if it.w.MetaData.ID == item.MetaData.ID {
+			v.items = append(v.items[:i], v.items[i+1:]...)
+			break
+		}
+	}
+}
+
 func (v *View) AddItem(item *domain.Workspace) {
 	readonly := item.MetaData.Name == domain.DefaultWorkspaceName
 	nameEditable := widgets.NewEditableLabel(item.MetaData.Name)

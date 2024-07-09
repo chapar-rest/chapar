@@ -64,6 +64,7 @@ func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostReque
 			),
 		},
 	}
+	p.setEnvForm.fromDropDown.MaxWidth = unit.Dp(150)
 
 	opts := make([]*widgets.DropDownOption, 0, len(options))
 	for _, o := range options {
@@ -71,6 +72,7 @@ func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostReque
 	}
 
 	p.dropDown.SetOptions(opts...)
+	p.dropDown.MaxWidth = unit.Dp(200)
 	return p
 }
 

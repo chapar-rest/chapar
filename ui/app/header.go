@@ -50,13 +50,16 @@ func NewHeader(envState *state.Environments, workspacesState *state.Workspaces, 
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
 
 	h.themeSwitcher = material.Switch(theme.Material(), h.switchState, "")
+	h.themeSwitcher.Color.Enabled = theme.SwitchBgColor
+	h.themeSwitcher.Color.Disabled = theme.Palette.Fg
 	h.envDropDown = widgets.NewDropDown(theme)
 	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
 		theme,
 		widgets.NewDropDownOption(domain.DefaultWorkspaceName).WithIdentifier(domain.DefaultWorkspaceName),
 	)
 	h.workspaceDropDown.SetSelectedByIdentifier(domain.DefaultWorkspaceName)
-	h.envDropDown.MinWidth = unit.Dp(150)
+	h.envDropDown.MaxWidth = unit.Dp(150)
+	h.workspaceDropDown.MaxWidth = unit.Dp(150)
 	return h
 }
 

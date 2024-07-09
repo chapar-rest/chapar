@@ -77,7 +77,7 @@ func convertItemToRequest(item RequestItem) *domain.Request {
 		MetaData: domain.RequestMeta{
 			ID:   uuid.NewString(), // Generate or assign ID
 			Name: item.Name,
-			Type: domain.RequestMethodGET, // Modify based on actual method
+			Type: domain.RequestTypeHTTP, // Modify based on actual method
 		},
 		Spec: domain.RequestSpec{
 			HTTP: &domain.HTTPRequestSpec{

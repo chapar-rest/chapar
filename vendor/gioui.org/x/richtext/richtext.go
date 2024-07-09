@@ -61,12 +61,12 @@ func (i *InteractiveSpan) Update(gtx layout.Context) (Event, bool) {
 		}
 		switch e.Kind {
 		case gesture.KindClick:
+			i.pressing = false
 			if i.longPressed {
 				i.longPressed = false
 			} else {
 				return Event{Type: Click, ClickData: e}, true
 			}
-			i.pressing = false
 		case gesture.KindPress:
 			i.pressStarted = gtx.Now
 			i.pressing = true

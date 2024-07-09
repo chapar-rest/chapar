@@ -43,7 +43,7 @@ func NewAddressBar(theme *chapartheme.Theme, address, method string) *AddressBar
 	}
 	a.methodDropDown.SetOptions(opts...)
 	a.methodDropDown.SetSelectedByTitle(strings.ToUpper(method))
-	a.methodDropDown.MinWidth = unit.Dp(90)
+	a.methodDropDown.MaxWidth = unit.Dp(90)
 
 	return a
 }

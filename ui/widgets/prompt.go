@@ -189,7 +189,6 @@ func (p *Prompt) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 									btn.Background = chapartheme.White
 									btn.Color = chapartheme.Black
 									return btn.Layout(gtx, theme)
-									// return material.Button(theme.Material(), &p.optionsClickables[i], p.options[i]).Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 							)

@@ -6,6 +6,10 @@ import (
 	"image"
 	"os"
 
+	"github.com/chapar-rest/chapar/internal/grpc"
+	"github.com/chapar-rest/chapar/internal/modal"
+	"github.com/chapar-rest/chapar/ui/pages/protofiles"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -26,7 +30,6 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
-	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type UI struct {
@@ -36,20 +39,22 @@ type UI struct {
 	sideBar *Sidebar
 	header  *Header
 
-	consolePage  *console.Console
-	notification *widgets.Notification
+	consolePage *console.Console
 
 	environmentsView *environments.View
 	requestsView     *requests.View
 	workspacesView   *workspaces.View
+	protoFilesView   *protofiles.View
 
 	environmentsController *environments.Controller
 	requestsController     *requests.Controller
 	workspacesController   *workspaces.Controller
+	protoFilesController   *protofiles.Controller
 
 	environmentsState *state.Environments
 	requestsState     *state.Requests
 	workspacesState   *state.Workspaces
+	protoFilesState   *state.ProtoFiles
 
 	repo repository.Repository
 }
@@ -70,6 +75,8 @@ func New(w *app.Window) (*UI, error) {
 		return nil, err
 	}
 
+	explorerController := explorer.NewExplorer(w)
+
 	u.repo = repo
 
 	u.workspacesView = workspaces.NewView()
@@ -82,8 +89,16 @@ func New(w *app.Window) (*UI, error) {
 	u.environmentsState = state.NewEnvironments(repo)
 	u.requestsState = state.NewRequests(repo)
 
+	//
+	u.protoFilesView = protofiles.NewView()
+	u.protoFilesState = state.NewProtoFiles(repo)
+	u.protoFilesController = protofiles.NewController(u.protoFilesView, u.protoFilesState, repo, explorerController)
+	if err := u.protoFilesController.LoadData(); err != nil {
+		return nil, err
+	}
+
+	grpcService := grpc.NewService(u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState)
-	explorerController := explorer.NewExplorer(w)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
@@ -120,11 +135,10 @@ func New(w *app.Window) (*UI, error) {
 		u.environmentsState.SetActiveEnvironment(env)
 	}
 
-	u.requestsView = requests.NewView(w, u.Theme)
-	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService)
+	u.requestsView = requests.NewView(w, u.Theme, explorerController)
+	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService, grpcService)
 
 	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) {
-		fmt.Println("workspace changed: ", ws.MetaData.Name)
 		if err := repo.SetActiveWorkspace(ws); err != nil {
 			fmt.Println("failed to set active workspace: ", err)
 			return
@@ -155,7 +169,6 @@ func New(w *app.Window) (*UI, error) {
 		}
 	}
 
-	u.notification = &widgets.Notification{}
 	return u, u.load()
 }
 
@@ -208,7 +221,7 @@ func (u *UI) Run() error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 			// render and handle UI.
-			u.Layout(gtx, gtx.Constraints.Max.X)
+			u.Layout(gtx)
 			// render and handle the operations from the UI.
 			e.Frame(gtx.Ops)
 		// this is sent when the application is closed.
@@ -219,7 +232,7 @@ func (u *UI) Run() error {
 }
 
 // Layout displays the main program layout.
-func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
+func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 	// set the background color
 	macro := op.Record(gtx.Ops)
 	rect := image.Rectangle{
@@ -253,6 +266,8 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 								return u.environmentsView.Layout(gtx, u.Theme)
 							case 2:
 								return u.workspacesView.Layout(gtx, u.Theme)
+							case 3:
+								return u.protoFilesView.Layout(gtx, u.Theme)
 								// case 4:
 								//	return u.consolePage.Layout(gtx, u.Theme)
 							}
@@ -263,7 +278,14 @@ func (u *UI) Layout(gtx layout.Context, windowWidth int) layout.Dimensions {
 			)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return notify.NotificationController.Layout(gtx, u.Theme, windowWidth)
+			if modal.Visible() {
+				macro := op.Record(gtx.Ops)
+				dims := modal.Layout(gtx, u.Theme.Theme)
+				op.Defer(gtx.Ops, macro.Stop())
+				return dims
+			}
+
+			return notify.NotificationController.Layout(gtx, u.Theme)
 		}),
 	)
 

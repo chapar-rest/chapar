@@ -136,7 +136,7 @@ func (f *FormData) addField(field *FormDataField) {
 		widgets.NewDropDownOption("Text").WithIdentifier("text").WithValue("text"),
 	)
 	field.typeDropDown.SetSelectedByValue(field.Type)
-	field.typeDropDown.MinWidth = unit.Dp(60)
+	field.typeDropDown.MaxWidth = unit.Dp(60)
 
 	field.keyEditor = &widget.Editor{SingleLine: true}
 	field.keyEditor.SetText(field.Key)

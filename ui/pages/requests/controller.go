@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chapar-rest/chapar/internal/grpc"
+
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 
@@ -16,7 +18,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
-	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -32,9 +33,10 @@ type Controller struct {
 	explorer *explorer.Explorer
 
 	restService *rest.Service
+	grpcService *grpc.Service
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service, grpcService *grpc.Service) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
@@ -44,6 +46,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 		explorer: explorer,
 
 		restService: restService,
+		grpcService: grpcService,
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
@@ -58,8 +61,12 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnSubmit(c.onSubmit)
 	view.SetOnCopyResponse(c.onCopyResponse)
 	view.SetOnBinaryFileSelect(c.onSelectBinaryFile)
+	view.SetOnProtoFileSelect(c.onProtoFileSelect)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
+	view.SetOnServerInfoReload(c.onServerInfoReload)
+	view.SetOnGrpcInvoke(c.onGrpcInvoke)
+	view.SetOnGrpcLoadRequestExample(c.onLoadRequestExample)
 	return c
 }
 
@@ -103,6 +110,81 @@ func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 		c.view.AddFileToFormData(requestId, fieldId, result.FilePath)
 
 	}, "")
+}
+
+func (c *Controller) getActiveEnvID() string {
+	activeEnvironment := c.envState.GetActiveEnvironment()
+	if activeEnvironment == nil {
+		return ""
+	}
+	return activeEnvironment.MetaData.ID
+}
+
+func (c *Controller) onServerInfoReload(id string) {
+	c.view.SetGRPCMethodsLoading(id, true)
+	defer c.view.SetGRPCMethodsLoading(id, false)
+
+	res, err := c.grpcService.GetServices(id, c.getActiveEnvID())
+	if err != nil {
+		c.view.ShowGRPCRequestError(id, "Error", err.Error())
+		fmt.Println("failed to get server reflection", err)
+		return
+	}
+
+	c.view.SetGRPCServices(id, res)
+}
+
+func (c *Controller) onGrpcInvoke(id string) {
+	c.view.SetSendingRequestLoading(id)
+	defer c.view.SetSendingRequestLoaded(id)
+
+	resp, err := c.grpcService.Invoke(id, c.getActiveEnvID())
+	if err != nil {
+		c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
+			Error: err,
+		})
+		fmt.Println("failed to invoke grpc", err)
+		return
+	}
+
+	c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
+		Response:   resp.Body,
+		Metadata:   resp.Metadata,
+		Trailers:   resp.Trailers,
+		StatusCode: resp.StatueCode,
+		Duration:   resp.TimePassed,
+		Status:     resp.Status,
+		Size:       resp.Size,
+	})
+}
+
+func (c *Controller) onLoadRequestExample(id string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	example, err := c.grpcService.GetRequestStruct(id, c.getActiveEnvID())
+	if err != nil {
+		fmt.Println("failed to get request struct", err)
+		return
+	}
+
+	c.view.SetSetGrpcRequestBody(id, example)
+}
+
+func (c *Controller) onProtoFileSelect(id string) {
+	c.explorer.ChoseFile(func(result explorer.Result) {
+		if result.Error != nil {
+			fmt.Println("failed to get proto file", result.Error)
+			return
+		}
+		if result.FilePath == "" {
+			return
+		}
+		c.view.SetProtoFilePath(id, result.FilePath)
+
+	}, ".proto")
 }
 
 func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, from, fromKey string) {
@@ -210,13 +292,7 @@ func (c *Controller) onSubmitRequest(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	var envID = ""
-	activeEnvironment := c.envState.GetActiveEnvironment()
-	if activeEnvironment != nil {
-		envID = activeEnvironment.MetaData.ID
-	}
-
-	res, err := c.restService.SendRequest(id, envID)
+	res, err := c.restService.SendRequest(id, c.getActiveEnvID())
 	if err != nil {
 		c.view.SetHTTPResponse(id, domain.HTTPResponseDetail{
 			Error: err,
@@ -297,25 +373,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 
-	queryParamsChanged := !domain.CompareKeyValues(req.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.Request.QueryParams)
-	urlChanged := inComingRequest.Spec.HTTP.URL != req.Spec.HTTP.URL
-
-	// if query params and url are changed, update the url base on the query params
-	if (queryParamsChanged && urlChanged) || queryParamsChanged {
-		newURL := c.getNewURLWithParams(inComingRequest.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.URL)
-		c.view.SetURL(id, newURL)
-		inComingRequest.Spec.HTTP.URL = newURL
-	} else if urlChanged {
-		// update query params based on the new url
-		newParams := c.getUrlParams(inComingRequest.Spec.HTTP.URL)
-		c.view.SetQueryParams(id, newParams)
-		inComingRequest.Spec.HTTP.Request.QueryParams = newParams
-
-		// update the path params based on the new url
-		newPathParams := domain.ParsePathParams(inComingRequest.Spec.HTTP.URL)
-		c.view.SetPathParams(id, newPathParams)
-		inComingRequest.Spec.HTTP.Request.PathParams = newPathParams
-	}
+	c.checkForHTTPRequestParams(req, inComingRequest)
 
 	// break the reference
 	clone := inComingRequest.Clone()
@@ -333,7 +391,33 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
-	c.view.SetTreeViewNodePrefix(id, req.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(req.Spec.HTTP.Method))
+	c.view.SetTreeViewNodePrefix(id, req)
+}
+
+func (c *Controller) checkForHTTPRequestParams(req *domain.Request, inComingRequest *domain.Request) {
+	if req.MetaData.Type != domain.RequestTypeHTTP {
+		return
+	}
+
+	queryParamsChanged := !domain.CompareKeyValues(req.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.Request.QueryParams)
+	urlChanged := inComingRequest.Spec.HTTP.URL != req.Spec.HTTP.URL
+
+	// if query params and url are changed, update the url base on the query params
+	if (queryParamsChanged && urlChanged) || queryParamsChanged {
+		newURL := c.getNewURLWithParams(inComingRequest.Spec.HTTP.Request.QueryParams, inComingRequest.Spec.HTTP.URL)
+		c.view.SetURL(req.MetaData.ID, newURL)
+		inComingRequest.Spec.HTTP.URL = newURL
+	} else if urlChanged {
+		// update query params based on the new url
+		newParams := c.getUrlParams(inComingRequest.Spec.HTTP.URL)
+		c.view.SetQueryParams(req.MetaData.ID, newParams)
+		inComingRequest.Spec.HTTP.Request.QueryParams = newParams
+
+		// update the path params based on the new url
+		newPathParams := domain.ParsePathParams(inComingRequest.Spec.HTTP.URL)
+		c.view.SetPathParams(req.MetaData.ID, newPathParams)
+		inComingRequest.Spec.HTTP.Request.PathParams = newPathParams
+	}
 }
 
 func (c *Controller) getNewURLWithParams(params []domain.KeyValue, url string) string {
@@ -425,7 +509,7 @@ func (c *Controller) onRequestTabClose(id string) {
 
 			c.view.CloseTab(id)
 			c.model.ReloadRequestFromDisc(id)
-			c.view.SetTreeViewNodePrefix(id, reqFromFile.Spec.HTTP.Method, chapartheme.GetRequestPrefixColor(reqFromFile.Spec.HTTP.Method))
+			c.view.SetTreeViewNodePrefix(id, reqFromFile)
 		},
 		[]widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
@@ -473,8 +557,13 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	c.view.UpdateTabTitle(col.MetaData.ID, col.MetaData.Name)
 }
 
-func (c *Controller) onNewRequest() {
-	req := domain.NewRequest("New Request")
+func (c *Controller) onNewRequest(requestType string) {
+	var req *domain.Request
+	if requestType == domain.RequestTypeHTTP {
+		req = domain.NewHTTPRequest("New Request")
+	} else {
+		req = domain.NewGRPCRequest("New Request")
+	}
 
 	newFilePath, err := c.repo.GetNewRequestFilePath(req.MetaData.Name)
 	if err != nil {
@@ -489,7 +578,9 @@ func (c *Controller) onNewRequest() {
 	c.view.AddRequestTreeViewNode(req)
 	c.saveRequestToDisc(req.MetaData.ID)
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
-	c.view.OpenRequestContainer(req)
+	clone, _ := domain.Clone[domain.Request](req)
+	clone.MetaData.ID = req.MetaData.ID
+	c.view.OpenRequestContainer(clone)
 	c.view.SwitchToTab(req.MetaData.ID)
 }
 
@@ -577,8 +668,8 @@ func (c *Controller) onTreeViewMenuClicked(id, action string) {
 		case TypeCollection:
 			c.deleteCollection(id)
 		}
-	case MenuAddRequest:
-		c.addRequestToCollection(id)
+	case MenuAddHTTPRequest, MenuAddGRPCRequest:
+		c.addRequestToCollection(id, action)
 	case MenuView:
 		if nodeType == TypeCollection {
 			c.viewCollection(id)
@@ -588,8 +679,14 @@ func (c *Controller) onTreeViewMenuClicked(id, action string) {
 	}
 }
 
-func (c *Controller) addRequestToCollection(id string) {
-	req := domain.NewRequest("New Request")
+func (c *Controller) addRequestToCollection(id string, requestType string) {
+	var req *domain.Request
+	if requestType == domain.RequestTypeHTTP {
+		req = domain.NewHTTPRequest("New Request")
+	} else {
+		req = domain.NewGRPCRequest("New Request")
+	}
+
 	col := c.model.GetCollection(id)
 	if col == nil {
 		return
@@ -613,7 +710,10 @@ func (c *Controller) addRequestToCollection(id string) {
 	c.view.AddChildTreeViewNode(col.MetaData.ID, req)
 	c.view.ExpandTreeViewNode(col.MetaData.ID)
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
-	c.view.OpenRequestContainer(req)
+
+	clone, _ := domain.Clone[domain.Request](req)
+	clone.MetaData.ID = id
+	c.view.OpenRequestContainer(clone)
 	c.view.SwitchToTab(req.MetaData.ID)
 }
 

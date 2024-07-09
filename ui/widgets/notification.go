@@ -26,7 +26,7 @@ type Notif struct {
 	Duration time.Duration
 }
 
-func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme, windowWidth int) layout.Dimensions {
+func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if n.Text == "" || n.EndAt == (time.Time{}) || time.Now().After(n.EndAt) {
 		return layout.Dimensions{}
 	}

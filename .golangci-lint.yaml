@@ -19,6 +19,7 @@ linters:
 
   linters-settings:
     errcheck:
+      ignore: ''
       exclude-functions:
        - fmt:.*
 

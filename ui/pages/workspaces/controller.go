@@ -67,6 +67,8 @@ func (c *Controller) onDelete(w *domain.Workspace) {
 		fmt.Println("failed to remove workspace", err)
 		return
 	}
+
+	c.saveWorkspaceToDisc(w.MetaData.ID)
 }
 
 func (c *Controller) onUpdate(w *domain.Workspace) {

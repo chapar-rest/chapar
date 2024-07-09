@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/state"
+	"github.com/chapar-rest/chapar/internal/variables"
 )
 
 type Response struct {
@@ -392,35 +391,15 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) {
 	// apply internal variables to environment
 	// apply environment to request
-	variables := map[string]string{
-		"randomUUID4":   uuid.NewString(),
-		"timeNow":       time.Now().UTC().Format(time.RFC3339),
-		"unixTimestamp": strconv.FormatInt(time.Now().UTC().Unix(), 10),
-	}
+	vars := variables.GetVariables()
 
 	// apply environment variables if any
 	if env != nil {
-		// to through all the variables and replace them in the environment
-		for k, v := range variables {
-			for i, kv := range env.Values {
-				// if value contain the variable in double curly braces then replace it
-				if strings.Contains(kv.Value, "{{"+k+"}}") {
-					env.Values[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
-				}
-			}
-		}
-
-		// add env variables to variables
-		for _, kv := range env.Values {
-			if !kv.Enable {
-				continue
-			}
-			variables[kv.Key] = kv.Value
-		}
+		variables.ApplyToEnv(vars, env)
 	}
 
 	// apply variables to request
-	for k, v := range variables {
+	for k, v := range vars {
 		for i, kv := range req.Request.Headers {
 			// if value contain the variable in double curly braces then replace it
 			if strings.Contains(kv.Value, "{{"+k+"}}") {

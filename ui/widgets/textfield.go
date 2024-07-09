@@ -20,6 +20,7 @@ const (
 type TextField struct {
 	textEditor widget.Editor
 	Icon       *widget.Icon
+	iconClick  widget.Clickable
 
 	IconPosition int
 
@@ -28,6 +29,7 @@ type TextField struct {
 
 	size image.Point
 
+	onIconClick  func()
 	onTextChange func(text string)
 	borderColor  color.NRGBA
 }
@@ -63,6 +65,10 @@ func (t *TextField) SetBorderColor(color color.NRGBA) {
 
 func (t *TextField) SetOnTextChange(f func(text string)) {
 	t.onTextChange = f
+}
+
+func (t *TextField) SetOnIconClick(f func()) {
+	t.onIconClick = f
 }
 
 func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -115,7 +121,17 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			spacing := layout.SpaceBetween
 			if t.Icon != nil {
 				iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return t.Icon.Layout(gtx, borderColor)
+					clk := &widget.Clickable{}
+					if t.onIconClick != nil {
+						clk = &t.iconClick
+						if t.iconClick.Clicked(gtx) {
+							t.onIconClick()
+						}
+					}
+
+					b := Button(theme.Material(), clk, t.Icon, IconPositionStart, "")
+					b.Inset = layout.Inset{Left: unit.Dp(8), Right: unit.Dp(2), Top: unit.Dp(2), Bottom: unit.Dp(2)}
+					return b.Layout(gtx, theme)
 				})
 
 				if t.IconPosition == IconPositionEnd {

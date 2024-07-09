@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -20,6 +21,7 @@ type DropDown struct {
 	theme           *chapartheme.Theme
 
 	MinWidth unit.Dp
+	MaxWidth unit.Dp
 	menuInit bool
 
 	isOpen              bool
@@ -40,6 +42,9 @@ type DropDownOption struct {
 	Value      string
 	Identifier string
 	clickable  widget.Clickable
+
+	Icon      *widget.Icon
+	IconColor color.NRGBA
 
 	isDivider bool
 	isDefault bool
@@ -68,9 +73,31 @@ func (o *DropDownOption) WithValue(value string) *DropDownOption {
 	return o
 }
 
+func (o *DropDownOption) WithIcon(icon *widget.Icon, color color.NRGBA) *DropDownOption {
+	o.Icon = icon
+	o.IconColor = color
+	return o
+}
+
 func (o *DropDownOption) DefaultSelected() *DropDownOption {
 	o.isDefault = true
 	return o
+}
+
+func (o *DropDownOption) GetText() string {
+	if o == nil {
+		return ""
+	}
+
+	return o.Text
+}
+
+func (o *DropDownOption) GetValue() string {
+	if o == nil {
+		return ""
+	}
+
+	return o.Value
 }
 
 func (c *DropDown) SetSelected(index int) {
@@ -83,6 +110,10 @@ func (c *DropDown) SetOnChanged(f func(value string)) {
 }
 
 func (c *DropDown) SetSelectedByTitle(title string) {
+	if len(c.options) == 0 {
+		return
+	}
+
 	for i, opt := range c.options {
 		if opt.Text == title {
 			c.selectedOptionIndex = i
@@ -159,14 +190,20 @@ func (c *DropDown) SelectedIndex() int {
 func (c *DropDown) SetOptions(options ...*DropDownOption) {
 	c.selectedOptionIndex = 0
 	c.options = options
-	c.menuInit = true
+	if len(c.options) > 0 {
+		c.menuInit = true
+	}
 }
 
 func (c *DropDown) GetSelected() *DropDownOption {
+	if len(c.options) == 0 {
+		return nil
+	}
+
 	return c.options[c.selectedOptionIndex]
 }
 
-func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string, minWidth unit.Dp) layout.Dimensions {
+func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string, maxWidth unit.Dp) layout.Dimensions {
 	borderColor := theme.BorderColor
 	if c.isOpen {
 		borderColor = theme.BorderColorFocused
@@ -178,10 +215,15 @@ func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string
 		CornerRadius: c.cornerRadius,
 	}
 
-	c.size.X = gtx.Dp(minWidth)
+	if maxWidth == 0 {
+		maxWidth = unit.Dp(gtx.Constraints.Max.X)
+	}
+
+	c.size.X = gtx.Dp(maxWidth)
+
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		// calculate the minimum width of the box, considering icon and padding
-		gtx.Constraints.Min.X = gtx.Dp(minWidth) - gtx.Dp(8)
+		gtx.Constraints.Min.X = gtx.Dp(maxWidth) - gtx.Dp(8)
 		return layout.Inset{
 			Top:    4,
 			Bottom: 4,
@@ -239,7 +281,12 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 		c.MinWidth = unit.Dp(150)
 	}
 
-	box := c.box(gtx, theme, c.options[c.selectedOptionIndex].Text, c.MinWidth)
+	text := ""
+	if c.selectedOptionIndex >= 0 && c.selectedOptionIndex < len(c.options) {
+		text = c.options[c.selectedOptionIndex].Text
+	}
+
+	box := c.box(gtx, theme, text, c.MaxWidth)
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return box
@@ -251,7 +298,10 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					Left: unit.Dp(4),
 				}
 				return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Max.X = gtx.Dp(c.MinWidth)
+					gtx.Constraints.Min.X = gtx.Dp(c.MinWidth)
+					if c.MaxWidth != 0 {
+						gtx.Constraints.Max.X = gtx.Dp(c.MaxWidth)
+					}
 					m := component.Menu(theme.Material(), &c.menu)
 					m.SurfaceStyle.Fill = theme.DropDownMenuBgColor
 					return m.Layout(gtx)
@@ -274,6 +324,11 @@ func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
 			}
 
 			itm := component.MenuItem(theme.Material(), &opt.clickable, opt.Text)
+			if opt.Icon != nil {
+				itm.Icon = opt.Icon
+				itm.IconColor = opt.IconColor
+			}
+
 			itm.Label.Color = chapartheme.White
 			return itm.Layout(gtx)
 		})

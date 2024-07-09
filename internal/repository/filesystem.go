@@ -17,6 +17,7 @@ const (
 	configDir = "chapar"
 
 	environmentsDir = "envs"
+	protoFilesDir   = "protofiles"
 	collectionsDir  = "collections"
 	requestsDir     = "requests"
 	preferencesDir  = "preferences"
@@ -60,6 +61,89 @@ func NewFilesystem() (*Filesystem, error) {
 	}
 
 	return fs, nil
+}
+
+func (f *Filesystem) GetProtoFilesDir() (string, error) {
+	dir, err := CreateConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	protoDir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, protoFilesDir)
+	if err := makeDir(protoDir); err != nil {
+		return "", err
+	}
+
+	return protoDir, nil
+}
+
+func (f *Filesystem) LoadProtoFiles() ([]*domain.ProtoFile, error) {
+	dir, err := f.GetProtoFilesDir()
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*domain.ProtoFile, 0)
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		filePath := filepath.Join(dir, file.Name())
+
+		protoFile, err := LoadFromYaml[domain.ProtoFile](filePath)
+		if err != nil {
+			return nil, err
+		}
+		protoFile.FilePath = filePath
+		out = append(out, protoFile)
+	}
+
+	return out, err
+}
+
+func (f *Filesystem) DeleteProtoFile(protoFile *domain.ProtoFile) error {
+	return os.Remove(protoFile.FilePath)
+}
+
+func (f *Filesystem) UpdateProtoFile(protoFile *domain.ProtoFile) error {
+	if protoFile.FilePath == "" {
+		// this is a new protoFile
+		fileName, err := f.GetNewProtoFilePath(protoFile.MetaData.Name)
+		if err != nil {
+			return err
+		}
+
+		protoFile.FilePath = fileName.Path
+	}
+
+	if err := SaveToYaml(protoFile.FilePath, protoFile); err != nil {
+		return err
+	}
+
+	// rename the file to the new name
+	if protoFile.MetaData.Name != filepath.Base(protoFile.FilePath) {
+		newFilePath := filepath.Join(filepath.Dir(protoFile.FilePath), protoFile.MetaData.Name+".yaml")
+		if err := os.Rename(protoFile.FilePath, newFilePath); err != nil {
+			return err
+		}
+		protoFile.FilePath = newFilePath
+	}
+	return nil
+}
+
+func (f *Filesystem) GetNewProtoFilePath(name string) (*FilePath, error) {
+	dir, err := f.GetProtoFilesDir()
+	if err != nil {
+		return nil, err
+	}
+
+	return getNewFilePath(dir, name), nil
 }
 
 func (f *Filesystem) SetActiveWorkspace(workspace *domain.Workspace) error {
