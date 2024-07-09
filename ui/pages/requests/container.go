@@ -31,13 +31,14 @@ type GrpcContainer interface {
 	SetProtoBodyFilePath(filePath string)
 	SetOnReload(func(id string))
 	SetServices(services []domain.GRPCService)
-	ShowMethodsLoading()
-	HideMethodsLoading()
+	SetMethodsLoading(loading bool)
 	SetResponseLoading(loading bool)
 	SetOnInvoke(f func(id string))
 	SetResponse(response domain.GRPCResponseDetail)
 	SetOnLoadRequestExample(f func(id string))
 	SetRequestBody(body string)
+	ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option)
+	HideRequestPrompt()
 }
 
 type RestContainer interface {

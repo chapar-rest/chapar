@@ -255,11 +255,7 @@ func (v *View) SetGRPCServices(id string, services []domain.GRPCService) {
 func (v *View) SetGRPCMethodsLoading(id string, loading bool) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(GrpcContainer); ok {
-			if loading {
-				ct.ShowMethodsLoading()
-			} else {
-				ct.HideMethodsLoading()
-			}
+			ct.SetMethodsLoading(loading)
 		}
 	}
 }
@@ -651,6 +647,23 @@ func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(se
 	}
 
 	ct.ShowPrompt(title, content, modalType, onSubmit, options...)
+}
+
+func (v *View) ShowGRPCRequestError(id, title, content string) {
+	ct, ok := v.containers.Get(id)
+	if !ok {
+		return
+	}
+
+	if ct, ok := ct.(GrpcContainer); ok {
+		ct.ShowRequestPrompt(title, content, widgets.ModalTypeErr, func(selectedOption string, remember bool) {
+			if selectedOption == "Ok" {
+				ct.HideRequestPrompt()
+				return
+			}
+
+		}, []widgets.Option{{Text: "Ok"}}...)
+	}
 }
 
 func (v *View) HidePrompt(id string) {

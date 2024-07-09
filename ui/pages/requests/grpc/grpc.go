@@ -162,6 +162,20 @@ func (r *Grpc) SetProtoBodyFilePath(filePath string) {
 	}
 }
 
+func (r *Grpc) ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+	r.Request.Prompt.Type = modalType
+	r.Request.Prompt.Title = title
+	r.Request.Prompt.Content = content
+	r.Request.Prompt.SetOptions(options...)
+	r.Request.Prompt.WithoutRememberBool()
+	r.Request.Prompt.SetOnSubmit(onSubmit)
+	r.Request.Prompt.Show()
+}
+
+func (r *Grpc) HideRequestPrompt() {
+	r.Request.Prompt.Hide()
+}
+
 func (r *Grpc) SetOnDataChanged(f func(id string, data any)) {
 	r.onDataChanged = f
 }
@@ -247,12 +261,8 @@ func (r *Grpc) SetServices(services []domain.GRPCService) {
 	}
 }
 
-func (r *Grpc) ShowMethodsLoading() {
-	r.Request.ServerInfo.IsLoading = true
-}
-
-func (r *Grpc) HideMethodsLoading() {
-	r.Request.ServerInfo.IsLoading = false
+func (r *Grpc) SetMethodsLoading(loading bool) {
+	r.Request.ServerInfo.IsLoading = loading
 }
 
 func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

@@ -14,7 +14,8 @@ import (
 )
 
 type Request struct {
-	Tabs *widgets.Tabs
+	Tabs   *widgets.Tabs
+	Prompt *widgets.Prompt
 
 	ServerInfo *ServerInfo
 	Body       *widgets.CodeEditor
@@ -31,6 +32,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 	certExt := []string{"pem", "crt"}
 
 	r := &Request{
+		Prompt: widgets.NewPrompt("Failed", "foo bar", widgets.ModalTypeErr),
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Server Info"},
 			{Title: "Body"},
@@ -66,6 +68,9 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.Tabs.Layout(gtx, theme)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return r.Prompt.Layout(gtx, theme)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				switch r.Tabs.SelectedTab().Title {

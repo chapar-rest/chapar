@@ -126,9 +126,7 @@ func (c *Controller) onServerInfoReload(id string) {
 
 	res, err := c.grpcService.GetServices(id, c.getActiveEnvID())
 	if err != nil {
-		// c.view.SetGRPCMethods(id, domain.ServerReflectionResponse{
-		//	Error: err,
-		// })
+		c.view.ShowGRPCRequestError(id, "Error", err.Error())
 		fmt.Println("failed to get server reflection", err)
 		return
 	}
