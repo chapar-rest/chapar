@@ -113,10 +113,11 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		}
 	}
 
-	if a.methodDropDown.GetSelected().GetValue() != a.lastSelectedMethod {
-		a.lastSelectedMethod = a.methodDropDown.GetSelected().GetValue()
+	methodSelected := a.methodDropDown.GetSelected().GetValue()
+	if methodSelected != a.lastSelectedMethod {
+		a.lastSelectedMethod = methodSelected
 		if a.onMethodChanged != nil {
-			a.onMethodChanged(a.lastSelectedMethod)
+			a.onMethodChanged(methodSelected)
 		}
 	}
 

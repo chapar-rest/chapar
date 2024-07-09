@@ -65,6 +65,18 @@ func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {
 	return &clone
 }
 
+func (g *GRPCRequestSpec) HasMethod(method string) bool {
+	for _, srv := range g.Services {
+		for _, m := range srv.Methods {
+			if m.FullName == method {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func NewGRPCRequest(name string) *Request {
 	return &Request{
 		ApiVersion: ApiVersion,

@@ -241,6 +241,10 @@ func (r *Grpc) SetServices(services []domain.GRPCService) {
 	}
 
 	r.AddressBar.SetServices(services)
+	// if last selected method is still in the list, select it
+	if r.Req.Spec.GRPC.LasSelectedMethod != "" && r.Req.Spec.GRPC.HasMethod(r.Req.Spec.GRPC.LasSelectedMethod) {
+		r.AddressBar.SetSelectedMethod(r.Req.Spec.GRPC.LasSelectedMethod)
+	}
 }
 
 func (r *Grpc) ShowMethodsLoading() {
