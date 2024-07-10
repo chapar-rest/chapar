@@ -66,6 +66,19 @@ Chapar is currently in the early beta phase, with the first release expected soo
 ### Getting Started
 Stay tuned for the upcoming early beta release of Chapar. Once released, clone the repository or download the beta version to get started with testing your API endpoints.
 
+
+### Already using Chapar?
+In case you are already using Chapar, you may need to fix the following issues in the data:
+* The data is stored in the following path: please backup the data before running the fixer script.
+  * Windows: `C:\Users\<username>\AppData\Roaming\chapar`
+  * Linux: `/home/<username>/.config/chapar`
+  * macOS: `/Users/<username>/.config/chapar`
+
+You will need to run fixer script to fix the data:
+```bash
+    go run cmd/fixer/main.go fix-request-types
+```
+
 ### Installation
 #### Download the latest release
 You can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
