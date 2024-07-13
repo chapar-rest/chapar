@@ -2,6 +2,13 @@
 
 set -euo pipefail
 
+# Check if the script is run as root, if not, ask for sudo
+if [ "$EUID" -ne 0 ]; then
+  echo "This script requires root access to install the package."
+  echo "Please enter your password to continue:"
+  exec sudo "$0" "$@"
+fi
+
 BASEDIR=$(dirname "$(realpath "$0")")
 
 PREFIX=${PREFIX:-/usr/local}

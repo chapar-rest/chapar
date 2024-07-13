@@ -30,7 +30,7 @@ build_linux:
 	cp ./build/appicon.png ./dist/amd64
 	cp ./LICENSE ./dist/amd64
 	cp -r ./build/desktop-assets ./dist/amd64
-	tar -cJf ./dist/Chapar_linux_amd64.tar.xz --directory=./dist/amd64 desktop-assets install-linux.sh appicon.png ./LICENSE
+	tar -cJf ./dist/Chapar_linux_amd64.tar.xz --directory=./dist/amd64 chapar desktop-assets install-linux.sh appicon.png ./LICENSE
 	rm -rf ./dist/amd64
 
 .PHONY: run
