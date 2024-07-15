@@ -68,7 +68,7 @@ func (c *Controller) onDelete(w *domain.Workspace) {
 		return
 	}
 
-	c.saveWorkspaceToDisc(w.MetaData.ID)
+	c.view.RemoveItem(w)
 }
 
 func (c *Controller) onUpdate(w *domain.Workspace) {
