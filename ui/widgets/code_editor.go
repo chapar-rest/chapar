@@ -116,7 +116,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	}
 
 	flexH := layout.Flex{Axis: layout.Horizontal}
-	inset4 := layout.UniformInset(unit.Dp(4))
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -132,8 +131,8 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 					btn := Button(theme.Material(), &c.loadExample, RefreshIcon, IconPositionStart, "Load Example")
 					btn.Color = theme.ButtonTextColor
 					btn.Inset = layout.Inset{
-						Top: 4, Bottom: 4,
-						Left: 4, Right: 4,
+						Top: unit.Dp(4), Bottom: unit.Dp(4),
+						Left: unit.Dp(4), Right: unit.Dp(4),
 					}
 
 					if c.loadExample.Clicked(gtx) {
@@ -166,15 +165,19 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 			return c.border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return flexH.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return inset4.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-
+						return layout.Inset{
+							Top:    unit.Dp(4),
+							Bottom: unit.Dp(4),
+							Left:   unit.Dp(8),
+							Right:  unit.Dp(4),
+						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							editorConf := &giovieweditor.EditorConf{
 								Shaper:          theme.Shaper,
 								TextColor:       theme.Fg,
 								Bg:              theme.Bg,
 								SelectionColor:  theme.TextSelectionColor,
 								TypeFace:        c.font.Font.Typeface,
-								TextSize:        unit.Sp(14),
+								TextSize:        unit.Sp(16),
 								LineHeightScale: 1.2,
 								ColorScheme:     "default",
 							}
