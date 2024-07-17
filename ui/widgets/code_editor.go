@@ -1,7 +1,6 @@
 package widgets
 
 import (
-	"fmt"
 	"image/color"
 	"regexp"
 	"strings"
@@ -14,10 +13,8 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"gioui.org/x/richtext"
 
-	"github.com/oligo/gioview/editor"
 	giovieweditor "github.com/oligo/gioview/editor"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
@@ -27,9 +24,6 @@ import (
 type CodeEditor struct {
 	editor *giovieweditor.Editor
 	code   string
-
-	lines []string
-	list  *widget.List
 
 	onChange func(text string)
 
@@ -48,13 +42,8 @@ type CodeEditor struct {
 
 func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor {
 	c := &CodeEditor{
-		editor: new(giovieweditor.Editor),
-		code:   code,
-		list: &widget.List{
-			List: layout.List{
-				Axis: layout.Vertical,
-			},
-		},
+		editor:  new(giovieweditor.Editor),
+		code:    code,
 		font:    fonts.MustGetCodeEditorFont(),
 		rhState: richtext.InteractiveText{},
 	}
@@ -65,11 +54,8 @@ func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor 
 		CornerRadius: unit.Dp(4),
 	}
 
-	//	c.editor.Submit = false
-	// 	c.editor.SingleLine = false
 	c.editor.WrapPolicy = text.WrapGraphemes
 	c.editor.SetText(code, false)
-	c.lines = strings.Split(code, "\n")
 
 	return c
 }
@@ -88,7 +74,6 @@ func (c *CodeEditor) SetOnLoadExample(f func()) {
 
 func (c *CodeEditor) SetCode(code string) {
 	c.editor.SetText(code, false)
-	c.lines = strings.Split(code, "\n")
 	c.code = code
 }
 
@@ -123,8 +108,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 
 	if ev, ok := c.editor.Update(gtx); ok {
 		if _, ok := ev.(giovieweditor.ChangeEvent); ok {
-			c.lines = strings.Split(c.editor.Text(), "\n")
-
 			if c.onChange != nil {
 				c.onChange(c.editor.Text())
 				c.code = c.editor.Text()
@@ -133,7 +116,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	}
 
 	flexH := layout.Flex{Axis: layout.Horizontal}
-	listInset := layout.Inset{Left: unit.Dp(10), Top: unit.Dp(4)}
 	inset4 := layout.UniformInset(unit.Dp(4))
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -183,39 +165,22 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return c.border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return flexH.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return listInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
-								l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
-								l.Font.Weight = font.Medium
-								l.Color = theme.TextColor
-								l.TextSize = unit.Sp(14)
-								l.Alignment = text.End
-								return l.Layout(gtx)
-							})
-						})
-					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return inset4.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 
-							th := theme.Material()
 							editorConf := &giovieweditor.EditorConf{
-								Shaper:          th.Shaper,
-								TextColor:       th.Fg,
-								Bg:              th.Bg,
+								Shaper:          theme.Shaper,
+								TextColor:       theme.Fg,
+								Bg:              theme.Bg,
 								SelectionColor:  theme.TextSelectionColor,
-								TypeFace:        "Go, Helvetica, Arial, sans-serif",
+								TypeFace:        c.font.Font.Typeface,
 								TextSize:        unit.Sp(14),
-								LineHeightScale: 1,
+								LineHeightScale: 1.2,
 								ColorScheme:     "default",
 							}
 
-							c.editor.UpdateTextStyles(stylingText(c.editor.Text(), th.Bg))
-							//ee := material.Editor(theme.Material(), c.editor, hint)
-							//ee.TextSize = unit.Sp(14)
-							//ee.SelectionColor = theme.TextSelectionColor
+							c.editor.UpdateTextStyles(stylingText(c.editor.Text()))
 							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
-							// return ee.Layout(gtx)
 						})
 					}),
 				)
@@ -224,11 +189,9 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	)
 }
 
-func stylingText(text string, bk color.NRGBA) []*giovieweditor.TextStyle {
-	var styles []*giovieweditor.TextStyle
-
+var (
 	// List of Python keywords
-	keywords := []string{
+	keywords = []string{
 		"False", "await", "else", "import", "pass",
 		"None", "break", "except", "in", "raise",
 		"True", "class", "finally", "is", "return",
@@ -237,20 +200,51 @@ func stylingText(text string, bk color.NRGBA) []*giovieweditor.TextStyle {
 		"assert", "del", "global", "not", "with",
 		"async", "elif", "if", "or", "yield",
 	}
+	keyColor     = color.NRGBA{R: 255, G: 165, B: 0, A: 255}   // Orange
+	stringColor  = color.NRGBA{R: 42, G: 161, B: 152, A: 255}  // #2aa198
+	numberColor  = color.NRGBA{R: 42, G: 161, B: 152, A: 255}  // #2aa198
+	booleanColor = color.NRGBA{R: 128, G: 0, B: 128, A: 255}   // Purple
+	nullColor    = color.NRGBA{R: 128, G: 128, B: 128, A: 255} // Gray
+	commentColor = color.NRGBA{R: 88, G: 110, B: 117, A: 255}  // #586e75
+	// Define colors for different JSON elements
+	pythonKeywordsColor = color.NRGBA{R: 255, G: 165, B: 0, A: 255} // Orange
 
-	// Create a single regex pattern for all keywords
-	pattern := `\b(` + strings.Join(keywords, "|") + `)\b`
-	re := regexp.MustCompile(pattern)
+	pythonPattern = regexp.MustCompile(`\b(` + strings.Join(keywords, "|") + `)\b`)
 
-	matches := re.FindAllIndex([]byte(text), -1)
-	for _, match := range matches {
-		styles = append(styles, &editor.TextStyle{
-			Start:      match[0],
-			End:        match[1],
-			Color:      colorToOp(color.NRGBA{R: 255, G: 165, B: 0, A: 255}),
-			Background: colorToOp(bk),
-		})
+	// Define regex patterns for different JSON elements
+	keyPattern                   = regexp.MustCompile(`"(\\\"|[^"])*"\s*:`)
+	stringPattern                = regexp.MustCompile(`"(\\\"|[^"])*"`)
+	numberPattern                = regexp.MustCompile(`\b\d+(\.\d+)?([eE][+-]?\d+)?\b`)
+	booleanPattern               = regexp.MustCompile(`\btrue\b|\bfalse\b`)
+	nullPattern                  = regexp.MustCompile(`\bnull\b`)
+	jsonSingleLineCommentPattern = regexp.MustCompile(`//.*`)
+	pythonCommentPattern         = regexp.MustCompile(`#.*`)
+)
+
+func stylingText(text string) []*giovieweditor.TextStyle {
+	var styles []*giovieweditor.TextStyle
+
+	// Apply styles based on matches
+	applyStyles := func(re *regexp.Regexp, col color.NRGBA) {
+		matches := re.FindAllStringIndex(text, -1)
+		for _, match := range matches {
+			styles = append(styles, &giovieweditor.TextStyle{
+				Start: match[0],
+				End:   match[1],
+				Color: colorToOp(col),
+			})
+		}
 	}
+
+	// Apply styles for each JSON element
+	applyStyles(keyPattern, keyColor)
+	applyStyles(stringPattern, stringColor)
+	applyStyles(numberPattern, numberColor)
+	applyStyles(booleanPattern, booleanColor)
+	applyStyles(nullPattern, nullColor)
+	applyStyles(pythonPattern, pythonKeywordsColor)
+	applyStyles(jsonSingleLineCommentPattern, commentColor)
+	applyStyles(pythonCommentPattern, commentColor)
 
 	return styles
 }
