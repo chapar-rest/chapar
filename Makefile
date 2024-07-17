@@ -1,14 +1,53 @@
-.PHONY: build_macos
-build_macos:
+TAG_NAME?=$(shell git describe --tags)
+APP_NAME="Chapar"
+
+.PHONY: build_macos_app
+build_macos_app:
 	@echo "Building Macos..."
 	gogio -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
 	gogio -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
 	codesign --force --deep --sign - ./dist/amd64/Chapar.app
 	codesign --force --deep --sign - ./dist/arm64/Chapar.app
+
+.PHONY: build_macos
+build_macos: build_macos_app
+	@echo "Building Macos..."
 	tar -cJf ./dist/Chapar_macos_amd64.tar.xz --directory=./dist/amd64 Chapar.app
 	tar -cJf ./dist/Chapar_macos_arm64.tar.xz --directory=./dist/arm64 Chapar.app
 	rm -rf ./dist/amd64
 	rm -rf ./dist/arm64
+
+.PHONY: build_macos_dmg
+build_macos_dmg: build_macos_app
+	@echo "Building Macos DMG..."
+	rm -rf ./dist/chapar-$(TAG_NAME)-amd64.dmg
+	rm -rf ./dist/chapar-$(TAG_NAME)-arm64.dmg
+	create-dmg \
+	  --volname "Chapar Installer" \
+	  --volicon "./build/appicon.icns" \
+	  --background "./build/chapar-installer-bk.png" \
+	  --window-pos 300 300 \
+	  --window-size 500 350 \
+	  --icon-size 100 \
+	  --icon "Chapar.app" 125 150 \
+	  --hide-extension "Chapar.app" \
+	  --app-drop-link 375 150 \
+	  "./dist/chapar-$(TAG_NAME)-arm64.dmg" \
+	  "./dist/arm64/Chapar.app"
+
+	create-dmg \
+	  --volname "Chapar Installer" \
+	  --volicon "./build/appicon.icns" \
+	  --background "./build/chapar-installer-bk.png" \
+	  --window-pos 300 300 \
+	  --window-size 500 350 \
+	  --icon-size 100 \
+	  --icon "Chapar.app" 125 150 \
+	  --hide-extension "Chapar.app" \
+	  --app-drop-link 375 150 \
+	  "./dist/chapar-$(TAG_NAME)-amd64.dmg" \
+	  "./dist/amd64/Chapar.app"
+
 
 .PHONY: build_windows
 build_windows:

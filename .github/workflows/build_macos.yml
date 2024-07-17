@@ -23,13 +23,16 @@ jobs:
     - name: Install gogio tool
       run: go install gioui.org/cmd/gogio@latest
 
-    - name: Build macos amd64
-      run: make build_macos
+    - name: Install create-dmg tool
+      run: brew install create-dmg
+
+    - name: Build macos disk images
+      run: make build_macos_dmg
 
     - name: Upload Release Asset
       run: |
-        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_amd64.tar.xz
-        gh release upload ${{github.event.release.tag_name}} ./dist/Chapar_macos_arm64.tar.xz
+        gh release upload ${{github.event.release.tag_name}} ./dist/chapar-${{ github.ref_name }}-amd64.dmg
+        gh release upload ${{github.event.release.tag_name}} ./dist/chapar-${{ github.ref_name }}-arm64.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash
