@@ -12,24 +12,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: 1.22.1
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.22.1
 
-    - name: Install gogio tool
-      run: go install gioui.org/cmd/gogio@latest
+      - name: Install gogio tool
+        run: go install gioui.org/cmd/gogio@latest
 
-    - name: Build windows
-      run: make build_windows
+      - name: Build windows
+        run: make build_windows
 
-    - name: Upload Release Asset
-      run: |
-        gh release upload ${{ github.event.release.tag_name }} ./dist/Chapar_windows_amd64.zip
-        gh release upload ${{ github.event.release.tag_name }} ./dist/Chapar_windows_i386.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      shell: bash
+      - name: Upload Release Asset
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} ./dist/chapar-windows-${{ github.ref_name }}-amd64.zip
+          gh release upload ${{ github.event.release.tag_name }} ./dist/chapar-windows-${{ github.ref_name }}-i386.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash

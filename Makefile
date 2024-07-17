@@ -20,8 +20,8 @@ build_macos: build_macos_app
 .PHONY: build_macos_dmg
 build_macos_dmg: build_macos_app
 	@echo "Building Macos DMG..."
-	rm -rf ./dist/chapar-$(TAG_NAME)-amd64.dmg
-	rm -rf ./dist/chapar-$(TAG_NAME)-arm64.dmg
+	rm -rf ./dist/chapar-macos-$(TAG_NAME)-amd64.dmg
+	rm -rf ./dist/chapar-macos-$(TAG_NAME)-arm64.dmg
 	create-dmg \
 	  --volname "Chapar Installer" \
 	  --volicon "./build/appicon.icns" \
@@ -32,7 +32,7 @@ build_macos_dmg: build_macos_app
 	  --icon "Chapar.app" 125 150 \
 	  --hide-extension "Chapar.app" \
 	  --app-drop-link 375 150 \
-	  "./dist/chapar-$(TAG_NAME)-arm64.dmg" \
+	  "./dist/chapar-macos-$(TAG_NAME)-arm64.dmg" \
 	  "./dist/arm64/Chapar.app"
 
 	create-dmg \
@@ -45,7 +45,7 @@ build_macos_dmg: build_macos_app
 	  --icon "Chapar.app" 125 150 \
 	  --hide-extension "Chapar.app" \
 	  --app-drop-link 375 150 \
-	  "./dist/chapar-$(TAG_NAME)-amd64.dmg" \
+	  "./dist/chapar-macos-$(TAG_NAME)-amd64.dmg" \
 	  "./dist/amd64/Chapar.app"
 
 
@@ -56,8 +56,8 @@ build_windows:
 	gogio -target=windows -arch=amd64 -o dist\amd64\Chapar.exe .
 	gogio -target=windows -arch=386 -o dist\i386\Chapar.exe .
 	rm *.syso
-	powershell -Command "Compress-Archive -Path dist\amd64\Chapar.exe -Destination dist\Chapar_windows_amd64.zip"
-	powershell -Command "Compress-Archive -Path dist\i386\Chapar.exe -Destination dist\Chapar_windows_i386.zip"
+	powershell -Command "Compress-Archive -Path dist\amd64\Chapar.exe -Destination dist\chapar-windows-$(TAG_NAME)-amd64.zip"
+	powershell -Command "Compress-Archive -Path dist\i386\Chapar.exe -Destination dist\chapar-windows-$(TAG_NAME)-i386.zip"
 	rm -rf .\dist\amd64
 	rm -rf .\dist\i386
 
@@ -69,7 +69,7 @@ build_linux:
 	cp ./build/appicon.png ./dist/amd64
 	cp ./LICENSE ./dist/amd64
 	cp -r ./build/desktop-assets ./dist/amd64
-	tar -cJf ./dist/Chapar_linux_amd64.tar.xz --directory=./dist/amd64 chapar desktop-assets install-linux.sh appicon.png ./LICENSE
+	tar -cJf ./dist/chapar-linux-$(TAG_NAME)-amd64.tar.xz --directory=./dist/amd64 chapar desktop-assets install-linux.sh appicon.png ./LICENSE
 	rm -rf ./dist/amd64
 
 .PHONY: run
