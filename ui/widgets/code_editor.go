@@ -28,7 +28,11 @@ const (
 type CodeEditor struct {
 	editor *giovieweditor.Editor
 	code   string
-	lang   string
+
+	styledCode string
+	styles     []*giovieweditor.TextStyle
+
+	lang string
 
 	onChange func(text string)
 
@@ -163,7 +167,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 								Bg:              theme.Bg,
 								SelectionColor:  theme.TextSelectionColor,
 								TypeFace:        c.font.Font.Typeface,
-								TextSize:        unit.Sp(16),
+								TextSize:        unit.Sp(14),
 								LineHeightScale: 1.2,
 								ColorScheme:     "default",
 							}
@@ -211,6 +215,10 @@ var (
 )
 
 func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
+	if c.styledCode == text {
+		return c.styles
+	}
+
 	var styles []*giovieweditor.TextStyle
 
 	// Apply styles based on matches
@@ -237,6 +245,9 @@ func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
 		applyStyles(pythonPattern, pythonKeywordsColor)
 		applyStyles(pythonCommentPattern, commentColor)
 	}
+
+	c.styledCode = text
+	c.styles = styles
 
 	return styles
 }
