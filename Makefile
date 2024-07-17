@@ -4,8 +4,8 @@ APP_NAME="Chapar"
 .PHONY: build_macos_app
 build_macos_app:
 	@echo "Building Macos..."
-	gogio -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
-	gogio -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+	gogio -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
+	gogio -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
 	codesign --force --deep --sign - ./dist/amd64/Chapar.app
 	codesign --force --deep --sign - ./dist/arm64/Chapar.app
 
