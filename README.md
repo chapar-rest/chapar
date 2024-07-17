@@ -22,9 +22,7 @@ Herodus described the Chapar as follows:
 > Herodotus, about 440 BC
 
 ## State of the project
-> GRPC support is added to the project. You can test your GRPC endpoints with Chapar. this change is not released yet. you can build the project from source to test it.
-> 
-Chapar is currently in the early beta phase, with the first release expected soon. The project is under active development, with regular updates and improvements planned to enhance the user experience and functionality.
+Chapar is currently in the early beta phase and under active development, with regular updates and improvements planned to enhance the user experience and functionality.
 
 ## Screenshots
 <div align="center">
