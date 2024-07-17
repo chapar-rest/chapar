@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"gioui.org/font"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
@@ -14,16 +13,22 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/x/richtext"
-
 	giovieweditor "github.com/oligo/gioview/editor"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/fonts"
 )
 
+const (
+	CodeLanguageJSON   = "json"
+	CodeLanguageYAML   = "yaml"
+	CodeLanguagePython = "python"
+)
+
 type CodeEditor struct {
 	editor *giovieweditor.Editor
 	code   string
+	lang   string
 
 	onChange func(text string)
 
@@ -40,12 +45,13 @@ type CodeEditor struct {
 	onLoadExample func()
 }
 
-func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor {
+func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
 	c := &CodeEditor{
 		editor:  new(giovieweditor.Editor),
 		code:    code,
 		font:    fonts.MustGetCodeEditorFont(),
 		rhState: richtext.InteractiveText{},
+		lang:    lang,
 	}
 
 	c.border = widget.Border{
@@ -77,7 +83,8 @@ func (c *CodeEditor) SetCode(code string) {
 	c.code = code
 }
 
-func (c *CodeEditor) SetLanguage(_ string) {
+func (c *CodeEditor) SetLanguage(lang string) {
+	c.lang = lang
 }
 
 func (c *CodeEditor) Code() string {
@@ -85,27 +92,6 @@ func (c *CodeEditor) Code() string {
 }
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
-	for {
-		ev, ok := gtx.Event(
-			key.Filter{
-				Focus: c.editor,
-				Name:  key.NameTab,
-			},
-		)
-		if !ok {
-			break
-		}
-		e, ok := ev.(key.Event)
-		if !ok {
-			continue
-		}
-
-		if e.Name == key.NameTab && e.State == key.Release {
-			c.editor.Insert("    ")
-			break
-		}
-	}
-
 	if ev, ok := c.editor.Update(gtx); ok {
 		if _, ok := ev.(giovieweditor.ChangeEvent); ok {
 			if c.onChange != nil {
@@ -182,7 +168,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 								ColorScheme:     "default",
 							}
 
-							c.editor.UpdateTextStyles(stylingText(c.editor.Text()))
+							c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
 						})
 					}),
@@ -224,7 +210,7 @@ var (
 	pythonCommentPattern         = regexp.MustCompile(`#.*`)
 )
 
-func stylingText(text string) []*giovieweditor.TextStyle {
+func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
 	var styles []*giovieweditor.TextStyle
 
 	// Apply styles based on matches
@@ -239,15 +225,18 @@ func stylingText(text string) []*giovieweditor.TextStyle {
 		}
 	}
 
-	// Apply styles for each JSON element
+	// Always apply the JSON patterns
 	applyStyles(keyPattern, keyColor)
 	applyStyles(stringPattern, stringColor)
 	applyStyles(numberPattern, numberColor)
 	applyStyles(booleanPattern, booleanColor)
 	applyStyles(nullPattern, nullColor)
-	applyStyles(pythonPattern, pythonKeywordsColor)
 	applyStyles(jsonSingleLineCommentPattern, commentColor)
-	applyStyles(pythonCommentPattern, commentColor)
+
+	if c.lang == CodeLanguagePython {
+		applyStyles(pythonPattern, pythonKeywordsColor)
+		applyStyles(pythonCommentPattern, commentColor)
+	}
 
 	return styles
 }
