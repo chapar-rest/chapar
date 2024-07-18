@@ -109,6 +109,7 @@ func (c *CodeEditor) SetOnLoadExample(f func()) {
 func (c *CodeEditor) SetCode(code string) {
 	c.editor.SetText(code, false)
 	c.code = code
+	c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 }
 
 func (c *CodeEditor) SetLanguage(lang string) {
