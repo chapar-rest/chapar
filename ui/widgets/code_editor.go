@@ -1,28 +1,44 @@
 package widgets
 
 import (
-	"fmt"
-	"strings"
+	"image/color"
 
 	"gioui.org/font"
-	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"gioui.org/x/richtext"
+
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
+	giovieweditor "github.com/oligo/gioview/editor"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/fonts"
 )
 
+const (
+	CodeLanguageJSON   = "JSON"
+	CodeLanguageYAML   = "YAML"
+	CodeLanguageXML    = "XML"
+	CodeLanguagePython = "Python"
+)
+
 type CodeEditor struct {
-	editor *widget.Editor
+	editor *giovieweditor.Editor
 	code   string
 
-	lines []string
-	list  *widget.List
+	styledCode string
+	styles     []*giovieweditor.TextStyle
+
+	lexer     chroma.Lexer
+	codeStyle *chroma.Style
+
+	lang string
 
 	onChange func(text string)
 
@@ -39,17 +55,13 @@ type CodeEditor struct {
 	onLoadExample func()
 }
 
-func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor {
+func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
 	c := &CodeEditor{
-		editor: new(widget.Editor),
-		code:   code,
-		list: &widget.List{
-			List: layout.List{
-				Axis: layout.Vertical,
-			},
-		},
+		editor:  new(giovieweditor.Editor),
+		code:    code,
 		font:    fonts.MustGetCodeEditorFont(),
 		rhState: richtext.InteractiveText{},
+		lang:    lang,
 	}
 
 	c.border = widget.Border{
@@ -58,13 +70,28 @@ func NewCodeEditor(code string, _ string, theme *chapartheme.Theme) *CodeEditor 
 		CornerRadius: unit.Dp(4),
 	}
 
-	c.editor.Submit = false
-	c.editor.SingleLine = false
+	c.lexer = getLexer(lang)
+
+	style := styles.Get("dracula")
+	if style == nil {
+		style = styles.Fallback
+	}
+
+	c.codeStyle = style
+
 	c.editor.WrapPolicy = text.WrapGraphemes
-	c.editor.SetText(code)
-	c.lines = strings.Split(code, "\n")
+	c.editor.SetText(code, false)
 
 	return c
+}
+
+func getLexer(lang string) chroma.Lexer {
+	lexer := lexers.Get(lang)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+
+	return chroma.Coalesce(lexer)
 }
 
 func (c *CodeEditor) SetOnChanged(f func(text string)) {
@@ -80,12 +107,15 @@ func (c *CodeEditor) SetOnLoadExample(f func()) {
 }
 
 func (c *CodeEditor) SetCode(code string) {
-	c.editor.SetText(code)
-	c.lines = strings.Split(code, "\n")
+	c.editor.SetText(code, false)
 	c.code = code
+	c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 }
 
-func (c *CodeEditor) SetLanguage(_ string) {
+func (c *CodeEditor) SetLanguage(lang string) {
+	c.lang = lang
+	c.lexer = getLexer(lang)
+	c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 }
 
 func (c *CodeEditor) Code() string {
@@ -93,31 +123,14 @@ func (c *CodeEditor) Code() string {
 }
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
-	for {
-		ev, ok := gtx.Event(
-			key.Filter{
-				Focus: c.editor,
-				Name:  key.NameTab,
-			},
-		)
-		if !ok {
-			break
-		}
-		e, ok := ev.(key.Event)
-		if !ok {
-			continue
-		}
-
-		if e.Name == key.NameTab && e.State == key.Release {
-			c.editor.Insert("    ")
-			break
-		}
+	if c.styledCode == "" {
+		// First time styling
+		c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 	}
 
 	if ev, ok := c.editor.Update(gtx); ok {
-		if _, ok := ev.(widget.ChangeEvent); ok {
-			c.lines = strings.Split(c.editor.Text(), "\n")
-
+		if _, ok := ev.(giovieweditor.ChangeEvent); ok {
+			c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 			if c.onChange != nil {
 				c.onChange(c.editor.Text())
 				c.code = c.editor.Text()
@@ -126,8 +139,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	}
 
 	flexH := layout.Flex{Axis: layout.Horizontal}
-	listInset := layout.Inset{Left: unit.Dp(10), Top: unit.Dp(4)}
-	inset4 := layout.UniformInset(unit.Dp(4))
+
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{
@@ -142,8 +154,8 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 					btn := Button(theme.Material(), &c.loadExample, RefreshIcon, IconPositionStart, "Load Example")
 					btn.Color = theme.ButtonTextColor
 					btn.Inset = layout.Inset{
-						Top: 4, Bottom: 4,
-						Left: 4, Right: 4,
+						Top: unit.Dp(4), Bottom: unit.Dp(4),
+						Left: unit.Dp(4), Right: unit.Dp(4),
 					}
 
 					if c.loadExample.Clicked(gtx) {
@@ -175,28 +187,78 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return c.border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return flexH.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return listInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.List(theme.Material(), c.list).Layout(gtx, len(c.lines), func(gtx layout.Context, i int) layout.Dimensions {
-								l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("%*d", len(fmt.Sprintf("%d", len(c.lines))), i+1))
-								l.Font.Weight = font.Medium
-								l.Color = theme.TextColor
-								l.TextSize = unit.Sp(14)
-								l.Alignment = text.End
-								return l.Layout(gtx)
-							})
-						})
-					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return inset4.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							ee := material.Editor(theme.Material(), c.editor, hint)
-							ee.TextSize = unit.Sp(14)
-							ee.SelectionColor = theme.TextSelectionColor
-							return ee.Layout(gtx)
+						return layout.Inset{
+							Top:    unit.Dp(4),
+							Bottom: unit.Dp(4),
+							Left:   unit.Dp(8),
+							Right:  unit.Dp(4),
+						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							editorConf := &giovieweditor.EditorConf{
+								Shaper:          theme.Shaper,
+								TextColor:       theme.Fg,
+								Bg:              theme.Bg,
+								SelectionColor:  theme.TextSelectionColor,
+								TypeFace:        c.font.Font.Typeface,
+								TextSize:        unit.Sp(14),
+								LineHeightScale: 1.2,
+							}
+
+							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
 						})
 					}),
 				)
 			})
 		}),
 	)
+}
+
+func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
+	if c.styledCode == text {
+		return c.styles
+	}
+
+	// nolint:prealloc
+	var textStyles []*giovieweditor.TextStyle
+
+	offset := 0
+
+	iterator, err := c.lexer.Tokenise(nil, text)
+	if err != nil {
+		return textStyles
+	}
+
+	for _, token := range iterator.Tokens() {
+		entry := c.codeStyle.Get(token.Type)
+
+		textStyle := &giovieweditor.TextStyle{
+			Start: offset,
+			End:   offset + len([]rune(token.Value)),
+		}
+
+		if entry.Colour.IsSet() {
+			textStyle.Color = colorToOp(entry.Colour)
+		}
+
+		textStyles = append(textStyles, textStyle)
+		offset = textStyle.End
+	}
+
+	c.styledCode = text
+	c.styles = textStyles
+
+	return textStyles
+}
+
+func colorToOp(textColor chroma.Colour) op.CallOp {
+	ops := new(op.Ops)
+
+	m := op.Record(ops)
+	paint.ColorOp{Color: color.NRGBA{
+		R: textColor.Red(),
+		G: textColor.Green(),
+		B: textColor.Blue(),
+		A: 0xff,
+	}}.Add(ops)
+	return m.Stop()
 }

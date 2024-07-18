@@ -37,10 +37,9 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 			widgets.NewDropDownOption("Binary").WithValue(domain.BodyTypeBinary),
 			widgets.NewDropDownOption("Urlencoded").WithValue(domain.BodyTypeUrlencoded),
 		),
-		FormData: component.NewFormData(theme),
-		// formData:   widgets.NewKeyValue(),
+		FormData:   component.NewFormData(theme),
 		urlencoded: widgets.NewKeyValue(),
-		script:     widgets.NewCodeEditor("", "JSON", theme),
+		script:     widgets.NewCodeEditor("", widgets.CodeLanguageJSON, theme),
 		BinaryFile: widgets.NewBinaryFile(""),
 	}
 
