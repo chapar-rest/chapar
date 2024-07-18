@@ -2,8 +2,6 @@ package widgets
 
 import (
 	"image/color"
-	"regexp"
-	"strings"
 
 	"gioui.org/font"
 	"gioui.org/layout"
@@ -13,6 +11,10 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/x/richtext"
+
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
 	giovieweditor "github.com/oligo/gioview/editor"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
@@ -20,9 +22,10 @@ import (
 )
 
 const (
-	CodeLanguageJSON   = "json"
-	CodeLanguageYAML   = "yaml"
-	CodeLanguagePython = "python"
+	CodeLanguageJSON   = "JSON"
+	CodeLanguageYAML   = "YAML"
+	CodeLanguageXML    = "XML"
+	CodeLanguagePython = "Python"
 )
 
 type CodeEditor struct {
@@ -31,6 +34,9 @@ type CodeEditor struct {
 
 	styledCode string
 	styles     []*giovieweditor.TextStyle
+
+	lexer     chroma.Lexer
+	codeStyle *chroma.Style
 
 	lang string
 
@@ -64,10 +70,28 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 		CornerRadius: unit.Dp(4),
 	}
 
+	c.lexer = getLexer(lang)
+
+	style := styles.Get("dracula")
+	if style == nil {
+		style = styles.Fallback
+	}
+
+	c.codeStyle = style
+
 	c.editor.WrapPolicy = text.WrapGraphemes
 	c.editor.SetText(code, false)
 
 	return c
+}
+
+func getLexer(lang string) chroma.Lexer {
+	lexer := lexers.Get(lang)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+
+	return chroma.Coalesce(lexer)
 }
 
 func (c *CodeEditor) SetOnChanged(f func(text string)) {
@@ -89,6 +113,7 @@ func (c *CodeEditor) SetCode(code string) {
 
 func (c *CodeEditor) SetLanguage(lang string) {
 	c.lang = lang
+	c.lexer = getLexer(lang)
 }
 
 func (c *CodeEditor) Code() string {
@@ -96,8 +121,14 @@ func (c *CodeEditor) Code() string {
 }
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
+	if c.styledCode == "" {
+		// First time styling
+		c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+	}
+
 	if ev, ok := c.editor.Update(gtx); ok {
 		if _, ok := ev.(giovieweditor.ChangeEvent); ok {
+			c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 			if c.onChange != nil {
 				c.onChange(c.editor.Text())
 				c.code = c.editor.Text()
@@ -169,10 +200,8 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 								TypeFace:        c.font.Font.Typeface,
 								TextSize:        unit.Sp(14),
 								LineHeightScale: 1.2,
-								ColorScheme:     "default",
 							}
 
-							c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
 						})
 					}),
@@ -182,80 +211,52 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	)
 }
 
-var (
-	// List of Python keywords
-	keywords = []string{
-		"False", "await", "else", "import", "pass",
-		"None", "break", "except", "in", "raise",
-		"True", "class", "finally", "is", "return",
-		"and", "continue", "for", "lambda", "try",
-		"as", "def", "from", "nonlocal", "while",
-		"assert", "del", "global", "not", "with",
-		"async", "elif", "if", "or", "yield",
-	}
-	keyColor     = color.NRGBA{R: 255, G: 165, B: 0, A: 255}   // Orange
-	stringColor  = color.NRGBA{R: 42, G: 161, B: 152, A: 255}  // #2aa198
-	numberColor  = color.NRGBA{R: 42, G: 161, B: 152, A: 255}  // #2aa198
-	booleanColor = color.NRGBA{R: 128, G: 0, B: 128, A: 255}   // Purple
-	nullColor    = color.NRGBA{R: 128, G: 128, B: 128, A: 255} // Gray
-	commentColor = color.NRGBA{R: 88, G: 110, B: 117, A: 255}  // #586e75
-	// Define colors for different JSON elements
-	pythonKeywordsColor = color.NRGBA{R: 255, G: 165, B: 0, A: 255} // Orange
-
-	pythonPattern = regexp.MustCompile(`\b(` + strings.Join(keywords, "|") + `)\b`)
-
-	// Define regex patterns for different JSON elements
-	keyPattern                   = regexp.MustCompile(`"(\\\"|[^"])*"\s*:`)
-	stringPattern                = regexp.MustCompile(`"(\\\"|[^"])*"`)
-	numberPattern                = regexp.MustCompile(`\b\d+(\.\d+)?([eE][+-]?\d+)?\b`)
-	booleanPattern               = regexp.MustCompile(`\btrue\b|\bfalse\b`)
-	nullPattern                  = regexp.MustCompile(`\bnull\b`)
-	jsonSingleLineCommentPattern = regexp.MustCompile(`//.*`)
-	pythonCommentPattern         = regexp.MustCompile(`#.*`)
-)
-
 func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
 	if c.styledCode == text {
 		return c.styles
 	}
 
-	var styles []*giovieweditor.TextStyle
+	// nolint:prealloc
+	var textStyles []*giovieweditor.TextStyle
 
-	// Apply styles based on matches
-	applyStyles := func(re *regexp.Regexp, col color.NRGBA) {
-		matches := re.FindAllStringIndex(text, -1)
-		for _, match := range matches {
-			styles = append(styles, &giovieweditor.TextStyle{
-				Start: match[0],
-				End:   match[1],
-				Color: colorToOp(col),
-			})
-		}
+	offset := 0
+
+	iterator, err := c.lexer.Tokenise(nil, text)
+	if err != nil {
+		return textStyles
 	}
 
-	// Always apply the JSON patterns
-	applyStyles(keyPattern, keyColor)
-	applyStyles(stringPattern, stringColor)
-	applyStyles(numberPattern, numberColor)
-	applyStyles(booleanPattern, booleanColor)
-	applyStyles(nullPattern, nullColor)
-	applyStyles(jsonSingleLineCommentPattern, commentColor)
+	for _, token := range iterator.Tokens() {
+		entry := c.codeStyle.Get(token.Type)
 
-	if c.lang == CodeLanguagePython {
-		applyStyles(pythonPattern, pythonKeywordsColor)
-		applyStyles(pythonCommentPattern, commentColor)
+		textStyle := &giovieweditor.TextStyle{
+			Start: offset,
+			End:   offset + len([]rune(token.Value)),
+		}
+
+		if entry.Colour.IsSet() {
+			textStyle.Color = colorToOp(entry.Colour)
+		}
+
+		textStyles = append(textStyles, textStyle)
+		offset = textStyle.End
 	}
 
 	c.styledCode = text
-	c.styles = styles
+	c.styles = textStyles
 
-	return styles
+	return textStyles
 }
 
-func colorToOp(textColor color.NRGBA) op.CallOp {
+func colorToOp(textColor chroma.Colour) op.CallOp {
 	ops := new(op.Ops)
 
 	m := op.Record(ops)
-	paint.ColorOp{Color: textColor}.Add(ops)
+	paint.ColorOp{Color: color.NRGBA{
+		R: textColor.Red(),
+		G: textColor.Green(),
+		B: textColor.Blue(),
+		A: 0xff,
+	}}.Add(ops)
 	return m.Stop()
 }

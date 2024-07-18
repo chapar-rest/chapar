@@ -41,7 +41,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			{Title: "Settings"},
 		}, nil),
 		ServerInfo: NewServerInfo(req.Spec.GRPC.ServerInfo),
-		Body:       widgets.NewCodeEditor(req.Spec.GRPC.Body, "JSON", theme),
+		Body:       widgets.NewCodeEditor(req.Spec.GRPC.Body, widgets.CodeLanguageJSON, theme),
 		Metadata: widgets.NewKeyValue(
 			converter.WidgetItemsFromKeyValue(req.Spec.GRPC.Metadata)...,
 		),
