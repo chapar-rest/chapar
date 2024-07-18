@@ -669,7 +669,12 @@ func (c *Controller) onTreeViewMenuClicked(id, action string) {
 			c.deleteCollection(id)
 		}
 	case MenuAddHTTPRequest, MenuAddGRPCRequest:
-		c.addRequestToCollection(id, action)
+		requestType := domain.RequestTypeHTTP
+		if action == MenuAddGRPCRequest {
+			requestType = domain.RequestTypeGRPC
+		}
+
+		c.addRequestToCollection(id, requestType)
 	case MenuView:
 		if nodeType == TypeCollection {
 			c.viewCollection(id)
@@ -704,15 +709,13 @@ func (c *Controller) addRequestToCollection(id string, requestType string) {
 	req.CollectionName = col.MetaData.Name
 
 	c.model.AddRequest(req)
-	c.model.AddRequestToCollection(col, req)
-	c.saveRequestToDisc(req.MetaData.ID)
-
 	c.view.AddChildTreeViewNode(col.MetaData.ID, req)
+	c.saveRequestToDisc(req.MetaData.ID)
+	c.model.AddRequestToCollection(col, req)
 	c.view.ExpandTreeViewNode(col.MetaData.ID)
-	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
-
 	clone, _ := domain.Clone[domain.Request](req)
-	clone.MetaData.ID = id
+	clone.MetaData.ID = req.MetaData.ID
+	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
 	c.view.OpenRequestContainer(clone)
 	c.view.SwitchToTab(req.MetaData.ID)
 }
