@@ -115,6 +115,7 @@ func (c *CodeEditor) SetCode(code string) {
 func (c *CodeEditor) SetLanguage(lang string) {
 	c.lang = lang
 	c.lexer = getLexer(lang)
+	c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 }
 
 func (c *CodeEditor) Code() string {
