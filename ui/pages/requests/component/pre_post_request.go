@@ -220,12 +220,20 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				label := "Key"
+				hint := "e.g. name"
+				if p.setEnvForm.fromDropDown.GetSelected().Value == domain.PostRequestSetFromResponseBody {
+					label = "JSON Path"
+					hint = "e.g. $.data[0].name"
+				}
+
 				lb := &widgets.LabeledInput{
-					Label:          "Path/Key",
+					Label:          label,
 					SpaceBetween:   5,
 					MinEditorWidth: unit.Dp(150),
 					MinLabelWidth:  unit.Dp(80),
 					Editor:         &p.setEnvForm.fromEditor,
+					Hint:           hint,
 				}
 				return lb.Layout(gtx, theme)
 			})
