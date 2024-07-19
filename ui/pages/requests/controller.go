@@ -660,7 +660,11 @@ func (c *Controller) onTreeViewMenuClicked(id, action string) {
 
 	switch action {
 	case MenuDuplicate:
-		c.duplicateRequest(id)
+		if nodeType == TypeCollection {
+			c.duplicateCollection(id)
+		} else {
+			c.duplicateRequest(id)
+		}
 	case MenuDelete:
 		switch nodeType {
 		case TypeRequest:
@@ -755,6 +759,49 @@ func (c *Controller) viewCollection(id string) {
 
 	c.view.OpenTab(col.MetaData.ID, col.MetaData.Name, TypeCollection)
 	c.view.OpenCollectionContainer(col)
+}
+
+func (c *Controller) duplicateCollection(id string) {
+	col := c.model.GetCollection(id)
+	if col == nil {
+		return
+	}
+
+	colClone := col.Clone()
+	colClone.MetaData.Name += " (copy)"
+
+	dirPath, err := c.repo.GetNewCollectionDir(colClone.MetaData.Name)
+	if err != nil {
+		fmt.Println("failed to get new collection dir", err)
+		return
+	}
+
+	colClone.FilePath = dirPath.Path
+	colClone.MetaData.Name = dirPath.NewName
+	c.model.AddCollection(colClone)
+	c.view.AddCollectionTreeViewNode(colClone)
+	requests := colClone.Spec.Requests
+	colClone.Spec.Requests = nil
+	c.saveCollectionToDisc(colClone.MetaData.ID)
+	colClone.Spec.Requests = requests
+
+	for _, req := range requests {
+		reqClone := req.Clone()
+
+		newFilePath, err := c.repo.GetCollectionRequestNewFilePath(colClone, reqClone.MetaData.Name)
+		if err != nil {
+			fmt.Printf("failed to get new file path, err %v\n", err)
+			return
+		}
+
+		reqClone.FilePath = newFilePath.Path
+		reqClone.MetaData.Name = newFilePath.NewName
+		reqClone.CollectionID = colClone.MetaData.ID
+		reqClone.CollectionName = colClone.MetaData.Name
+		c.model.AddRequest(reqClone)
+		c.view.AddChildTreeViewNode(colClone.MetaData.ID, reqClone)
+		c.saveRequestToDisc(reqClone.MetaData.ID)
+	}
 }
 
 func (c *Controller) duplicateRequest(id string) {
