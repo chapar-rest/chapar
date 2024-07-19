@@ -767,38 +767,40 @@ func (c *Controller) duplicateCollection(id string) {
 		return
 	}
 
-	newCol := col.Clone()
-	newCol.MetaData.Name += " (copy)"
+	colClone := col.Clone()
+	colClone.MetaData.Name += " (copy)"
 
-	dirPath, err := c.repo.GetNewCollectionDir(newCol.MetaData.Name)
+	dirPath, err := c.repo.GetNewCollectionDir(colClone.MetaData.Name)
 	if err != nil {
 		fmt.Println("failed to get new collection dir", err)
 		return
 	}
 
-	newCol.FilePath = dirPath.Path
-	newCol.MetaData.Name = dirPath.NewName
-	c.model.AddCollection(newCol)
-	c.view.AddCollectionTreeViewNode(newCol)
-	requests := newCol.Spec.Requests
-	newCol.Spec.Requests = nil
-	c.saveCollectionToDisc(newCol.MetaData.ID)
-	newCol.Spec.Requests = requests
+	colClone.FilePath = dirPath.Path
+	colClone.MetaData.Name = dirPath.NewName
+	c.model.AddCollection(colClone)
+	c.view.AddCollectionTreeViewNode(colClone)
+	requests := colClone.Spec.Requests
+	colClone.Spec.Requests = nil
+	c.saveCollectionToDisc(colClone.MetaData.ID)
+	colClone.Spec.Requests = requests
 
 	for _, req := range requests {
-		newFilePath, err := c.repo.GetCollectionRequestNewFilePath(newCol, req.MetaData.Name)
+		reqClone := req.Clone()
+
+		newFilePath, err := c.repo.GetCollectionRequestNewFilePath(colClone, reqClone.MetaData.Name)
 		if err != nil {
 			fmt.Printf("failed to get new file path, err %v\n", err)
 			return
 		}
 
-		req.FilePath = newFilePath.Path
-		req.MetaData.Name = newFilePath.NewName
-		req.CollectionID = newCol.MetaData.ID
-		req.CollectionName = newCol.MetaData.Name
-		c.model.AddRequest(req)
-		c.view.AddChildTreeViewNode(newCol.MetaData.ID, req)
-		c.saveRequestToDisc(req.MetaData.ID)
+		reqClone.FilePath = newFilePath.Path
+		reqClone.MetaData.Name = newFilePath.NewName
+		reqClone.CollectionID = colClone.MetaData.ID
+		reqClone.CollectionName = colClone.MetaData.Name
+		c.model.AddRequest(reqClone)
+		c.view.AddChildTreeViewNode(colClone.MetaData.ID, reqClone)
+		c.saveRequestToDisc(reqClone.MetaData.ID)
 	}
 }
 
