@@ -13,7 +13,6 @@ import (
 )
 
 type AddressBar struct {
-	//url *widget.Editor
 	url *widgets.PatternEditor
 
 	lastSelectedMethod string
@@ -28,7 +27,6 @@ type AddressBar struct {
 
 func NewAddressBar(theme *chapartheme.Theme, address, method string) *AddressBar {
 	a := &AddressBar{
-		//url:                &widget.Editor{},
 		url:                widgets.NewPatternEditor(),
 		methodDropDown:     widgets.NewDropDownWithoutBorder(theme),
 		lastSelectedMethod: method,

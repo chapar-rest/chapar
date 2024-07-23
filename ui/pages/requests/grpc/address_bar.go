@@ -13,7 +13,7 @@ import (
 
 type AddressBar struct {
 	theme         *chapartheme.Theme
-	serverAddress *widget.Editor
+	serverAddress *widgets.PatternEditor
 
 	lastSelectedMethod string
 	methodDropDown     *widgets.DropDown
@@ -28,7 +28,7 @@ type AddressBar struct {
 func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string, services []domain.GRPCService) *AddressBar {
 	a := &AddressBar{
 		theme:              theme,
-		serverAddress:      &widget.Editor{},
+		serverAddress:      widgets.NewPatternEditor(),
 		methodDropDown:     widgets.NewDropDownWithoutBorder(theme),
 		lastSelectedMethod: lastSelectedMethod,
 	}
@@ -70,6 +70,7 @@ func (a *AddressBar) SetSelectedMethod(method string) {
 
 func (a *AddressBar) SetOnServerAddressChanged(onServerAddressChanged func(url string)) {
 	a.onServerAddressChanged = onServerAddressChanged
+	a.serverAddress.SetOnChanged(onServerAddressChanged)
 }
 
 func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
@@ -78,6 +79,7 @@ func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
 
 func (a *AddressBar) SetOnSubmit(onSubmit func()) {
 	a.onSubmit = onSubmit
+	a.serverAddress.SetOnSubmit(onSubmit)
 }
 
 func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -90,27 +92,6 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		Color:        borderColor,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
-	}
-
-	for {
-		event, ok := a.serverAddress.Update(gtx)
-		if !ok {
-			break
-		}
-
-		switch event.(type) {
-		// on carriage return event
-		case widget.SubmitEvent:
-			if a.onSubmit != nil {
-				// goroutine to prevent blocking the ui update
-				go a.onSubmit()
-			}
-		// on change event
-		case widget.ChangeEvent:
-			if a.onServerAddressChanged != nil {
-				a.onServerAddressChanged(a.serverAddress.Text())
-			}
-		}
 	}
 
 	methodSelected := a.methodDropDown.GetSelected().GetValue()
@@ -135,11 +116,8 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 					}.Layout(gtx,
 						layout.Flexed(0.3, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.Y = gtx.Dp(20)
-								editor := material.Editor(theme.Material(), a.serverAddress, "localhost:8080")
-								editor.SelectionColor = theme.TextSelectionColor
-								editor.TextSize = unit.Sp(14)
-								return editor.Layout(gtx)
+								gtx.Constraints.Max.Y = gtx.Dp(20)
+								return a.serverAddress.Layout(gtx, theme, "localhost:8080")
 							})
 						}),
 						widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(20), unit.Dp(1)),
