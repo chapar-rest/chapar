@@ -1,14 +1,14 @@
 eliasnaur.com/font v0.0.0-20230308162249-dd43949cb42d h1:ARo7NCVvN2NdhLlJE9xAbKweuI9L6UgfTbYb0YwPacY=
 eliasnaur.com/font v0.0.0-20230308162249-dd43949cb42d/go.mod h1:OYVuxibdk9OSLX8vAqydtRPP87PyTFcT9uH3MlEGBQA=
-gioui.org v0.7.0 h1:5I+7Uu2yjTu7W5p7HWQrgsDPO3vex+8T1DsvCLGBfuI=
-gioui.org v0.7.0/go.mod h1:19wZxaNP+eHN4H2YdZwEfbkAAgoYB5rcIbDHo4BqUl4=
+gioui.org v0.7.1 h1:l7OVj47n1z8acaszQ6Wlu+Rxme+HqF3q8b+Fs68+x3w=
+gioui.org v0.7.1/go.mod h1:5Kw/q7R1BWc5MKStuTNvhCgSrRqbfHc9Dzfjs4IGgZo=
 gioui.org/cpu v0.0.0-20210808092351-bfe733dd3334/go.mod h1:A8M0Cn5o+vY5LTMlnRoK3O5kG+rH0kWfJjeKd9QpBmQ=
 gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 h1:tNJdnP5CgM39PRc+KWmBRRYX/zJ+rd5XaYxY5d5veqA=
 gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7/go.mod h1:A8M0Cn5o+vY5LTMlnRoK3O5kG+rH0kWfJjeKd9QpBmQ=
 gioui.org/shader v1.0.8 h1:6ks0o/A+b0ne7RzEqRZK5f4Gboz2CfG+mVliciy6+qA=
 gioui.org/shader v1.0.8/go.mod h1:mWdiME581d/kV7/iEhLmUgUK5iZ09XR5XpduXzbePVM=
-gioui.org/x v0.7.0 h1:8rkLfy4MAHM+MgEv8IUwRcmB9rxJqYnRzbuOJqXzG6Y=
-gioui.org/x v0.7.0/go.mod h1:zJdmUbD5PuGHL8fzX0kehLTZ6TmIvfo6mg10sW54dsU=
+gioui.org/x v0.7.1 h1:7bnQHsV7qB36tIUit2WDcUx4Cnmo+6T9I38B9brLQ7o=
+gioui.org/x v0.7.1/go.mod h1:5CzZ64oFpOaqb2kaMvj+QEr5T3nVuLKD0LizLH32ii0=
 git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 h1:bGG/g4ypjrCJoSvFrP5hafr9PPB5aw8SjcOWWila7ZI=
 git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0/go.mod h1:+axXBRUTIDlCeE73IKeD/os7LoEnTKdkp8/gQOFjqyo=
 github.com/PaesslerAG/gval v1.0.0/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
@@ -25,6 +25,8 @@ github.com/alecthomas/repr v0.4.0 h1:GhI2A8MACjfegCPVq9f1FLvIBS+DrQ2KQBFZP1iFzXc
 github.com/alecthomas/repr v0.4.0/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
 github.com/bufbuild/protocompile v0.10.0 h1:+jW/wnLMLxaCEG8AX9lD0bQ5v9h1RUiMKOBOT5ll9dM=
 github.com/bufbuild/protocompile v0.10.0/go.mod h1:G9qQIQo0xZ6Uyj6CMNz0saGmx2so+KONo8/KrELABiY=
+github.com/chapar-rest/gioview v0.0.0-20240723182624-62796be97fa8 h1:QFuI/mlc4ujRn4zfLTdn7VvJMUaZtS8gSrob7+CtPow=
+github.com/chapar-rest/gioview v0.0.0-20240723182624-62796be97fa8/go.mod h1:WEa28vrpnPfZnhYL14tAWdsM4kvcW7NUlYLTE/Xbefo=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dlclark/regexp2 v1.11.0 h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxKI=
@@ -47,8 +49,6 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/jhump/protoreflect v1.16.0 h1:54fZg+49widqXYQ0b+usAFHbMkBGR4PpXrsHc8+TBDg=
 github.com/jhump/protoreflect v1.16.0/go.mod h1:oYPd7nPvcBw/5wlDfm/AVmU9zH9BgqGCI469pGxfj/8=
-github.com/oligo/gioview v0.4.1-0.20240715092046-997b87ed0255 h1:ao+r5gHJoc+A0CA0fAXFyc/RURb8lvIeWuuRHj70QKY=
-github.com/oligo/gioview v0.4.1-0.20240715092046-997b87ed0255/go.mod h1:WEa28vrpnPfZnhYL14tAWdsM4kvcW7NUlYLTE/Xbefo=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=

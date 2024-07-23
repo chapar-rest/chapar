@@ -1,4 +1,4 @@
-# gioui.org v0.7.0
+# gioui.org v0.7.1
 ## explicit; go 1.21
 gioui.org/app
 gioui.org/app/internal/windows
@@ -51,13 +51,11 @@ gioui.org/cpu
 gioui.org/shader
 gioui.org/shader/gio
 gioui.org/shader/piet
-# gioui.org/x v0.7.0
+# gioui.org/x v0.7.1
 ## explicit; go 1.21
 gioui.org/x/component
 gioui.org/x/explorer
 gioui.org/x/outlay
-gioui.org/x/richtext
-gioui.org/x/styledtext
 # git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0
 ## explicit; go 1.14
 git.wow.st/gmp/jni
@@ -126,7 +124,7 @@ github.com/jhump/protoreflect/desc/protoparse/ast
 github.com/jhump/protoreflect/desc/sourceinfo
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
-# github.com/oligo/gioview v0.4.1-0.20240715092046-997b87ed0255
+# github.com/oligo/gioview v0.4.1-0.20240715092046-997b87ed0255 => github.com/chapar-rest/gioview v0.0.0-20240723182624-62796be97fa8
 ## explicit; go 1.21.4
 github.com/oligo/gioview/editor
 # github.com/shopspring/decimal v1.3.1

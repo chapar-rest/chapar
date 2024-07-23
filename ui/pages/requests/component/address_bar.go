@@ -13,7 +13,8 @@ import (
 )
 
 type AddressBar struct {
-	url *widget.Editor
+	//url *widget.Editor
+	url *widgets.PatternEditor
 
 	lastSelectedMethod string
 	methodDropDown     *widgets.DropDown
@@ -27,7 +28,8 @@ type AddressBar struct {
 
 func NewAddressBar(theme *chapartheme.Theme, address, method string) *AddressBar {
 	a := &AddressBar{
-		url:                &widget.Editor{},
+		//url:                &widget.Editor{},
+		url:                widgets.NewPatternEditor(),
 		methodDropDown:     widgets.NewDropDownWithoutBorder(theme),
 		lastSelectedMethod: method,
 	}
@@ -55,6 +57,7 @@ func (a *AddressBar) SetSelectedMethod(method string) {
 
 func (a *AddressBar) SetOnURLChanged(onURLChanged func(url string)) {
 	a.onURLChanged = onURLChanged
+	a.url.SetOnChanged(onURLChanged)
 }
 
 func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
@@ -66,6 +69,7 @@ func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
 
 func (a *AddressBar) SetOnSubmit(onSubmit func()) {
 	a.onSubmit = onSubmit
+	a.url.SetOnSubmit(onSubmit)
 }
 
 func (a *AddressBar) SetURL(url string) {
@@ -82,27 +86,6 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		Color:        borderColor,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
-	}
-
-	for {
-		event, ok := a.url.Update(gtx)
-		if !ok {
-			break
-		}
-
-		switch event.(type) {
-		// on carriage return event
-		case widget.SubmitEvent:
-			if a.onSubmit != nil {
-				// goroutine to prevent blocking the ui update
-				go a.onSubmit()
-			}
-		// on change event
-		case widget.ChangeEvent:
-			if a.onURLChanged != nil {
-				a.onURLChanged(a.url.Text())
-			}
-		}
 	}
 
 	if a.methodDropDown.GetSelected().Text != a.lastSelectedMethod {
@@ -131,11 +114,8 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 						widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(20), unit.Dp(1)),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.Y = gtx.Dp(20)
-								editor := material.Editor(theme.Material(), a.url, "https://example.com")
-								editor.SelectionColor = theme.TextSelectionColor
-								editor.TextSize = unit.Sp(14)
-								return editor.Layout(gtx)
+								gtx.Constraints.Max.Y = gtx.Dp(20)
+								return a.url.Layout(gtx, theme, "https://example.com")
 							})
 						}),
 					)

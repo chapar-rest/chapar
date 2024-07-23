@@ -3,8 +3,8 @@ module github.com/chapar-rest/chapar
 go 1.22.1
 
 require (
-	gioui.org v0.7.0
-	gioui.org/x v0.7.0
+	gioui.org v0.7.1
+	gioui.org/x v0.7.1
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/dustin/go-humanize v1.0.1
@@ -36,3 +36,5 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 )
+
+replace github.com/oligo/gioview v0.4.1-0.20240715092046-997b87ed0255 => github.com/chapar-rest/gioview v0.0.0-20240723182624-62796be97fa8

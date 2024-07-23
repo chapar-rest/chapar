@@ -42,7 +42,13 @@ type Editor struct {
 	// LineHeightScale is multiplied by LineHeight to determine the final gap
 	// between baselines. If zero, a sensible default will be used.
 	LineHeightScale float32
-
+	// SingleLine force the text to stay on a single line.
+	// SingleLine also sets the scrolling direction to
+	// horizontal.
+	SingleLine bool
+	// Submit enabled translation of carriage return keys to SubmitEvents.
+	// If not enabled, carriage returns are inserted as newlines in the text.
+	Submit bool
 	// ReadOnly controls whether the contents of the editor can be altered by
 	// user interaction. If set to true, the editor will allow selecting text
 	// and copying it interactively, but not modifying it.
@@ -117,6 +123,12 @@ type EditorEvent interface {
 // A ChangeEvent is generated for every user change to the text.
 type ChangeEvent struct{}
 
+// A SubmitEvent is generated when Submit is set
+// and a carriage return key is pressed.
+type SubmitEvent struct {
+	Text string
+}
+
 // A SelectEvent is generated when the user selects some text, or changes the
 // selection (e.g. with a shift-click), including if they remove the
 // selection. The selected text is not part of the event, on the theory that
@@ -163,22 +175,40 @@ func (e *Editor) processEvents(gtx layout.Context) (ev EditorEvent, ok bool) {
 func (e *Editor) processPointer(gtx layout.Context) (EditorEvent, bool) {
 	sbounds := e.text.ScrollBounds()
 	var smin, smax int
-	axis := gesture.Vertical
+	var axis gesture.Axis
+	if e.SingleLine {
+		axis = gesture.Horizontal
+		smin, smax = sbounds.Min.X, sbounds.Max.X
+	} else {
+		axis = gesture.Vertical
+		smin, smax = sbounds.Min.Y, sbounds.Max.Y
+	}
+
 	smin, smax = sbounds.Min.Y, sbounds.Max.Y
 
 	var scrollX, scrollY pointer.ScrollRange
 	textDims := e.text.FullDimensions()
 	visibleDims := e.text.Dimensions()
 
-	scrollOffY := e.text.ScrollOff().Y
-	scrollY.Min = -scrollOffY
-	scrollY.Max = max(0, textDims.Size.Y-(scrollOffY+visibleDims.Size.Y))
+	if e.SingleLine {
+		scrollOffX := e.text.ScrollOff().X
+		scrollX.Min = min(-scrollOffX, 0)
+		scrollX.Max = max(0, textDims.Size.X-(scrollOffX+visibleDims.Size.X))
+	} else {
+		scrollOffY := e.text.ScrollOff().Y
+		scrollY.Min = -scrollOffY
+		scrollY.Max = max(0, textDims.Size.Y-(scrollOffY+visibleDims.Size.Y))
+	}
 
 	sdist := e.scroller.Update(gtx.Metric, gtx.Source, gtx.Now, axis, scrollX, scrollY)
 	var soff int
-
-	e.text.ScrollRel(0, sdist)
-	soff = e.text.ScrollOff().Y
+	if e.SingleLine {
+		e.text.ScrollRel(sdist, 0)
+		soff = e.text.ScrollOff().X
+	} else {
+		e.text.ScrollRel(0, sdist)
+		soff = e.text.ScrollOff().Y
+	}
 
 	for {
 		evt, ok := e.clicker.Update(gtx.Source)
@@ -334,6 +364,14 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			if !gtx.Focused(e) || ke.State != key.Press {
 				break
 			}
+			if !e.ReadOnly && e.Submit && (ke.Name == key.NameReturn || ke.Name == key.NameEnter) {
+				if !ke.Modifiers.Contain(key.ModShift) {
+					e.scratch = e.text.Text(e.scratch)
+					return SubmitEvent{
+						Text: string(e.scratch),
+					}, true
+				}
+			}
 			e.scrollCaret = true
 			e.scroller.Stop()
 			ev, ok := e.command(gtx, ke)
@@ -349,10 +387,33 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			e.scrollCaret = true
 			e.scroller.Stop()
 			s := ke.Text
-			moves := e.replace(ke.Range.Start, ke.Range.End, s, true)
+			moves := 0
+			submit := false
+			switch {
+			case e.Submit:
+				if i := strings.IndexByte(s, '\n'); i != -1 {
+					submit = true
+					moves += len(s) - i
+					s = s[:i]
+				}
+			case e.SingleLine:
+				s = strings.ReplaceAll(s, "\n", " ")
+			}
+			moves = e.replace(ke.Range.Start, ke.Range.End, s, true)
 			adjust += utf8.RuneCountInString(ke.Text) - moves
 			// Reset caret xoff.
 			e.text.MoveCaret(0, 0)
+			if submit {
+				e.scratch = e.text.Text(e.scratch)
+				submitEvent := SubmitEvent{
+					Text: string(e.scratch),
+				}
+				if e.text.Changed() {
+					e.pending = append(e.pending, submitEvent)
+					return ChangeEvent{}, true
+				}
+				return submitEvent, true
+			}
 		// Complete a paste event, initiated by Shortcut-V in Editor.command().
 		case transfer.DataEvent:
 			e.scrollCaret = true
@@ -507,6 +568,7 @@ func (e *Editor) initBuffer() {
 	e.text.LineHeight = e.LineHeight
 	e.text.LineHeightScale = e.LineHeightScale
 	e.text.WrapPolicy = e.WrapPolicy
+	e.text.SingleLine = e.SingleLine
 }
 
 // Update the state of the editor in response to input events. Update consumes editor
@@ -681,6 +743,9 @@ func (e *Editor) Text() string {
 
 func (e *Editor) SetText(s string, addHistory bool) {
 	e.initBuffer()
+	if e.SingleLine {
+		s = strings.ReplaceAll(s, "\n", " ")
+	}
 	// disable history when loading doc. In other case history might be required
 	e.replace(0, e.text.Len(), s, addHistory)
 	// Reset xoff and move the caret to the beginning.
@@ -729,6 +794,9 @@ func (e *Editor) Delete(graphemeClusters int) (deletedRunes int) {
 
 func (e *Editor) Insert(s string) (insertedRunes int) {
 	e.initBuffer()
+	if e.SingleLine {
+		s = strings.ReplaceAll(s, "\n", " ")
+	}
 	start, end := e.text.Selection()
 	moves := e.replace(start, end, s, true)
 	if end < start {
@@ -1039,3 +1107,4 @@ func sign(n int) int {
 
 func (s ChangeEvent) isEditorEvent() {}
 func (s SelectEvent) isEditorEvent() {}
+func (s SubmitEvent) isEditorEvent() {}
