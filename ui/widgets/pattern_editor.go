@@ -102,7 +102,7 @@ func (p *PatternEditor) updateStyles(text string) {
 
 	keyColor := color.NRGBA{R: 255, G: 165, B: 0, A: 255}
 	// Apply styles based on matches
-	applyStyles := func(re *regexp.Regexp, col color.NRGBA) {
+	applyStyles := func(re *regexp.Regexp) {
 		matches := re.FindAllStringIndex(text, -1)
 		for _, match := range matches {
 			styles = append(styles, &giovieweditor.TextStyle{
@@ -113,8 +113,8 @@ func (p *PatternEditor) updateStyles(text string) {
 		}
 	}
 
-	applyStyles(singleBracket, keyColor)
-	applyStyles(doubleBracket, keyColor)
+	applyStyles(singleBracket)
+	applyStyles(doubleBracket)
 
 	p.styledText = text
 	p.Editor.UpdateTextStyles(styles)
