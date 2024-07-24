@@ -116,7 +116,6 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 					}.Layout(gtx,
 						layout.Flexed(0.3, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Max.Y = gtx.Dp(20)
 								return a.serverAddress.Layout(gtx, theme, "localhost:8080")
 							})
 						}),

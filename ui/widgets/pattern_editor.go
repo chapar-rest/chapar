@@ -31,10 +31,14 @@ type PatternEditor struct {
 
 // NewPatternEditor creates a new PatternEditor
 func NewPatternEditor() *PatternEditor {
-	return &PatternEditor{
+	pe := &PatternEditor{
 		Editor: new(giovieweditor.Editor),
 		Keys:   make(map[string]string),
 	}
+
+	pe.Editor.SingleLine = true
+
+	return pe
 }
 
 func (p *PatternEditor) SetText(text string) {
@@ -85,7 +89,7 @@ func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hin
 			}
 		}
 	}
-
+	gtx.Constraints.Max.Y = gtx.Dp(20)
 	return giovieweditor.NewEditor(p.Editor, editorConf, hint).Layout(gtx)
 }
 

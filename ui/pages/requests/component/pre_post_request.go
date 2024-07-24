@@ -10,7 +10,6 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-	"github.com/chapar-rest/chapar/ui/keys"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
@@ -28,9 +27,9 @@ type PrePostRequest struct {
 }
 
 type SetEnvForm struct {
-	statusCodeEditor widget.Editor
-	targetEditor     widget.Editor
-	fromEditor       widget.Editor
+	statusCodeEditor *widgets.LabeledInput
+	targetEditor     *widgets.LabeledInput
+	fromEditor       *widgets.LabeledInput
 	fromDropDown     *widgets.DropDown
 	preview          string
 }
@@ -62,6 +61,28 @@ func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostReque
 				widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
 				widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),
 			),
+			statusCodeEditor: &widgets.LabeledInput{
+				Label:          "Status Code",
+				SpaceBetween:   5,
+				MinEditorWidth: unit.Dp(150),
+				MinLabelWidth:  unit.Dp(80),
+				Editor:         widgets.NewPatternEditor(),
+			},
+			targetEditor: &widgets.LabeledInput{
+				Label:          "Target Key",
+				SpaceBetween:   5,
+				MinEditorWidth: unit.Dp(150),
+				MinLabelWidth:  unit.Dp(80),
+				Editor:         widgets.NewPatternEditor(),
+			},
+			fromEditor: &widgets.LabeledInput{
+				Label:          "Key",
+				SpaceBetween:   5,
+				MinEditorWidth: unit.Dp(150),
+				MinLabelWidth:  unit.Dp(80),
+				Editor:         widgets.NewPatternEditor(),
+				Hint:           "e.g. name",
+			},
 		},
 	}
 	p.setEnvForm.fromDropDown.MaxWidth = unit.Dp(150)
@@ -111,6 +132,9 @@ func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(statusCode int, item,
 		statusCode, _ := strconv.Atoi(p.setEnvForm.statusCodeEditor.Text())
 		p.onSetEnvFormChanged(statusCode, p.setEnvForm.targetEditor.Text(), selected, p.setEnvForm.fromEditor.Text())
 	})
+	p.setEnvForm.statusCodeEditor.SetOnChanged(p.onDropDownChanged)
+	p.setEnvForm.targetEditor.SetOnChanged(p.onDropDownChanged)
+	p.setEnvForm.fromEditor.SetOnChanged(p.onDropDownChanged)
 }
 
 func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -162,42 +186,28 @@ func (p *PrePostRequest) enforceNumericEditor(editor *widget.Editor) {
 func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
 
-	keys.OnEditorChange(gtx, &p.setEnvForm.statusCodeEditor, func() {
-		p.enforceNumericEditor(&p.setEnvForm.statusCodeEditor)
-		p.handleDataChange()
-	})
-
-	keys.OnEditorChange(gtx, &p.setEnvForm.targetEditor, func() {
-		p.handleDataChange()
-	})
-
-	keys.OnEditorChange(gtx, &p.setEnvForm.fromEditor, func() {
-		p.handleDataChange()
-	})
+	//keys.OnEditorChange(gtx, &p.setEnvForm.statusCodeEditor, func() {
+	//	p.enforceNumericEditor(&p.setEnvForm.statusCodeEditor)
+	//	p.handleDataChange()
+	//})
+	//
+	//keys.OnEditorChange(gtx, &p.setEnvForm.targetEditor, func() {
+	//	p.handleDataChange()
+	//})
+	//
+	//keys.OnEditorChange(gtx, &p.setEnvForm.fromEditor, func() {
+	//	p.handleDataChange()
+	//})
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				lb := &widgets.LabeledInput{
-					Label:          "Target Key",
-					SpaceBetween:   5,
-					MinEditorWidth: unit.Dp(150),
-					MinLabelWidth:  unit.Dp(80),
-					Editor:         &p.setEnvForm.targetEditor,
-				}
-				return lb.Layout(gtx, theme)
+				return p.setEnvForm.targetEditor.Layout(gtx, theme)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				lb := &widgets.LabeledInput{
-					Label:          "Status Code",
-					SpaceBetween:   5,
-					MinEditorWidth: unit.Dp(150),
-					MinLabelWidth:  unit.Dp(80),
-					Editor:         &p.setEnvForm.statusCodeEditor,
-				}
-				return lb.Layout(gtx, theme)
+				return p.setEnvForm.statusCodeEditor.Layout(gtx, theme)
 			})
 		}),
 
@@ -227,15 +237,9 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme
 					hint = "e.g. $.data[0].name"
 				}
 
-				lb := &widgets.LabeledInput{
-					Label:          label,
-					SpaceBetween:   5,
-					MinEditorWidth: unit.Dp(150),
-					MinLabelWidth:  unit.Dp(80),
-					Editor:         &p.setEnvForm.fromEditor,
-					Hint:           hint,
-				}
-				return lb.Layout(gtx, theme)
+				p.setEnvForm.fromEditor.SetHint(hint)
+				p.setEnvForm.fromEditor.SetLabel(label)
+				return p.setEnvForm.fromEditor.Layout(gtx, theme)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

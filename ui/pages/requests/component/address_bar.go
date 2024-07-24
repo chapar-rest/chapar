@@ -112,7 +112,6 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 						widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(20), unit.Dp(1)),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Max.Y = gtx.Dp(20)
 								return a.url.Layout(gtx, theme, "https://example.com")
 							})
 						}),
