@@ -184,8 +184,6 @@ func (e *Editor) processPointer(gtx layout.Context) (EditorEvent, bool) {
 		smin, smax = sbounds.Min.Y, sbounds.Max.Y
 	}
 
-	smin, smax = sbounds.Min.Y, sbounds.Max.Y
-
 	var scrollX, scrollY pointer.ScrollRange
 	textDims := e.text.FullDimensions()
 	visibleDims := e.text.Dimensions()

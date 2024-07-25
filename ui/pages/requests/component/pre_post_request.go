@@ -5,7 +5,6 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -132,9 +131,16 @@ func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(statusCode int, item,
 		statusCode, _ := strconv.Atoi(p.setEnvForm.statusCodeEditor.Text())
 		p.onSetEnvFormChanged(statusCode, p.setEnvForm.targetEditor.Text(), selected, p.setEnvForm.fromEditor.Text())
 	})
-	p.setEnvForm.statusCodeEditor.SetOnChanged(p.onDropDownChanged)
-	p.setEnvForm.targetEditor.SetOnChanged(p.onDropDownChanged)
-	p.setEnvForm.fromEditor.SetOnChanged(p.onDropDownChanged)
+	p.setEnvForm.statusCodeEditor.SetOnChanged(func(text string) {
+		p.enforceNumericEditor(p.setEnvForm.statusCodeEditor.Editor)
+		p.handleDataChange()
+	})
+	p.setEnvForm.targetEditor.SetOnChanged(func(_ string) {
+		p.handleDataChange()
+	})
+	p.setEnvForm.fromEditor.SetOnChanged(func(_ string) {
+		p.handleDataChange()
+	})
 }
 
 func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -177,7 +183,7 @@ func (p *PrePostRequest) handleDataChange() {
 	}
 }
 
-func (p *PrePostRequest) enforceNumericEditor(editor *widget.Editor) {
+func (p *PrePostRequest) enforceNumericEditor(editor *widgets.PatternEditor) {
 	if _, err := strconv.Atoi(editor.Text()); err != nil {
 		editor.SetText("0")
 	}
@@ -185,19 +191,6 @@ func (p *PrePostRequest) enforceNumericEditor(editor *widget.Editor) {
 
 func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
-
-	//keys.OnEditorChange(gtx, &p.setEnvForm.statusCodeEditor, func() {
-	//	p.enforceNumericEditor(&p.setEnvForm.statusCodeEditor)
-	//	p.handleDataChange()
-	//})
-	//
-	//keys.OnEditorChange(gtx, &p.setEnvForm.targetEditor, func() {
-	//	p.handleDataChange()
-	//})
-	//
-	//keys.OnEditorChange(gtx, &p.setEnvForm.fromEditor, func() {
-	//	p.handleDataChange()
-	//})
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
