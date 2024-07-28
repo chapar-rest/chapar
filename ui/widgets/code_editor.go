@@ -204,7 +204,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 								LineHeightScale: 1.2,
 							}
 
-							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
+							return giovieweditor.NewEditor(c.editor, editorConf, true, hint).Layout(gtx)
 						})
 					}),
 				)

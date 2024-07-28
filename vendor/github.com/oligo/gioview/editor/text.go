@@ -50,7 +50,10 @@ type textView struct {
 	// LineHeightScale applies a scaling factor to the LineHeight. If zero, a
 	// sensible default will be used.
 	LineHeightScale float32
-
+	// SingleLine forces the text to stay on a single line.
+	// SingleLine also sets the scrolling direction to
+	// horizontal.
+	SingleLine bool
 	// MaxLines limits the shaped text to a specific quantity of shaped lines.
 	MaxLines int
 	// Truncator is the text that will be shown at the end of the final
@@ -190,6 +193,50 @@ func (e *textView) closestToXYGraphemes(x fixed.Int26_6, y int) combinedPos {
 	}
 }
 
+// getVisibleLines finds all visible physical line positions in the viewport.
+func (e *textView) getVisibleLines() ([]combinedPos, error) {
+	if e.viewSize.Y <= 0 {
+		return nil, nil
+	}
+
+	firstPos := e.closestToXYGraphemes(0, e.scrollOff.Y)
+	lastPos := e.closestToXYGraphemes(0, e.viewSize.Y+e.scrollOff.Y)
+
+	linePos := make([]combinedPos, 0)
+	// check the succeeding screen lines
+	pos := firstPos
+
+	for pos.lineCol.line <= lastPos.lineCol.line {
+		var r rune
+		var err error
+		if pos.lineCol.line == 0 {
+			linePos = append(linePos, pos)
+		} else {
+			r, _, err = e.ReadRuneBefore(int64(e.runeOffset(pos.runes)))
+			if err != nil {
+				return nil, err
+			}
+
+			if r == rune('\n') {
+				linePos = append(linePos, pos)
+			}
+		}
+
+		if pos.lineCol.line >= lastPos.lineCol.line {
+			break
+		}
+
+		// check the next line
+		pos = e.index.closestToLineCol(screenPos{line: pos.lineCol.line + 1, col: pos.lineCol.col})
+	}
+
+	return linePos, nil
+}
+
+func (e *textView) lastVisibleLineEndPos() combinedPos {
+	return e.closestToXYGraphemes(fixed.Int26_6(e.viewSize.X), e.viewSize.Y+e.scrollOff.Y)
+}
+
 func absFixed(i fixed.Int26_6) fixed.Int26_6 {
 	if i < 0 {
 		return -i
@@ -234,6 +281,9 @@ func (e *textView) Layout(gtx layout.Context, lt *text.Shaper, font font.Font, s
 		e.params.PxPerEm = textSize
 	}
 	maxWidth := gtx.Constraints.Max.X
+	if e.SingleLine {
+		maxWidth = math.MaxInt
+	}
 
 	minWidth := gtx.Constraints.Min.X
 	if maxWidth != e.params.MaxWidth {
@@ -406,8 +456,18 @@ func (e *textView) Text(buf []byte) []byte {
 
 func (e *textView) ScrollBounds() image.Rectangle {
 	var b image.Rectangle
-	b.Max.Y = e.dims.Size.Y - e.viewSize.Y
-
+	if e.SingleLine {
+		if len(e.index.lines) > 0 {
+			line := e.index.lines[0]
+			b.Min.X = line.xOff.Floor()
+			if b.Min.X > 0 {
+				b.Min.X = 0
+			}
+		}
+		b.Max.X = e.dims.Size.X + b.Min.X - e.viewSize.X
+	} else {
+		b.Max.Y = e.dims.Size.Y - e.viewSize.Y
+	}
 	return b
 }
 
@@ -684,16 +744,25 @@ func (e *textView) MoveWord(distance int, selAct selectionAction) {
 
 func (e *textView) ScrollToCaret() {
 	caret := e.closestToRune(e.caret.start)
-
-	miny := caret.y - caret.ascent.Ceil()
-	maxy := caret.y + caret.descent.Ceil()
-	var dist int
-	if d := miny - e.scrollOff.Y; d < 0 {
-		dist = d
-	} else if d := maxy - (e.scrollOff.Y + e.viewSize.Y); d > 0 {
-		dist = d
+	if e.SingleLine {
+		var dist int
+		if d := caret.x.Floor() - e.scrollOff.X; d < 0 {
+			dist = d
+		} else if d := caret.x.Ceil() - (e.scrollOff.X + e.viewSize.X); d > 0 {
+			dist = d
+		}
+		e.ScrollRel(dist, 0)
+	} else {
+		miny := caret.y - caret.ascent.Ceil()
+		maxy := caret.y + caret.descent.Ceil()
+		var dist int
+		if d := miny - e.scrollOff.Y; d < 0 {
+			dist = d
+		} else if d := maxy - (e.scrollOff.Y + e.viewSize.Y); d > 0 {
+			dist = d
+		}
+		e.ScrollRel(0, dist)
 	}
-	e.ScrollRel(0, dist)
 }
 
 // SelectionLen returns the length of the selection, in runes; it is

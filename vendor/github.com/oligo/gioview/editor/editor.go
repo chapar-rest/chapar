@@ -4,6 +4,7 @@
 package editor
 
 import (
+	"errors"
 	"image"
 	"io"
 	"math"
@@ -42,7 +43,13 @@ type Editor struct {
 	// LineHeightScale is multiplied by LineHeight to determine the final gap
 	// between baselines. If zero, a sensible default will be used.
 	LineHeightScale float32
-
+	// SingleLine force the text to stay on a single line.
+	// SingleLine also sets the scrolling direction to
+	// horizontal.
+	SingleLine bool
+	// Submit enabled translation of carriage return keys to SubmitEvents.
+	// If not enabled, carriage returns are inserted as newlines in the text.
+	Submit bool
 	// ReadOnly controls whether the contents of the editor can be altered by
 	// user interaction. If set to true, the editor will allow selecting text
 	// and copying it interactively, but not modifying it.
@@ -105,6 +112,17 @@ type imeState struct {
 
 type selectionAction int
 
+type LineInfo struct {
+	// line number starting from 1.
+	LineNum int
+	// offset in the cross axis.
+	YOffset int
+	// offset of the start rune the line.
+	Start int
+	// offset of the end rune the line.
+	End int
+}
+
 const (
 	selectionExtend selectionAction = iota
 	selectionClear
@@ -116,6 +134,12 @@ type EditorEvent interface {
 
 // A ChangeEvent is generated for every user change to the text.
 type ChangeEvent struct{}
+
+// A SubmitEvent is generated when Submit is set
+// and a carriage return key is pressed.
+type SubmitEvent struct {
+	Text string
+}
 
 // A SelectEvent is generated when the user selects some text, or changes the
 // selection (e.g. with a shift-click), including if they remove the
@@ -163,22 +187,38 @@ func (e *Editor) processEvents(gtx layout.Context) (ev EditorEvent, ok bool) {
 func (e *Editor) processPointer(gtx layout.Context) (EditorEvent, bool) {
 	sbounds := e.text.ScrollBounds()
 	var smin, smax int
-	axis := gesture.Vertical
-	smin, smax = sbounds.Min.Y, sbounds.Max.Y
+	var axis gesture.Axis
+	if e.SingleLine {
+		axis = gesture.Horizontal
+		smin, smax = sbounds.Min.X, sbounds.Max.X
+	} else {
+		axis = gesture.Vertical
+		smin, smax = sbounds.Min.Y, sbounds.Max.Y
+	}
 
 	var scrollX, scrollY pointer.ScrollRange
 	textDims := e.text.FullDimensions()
 	visibleDims := e.text.Dimensions()
 
-	scrollOffY := e.text.ScrollOff().Y
-	scrollY.Min = -scrollOffY
-	scrollY.Max = max(0, textDims.Size.Y-(scrollOffY+visibleDims.Size.Y))
+	if e.SingleLine {
+		scrollOffX := e.text.ScrollOff().X
+		scrollX.Min = min(-scrollOffX, 0)
+		scrollX.Max = max(0, textDims.Size.X-(scrollOffX+visibleDims.Size.X))
+	} else {
+		scrollOffY := e.text.ScrollOff().Y
+		scrollY.Min = -scrollOffY
+		scrollY.Max = max(0, textDims.Size.Y-(scrollOffY+visibleDims.Size.Y))
+	}
 
 	sdist := e.scroller.Update(gtx.Metric, gtx.Source, gtx.Now, axis, scrollX, scrollY)
 	var soff int
-
-	e.text.ScrollRel(0, sdist)
-	soff = e.text.ScrollOff().Y
+	if e.SingleLine {
+		e.text.ScrollRel(sdist, 0)
+		soff = e.text.ScrollOff().X
+	} else {
+		e.text.ScrollRel(0, sdist)
+		soff = e.text.ScrollOff().Y
+	}
 
 	for {
 		evt, ok := e.clicker.Update(gtx.Source)
@@ -334,6 +374,14 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			if !gtx.Focused(e) || ke.State != key.Press {
 				break
 			}
+			if !e.ReadOnly && e.Submit && (ke.Name == key.NameReturn || ke.Name == key.NameEnter) {
+				if !ke.Modifiers.Contain(key.ModShift) {
+					e.scratch = e.text.Text(e.scratch)
+					return SubmitEvent{
+						Text: string(e.scratch),
+					}, true
+				}
+			}
 			e.scrollCaret = true
 			e.scroller.Stop()
 			ev, ok := e.command(gtx, ke)
@@ -349,10 +397,33 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			e.scrollCaret = true
 			e.scroller.Stop()
 			s := ke.Text
-			moves := e.replace(ke.Range.Start, ke.Range.End, s, true)
+			moves := 0
+			submit := false
+			switch {
+			case e.Submit:
+				if i := strings.IndexByte(s, '\n'); i != -1 {
+					submit = true
+					moves += len(s) - i
+					s = s[:i]
+				}
+			case e.SingleLine:
+				s = strings.ReplaceAll(s, "\n", " ")
+			}
+			moves = e.replace(ke.Range.Start, ke.Range.End, s, true)
 			adjust += utf8.RuneCountInString(ke.Text) - moves
 			// Reset caret xoff.
 			e.text.MoveCaret(0, 0)
+			if submit {
+				e.scratch = e.text.Text(e.scratch)
+				submitEvent := SubmitEvent{
+					Text: string(e.scratch),
+				}
+				if e.text.Changed() {
+					e.pending = append(e.pending, submitEvent)
+					return ChangeEvent{}, true
+				}
+				return submitEvent, true
+			}
 		// Complete a paste event, initiated by Shortcut-V in Editor.command().
 		case transfer.DataEvent:
 			e.scrollCaret = true
@@ -507,6 +578,7 @@ func (e *Editor) initBuffer() {
 	e.text.LineHeight = e.LineHeight
 	e.text.LineHeightScale = e.LineHeightScale
 	e.text.WrapPolicy = e.WrapPolicy
+	e.text.SingleLine = e.SingleLine
 }
 
 // Update the state of the editor in response to input events. Update consumes editor
@@ -681,6 +753,9 @@ func (e *Editor) Text() string {
 
 func (e *Editor) SetText(s string, addHistory bool) {
 	e.initBuffer()
+	if e.SingleLine {
+		s = strings.ReplaceAll(s, "\n", " ")
+	}
 	// disable history when loading doc. In other case history might be required
 	e.replace(0, e.text.Len(), s, addHistory)
 	// Reset xoff and move the caret to the beginning.
@@ -729,6 +804,9 @@ func (e *Editor) Delete(graphemeClusters int) (deletedRunes int) {
 
 func (e *Editor) Insert(s string) (insertedRunes int) {
 	e.initBuffer()
+	if e.SingleLine {
+		s = strings.ReplaceAll(s, "\n", " ")
+	}
 	start, end := e.text.Selection()
 	moves := e.replace(start, end, s, true)
 	if end < start {
@@ -1005,6 +1083,54 @@ func (e *Editor) UpdateTextStyles(styles []*TextStyle) {
 	e.textStyles = styles
 }
 
+func (e *Editor) VisibleLines() ([]*LineInfo, error) {
+	linePos, err := e.text.getVisibleLines()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(linePos) <= 0 {
+		return nil, errors.New("no lines found")
+	}
+
+	lines := make([]*LineInfo, 0)
+	for idx, line := range linePos {
+		if idx == 0 {
+			if line.lineCol.line == 0 {
+				lines = append(lines, &LineInfo{
+					LineNum: 1,
+					YOffset: line.y - line.ascent.Ceil(),
+					Start:   line.runes,
+				})
+			} else {
+				startLine := e.buffer.countLinesBeforeOffset(int64(e.text.runeOffset(line.runes)))
+				lines = append(lines, &LineInfo{
+					LineNum: startLine + 1,
+					YOffset: line.y - e.text.ScrollOff().Y - line.ascent.Ceil(),
+					Start:   line.runes,
+				})
+			}
+
+			continue
+		}
+
+		// update the end position of the last line.
+		lines[idx-1].End = line.runes
+
+		lines = append(lines, &LineInfo{
+			LineNum: lines[idx-1].LineNum + 1,
+			YOffset: line.y - e.text.ScrollOff().Y - line.ascent.Ceil(),
+			Start:   line.runes,
+		})
+
+		if idx == len(linePos)-1 {
+			lines[idx].End = e.text.lastVisibleLineEndPos().runes
+		}
+	}
+
+	return lines, nil
+}
+
 func max(a, b int) int {
 	if a > b {
 		return a
@@ -1039,3 +1165,4 @@ func sign(n int) int {
 
 func (s ChangeEvent) isEditorEvent() {}
 func (s SelectEvent) isEditorEvent() {}
+func (s SubmitEvent) isEditorEvent() {}

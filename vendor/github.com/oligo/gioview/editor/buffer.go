@@ -129,3 +129,19 @@ func (e *editBuffer) prepend(caret int, s string) {
 	e.gapstart += len(s)
 	e.changed = e.changed || len(s) > 0
 }
+
+func (e *editBuffer) countLinesBeforeOffset(byteOffset int64) int {
+	cnt := 0
+
+	if byteOffset >= int64(len(e.text)) {
+		byteOffset = int64(len(e.text))
+	}
+
+	for _, c := range e.text[:byteOffset] {
+		if c == '\n' {
+			cnt++
+		}
+	}
+
+	return cnt
+}
