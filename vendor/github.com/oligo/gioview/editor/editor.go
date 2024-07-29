@@ -4,6 +4,7 @@
 package editor
 
 import (
+	"errors"
 	"image"
 	"io"
 	"math"
@@ -110,6 +111,17 @@ type imeState struct {
 }
 
 type selectionAction int
+
+type LineInfo struct {
+	// line number starting from 1.
+	LineNum int
+	// offset in the cross axis.
+	YOffset int
+	// offset of the start rune the line.
+	Start int
+	// offset of the end rune the line.
+	End int
+}
 
 const (
 	selectionExtend selectionAction = iota
@@ -248,6 +260,9 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 				Y: int(math.Round(float64(evt.Position.Y))),
 			})
 			gtx.Execute(key.FocusCmd{Tag: e})
+			if !e.ReadOnly {
+				gtx.Execute(key.SoftKeyboardCmd{Show: true})
+			}
 			if e.scroller.State() != gesture.StateFlinging {
 				e.scrollCaret = true
 			}
@@ -271,8 +286,8 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 				e.text.MoveWord(1, selectionExtend)
 				e.dragging = false
 			case evt.NumClicks >= 3:
-				e.text.MoveStart(selectionClear)
-				e.text.MoveEnd(selectionExtend)
+				e.text.MoveLineStart(selectionClear)
+				e.text.MoveLineEnd(selectionExtend)
 				e.dragging = false
 			}
 		}
@@ -333,8 +348,8 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 		key.Filter{Focus: e, Name: key.NameDeleteBackward, Optional: key.ModShortcutAlt | key.ModShift},
 		key.Filter{Focus: e, Name: key.NameDeleteForward, Optional: key.ModShortcutAlt | key.ModShift},
 
-		key.Filter{Focus: e, Name: key.NameHome, Optional: key.ModShift},
-		key.Filter{Focus: e, Name: key.NameEnd, Optional: key.ModShift},
+		key.Filter{Focus: e, Name: key.NameHome, Optional: key.ModShortcut | key.ModShift},
+		key.Filter{Focus: e, Name: key.NameEnd, Optional: key.ModShortcut | key.ModShift},
 		key.Filter{Focus: e, Name: key.NamePageDown, Optional: key.ModShift},
 		key.Filter{Focus: e, Name: key.NamePageUp, Optional: key.ModShift},
 		key.Filter{Focus: e, Name: key.NameTab},
@@ -355,7 +370,7 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 		case key.FocusEvent:
 			// Reset IME state.
 			e.ime.imeState = imeState{}
-			if ke.Focus {
+			if ke.Focus && !e.ReadOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
 		case key.Event:
@@ -397,7 +412,7 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			case e.SingleLine:
 				s = strings.ReplaceAll(s, "\n", " ")
 			}
-			moves = e.replace(ke.Range.Start, ke.Range.End, s, true)
+			moves += e.replace(ke.Range.Start, ke.Range.End, s, true)
 			adjust += utf8.RuneCountInString(ke.Text) - moves
 			// Reset caret xoff.
 			e.text.MoveCaret(0, 0)
@@ -481,6 +496,10 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 					}
 				}
 			}
+		case key.NameHome:
+			e.text.MoveTextStart(selAct)
+		case key.NameEnd:
+			e.text.MoveTextEnd(selAct)
 		}
 		return nil, false
 	}
@@ -542,14 +561,9 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 	case key.NamePageDown:
 		e.text.MovePages(+1, selAct)
 	case key.NameHome:
-		e.text.MoveStart(selAct)
+		e.text.MoveLineStart(selAct)
 	case key.NameEnd:
-		e.text.MoveEnd(selAct)
-	case key.NameTab:
-		if !e.ReadOnly {
-			// soft tab as 4 spaces
-			e.Insert("    ")
-		}
+		e.text.MoveLineEnd(selAct)
 	}
 	return nil, false
 }
@@ -1069,6 +1083,54 @@ func (e *Editor) ScrollByRatio(gtx layout.Context, ratio float32) {
 
 func (e *Editor) UpdateTextStyles(styles []*TextStyle) {
 	e.textStyles = styles
+}
+
+func (e *Editor) VisibleLines() ([]*LineInfo, error) {
+	linePos, err := e.text.getVisibleLines()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(linePos) <= 0 {
+		return nil, errors.New("no lines found")
+	}
+
+	lines := make([]*LineInfo, 0)
+	for idx, line := range linePos {
+		if idx == 0 {
+			if line.lineCol.line == 0 {
+				lines = append(lines, &LineInfo{
+					LineNum: 1,
+					YOffset: line.y - line.ascent.Ceil(),
+					Start:   line.runes,
+				})
+			} else {
+				startLine := e.buffer.countLinesBeforeOffset(int64(e.text.runeOffset(line.runes)))
+				lines = append(lines, &LineInfo{
+					LineNum: startLine + 1,
+					YOffset: line.y - e.text.ScrollOff().Y - line.ascent.Ceil(),
+					Start:   line.runes,
+				})
+			}
+
+			continue
+		}
+
+		// update the end position of the last line.
+		lines[idx-1].End = line.runes
+
+		lines = append(lines, &LineInfo{
+			LineNum: lines[idx-1].LineNum + 1,
+			YOffset: line.y - e.text.ScrollOff().Y - line.ascent.Ceil(),
+			Start:   line.runes,
+		})
+
+		if idx == len(linePos)-1 {
+			lines[idx].End = e.text.lastVisibleLineEndPos().runes
+		}
+	}
+
+	return lines, nil
 }
 
 func max(a, b int) int {

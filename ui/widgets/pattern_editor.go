@@ -36,7 +36,7 @@ func NewPatternEditor() *PatternEditor {
 		Keys:   make(map[string]string),
 	}
 
-	// pe.Editor.SingleLine = true
+	pe.Editor.SingleLine = true
 
 	return pe
 }

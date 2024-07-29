@@ -124,9 +124,11 @@ github.com/jhump/protoreflect/desc/protoparse/ast
 github.com/jhump/protoreflect/desc/sourceinfo
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
-# github.com/oligo/gioview v0.4.1-0.20240724150918-b9077de92582
+# github.com/oligo/gioview v0.4.1-0.20240729141646-c89b90e79185
 ## explicit; go 1.21.4
 github.com/oligo/gioview/editor
+github.com/oligo/gioview/misc
+github.com/oligo/gioview/theme
 # github.com/shopspring/decimal v1.3.1
 ## explicit; go 1.13
 github.com/shopspring/decimal
