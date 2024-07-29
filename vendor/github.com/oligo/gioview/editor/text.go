@@ -195,6 +195,7 @@ func (e *textView) closestToXYGraphemes(x fixed.Int26_6, y int) combinedPos {
 
 // getVisibleLines finds all visible physical line positions in the viewport.
 func (e *textView) getVisibleLines() ([]combinedPos, error) {
+	e.makeValid()
 	if e.viewSize.Y <= 0 {
 		return nil, nil
 	}
@@ -674,9 +675,28 @@ func (e *textView) MoveCaret(startDelta, endDelta int) {
 	e.caret.end = e.moveByGraphemes(e.caret.end, endDelta)
 }
 
-// MoveStart moves the caret to the start of the current line, ensuring that the resulting
+// MoveTextStart moves the caret to the start of the text.
+func (e *textView) MoveTextStart(selAct selectionAction) {
+	caret := e.closestToRune(e.caret.end)
+	e.caret.start = 0
+	e.caret.end = caret.runes
+	e.caret.xoff = -caret.x
+	e.updateSelection(selAct)
+	e.clampCursorToGraphemes()
+}
+
+// MoveTextEnd moves the caret to the end of the text.
+func (e *textView) MoveTextEnd(selAct selectionAction) {
+	caret := e.closestToRune(math.MaxInt)
+	e.caret.start = caret.runes
+	e.caret.xoff = fixed.I(e.params.MaxWidth) - caret.x
+	e.updateSelection(selAct)
+	e.clampCursorToGraphemes()
+}
+
+// MoveLineStart moves the caret to the start of the current line, ensuring that the resulting
 // cursor position is on a grapheme cluster boundary.
-func (e *textView) MoveStart(selAct selectionAction) {
+func (e *textView) MoveLineStart(selAct selectionAction) {
 	caret := e.closestToRune(e.caret.start)
 	caret = e.closestToLineCol(caret.lineCol.line, 0)
 	e.caret.start = caret.runes
@@ -685,9 +705,9 @@ func (e *textView) MoveStart(selAct selectionAction) {
 	e.clampCursorToGraphemes()
 }
 
-// MoveEnd moves the caret to the end of the current line, ensuring that the resulting
+// MoveLineEnd moves the caret to the end of the current line, ensuring that the resulting
 // cursor position is on a grapheme cluster boundary.
-func (e *textView) MoveEnd(selAct selectionAction) {
+func (e *textView) MoveLineEnd(selAct selectionAction) {
 	caret := e.closestToRune(e.caret.start)
 	caret = e.closestToLineCol(caret.lineCol.line, math.MaxInt)
 	e.caret.start = caret.runes

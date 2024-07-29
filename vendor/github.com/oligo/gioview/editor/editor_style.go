@@ -64,9 +64,10 @@ type EditorConf struct {
 	LineHeightScale float32
 	//May be helpful for code syntax highlighting.
 	ColorScheme string
+	ShowLineNum bool
 }
 
-func NewEditor(editor *Editor, conf *EditorConf, showLineNum bool, hint string) EditorStyle {
+func NewEditor(editor *Editor, conf *EditorConf, hint string) EditorStyle {
 	return EditorStyle{
 		Editor: editor,
 		Font: font.Font{
@@ -80,7 +81,7 @@ func NewEditor(editor *Editor, conf *EditorConf, showLineNum bool, hint string) 
 		Hint:            hint,
 		HintColor:       MulAlpha(conf.TextColor, 0xbb),
 		SelectionColor:  MulAlpha(conf.SelectionColor, 0x60),
-		ShowLineNum:     showLineNum,
+		ShowLineNum:     conf.ShowLineNum,
 	}
 }
 

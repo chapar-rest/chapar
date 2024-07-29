@@ -260,6 +260,9 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 				Y: int(math.Round(float64(evt.Position.Y))),
 			})
 			gtx.Execute(key.FocusCmd{Tag: e})
+			if !e.ReadOnly {
+				gtx.Execute(key.SoftKeyboardCmd{Show: true})
+			}
 			if e.scroller.State() != gesture.StateFlinging {
 				e.scrollCaret = true
 			}
@@ -283,8 +286,8 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 				e.text.MoveWord(1, selectionExtend)
 				e.dragging = false
 			case evt.NumClicks >= 3:
-				e.text.MoveStart(selectionClear)
-				e.text.MoveEnd(selectionExtend)
+				e.text.MoveLineStart(selectionClear)
+				e.text.MoveLineEnd(selectionExtend)
 				e.dragging = false
 			}
 		}
@@ -345,8 +348,8 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 		key.Filter{Focus: e, Name: key.NameDeleteBackward, Optional: key.ModShortcutAlt | key.ModShift},
 		key.Filter{Focus: e, Name: key.NameDeleteForward, Optional: key.ModShortcutAlt | key.ModShift},
 
-		key.Filter{Focus: e, Name: key.NameHome, Optional: key.ModShift},
-		key.Filter{Focus: e, Name: key.NameEnd, Optional: key.ModShift},
+		key.Filter{Focus: e, Name: key.NameHome, Optional: key.ModShortcut | key.ModShift},
+		key.Filter{Focus: e, Name: key.NameEnd, Optional: key.ModShortcut | key.ModShift},
 		key.Filter{Focus: e, Name: key.NamePageDown, Optional: key.ModShift},
 		key.Filter{Focus: e, Name: key.NamePageUp, Optional: key.ModShift},
 		key.Filter{Focus: e, Name: key.NameTab},
@@ -367,7 +370,7 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 		case key.FocusEvent:
 			// Reset IME state.
 			e.ime.imeState = imeState{}
-			if ke.Focus {
+			if ke.Focus && !e.ReadOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
 		case key.Event:
@@ -409,7 +412,7 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			case e.SingleLine:
 				s = strings.ReplaceAll(s, "\n", " ")
 			}
-			moves = e.replace(ke.Range.Start, ke.Range.End, s, true)
+			moves += e.replace(ke.Range.Start, ke.Range.End, s, true)
 			adjust += utf8.RuneCountInString(ke.Text) - moves
 			// Reset caret xoff.
 			e.text.MoveCaret(0, 0)
@@ -493,6 +496,10 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 					}
 				}
 			}
+		case key.NameHome:
+			e.text.MoveTextStart(selAct)
+		case key.NameEnd:
+			e.text.MoveTextEnd(selAct)
 		}
 		return nil, false
 	}
@@ -554,14 +561,9 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 	case key.NamePageDown:
 		e.text.MovePages(+1, selAct)
 	case key.NameHome:
-		e.text.MoveStart(selAct)
+		e.text.MoveLineStart(selAct)
 	case key.NameEnd:
-		e.text.MoveEnd(selAct)
-	case key.NameTab:
-		if !e.ReadOnly {
-			// soft tab as 4 spaces
-			e.Insert("    ")
-		}
+		e.text.MoveLineEnd(selAct)
 	}
 	return nil, false
 }

@@ -3,6 +3,7 @@
 package editor
 
 import (
+	"bytes"
 	"io"
 	"unicode/utf8"
 
@@ -11,9 +12,6 @@ import (
 
 // editBuffer implements a gap buffer for text editing.
 type editBuffer struct {
-	// pos is the byte position for Read and ReadRune.
-	pos int
-
 	// The gap start and end in bytes.
 	gapstart, gapend int
 	text             []byte
@@ -137,10 +135,15 @@ func (e *editBuffer) countLinesBeforeOffset(byteOffset int64) int {
 		byteOffset = int64(len(e.text))
 	}
 
-	for _, c := range e.text[:byteOffset] {
-		if c == '\n' {
-			cnt++
+	offset := 0
+	for {
+		index := bytes.IndexByte(e.text[offset:byteOffset], '\n')
+		if index == -1 {
+			break
 		}
+		offset += index
+		cnt++
+		offset++ // Move past the newline
 	}
 
 	return cnt

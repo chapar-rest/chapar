@@ -47,8 +47,8 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/jhump/protoreflect v1.16.0 h1:54fZg+49widqXYQ0b+usAFHbMkBGR4PpXrsHc8+TBDg=
 github.com/jhump/protoreflect v1.16.0/go.mod h1:oYPd7nPvcBw/5wlDfm/AVmU9zH9BgqGCI469pGxfj/8=
-github.com/oligo/gioview v0.4.1-0.20240728152658-474beb09bfc1 h1:ZGg2AMZdKALRO9dz4RB/SACySJCOP294g52ZjqyBbnM=
-github.com/oligo/gioview v0.4.1-0.20240728152658-474beb09bfc1/go.mod h1:5wxSoxxJ7FOVPnEYhqlUrT451rOmL8DQZCTeVlbVkoY=
+github.com/oligo/gioview v0.4.1-0.20240729141646-c89b90e79185 h1:5fdXRnz3RE65tUjCU+bTFLZDzoi7gpEkkd0s5hLVHZs=
+github.com/oligo/gioview v0.4.1-0.20240729141646-c89b90e79185/go.mod h1:5wxSoxxJ7FOVPnEYhqlUrT451rOmL8DQZCTeVlbVkoY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=
