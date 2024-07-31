@@ -199,6 +199,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 								TextSize:        unit.Sp(14),
 								LineHeightScale: 1.2,
 								ShowLineNum:     true,
+								LineNumPadding:  unit.Dp(10),
 							}
 
 							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)

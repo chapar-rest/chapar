@@ -4,7 +4,6 @@
 package editor
 
 import (
-	"errors"
 	"image"
 	"io"
 	"math"
@@ -615,7 +614,7 @@ func (e *Editor) Update(gtx layout.Context) (EditorEvent, bool) {
 // Layout lays out the editor using the provided textMaterial as the paint material
 // for the text glyphs+caret and the selectMaterial as the paint material for the
 // selection rectangle.
-func (e *Editor) Layout(gtx layout.Context, lt *text.Shaper, font font.Font, size unit.Sp, textMaterial, selectMaterial op.CallOp) layout.Dimensions {
+func (e *Editor) Layout(gtx layout.Context, lt *text.Shaper, font font.Font, size unit.Sp, textMaterial, selectMaterial op.CallOp, lineMaterial op.CallOp) layout.Dimensions {
 	for {
 		_, ok := e.Update(gtx)
 		if !ok {
@@ -624,7 +623,7 @@ func (e *Editor) Layout(gtx layout.Context, lt *text.Shaper, font font.Font, siz
 	}
 
 	e.text.Layout(gtx, lt, font, size)
-	return e.layout(gtx, textMaterial, selectMaterial)
+	return e.layout(gtx, textMaterial, selectMaterial, lineMaterial)
 }
 
 // updateSnippet queues a key.SnippetCmd if the snippet content or position
@@ -670,7 +669,7 @@ func (e *Editor) updateSnippet(gtx layout.Context, start, end int) {
 	gtx.Execute(key.SnippetCmd{Tag: e, Snippet: newSnip})
 }
 
-func (e *Editor) layout(gtx layout.Context, textMaterial, selectMaterial op.CallOp) layout.Dimensions {
+func (e *Editor) layout(gtx layout.Context, textMaterial, selectMaterial op.CallOp, lineMaterial op.CallOp) layout.Dimensions {
 	// Adjust scrolling for new viewport and layout.
 	e.text.ScrollRel(0, 0)
 
@@ -705,6 +704,7 @@ func (e *Editor) layout(gtx layout.Context, textMaterial, selectMaterial op.Call
 	if e.Len() > 0 {
 		e.paintSelection(gtx, selectMaterial)
 		e.paintText(gtx, textMaterial)
+		e.paintLineHighlight(gtx, lineMaterial)
 	}
 	if gtx.Enabled() {
 		e.paintCaret(gtx, textMaterial)
@@ -738,6 +738,11 @@ func (e *Editor) paintCaret(gtx layout.Context, material op.CallOp) {
 		return
 	}
 	e.text.PaintCaret(gtx, material)
+}
+
+func (e *Editor) paintLineHighlight(gtx layout.Context, material op.CallOp) {
+	e.initBuffer()
+	e.text.paintLineHighlight(gtx, material)
 }
 
 // Len is the length of the editor contents, in runes.
@@ -1086,51 +1091,8 @@ func (e *Editor) UpdateTextStyles(styles []*TextStyle) {
 }
 
 func (e *Editor) VisibleLines() ([]*LineInfo, error) {
-	linePos, err := e.text.getVisibleLines()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(linePos) <= 0 {
-		return nil, errors.New("no lines found")
-	}
-
-	lines := make([]*LineInfo, 0)
-	for idx, line := range linePos {
-		if idx == 0 {
-			if line.lineCol.line == 0 {
-				lines = append(lines, &LineInfo{
-					LineNum: 1,
-					YOffset: line.y - line.ascent.Ceil(),
-					Start:   line.runes,
-				})
-			} else {
-				startLine := e.buffer.countLinesBeforeOffset(int64(e.text.runeOffset(line.runes)))
-				lines = append(lines, &LineInfo{
-					LineNum: startLine + 1,
-					YOffset: line.y - e.text.ScrollOff().Y - line.ascent.Ceil(),
-					Start:   line.runes,
-				})
-			}
-
-			continue
-		}
-
-		// update the end position of the last line.
-		lines[idx-1].End = line.runes
-
-		lines = append(lines, &LineInfo{
-			LineNum: lines[idx-1].LineNum + 1,
-			YOffset: line.y - e.text.ScrollOff().Y - line.ascent.Ceil(),
-			Start:   line.runes,
-		})
-
-		if idx == len(linePos)-1 {
-			lines[idx].End = e.text.lastVisibleLineEndPos().runes
-		}
-	}
-
-	return lines, nil
+	e.initBuffer()
+	return e.text.VisibleLines()
 }
 
 func max(a, b int) int {

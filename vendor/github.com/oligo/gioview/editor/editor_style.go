@@ -10,6 +10,7 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
@@ -34,10 +35,15 @@ type EditorStyle struct {
 	HintColor color.NRGBA
 	// SelectionColor is the color of the background for selected text.
 	SelectionColor color.NRGBA
-	Editor         *Editor
-	ShowLineNum    bool
+	//LineHighlightColor is the color used to highlight the clicked logical line.
+	// If not set, line will not be highlighted.
+	LineHighlightColor color.NRGBA
 
-	shaper *text.Shaper
+	Editor      *Editor
+	ShowLineNum bool
+
+	shaper  *text.Shaper
+	lineBar *lineNumberBar
 }
 
 type lineNumberBar struct {
@@ -45,17 +51,19 @@ type lineNumberBar struct {
 	lineHeight      unit.Sp
 	lineHeightScale float32
 	// Color is the text color.
-	color     color.NRGBA
-	typeFace  font.Typeface
-	textSize  unit.Sp
-	positions []*LineInfo
+	color    color.NRGBA
+	typeFace font.Typeface
+	textSize unit.Sp
+	// padding between line number and the editor content.
+	padding unit.Dp
 }
 
 type EditorConf struct {
-	Shaper         *text.Shaper
-	TextColor      color.NRGBA
-	Bg             color.NRGBA
-	SelectionColor color.NRGBA
+	Shaper             *text.Shaper
+	TextColor          color.NRGBA
+	Bg                 color.NRGBA
+	SelectionColor     color.NRGBA
+	LineHighlightColor color.NRGBA
 	// typeface for editing
 	TypeFace        font.Typeface
 	TextSize        unit.Sp
@@ -65,23 +73,39 @@ type EditorConf struct {
 	//May be helpful for code syntax highlighting.
 	ColorScheme string
 	ShowLineNum bool
+	// padding between line number and the editor content.
+	LineNumPadding unit.Dp
 }
 
 func NewEditor(editor *Editor, conf *EditorConf, hint string) EditorStyle {
+	if conf.LineNumPadding <= 0 {
+		conf.LineNumPadding = unit.Dp(32)
+	}
+
 	return EditorStyle{
 		Editor: editor,
 		Font: font.Font{
 			Typeface: conf.TypeFace,
 			Weight:   conf.Weight,
 		},
-		LineHeightScale: conf.LineHeightScale,
-		TextSize:        conf.TextSize,
-		Color:           conf.TextColor,
-		shaper:          conf.Shaper,
-		Hint:            hint,
-		HintColor:       MulAlpha(conf.TextColor, 0xbb),
-		SelectionColor:  MulAlpha(conf.SelectionColor, 0x60),
-		ShowLineNum:     conf.ShowLineNum,
+		LineHeightScale:    conf.LineHeightScale,
+		TextSize:           conf.TextSize,
+		Color:              conf.TextColor,
+		shaper:             conf.Shaper,
+		Hint:               hint,
+		HintColor:          MulAlpha(conf.TextColor, 0xbb),
+		SelectionColor:     MulAlpha(conf.SelectionColor, 0x60),
+		LineHighlightColor: MulAlpha(conf.LineHighlightColor, 0x25),
+		ShowLineNum:        conf.ShowLineNum,
+		lineBar: &lineNumberBar{
+			shaper:          conf.Shaper,
+			lineHeight:      conf.LineHeight,
+			lineHeightScale: conf.LineHeightScale,
+			color:           misc.WithAlpha(conf.TextColor, 0xb6),
+			typeFace:        conf.TypeFace,
+			textSize:        conf.TextSize,
+			padding:         conf.LineNumPadding,
+		},
 	}
 }
 
@@ -96,6 +120,9 @@ func (e EditorStyle) Layout(gtx layout.Context) layout.Dimensions {
 	selectionColorMacro := op.Record(gtx.Ops)
 	paint.ColorOp{Color: blendDisabledColor(!gtx.Enabled(), e.SelectionColor)}.Add(gtx.Ops)
 	selectionColor := selectionColorMacro.Stop()
+	lineColorMacro := op.Record(gtx.Ops)
+	paint.ColorOp{Color: e.LineHighlightColor}.Add(gtx.Ops)
+	lineColor := lineColorMacro.Stop()
 
 	macro := op.Record(gtx.Ops)
 	tl := widget.Label{
@@ -117,33 +144,26 @@ func (e EditorStyle) Layout(gtx layout.Context) layout.Dimensions {
 	e.Editor.LineHeightScale = e.LineHeightScale
 
 	if !e.ShowLineNum {
-		d := e.Editor.Layout(gtx, e.shaper, e.Font, e.TextSize, textColor, selectionColor)
+		d := e.Editor.Layout(gtx, e.shaper, e.Font, e.TextSize, textColor, selectionColor, lineColor)
 		if e.Editor.Len() == 0 {
 			call.Add(gtx.Ops)
 		}
 		return d
 	}
 
+	// clip line number bar.
+	defer clip.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Push(gtx.Ops).Pop()
 	dims = layout.Flex{
 		Axis: layout.Horizontal,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lines, _ := e.Editor.VisibleLines()
-			return lineNumberBar{
-				shaper:          e.shaper,
-				lineHeight:      e.LineHeight,
-				lineHeightScale: e.LineHeightScale,
-				color:           misc.WithAlpha(e.Color, 0xb6),
-				typeFace:        e.Font.Typeface,
-				textSize:        e.TextSize,
-				positions:       lines,
-			}.Layout(gtx)
+			return e.lineBar.Layout(gtx, e.Editor)
 		}),
 
-		layout.Rigid(layout.Spacer{Width: unit.Dp(20)}.Layout),
+		layout.Rigid(layout.Spacer{Width: e.lineBar.padding}.Layout),
 
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			d := e.Editor.Layout(gtx, e.shaper, e.Font, e.TextSize, textColor, selectionColor)
+			d := e.Editor.Layout(gtx, e.shaper, e.Font, e.TextSize, textColor, selectionColor, lineColor)
 			if e.Editor.Len() == 0 {
 				call.Add(gtx.Ops)
 			}
@@ -173,7 +193,7 @@ func (bar lineNumberBar) layoutLine(gtx layout.Context, pos *LineInfo, textColor
 	return d
 }
 
-func (bar lineNumberBar) Layout(gtx layout.Context) layout.Dimensions {
+func (bar lineNumberBar) Layout(gtx layout.Context, e *Editor) layout.Dimensions {
 	dims := layout.Dimensions{Size: image.Point{X: gtx.Constraints.Min.X}}
 
 	textColorMacro := op.Record(gtx.Ops)
@@ -183,9 +203,10 @@ func (bar lineNumberBar) Layout(gtx layout.Context) layout.Dimensions {
 	fake := gtx
 	fake.Ops = &op.Ops{}
 
+	positions, _ := e.VisibleLines()
 	maxWidth := 0
 	{
-		for _, pos := range bar.positions {
+		for _, pos := range positions {
 			d := bar.layoutLine(fake, pos, textColor)
 			maxWidth = max(maxWidth, d.Size.X)
 		}
@@ -194,7 +215,7 @@ func (bar lineNumberBar) Layout(gtx layout.Context) layout.Dimensions {
 
 	gtx.Constraints.Max.X = maxWidth
 	gtx.Constraints.Min.X = gtx.Constraints.Max.X
-	for _, pos := range bar.positions {
+	for _, pos := range positions {
 		d := bar.layoutLine(gtx, pos, textColor)
 		dims.Size = image.Point{X: maxWidth, Y: dims.Size.Y + d.Size.Y}
 	}

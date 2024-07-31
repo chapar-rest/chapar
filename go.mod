@@ -10,7 +10,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
-	github.com/oligo/gioview v0.4.1-0.20240730042924-5549ad6cefaa
+	github.com/oligo/gioview v0.5.0
 	golang.org/x/exp/shiny v0.0.0-20240707233637-46b078467d37
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.1

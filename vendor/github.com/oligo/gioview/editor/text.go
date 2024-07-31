@@ -2,6 +2,7 @@ package editor
 
 import (
 	"bufio"
+	"errors"
 	"image"
 	"io"
 	"math"
@@ -193,8 +194,58 @@ func (e *textView) closestToXYGraphemes(x fixed.Int26_6, y int) combinedPos {
 	}
 }
 
-// getVisibleLines finds all visible physical line positions in the viewport.
-func (e *textView) getVisibleLines() ([]combinedPos, error) {
+// searchForLineRange finds the logical line range given a position in the document.
+func (e *textView) searchForLineRange(screenLine int) [2]combinedPos {
+	// find the start pos of the screen line.
+	spos := e.closestToLineCol(screenLine, 0)
+
+	var start, end combinedPos
+	p := spos
+	for {
+		if p.runes == 0 {
+			start = p
+			break
+		}
+
+		r, _, err := e.ReadRuneBefore(int64(e.runeOffset(p.runes)))
+		if err != nil {
+			break
+		}
+		if r == rune('\n') {
+			start = p
+			break
+		}
+		p = e.index.closestToLineCol(screenPos{line: p.lineCol.line - 1, col: 0})
+	}
+
+	p = spos
+	for {
+		r, _, err := e.ReadRuneBefore(int64(e.runeOffset(p.runes)))
+		if err != nil {
+			if err == io.EOF {
+				end = p
+			}
+			break
+		}
+
+		if (r == rune('\n') && p != start) || e.runeOffset(p.runes) == int(e.rr.Size()) {
+			end = p
+			break
+		}
+		p = e.index.closestToLineCol(screenPos{line: p.lineCol.line + 1, col: 0})
+	}
+
+	// When start line = end line, the line is a empty line, no need to
+	// resolve to the end rune of the logical line.
+	if start.lineCol.line != end.lineCol.line {
+		end = e.closestToRune(end.runes - 1)
+	}
+
+	return [2]combinedPos{start, end}
+}
+
+// VisibleLines finds all visible logical line positions in the viewport, marking them with line numbers.
+func (e *textView) VisibleLines() ([]*LineInfo, error) {
 	e.makeValid()
 	if e.viewSize.Y <= 0 {
 		return nil, nil
@@ -202,40 +253,68 @@ func (e *textView) getVisibleLines() ([]combinedPos, error) {
 
 	firstPos := e.closestToXYGraphemes(0, e.scrollOff.Y)
 	lastPos := e.closestToXYGraphemes(0, e.viewSize.Y+e.scrollOff.Y)
+	firstRng := e.searchForLineRange(firstPos.lineCol.line)
+	lastRng := e.searchForLineRange(lastPos.lineCol.line)
 
-	linePos := make([]combinedPos, 0)
+	linePos := append([][2]combinedPos{}, firstRng)
+
 	// check the succeeding screen lines
-	pos := firstPos
-
-	for pos.lineCol.line <= lastPos.lineCol.line {
-		var r rune
-		var err error
-		if pos.lineCol.line == 0 {
-			linePos = append(linePos, pos)
-		} else {
-			r, _, err = e.ReadRuneBefore(int64(e.runeOffset(pos.runes)))
-			if err != nil {
-				return nil, err
-			}
-
-			if r == rune('\n') {
-				linePos = append(linePos, pos)
-			}
-		}
-
-		if pos.lineCol.line >= lastPos.lineCol.line {
-			break
-		}
-
-		// check the next line
-		pos = e.index.closestToLineCol(screenPos{line: pos.lineCol.line + 1, col: pos.lineCol.col})
+	pos := firstRng[1]
+	for pos.runes < lastRng[0].runes {
+		lineRng := e.searchForLineRange(pos.lineCol.line + 1)
+		linePos = append(linePos, lineRng)
+		pos = lineRng[1]
 	}
 
-	return linePos, nil
+	if len(linePos) <= 0 {
+		return nil, errors.New("no lines found")
+	}
+
+	lines := make([]*LineInfo, 0)
+	for idx, rng := range linePos {
+		if idx == 0 {
+			if rng[0].lineCol.line == 0 {
+				lines = append(lines, &LineInfo{
+					LineNum: 1,
+					YOffset: rng[0].y - rng[0].ascent.Ceil(),
+					Start:   rng[0].runes,
+					End:     rng[1].runes,
+				})
+			} else {
+				startLine := e.rr.(*editBuffer).countLinesBeforeOffset(int64(e.runeOffset(rng[0].runes)))
+				lines = append(lines, &LineInfo{
+					LineNum: startLine + 1,
+					YOffset: rng[0].y - e.ScrollOff().Y - rng[0].ascent.Ceil(),
+					Start:   rng[0].runes,
+					End:     rng[1].runes,
+				})
+			}
+
+			continue
+		}
+
+		lines = append(lines, &LineInfo{
+			LineNum: lines[idx-1].LineNum + 1,
+			YOffset: rng[0].y - e.ScrollOff().Y - rng[0].ascent.Ceil(),
+			Start:   rng[0].runes,
+			End:     rng[1].runes,
+		})
+
+	}
+
+	return lines, nil
 }
 
-func (e *textView) lastVisibleLineEndPos() combinedPos {
-	return e.closestToXYGraphemes(fixed.Int26_6(e.viewSize.X), e.viewSize.Y+e.scrollOff.Y)
+// caretCurrentLine returns the current logical line that the carent is in.
+// Only the start position is checked.
+func (e *textView) caretCurrentLine() (start combinedPos, end combinedPos) {
+	caretStart := e.closestToRune(e.caret.start)
+
+	linePos := e.searchForLineRange(caretStart.lineCol.line)
+
+	start = linePos[0]
+	end = linePos[1]
+	return
 }
 
 func absFixed(i fixed.Int26_6) fixed.Int26_6 {
@@ -346,6 +425,27 @@ func (e *textView) PaintSelection(gtx layout.Context, material op.CallOp) {
 		paint.PaintOp{}.Add(gtx.Ops)
 		area.Pop()
 	}
+}
+
+// paintLineHighlight clips and paints the visible line that the caret is in when there is no
+// text selected.
+func (e *textView) paintLineHighlight(gtx layout.Context, material op.CallOp) {
+	if e.caret.start != e.caret.end {
+		return
+	}
+
+	start, end := e.caretCurrentLine()
+	if start == (combinedPos{}) || end == (combinedPos{}) {
+		return
+	}
+
+	bounds := image.Rectangle{Min: image.Point{X: 0, Y: start.y - start.ascent.Ceil()},
+		Max: image.Point{X: e.viewSize.X, Y: end.y + end.descent.Ceil()}}.Sub(e.scrollOff)
+
+	area := clip.Rect(bounds).Push(gtx.Ops)
+	material.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+	area.Pop()
 }
 
 // PaintText clips and paints the visible text glyph outlines using the provided
