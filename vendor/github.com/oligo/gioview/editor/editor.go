@@ -64,6 +64,11 @@ type Editor struct {
 	// WrapPolicy configures how displayed text will be broken into lines.
 	WrapPolicy text.WrapPolicy
 
+	// Keep editor focused is set to true, the editor will keep the focus.
+	// This is useful when the editor is used with a menu. so even when menu is focused, the editor will highlight the
+	// selected text.
+	KeepFocus bool
+
 	buffer     *editBuffer
 	textStyles []*TextStyle
 	// scratch is a byte buffer that is reused to efficiently read portions of text
@@ -717,9 +722,9 @@ func (e *Editor) layout(gtx layout.Context, textMaterial, selectMaterial op.Call
 func (e *Editor) paintSelection(gtx layout.Context, material op.CallOp) {
 	e.initBuffer()
 	// comment below code to ensure selected text is highlighted when editor menu poped up.
-	// if !gtx.Focused(e) {
-	// 	return
-	// }
+	if !gtx.Focused(e) && !e.KeepFocus {
+		return
+	}
 	e.text.PaintSelection(gtx, material)
 }
 
