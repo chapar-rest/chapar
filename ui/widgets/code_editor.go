@@ -10,7 +10,6 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/x/richtext"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -44,8 +43,6 @@ type CodeEditor struct {
 
 	font font.FontFace
 
-	rhState richtext.InteractiveText
-
 	border widget.Border
 
 	beatufier   widget.Clickable
@@ -57,11 +54,10 @@ type CodeEditor struct {
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
 	c := &CodeEditor{
-		editor:  new(giovieweditor.Editor),
-		code:    code,
-		font:    fonts.MustGetCodeEditorFont(),
-		rhState: richtext.InteractiveText{},
-		lang:    lang,
+		editor: new(giovieweditor.Editor),
+		code:   code,
+		font:   fonts.MustGetCodeEditorFont(),
+		lang:   lang,
 	}
 
 	c.border = widget.Border{
@@ -202,6 +198,8 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 								TypeFace:        c.font.Font.Typeface,
 								TextSize:        unit.Sp(14),
 								LineHeightScale: 1.2,
+								ShowLineNum:     true,
+								LineNumPadding:  unit.Dp(10),
 							}
 
 							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
@@ -237,7 +235,7 @@ func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
 		}
 
 		if entry.Colour.IsSet() {
-			textStyle.Color = colorToOp(entry.Colour)
+			textStyle.Color = chromaColorToOp(entry.Colour)
 		}
 
 		textStyles = append(textStyles, textStyle)
@@ -250,7 +248,7 @@ func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
 	return textStyles
 }
 
-func colorToOp(textColor chroma.Colour) op.CallOp {
+func chromaColorToOp(textColor chroma.Colour) op.CallOp {
 	ops := new(op.Ops)
 
 	m := op.Record(ops)

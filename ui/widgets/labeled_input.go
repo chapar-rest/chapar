@@ -14,8 +14,28 @@ type LabeledInput struct {
 	SpaceBetween   int
 	MinEditorWidth unit.Dp
 	MinLabelWidth  unit.Dp
-	Editor         *widget.Editor
+	Editor         *PatternEditor
 	Hint           string
+}
+
+func (l *LabeledInput) SetText(text string) {
+	l.Editor.SetText(text)
+}
+
+func (l *LabeledInput) Text() string {
+	return l.Editor.Text()
+}
+
+func (l *LabeledInput) SetHint(hint string) {
+	l.Hint = hint
+}
+
+func (l *LabeledInput) SetLabel(label string) {
+	l.Label = label
+}
+
+func (l *LabeledInput) SetOnChanged(f func(text string)) {
+	l.Editor.SetOnChanged(f)
 }
 
 func (l *LabeledInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -37,10 +57,7 @@ func (l *LabeledInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layo
 				CornerRadius: unit.Dp(4),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					editor := material.Editor(theme.Material(), l.Editor, l.Hint)
-					editor.SelectionColor = theme.TextSelectionColor
-
-					return editor.Layout(gtx)
+					return l.Editor.Layout(gtx, theme, l.Hint)
 				})
 			})
 		}),

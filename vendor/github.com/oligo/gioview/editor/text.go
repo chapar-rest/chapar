@@ -2,6 +2,7 @@ package editor
 
 import (
 	"bufio"
+	"errors"
 	"image"
 	"io"
 	"math"
@@ -50,7 +51,10 @@ type textView struct {
 	// LineHeightScale applies a scaling factor to the LineHeight. If zero, a
 	// sensible default will be used.
 	LineHeightScale float32
-
+	// SingleLine forces the text to stay on a single line.
+	// SingleLine also sets the scrolling direction to
+	// horizontal.
+	SingleLine bool
 	// MaxLines limits the shaped text to a specific quantity of shaped lines.
 	MaxLines int
 	// Truncator is the text that will be shown at the end of the final
@@ -190,6 +194,129 @@ func (e *textView) closestToXYGraphemes(x fixed.Int26_6, y int) combinedPos {
 	}
 }
 
+// searchForLineRange finds the logical line range given a position in the document.
+func (e *textView) searchForLineRange(screenLine int) [2]combinedPos {
+	// find the start pos of the screen line.
+	spos := e.closestToLineCol(screenLine, 0)
+
+	var start, end combinedPos
+	p := spos
+	for {
+		if p.runes == 0 {
+			start = p
+			break
+		}
+
+		r, _, err := e.ReadRuneBefore(int64(e.runeOffset(p.runes)))
+		if err != nil {
+			break
+		}
+		if r == rune('\n') {
+			start = p
+			break
+		}
+		p = e.index.closestToLineCol(screenPos{line: p.lineCol.line - 1, col: 0})
+	}
+
+	p = spos
+	for {
+		r, _, err := e.ReadRuneBefore(int64(e.runeOffset(p.runes)))
+		if err != nil {
+			if err == io.EOF {
+				end = p
+			}
+			break
+		}
+
+		if (r == rune('\n') && p != start) || e.runeOffset(p.runes) == int(e.rr.Size()) {
+			end = p
+			break
+		}
+		p = e.index.closestToLineCol(screenPos{line: p.lineCol.line + 1, col: 0})
+	}
+
+	// When start line = end line, the line is a empty line, no need to
+	// resolve to the end rune of the logical line.
+	if start.lineCol.line != end.lineCol.line {
+		end = e.closestToRune(end.runes - 1)
+	}
+
+	return [2]combinedPos{start, end}
+}
+
+// VisibleLines finds all visible logical line positions in the viewport, marking them with line numbers.
+func (e *textView) VisibleLines() ([]*LineInfo, error) {
+	e.makeValid()
+	if e.viewSize.Y <= 0 {
+		return nil, nil
+	}
+
+	firstPos := e.closestToXYGraphemes(0, e.scrollOff.Y)
+	lastPos := e.closestToXYGraphemes(0, e.viewSize.Y+e.scrollOff.Y)
+	firstRng := e.searchForLineRange(firstPos.lineCol.line)
+	lastRng := e.searchForLineRange(lastPos.lineCol.line)
+
+	linePos := append([][2]combinedPos{}, firstRng)
+
+	// check the succeeding screen lines
+	pos := firstRng[1]
+	for pos.runes < lastRng[0].runes {
+		lineRng := e.searchForLineRange(pos.lineCol.line + 1)
+		linePos = append(linePos, lineRng)
+		pos = lineRng[1]
+	}
+
+	if len(linePos) <= 0 {
+		return nil, errors.New("no lines found")
+	}
+
+	lines := make([]*LineInfo, 0)
+	for idx, rng := range linePos {
+		if idx == 0 {
+			if rng[0].lineCol.line == 0 {
+				lines = append(lines, &LineInfo{
+					LineNum: 1,
+					YOffset: rng[0].y - rng[0].ascent.Ceil(),
+					Start:   rng[0].runes,
+					End:     rng[1].runes,
+				})
+			} else {
+				startLine := e.rr.(*editBuffer).countLinesBeforeOffset(int64(e.runeOffset(rng[0].runes)))
+				lines = append(lines, &LineInfo{
+					LineNum: startLine + 1,
+					YOffset: rng[0].y - e.ScrollOff().Y - rng[0].ascent.Ceil(),
+					Start:   rng[0].runes,
+					End:     rng[1].runes,
+				})
+			}
+
+			continue
+		}
+
+		lines = append(lines, &LineInfo{
+			LineNum: lines[idx-1].LineNum + 1,
+			YOffset: rng[0].y - e.ScrollOff().Y - rng[0].ascent.Ceil(),
+			Start:   rng[0].runes,
+			End:     rng[1].runes,
+		})
+
+	}
+
+	return lines, nil
+}
+
+// caretCurrentLine returns the current logical line that the carent is in.
+// Only the start position is checked.
+func (e *textView) caretCurrentLine() (start combinedPos, end combinedPos) {
+	caretStart := e.closestToRune(e.caret.start)
+
+	linePos := e.searchForLineRange(caretStart.lineCol.line)
+
+	start = linePos[0]
+	end = linePos[1]
+	return
+}
+
 func absFixed(i fixed.Int26_6) fixed.Int26_6 {
 	if i < 0 {
 		return -i
@@ -234,6 +361,9 @@ func (e *textView) Layout(gtx layout.Context, lt *text.Shaper, font font.Font, s
 		e.params.PxPerEm = textSize
 	}
 	maxWidth := gtx.Constraints.Max.X
+	if e.SingleLine {
+		maxWidth = math.MaxInt
+	}
 
 	minWidth := gtx.Constraints.Min.X
 	if maxWidth != e.params.MaxWidth {
@@ -295,6 +425,27 @@ func (e *textView) PaintSelection(gtx layout.Context, material op.CallOp) {
 		paint.PaintOp{}.Add(gtx.Ops)
 		area.Pop()
 	}
+}
+
+// paintLineHighlight clips and paints the visible line that the caret is in when there is no
+// text selected.
+func (e *textView) paintLineHighlight(gtx layout.Context, material op.CallOp) {
+	if e.caret.start != e.caret.end {
+		return
+	}
+
+	start, end := e.caretCurrentLine()
+	if start == (combinedPos{}) || end == (combinedPos{}) {
+		return
+	}
+
+	bounds := image.Rectangle{Min: image.Point{X: 0, Y: start.y - start.ascent.Ceil()},
+		Max: image.Point{X: e.viewSize.X, Y: end.y + end.descent.Ceil()}}.Sub(e.scrollOff)
+
+	area := clip.Rect(bounds).Push(gtx.Ops)
+	material.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+	area.Pop()
 }
 
 // PaintText clips and paints the visible text glyph outlines using the provided
@@ -406,8 +557,18 @@ func (e *textView) Text(buf []byte) []byte {
 
 func (e *textView) ScrollBounds() image.Rectangle {
 	var b image.Rectangle
-	b.Max.Y = e.dims.Size.Y - e.viewSize.Y
-
+	if e.SingleLine {
+		if len(e.index.lines) > 0 {
+			line := e.index.lines[0]
+			b.Min.X = line.xOff.Floor()
+			if b.Min.X > 0 {
+				b.Min.X = 0
+			}
+		}
+		b.Max.X = e.dims.Size.X + b.Min.X - e.viewSize.X
+	} else {
+		b.Max.Y = e.dims.Size.Y - e.viewSize.Y
+	}
 	return b
 }
 
@@ -614,9 +775,28 @@ func (e *textView) MoveCaret(startDelta, endDelta int) {
 	e.caret.end = e.moveByGraphemes(e.caret.end, endDelta)
 }
 
-// MoveStart moves the caret to the start of the current line, ensuring that the resulting
+// MoveTextStart moves the caret to the start of the text.
+func (e *textView) MoveTextStart(selAct selectionAction) {
+	caret := e.closestToRune(e.caret.end)
+	e.caret.start = 0
+	e.caret.end = caret.runes
+	e.caret.xoff = -caret.x
+	e.updateSelection(selAct)
+	e.clampCursorToGraphemes()
+}
+
+// MoveTextEnd moves the caret to the end of the text.
+func (e *textView) MoveTextEnd(selAct selectionAction) {
+	caret := e.closestToRune(math.MaxInt)
+	e.caret.start = caret.runes
+	e.caret.xoff = fixed.I(e.params.MaxWidth) - caret.x
+	e.updateSelection(selAct)
+	e.clampCursorToGraphemes()
+}
+
+// MoveLineStart moves the caret to the start of the current line, ensuring that the resulting
 // cursor position is on a grapheme cluster boundary.
-func (e *textView) MoveStart(selAct selectionAction) {
+func (e *textView) MoveLineStart(selAct selectionAction) {
 	caret := e.closestToRune(e.caret.start)
 	caret = e.closestToLineCol(caret.lineCol.line, 0)
 	e.caret.start = caret.runes
@@ -625,9 +805,9 @@ func (e *textView) MoveStart(selAct selectionAction) {
 	e.clampCursorToGraphemes()
 }
 
-// MoveEnd moves the caret to the end of the current line, ensuring that the resulting
+// MoveLineEnd moves the caret to the end of the current line, ensuring that the resulting
 // cursor position is on a grapheme cluster boundary.
-func (e *textView) MoveEnd(selAct selectionAction) {
+func (e *textView) MoveLineEnd(selAct selectionAction) {
 	caret := e.closestToRune(e.caret.start)
 	caret = e.closestToLineCol(caret.lineCol.line, math.MaxInt)
 	e.caret.start = caret.runes
@@ -684,16 +864,25 @@ func (e *textView) MoveWord(distance int, selAct selectionAction) {
 
 func (e *textView) ScrollToCaret() {
 	caret := e.closestToRune(e.caret.start)
-
-	miny := caret.y - caret.ascent.Ceil()
-	maxy := caret.y + caret.descent.Ceil()
-	var dist int
-	if d := miny - e.scrollOff.Y; d < 0 {
-		dist = d
-	} else if d := maxy - (e.scrollOff.Y + e.viewSize.Y); d > 0 {
-		dist = d
+	if e.SingleLine {
+		var dist int
+		if d := caret.x.Floor() - e.scrollOff.X; d < 0 {
+			dist = d
+		} else if d := caret.x.Ceil() - (e.scrollOff.X + e.viewSize.X); d > 0 {
+			dist = d
+		}
+		e.ScrollRel(dist, 0)
+	} else {
+		miny := caret.y - caret.ascent.Ceil()
+		maxy := caret.y + caret.descent.Ceil()
+		var dist int
+		if d := miny - e.scrollOff.Y; d < 0 {
+			dist = d
+		} else if d := maxy - (e.scrollOff.Y + e.viewSize.Y); d > 0 {
+			dist = d
+		}
+		e.ScrollRel(0, dist)
 	}
-	e.ScrollRel(0, dist)
 }
 
 // SelectionLen returns the length of the selection, in runes; it is

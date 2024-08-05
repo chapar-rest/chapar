@@ -217,10 +217,6 @@ type window struct {
 	wakeups chan struct{}
 
 	closing bool
-
-	// invMu avoids the race between the destruction of disp and
-	// Invalidate waking it up.
-	invMu sync.Mutex
 }
 
 type poller struct {
@@ -1369,10 +1365,8 @@ func (w *window) close(err error) {
 	w.ProcessEvent(WaylandViewEvent{})
 	w.ProcessEvent(DestroyEvent{Err: err})
 	w.destroy()
-	w.invMu.Lock()
 	w.disp.destroy()
 	w.disp = nil
-	w.invMu.Unlock()
 }
 
 func (w *window) dispatch() {
@@ -1416,11 +1410,7 @@ func (w *window) Invalidate() {
 	default:
 		return
 	}
-	w.invMu.Lock()
-	defer w.invMu.Unlock()
-	if w.disp != nil {
-		w.disp.wakeup()
-	}
+	w.disp.wakeup()
 }
 
 func (w *window) Run(f func()) {
@@ -1643,6 +1633,14 @@ func (w *window) flushScroll() {
 	if total == (f32.Point{}) {
 		return
 	}
+	if w.scroll.steps == (image.Point{}) {
+		w.fling.xExtrapolation.SampleDelta(w.scroll.time, -w.scroll.dist.X)
+		w.fling.yExtrapolation.SampleDelta(w.scroll.time, -w.scroll.dist.Y)
+	}
+	// Zero scroll distance prior to calling ProcessEvent, otherwise we may recursively
+	// re-process the scroll distance.
+	w.scroll.dist = f32.Point{}
+	w.scroll.steps = image.Point{}
 	w.ProcessEvent(pointer.Event{
 		Kind:      pointer.Scroll,
 		Source:    pointer.Mouse,
@@ -1652,12 +1650,6 @@ func (w *window) flushScroll() {
 		Time:      w.scroll.time,
 		Modifiers: w.disp.xkb.Modifiers(),
 	})
-	if w.scroll.steps == (image.Point{}) {
-		w.fling.xExtrapolation.SampleDelta(w.scroll.time, -w.scroll.dist.X)
-		w.fling.yExtrapolation.SampleDelta(w.scroll.time, -w.scroll.dist.Y)
-	}
-	w.scroll.dist = f32.Point{}
-	w.scroll.steps = image.Point{}
 }
 
 func (w *window) onPointerMotion(x, y C.wl_fixed_t, t C.uint32_t) {

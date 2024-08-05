@@ -193,7 +193,7 @@ func (it *textIterator) groupGlyphs(line []glyphStyle) []*glyphSpan {
 	for _, s := range line {
 		span := spans[idx]
 		if len(span.glyphs) <= 0 {
-			span.addFirstGlyph(s, it.lineOff)
+			span.addFirstGlyph(s, float32(it.viewport.Min.X)+it.lineOff.X)
 			continue
 		}
 
@@ -204,7 +204,7 @@ func (it *textIterator) groupGlyphs(line []glyphStyle) []*glyphSpan {
 			idx++
 			spans = append(spans, &glyphSpan{})
 			span := spans[idx]
-			span.addFirstGlyph(s, it.lineOff)
+			span.addFirstGlyph(s, float32(it.viewport.Min.X)+it.lineOff.X)
 		}
 	}
 
@@ -212,13 +212,13 @@ func (it *textIterator) groupGlyphs(line []glyphStyle) []*glyphSpan {
 	return spans
 }
 
-func (span *glyphSpan) addFirstGlyph(s glyphStyle, lineOff f32.Point) {
+func (span *glyphSpan) addFirstGlyph(s glyphStyle, lineOff float32) {
 	span.glyphs = append(span.glyphs, s.g)
 	span.fg = s.fg
 	span.bg = s.bg
 	// offset is where the first glyph character starts
 	// thanks to setting an offset, the rectangle and the glyph can be drawn from X: 0
-	span.offset = float32(s.g.X.Floor() - lineOff.Round().X)
+	span.offset = fixedToFloat(s.g.X) - lineOff
 }
 
 func (span *glyphSpan) calculateBgRect() clip.Rect {

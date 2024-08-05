@@ -38,7 +38,7 @@ type KeyValueItem struct {
 	Active     bool
 
 	keyEditor   *widget.Editor
-	valueEditor *widget.Editor
+	valueEditor *PatternEditor
 
 	activeBool   *widget.Bool
 	deleteButton *widget.Clickable
@@ -52,7 +52,6 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 			Size:      unit.Dp(20),
 			Clickable: &widget.Clickable{},
 		},
-		Items: items,
 		list: &widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -61,6 +60,9 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 
 		filteredItems: make([]*KeyValueItem, 0),
 	}
+
+	// To make sure items are sorted by index and have the onValueChange callback set.
+	kv.SetItems(items)
 
 	kv.addButton.OnClick = func() {
 		kv.AddItem(NewKeyValueItem("", "", uuid.NewString(), true))
@@ -74,10 +76,8 @@ func NewKeyValueItem(key, value, identifier string, active bool) *KeyValueItem {
 	k := &widget.Editor{SingleLine: true}
 	k.SetText(key)
 
-	v := &widget.Editor{SingleLine: true}
-	v.SetText(value)
-
-	return &KeyValueItem{
+	v := NewPatternEditor()
+	kv := &KeyValueItem{
 		Identifier:   identifier,
 		Key:          key,
 		Value:        value,
@@ -87,6 +87,10 @@ func NewKeyValueItem(key, value, identifier string, active bool) *KeyValueItem {
 		deleteButton: &widget.Clickable{},
 		activeBool:   &widget.Bool{Value: active},
 	}
+
+	v.SetText(value)
+
+	return kv
 }
 
 func (kv *KeyValue) Filter(text string) {
@@ -117,6 +121,11 @@ func (kv *KeyValue) AddItem(item *KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
 
+	item.valueEditor.SetOnChanged(func(text string) {
+		item.Value = text
+		kv.triggerChanged()
+	})
+
 	item.index = len(kv.Items)
 	kv.Items = append(kv.Items, item)
 }
@@ -126,6 +135,10 @@ func (kv *KeyValue) SetItems(items []*KeyValueItem) {
 	defer kv.mx.Unlock()
 	for i := range items {
 		items[i].index = i
+		items[i].valueEditor.SetOnChanged(func(text string) {
+			items[i].Value = text
+			kv.triggerChanged()
+		})
 	}
 	kv.Items = items
 }
@@ -178,16 +191,6 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 		}
 	}
 
-	for {
-		event, ok := item.valueEditor.Update(gtx)
-		if !ok {
-			break
-		}
-		if _, ok := event.(widget.ChangeEvent); ok {
-			item.Value = item.valueEditor.Text()
-			kv.triggerChanged()
-		}
-	}
 	leftPadding := layout.Inset{Left: unit.Dp(8)}
 
 	content := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
@@ -211,9 +214,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 				DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						ed := material.Editor(theme.Material(), item.valueEditor, "Value")
-						ed.SelectionColor = theme.TextSelectionColor
-						return ed.Layout(gtx)
+						return item.valueEditor.Layout(gtx, theme, "Value")
 					})
 				}),
 			)
