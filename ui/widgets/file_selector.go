@@ -10,7 +10,6 @@ import (
 )
 
 // FileSelector is a widget that allows the user to select a file. it handles the file selection and display the file name.
-// TODO replace binary file with this widget
 type FileSelector struct {
 	textField *TextField
 	FileName  string
@@ -20,7 +19,8 @@ type FileSelector struct {
 	explorer     *explorer.Explorer
 	onSelectFile func()
 
-	changed bool
+	onChanged func(filePath string)
+	changed   bool
 }
 
 func NewFileSelector(filename string, explorer *explorer.Explorer, extensions ...string) *FileSelector {
@@ -68,6 +68,7 @@ func (b *FileSelector) SetOnSelectFile(f func()) {
 		if b.FileName != "" {
 			b.RemoveFile()
 			b.changed = true
+			b.onChangeCallback()
 			return
 		} else {
 			// Select file
@@ -81,6 +82,7 @@ func (b *FileSelector) SetFileName(name string) {
 	b.textField.SetText(name)
 	b.updateIcon()
 	b.changed = true
+	b.onChangeCallback()
 }
 
 func (b *FileSelector) Changed() bool {
@@ -94,6 +96,17 @@ func (b *FileSelector) RemoveFile() {
 	b.textField.SetText("")
 	b.updateIcon()
 	b.changed = true
+	b.onChangeCallback()
+}
+
+func (b *FileSelector) onChangeCallback() {
+	if b.onChanged != nil {
+		b.onChanged(b.FileName)
+	}
+}
+
+func (b *FileSelector) SetOnChanged(f func(filePath string)) {
+	b.onChanged = f
 }
 
 func (b *FileSelector) GetFilePath() string {

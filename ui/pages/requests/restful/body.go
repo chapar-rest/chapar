@@ -7,6 +7,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/converter"
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -19,12 +20,12 @@ type Body struct {
 	FormData   *component.FormData
 	urlencoded *widgets.KeyValue
 	script     *widgets.CodeEditor
-	BinaryFile *widgets.BinaryFile
+	BinaryFile *widgets.FileSelector
 
 	onChange func(body domain.Body)
 }
 
-func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
+func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Explorer) *Body {
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
@@ -40,7 +41,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme) *Body {
 		FormData:   component.NewFormData(theme),
 		urlencoded: widgets.NewKeyValue(),
 		script:     widgets.NewCodeEditor("", widgets.CodeLanguageJSON, theme),
-		BinaryFile: widgets.NewBinaryFile(""),
+		BinaryFile: widgets.NewFileSelector("", explorer),
 	}
 
 	b.FormData.SetValues(body.FormData.Fields)

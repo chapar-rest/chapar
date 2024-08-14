@@ -7,6 +7,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -28,7 +29,7 @@ type Restful struct {
 	onSubmit      func(id string)
 }
 
-func New(req *domain.Request, theme *chapartheme.Theme) *Restful {
+func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Restful {
 	r := &Restful{
 		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
@@ -41,7 +42,7 @@ func New(req *domain.Request, theme *chapartheme.Theme) *Restful {
 			BarWidth: unit.Dp(2),
 		},
 		Response: NewResponse(theme),
-		Request:  NewRequest(req, theme),
+		Request:  NewRequest(req, explorer, theme),
 	}
 	r.setupHooks()
 
