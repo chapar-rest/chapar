@@ -8,6 +8,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
@@ -15,7 +16,7 @@ type ServerInfo struct {
 	definitionFrom *widget.Enum
 
 	ReloadButton *widget.Clickable
-	FileSelector *widgets.BinaryFile
+	FileSelector *widgets.FileSelector
 
 	IsLoading bool
 	onReload  func()
@@ -23,7 +24,7 @@ type ServerInfo struct {
 	onChanged func()
 }
 
-func NewServerInfo(info domain.ServerInfo) *ServerInfo {
+func NewServerInfo(explorer *explorer.Explorer, info domain.ServerInfo) *ServerInfo {
 	// For now, we only support one proto file, and we will use the last one
 	fileName := ""
 	if len(info.ProtoFiles) > 0 {
@@ -32,7 +33,7 @@ func NewServerInfo(info domain.ServerInfo) *ServerInfo {
 
 	s := &ServerInfo{
 		definitionFrom: new(widget.Enum),
-		FileSelector:   widgets.NewBinaryFile(fileName),
+		FileSelector:   widgets.NewFileSelector(fileName, explorer),
 		ReloadButton:   new(widget.Clickable),
 		IsLoading:      false,
 	}
@@ -52,8 +53,6 @@ func (s *ServerInfo) SetOnChanged(f func()) {
 
 func (s *ServerInfo) SetOnReload(f func()) {
 	s.onReload = f
-
-	s.FileSelector.SetOnRefresh(f)
 }
 
 func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -114,11 +113,33 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if s.definitionFrom.Value == "proto_files" {
-					return s.FileSelector.Layout(gtx, theme)
+				if s.definitionFrom.Value != "proto_files" {
+					return layout.Dimensions{}
 				}
 
-				return layout.Dimensions{}
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return s.FileSelector.Layout(gtx, theme)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Max.Y = gtx.Dp(32)
+						if s.ReloadButton.Clicked(gtx) {
+							if s.onReload != nil {
+								s.onReload()
+							}
+						}
+
+						if s.FileSelector.GetFilePath() == "" {
+							return layout.Dimensions{}
+						}
+
+						btn := widgets.Button(theme.Material(), s.ReloadButton, widgets.RefreshIcon, widgets.IconPositionStart, "")
+						btn.Inset = layout.Inset{Top: unit.Dp(6), Bottom: unit.Dp(4), Left: unit.Dp(6), Right: unit.Dp(2)}
+						btn.Color = theme.ButtonTextColor
+						return btn.Layout(gtx, theme)
+					}),
+				)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {

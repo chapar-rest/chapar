@@ -6,6 +6,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -22,7 +23,7 @@ type Request struct {
 	Auth    *component.Auth
 }
 
-func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
+func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapartheme.Theme) *Request {
 	r := &Request{
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Params"},
@@ -46,7 +47,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme) *Request {
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
 		}, theme),
 
-		Body:    NewBody(req.Spec.HTTP.Request.Body, theme),
+		Body:    NewBody(req.Spec.HTTP.Request.Body, theme, explorer),
 		Params:  NewParams(nil, nil),
 		Headers: NewHeaders(nil),
 		Auth:    component.NewAuth(req.Spec.HTTP.Request.Auth, theme),

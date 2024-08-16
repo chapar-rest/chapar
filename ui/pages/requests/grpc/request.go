@@ -40,7 +40,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			{Title: "Meta Data"},
 			{Title: "Settings"},
 		}, nil),
-		ServerInfo: NewServerInfo(req.Spec.GRPC.ServerInfo),
+		ServerInfo: NewServerInfo(explorer, req.Spec.GRPC.ServerInfo),
 		Body:       widgets.NewCodeEditor(req.Spec.GRPC.Body, widgets.CodeLanguageJSON, theme),
 		Metadata: widgets.NewKeyValue(
 			converter.WidgetItemsFromKeyValue(req.Spec.GRPC.Metadata)...,

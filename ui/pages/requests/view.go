@@ -494,7 +494,7 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 }
 
 func (v *View) createRestfulContainer(req *domain.Request) Container {
-	ct := restful.New(req, v.theme)
+	ct := restful.New(req, v.theme, v.explorer)
 
 	ct.SetOnTitleChanged(func(text string) {
 		if v.onTitleChanged != nil {
