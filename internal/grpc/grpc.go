@@ -152,30 +152,58 @@ func generateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[s
 	for i := 0; i < fields.Len(); i++ {
 		field := fields.Get(i)
 
-		switch field.Kind() {
-		case protoreflect.StringKind:
-			out[string(field.Name())] = "string"
-		case protoreflect.DoubleKind, protoreflect.FloatKind:
-			out[string(field.Name())] = 123.456
-		case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind,
-			protoreflect.Fixed64Kind, protoreflect.Int32Kind, protoreflect.Sint32Kind,
-			protoreflect.Sfixed32Kind, protoreflect.Int64Kind, protoreflect.Sint64Kind,
-			protoreflect.Sfixed64Kind:
-
-			out[string(field.Name())] = 123
-
-		case protoreflect.BytesKind:
-			out[string(field.Name())] = "bytes"
-		case protoreflect.EnumKind:
-			enum := field.Enum()
-			out[string(field.Name())] = string(enum.Values().Get(0).Name())
-		case protoreflect.BoolKind:
-			out[string(field.Name())] = true
-		case protoreflect.MessageKind:
-			nestedMessageDescriptor := field.Message()
-			out[string(field.Name())] = generateExampleJSON(nestedMessageDescriptor)
-		default:
-			out[string(field.Name())] = "string"
+		// Check if the field is repeated
+		if field.Cardinality() == protoreflect.Repeated {
+			var repeatedValues []interface{}
+			switch field.Kind() {
+			case protoreflect.StringKind:
+				repeatedValues = append(repeatedValues, "string")
+			case protoreflect.DoubleKind, protoreflect.FloatKind:
+				repeatedValues = append(repeatedValues, 123.456)
+			case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind,
+				protoreflect.Fixed64Kind, protoreflect.Int32Kind, protoreflect.Sint32Kind,
+				protoreflect.Sfixed32Kind, protoreflect.Int64Kind, protoreflect.Sint64Kind,
+				protoreflect.Sfixed64Kind:
+				repeatedValues = append(repeatedValues, 123)
+			case protoreflect.BytesKind:
+				repeatedValues = append(repeatedValues, "bytes")
+			case protoreflect.EnumKind:
+				enum := field.Enum()
+				repeatedValues = append(repeatedValues, string(enum.Values().Get(0).Name()))
+			case protoreflect.BoolKind:
+				repeatedValues = append(repeatedValues, true)
+			case protoreflect.MessageKind:
+				nestedMessageDescriptor := field.Message()
+				repeatedValues = append(repeatedValues, generateExampleJSON(nestedMessageDescriptor))
+			default:
+				repeatedValues = append(repeatedValues, "string")
+			}
+			out[string(field.Name())] = repeatedValues
+		} else {
+			// Handle singular fields
+			switch field.Kind() {
+			case protoreflect.StringKind:
+				out[string(field.Name())] = "string"
+			case protoreflect.DoubleKind, protoreflect.FloatKind:
+				out[string(field.Name())] = 123.456
+			case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind,
+				protoreflect.Fixed64Kind, protoreflect.Int32Kind, protoreflect.Sint32Kind,
+				protoreflect.Sfixed32Kind, protoreflect.Int64Kind, protoreflect.Sint64Kind,
+				protoreflect.Sfixed64Kind:
+				out[string(field.Name())] = 123
+			case protoreflect.BytesKind:
+				out[string(field.Name())] = "bytes"
+			case protoreflect.EnumKind:
+				enum := field.Enum()
+				out[string(field.Name())] = string(enum.Values().Get(0).Name())
+			case protoreflect.BoolKind:
+				out[string(field.Name())] = true
+			case protoreflect.MessageKind:
+				nestedMessageDescriptor := field.Message()
+				out[string(field.Name())] = generateExampleJSON(nestedMessageDescriptor)
+			default:
+				out[string(field.Name())] = "string"
+			}
 		}
 	}
 
