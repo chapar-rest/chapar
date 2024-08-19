@@ -649,6 +649,17 @@ func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(se
 	ct.ShowPrompt(title, content, modalType, onSubmit, options...)
 }
 
+func (v *View) HideGRPCRequestError(id string) {
+	ct, ok := v.containers.Get(id)
+	if !ok {
+		return
+	}
+
+	if ct, ok := ct.(GrpcContainer); ok {
+		ct.HideRequestPrompt()
+	}
+}
+
 func (v *View) ShowGRPCRequestError(id, title, content string) {
 	ct, ok := v.containers.Get(id)
 	if !ok {

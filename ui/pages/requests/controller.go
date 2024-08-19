@@ -126,11 +126,11 @@ func (c *Controller) onServerInfoReload(id string) {
 
 	res, err := c.grpcService.GetServices(id, c.getActiveEnvID())
 	if err != nil {
-		c.view.ShowGRPCRequestError(id, "Error", err.Error())
-		fmt.Println("failed to get server reflection", err)
+		c.view.ShowGRPCRequestError(id, "Failed to get server reflection", err.Error())
 		return
 	}
 
+	c.view.HideGRPCRequestError(id)
 	c.view.SetGRPCServices(id, res)
 }
 
@@ -166,19 +166,22 @@ func (c *Controller) onLoadRequestExample(id string) {
 
 	example, err := c.grpcService.GetRequestStruct(id, c.getActiveEnvID())
 	if err != nil {
-		fmt.Println("failed to get request struct", err)
+		c.view.ShowGRPCRequestError(id, "Failed to get request struct", err.Error())
 		return
 	}
 
+	c.view.HideGRPCRequestError(id)
 	c.view.SetSetGrpcRequestBody(id, example)
 }
 
 func (c *Controller) onProtoFileSelect(id string) {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
-			fmt.Println("failed to get proto file", result.Error)
+			c.view.ShowGRPCRequestError(id, "Error", result.Error.Error())
 			return
 		}
+		c.view.HideGRPCRequestError(id)
+
 		if result.FilePath == "" {
 			return
 		}
