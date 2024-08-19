@@ -24,7 +24,10 @@ import (
 
 type View struct {
 	addButton            widget.Clickable
+	addImportPath        widget.Clickable
 	deleteSelectedButton widget.Clickable
+
+	Prompt *widgets.Prompt
 
 	searchBox *widgets.TextField
 	grid      component.GridState
@@ -39,6 +42,10 @@ type View struct {
 	onAdd            func()
 	onDelete         func(p *domain.ProtoFile)
 	onDeleteSelected func(ids []string)
+	onAddImportPath  func(path string)
+
+	inputModal          *widgets.InputModal
+	showImportPathModal bool
 }
 
 type Item struct {
@@ -59,6 +66,10 @@ func NewView() *View {
 	v := &View{
 		mx:        &sync.Mutex{},
 		searchBox: search,
+
+		Prompt: widgets.NewPrompt("", "", ""),
+
+		inputModal: widgets.NewInputModal("Add Path", "Enter absolute import path"),
 	}
 
 	v.searchBox.SetOnTextChange(func(text string) {
@@ -67,6 +78,17 @@ func NewView() *View {
 		}
 
 		v.Filter(text)
+	})
+
+	v.inputModal.SetOnAdd(func(text string) {
+		v.showImportPathModal = false
+		if v.onAddImportPath != nil {
+			v.onAddImportPath(text)
+		}
+	})
+
+	v.inputModal.SetOnClose(func() {
+		v.showImportPathModal = false
 	})
 
 	return v
@@ -87,6 +109,20 @@ func (v *View) SetItems(items []*domain.ProtoFile) {
 	sort.Slice(v.items, func(i, j int) bool {
 		return v.items[i].p.Spec.Path < v.items[j].p.Spec.Path
 	})
+}
+
+func (v *View) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+	v.Prompt.Type = modalType
+	v.Prompt.Title = title
+	v.Prompt.Content = content
+	v.Prompt.SetOptions(options...)
+	v.Prompt.WithoutRememberBool()
+	v.Prompt.SetOnSubmit(onSubmit)
+	v.Prompt.Show()
+}
+
+func (v *View) HidePrompt() {
+	v.Prompt.Hide()
 }
 
 func (v *View) AddItem(item *domain.ProtoFile) {
@@ -120,6 +156,10 @@ func (v *View) SetOnDeleteSelected(f func(ids []string)) {
 	v.onDeleteSelected = f
 }
 
+func (v *View) SetOnAddImportPath(f func(path string)) {
+	v.onAddImportPath = f
+}
+
 func (v *View) Filter(text string) {
 	v.mx.Lock()
 	defer v.mx.Unlock()
@@ -145,6 +185,10 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 		if v.addButton.Clicked(gtx) {
 			v.onAdd()
 		}
+	}
+
+	if v.addImportPath.Clicked(gtx) {
+		v.showImportPathModal = true
 	}
 
 	shouldShowDeleteSelected := false
@@ -176,13 +220,13 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 				Axis: layout.Vertical,
 			}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lb := material.Label(theme.Material(), unit.Sp(18), "Proto files")
+					lb := material.Label(theme.Material(), unit.Sp(18), "Proto files and Import Paths")
 					lb.Font.Weight = font.Bold
 					return lb.Layout(gtx)
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(5)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lb := material.Label(theme.Material(), unit.Sp(12), "Manage proto files as dependencies or import them into your workspace.")
+					lb := material.Label(theme.Material(), unit.Sp(12), "Manage proto files as dependencies and import paths")
 					return lb.Layout(gtx)
 				}),
 			)
@@ -197,6 +241,13 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 					deleteSelectedBtn.Color = theme.ButtonTextColor
 					deleteSelectedBtn.Background = theme.DeleteButtonBgColor
 					return deleteSelectedBtn.Layout(gtx, theme)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					newBtn := widgets.Button(theme.Material(), &v.addImportPath, widgets.FileFolderIcon, widgets.IconPositionStart, "Add Import Path")
+					newBtn.Color = theme.ButtonTextColor
+					newBtn.Background = theme.SendButtonBgColor
+					return newBtn.Layout(gtx, theme)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -217,7 +268,7 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 
 var headingText = []string{" ", "Path", "Package", "Services", " "}
 
-func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (v *View) tableLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems
@@ -272,6 +323,11 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return v.header(gtx, theme)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return v.Prompt.Layout(gtx, theme)
+				})
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(25)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -366,4 +422,14 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			}),
 		)
 	})
+}
+
+func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.showImportPathModal {
+		ops := op.Record(gtx.Ops)
+		v.inputModal.Layout(gtx, theme)
+		defer op.Defer(gtx.Ops, ops.Stop())
+	}
+
+	return v.tableLayout(gtx, theme)
 }
