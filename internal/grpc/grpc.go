@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -135,17 +136,50 @@ func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
 		return "", err
 	}
 
-	request := dynamicpb.NewMessage(md.Input())
-	reqJSON, err := (protojson.MarshalOptions{
-		Indent:          "  ",
-		EmitUnpopulated: true,
-		UseProtoNames:   true,
-	}).Marshal(request)
+	jsonBytes, err := json.MarshalIndent(generateExampleJSON(md.Input()), "", "  ")
 	if err != nil {
+		fmt.Println("Error marshaling to JSON:", err)
 		return "", err
 	}
 
-	return string(reqJSON), nil
+	return string(jsonBytes), nil
+}
+
+func generateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[string]interface{} {
+	out := make(map[string]interface{})
+
+	fields := messageDescriptor.Fields()
+	for i := 0; i < fields.Len(); i++ {
+		field := fields.Get(i)
+
+		switch field.Kind() {
+		case protoreflect.StringKind:
+			out[string(field.Name())] = "string"
+		case protoreflect.DoubleKind, protoreflect.FloatKind:
+			out[string(field.Name())] = 123.456
+		case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind,
+			protoreflect.Fixed64Kind, protoreflect.Int32Kind, protoreflect.Sint32Kind,
+			protoreflect.Sfixed32Kind, protoreflect.Int64Kind, protoreflect.Sint64Kind,
+			protoreflect.Sfixed64Kind:
+
+			out[string(field.Name())] = 123
+
+		case protoreflect.BytesKind:
+			out[string(field.Name())] = "bytes"
+		case protoreflect.EnumKind:
+			enum := field.Enum()
+			out[string(field.Name())] = string(enum.Values().Get(0).Name())
+		case protoreflect.BoolKind:
+			out[string(field.Name())] = true
+		case protoreflect.MessageKind:
+			nestedMessageDescriptor := field.Message()
+			out[string(field.Name())] = generateExampleJSON(nestedMessageDescriptor)
+		default:
+			out[string(field.Name())] = "string"
+		}
+	}
+
+	return out
 }
 
 func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
@@ -407,7 +441,7 @@ func (s *Service) GetServices(id, activeEnvironmentID string) ([]domain.GRPCServ
 			return nil, err
 		}
 
-		protoRegistryFiles, err := ProtoFilesFromDisk(s.getImportPaths(protoFiles, req.Spec.GRPC.ServerInfo.ProtoFiles))
+		protoRegistryFiles, err := ProtoFilesFromDisk(GetImportPaths(protoFiles, req.Spec.GRPC.ServerInfo.ProtoFiles))
 		if err != nil {
 			return nil, err
 		}
@@ -432,7 +466,7 @@ func (s *Service) getActiveEnvironment(id string) *domain.Environment {
 	return activeEnvironment
 }
 
-func (s *Service) getImportPaths(protoFiles []*domain.ProtoFile, files []string) ([]string, []string) {
+func GetImportPaths(protoFiles []*domain.ProtoFile, files []string) ([]string, []string) {
 	importPaths := make([]string, 0, len(protoFiles)+len(files))
 	fileNames := make([]string, 0, len(protoFiles)+len(files))
 	for _, file := range files {
@@ -442,8 +476,12 @@ func (s *Service) getImportPaths(protoFiles []*domain.ProtoFile, files []string)
 	}
 
 	for _, protoFile := range protoFiles {
-		importPaths = append(importPaths, filepath.Dir(protoFile.Spec.Path))
-		fileNames = append(fileNames, filepath.Base(protoFile.Spec.Path))
+		if protoFile.Spec.IsImportPath {
+			importPaths = append(importPaths, protoFile.Spec.Path)
+		} else {
+			importPaths = append(importPaths, filepath.Dir(protoFile.Spec.Path))
+			fileNames = append(fileNames, filepath.Base(protoFile.Spec.Path))
+		}
 	}
 
 	return importPaths, fileNames
