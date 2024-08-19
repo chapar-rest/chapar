@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -42,7 +43,7 @@ func (i *InputModal) SetText(text string) {
 	i.textField.SetText(text)
 }
 
-func (i *InputModal) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (i *InputModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if i.onClose != nil && i.closeBtn.Clicked(gtx) {
 		i.onClose()
 	}
@@ -96,4 +97,12 @@ func (i *InputModal) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 			})
 		})
 	})
+}
+
+func (i *InputModal) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	ops := op.Record(gtx.Ops)
+	dims := i.layout(gtx, theme)
+	defer op.Defer(gtx.Ops, ops.Stop())
+
+	return dims
 }

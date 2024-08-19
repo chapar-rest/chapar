@@ -268,7 +268,11 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 
 var headingText = []string{" ", "Path", "Package", "Services", " "}
 
-func (v *View) tableLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.showImportPathModal {
+		v.inputModal.Layout(gtx, theme)
+	}
+
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems
@@ -422,14 +426,4 @@ func (v *View) tableLayout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			}),
 		)
 	})
-}
-
-func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if v.showImportPathModal {
-		ops := op.Record(gtx.Ops)
-		v.inputModal.Layout(gtx, theme)
-		defer op.Defer(gtx.Ops, ops.Stop())
-	}
-
-	return v.tableLayout(gtx, theme)
 }
