@@ -138,8 +138,7 @@ func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
 
 	jsonBytes, err := json.MarshalIndent(generateExampleJSON(md.Input()), "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling to JSON:", err)
-		return "", err
+		return "", fmt.Errorf("failed to marshal to JSON: %w", err)
 	}
 
 	return string(jsonBytes), nil
