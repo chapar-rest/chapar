@@ -9,6 +9,10 @@ import (
 	"gioui.org/x/explorer"
 )
 
+var (
+	ErrUserDecline = explorer.ErrUserDecline
+)
+
 type Explorer struct {
 	expl *explorer.Explorer
 	w    *app.Window

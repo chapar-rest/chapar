@@ -1,6 +1,7 @@
 package protofiles
 
 import (
+	"errors"
 	"path/filepath"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -79,7 +80,9 @@ func (c *Controller) addPath(path string) {
 func (c *Controller) onAdd() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
-			c.showError("Failed to open file", result.Error.Error())
+			if !errors.Is(result.Error, explorer.ErrUserDecline) {
+				c.showError("Failed to open file", result.Error.Error())
+			}
 			return
 		}
 
