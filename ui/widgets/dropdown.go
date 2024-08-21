@@ -45,6 +45,7 @@ type DropDownOption struct {
 
 	Icon      *widget.Icon
 	IconColor color.NRGBA
+	IconSize  unit.Dp
 
 	isDivider bool
 	isDefault bool
@@ -73,9 +74,10 @@ func (o *DropDownOption) WithValue(value string) *DropDownOption {
 	return o
 }
 
-func (o *DropDownOption) WithIcon(icon *widget.Icon, color color.NRGBA) *DropDownOption {
+func (o *DropDownOption) WithIcon(icon *widget.Icon, color color.NRGBA, size unit.Dp) *DropDownOption {
 	o.Icon = icon
 	o.IconColor = color
+	o.IconSize = size
 	return o
 }
 
@@ -327,6 +329,7 @@ func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
 			if opt.Icon != nil {
 				itm.Icon = opt.Icon
 				itm.IconColor = opt.IconColor
+				itm.IconSize = opt.IconSize
 			}
 
 			itm.Label.Color = chapartheme.White

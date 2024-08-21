@@ -52,7 +52,7 @@ func (a *AddressBar) SetServices(services []domain.GRPCService) {
 	for i, srv := range services {
 		opts = append(opts, widgets.NewDropDownOption(srv.Name))
 		for _, m := range srv.Methods {
-			opts = append(opts, widgets.NewDropDownOption(m.Name).WithIcon(widgets.ForwardIcon, a.theme.WarningColor).WithValue(m.FullName))
+			opts = append(opts, widgets.NewDropDownOption(m.Name).WithIcon(widgets.ForwardIcon, a.theme.WarningColor, unit.Dp(15)).WithValue(m.FullName))
 		}
 
 		if i < len(services)-1 {
