@@ -43,7 +43,7 @@ type Prompt struct {
 	options []Option
 	result  string
 
-	onSubmit func(selectedOption string, remember bool)
+	onSubmit func(selectedOption string, remember bool) error
 }
 
 type Option struct {
@@ -85,25 +85,24 @@ func (p *Prompt) WithoutRememberBool() {
 	p.rememberBool = nil
 }
 
-func (p *Prompt) SetOnSubmit(f func(selectedOption string, remember bool)) {
+func (p *Prompt) SetOnSubmit(f func(selectedOption string, remember bool) error) {
 	p.onSubmit = f
 }
 
-func (p *Prompt) submit() {
+func (p *Prompt) submit() error {
 	if p.onSubmit == nil {
-		return
+		return nil
 	}
 
 	if !p.Visible {
-		return
+		return nil
 	}
 
 	if p.rememberBool == nil {
-		p.onSubmit(p.result, false)
-		return
+		return p.onSubmit(p.result, false)
 	}
 
-	p.onSubmit(p.result, p.rememberBool.Value)
+	return p.onSubmit(p.result, p.rememberBool.Value)
 }
 
 func (p *Prompt) Result() (string, bool) {

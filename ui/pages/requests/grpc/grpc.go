@@ -152,9 +152,9 @@ func convertSettingsToItems(values map[string]any) domain.Settings {
 	return out
 }
 
-func (r *Grpc) SetOnProtoFileSelect(f func(id string)) {
-	r.Request.ServerInfo.FileSelector.SetOnSelectFile(func() {
-		f(r.Req.MetaData.ID)
+func (r *Grpc) SetOnProtoFileSelect(f func(id string) error) {
+	r.Request.ServerInfo.FileSelector.SetOnSelectFile(func() error {
+		return f(r.Req.MetaData.ID)
 	})
 }
 
@@ -165,7 +165,7 @@ func (r *Grpc) SetProtoBodyFilePath(filePath string) {
 	}
 }
 
-func (r *Grpc) ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+func (r *Grpc) ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option) {
 	r.Request.Prompt.Type = modalType
 	r.Request.Prompt.Title = title
 	r.Request.Prompt.Content = content
@@ -231,7 +231,7 @@ func (r *Grpc) HidePrompt() {
 	r.Prompt.Hide()
 }
 
-func (r *Grpc) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+func (r *Grpc) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option) {
 	r.Prompt.Type = modalType
 	r.Prompt.Title = title
 	r.Prompt.Content = content

@@ -28,7 +28,7 @@ func (c *Collection) SetOnDataChanged(f func(id string, data any)) {
 	c.onDataChanged = f
 }
 
-func (c *Collection) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+func (c *Collection) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option) {
 	c.prompt.Type = modalType
 	c.prompt.Title = title
 	c.prompt.Content = content

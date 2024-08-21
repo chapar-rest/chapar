@@ -75,9 +75,9 @@ func (r *Restful) SetURL(url string) {
 	r.AddressBar.SetURL(url)
 }
 
-func (r *Restful) SetOnBinaryFileSelect(f func(id string)) {
-	r.Request.Body.BinaryFile.SetOnSelectFile(func() {
-		f(r.Req.MetaData.ID)
+func (r *Restful) SetOnBinaryFileSelect(f func(id string) error) {
+	r.Request.Body.BinaryFile.SetOnSelectFile(func() error {
+		return f(r.Req.MetaData.ID)
 	})
 }
 
@@ -139,7 +139,7 @@ func (r *Restful) SetOnSave(f func(id string)) {
 	r.onSave = f
 }
 
-func (r *Restful) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+func (r *Restful) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option) {
 	r.Prompt.Type = modalType
 	r.Prompt.Title = title
 	r.Prompt.Content = content

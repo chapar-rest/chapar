@@ -1,6 +1,7 @@
 package environments
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -44,13 +45,12 @@ func NewController(view *View, repo repository.Repository, envState *state.Envir
 	return c
 }
 
-func (c *Controller) onNewEnvironment() {
+func (c *Controller) onNewEnvironment() error {
 	env := domain.NewEnvironment("New Environment")
 
 	filePath, err := c.repo.GetNewEnvironmentFilePath(env.MetaData.Name)
 	if err != nil {
-		fmt.Println("failed to get new environment file path", err)
-		return
+		return fmt.Errorf("failed to get new environment file path, %w", err)
 	}
 
 	env.FilePath = filePath.Path
@@ -58,27 +58,27 @@ func (c *Controller) onNewEnvironment() {
 
 	c.state.AddEnvironment(env, state.SourceController)
 	c.view.AddTreeViewNode(env)
-	c.saveEnvironmentToDisc(env.MetaData.ID)
+	return c.saveEnvironmentToDisc(env.MetaData.ID)
 }
 
-func (c *Controller) onImportEnvironment() {
-	c.explorer.ChoseFile(func(result explorer.Result) {
+func (c *Controller) onImportEnvironment() error {
+	err := c.explorer.ChoseFile(func(result explorer.Result) error {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
-			return
+			return fmt.Errorf("failed to get file, %w", result.Error)
 		}
 
 		if err := importer.ImportPostmanEnvironment(result.Data); err != nil {
-			fmt.Println("failed to import postman environment", err)
-			return
+			return fmt.Errorf("failed to import postman environment, %w", err)
 		}
 
 		if err := c.LoadData(); err != nil {
-			fmt.Println("failed to load environments", err)
-			return
+			return fmt.Errorf("failed to load environments, %w", err)
 		}
 
+		return nil
 	}, "json")
+
+	return <-err
 }
 
 func (c *Controller) onEnvironmentChange(env *domain.Environment, source state.Source, action state.Action) {
@@ -103,10 +103,10 @@ func (c *Controller) onEnvironmentChange(env *domain.Environment, source state.S
 	}
 }
 
-func (c *Controller) onTitleChanged(id string, title string) {
+func (c *Controller) onTitleChanged(id string, title string) error {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		return
+		return fmt.Errorf("failed to get environment, %s", id)
 	}
 
 	env.MetaData.Name = title
@@ -114,27 +114,29 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
 
 	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
-		fmt.Println("failed to update environment", err)
-		return
+		return fmt.Errorf("failed to update environment, %w", err)
 	}
 
 	c.view.SetTabDirty(id, false)
+	return nil
 }
 
-func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
+func (c *Controller) onTreeViewNodeDoubleClicked(id string) error {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		return
+		return fmt.Errorf("failed to get environment, %s", id)
 	}
 
 	if c.view.IsTabOpen(id) {
 		c.view.SwitchToTab(env.MetaData.ID)
 		c.view.OpenContainer(env)
-		return
+		return nil
 	}
 
 	c.view.OpenTab(env)
 	c.view.OpenContainer(env)
+
+	return nil
 }
 
 func (c *Controller) LoadData() error {
@@ -157,108 +159,110 @@ func (c *Controller) onTabSelected(id string) {
 	c.view.OpenContainer(env)
 }
 
-func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
+func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) error {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		return
+		return fmt.Errorf("failed to get environment, %s", id)
 	}
 
 	// is data changed?
 	if domain.CompareKeyValues(env.Spec.Values, items) {
-		return
+		return nil
 	}
 
 	env.Spec.Values = items
 	if err := c.state.UpdateEnvironment(env, state.SourceController, true); err != nil {
-		fmt.Println("failed to update environment", err)
-		return
+		return fmt.Errorf("failed to update environment, %w", err)
 	}
 
 	// set tab dirty if the in memory data is different from the file
 	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get environment from file", err)
-		return
+		return fmt.Errorf("failed to get environment from file, %w", err)
 	}
 
 	c.view.SetTabDirty(id, !domain.CompareKeyValues(env.Spec.Values, envFromFile.Spec.Values))
+	return nil
 }
 
-func (c *Controller) onSave(id string) {
-	c.saveEnvironmentToDisc(id)
+func (c *Controller) onSave(id string) error {
+	return c.saveEnvironmentToDisc(id)
 }
 
-func (c *Controller) onTabClose(id string) {
+func (c *Controller) onTabClose(id string) error {
 	// is tab data changed?
 	// if yes show prompt
 	// if no close tab
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		fmt.Println("failed to get environment", id)
-		return
+		return fmt.Errorf("failed to get environment, %s", id)
 	}
 
 	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get environment from file", err)
-		return
+		return fmt.Errorf("failed to get environment from file, %w", err)
 	}
 
 	// if data is not changed close the tab
 	if domain.CompareKeyValues(env.Spec.Values, envFromFile.Spec.Values) {
 		c.view.CloseTab(id)
-		return
+		return nil
 	}
 
 	// TODO check user preference to remember the choice
 
 	c.view.ShowPrompt(id, "Save", "Do you want to save the changes? (Tips: you can always save the changes using CMD/CTRL+s)", widgets.ModalTypeWarn,
-		func(selectedOption string, remember bool) {
+		func(selectedOption string, remember bool) error {
 			if selectedOption == "Cancel" {
 				c.view.HidePrompt(id)
-				return
+				return nil
 			}
 
 			if selectedOption == "Yes" {
-				c.saveEnvironmentToDisc(id)
+				if err := c.saveEnvironmentToDisc(id); err != nil {
+					return err
+				}
 			}
 
 			c.view.CloseTab(id)
 			c.state.ReloadEnvironmentFromDisc(id, state.SourceController)
+			return nil
 		}, []widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
+
+	return nil
 }
 
-func (c *Controller) saveEnvironmentToDisc(id string) {
+func (c *Controller) saveEnvironmentToDisc(id string) error {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		fmt.Println("failed to get environment", id)
-		return
+		return fmt.Errorf("failed to get environment, %s", id)
 	}
 
 	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
-		fmt.Println("failed to update environment", err)
-		return
+		return fmt.Errorf("failed to update environment, %w", err)
 	}
 
 	c.view.SetTabDirty(id, false)
+	return nil
 }
 
-func (c *Controller) onTreeViewMenuClicked(id string, action string) {
+func (c *Controller) onTreeViewMenuClicked(id string, action string) error {
 	switch action {
 	case Duplicate:
-		c.duplicateEnvironment(id)
+		return c.duplicateEnvironment(id)
 	case Delete:
-		c.deleteEnvironment(id)
+		return c.deleteEnvironment(id)
 	}
+
+	return errors.New("onTreeViewMenuClicked - unknown action")
 }
 
-func (c *Controller) duplicateEnvironment(id string) {
+func (c *Controller) duplicateEnvironment(id string) error {
 	// read environment from file to make sure we have the latest persisted data
 	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get environment from file", err)
-		return
+		return fmt.Errorf("failed to get environment from file, %w", err)
 	}
 
 	newEnv := envFromFile.Clone()
@@ -266,20 +270,21 @@ func (c *Controller) duplicateEnvironment(id string) {
 	newEnv.FilePath = repository.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
 	c.state.AddEnvironment(newEnv, state.SourceController)
 	c.view.AddTreeViewNode(newEnv)
-	c.saveEnvironmentToDisc(newEnv.MetaData.ID)
+
+	return c.saveEnvironmentToDisc(newEnv.MetaData.ID)
 }
 
-func (c *Controller) deleteEnvironment(id string) {
+func (c *Controller) deleteEnvironment(id string) error {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		return
+		return fmt.Errorf("failed to get environment, %s", id)
 	}
 
 	if err := c.state.RemoveEnvironment(env, state.SourceController, false); err != nil {
-		fmt.Println("failed to delete environment", err)
-		return
+		return fmt.Errorf("failed to delete environment, %w", err)
 	}
 
 	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
+	return nil
 }

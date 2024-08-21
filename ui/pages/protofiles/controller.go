@@ -50,11 +50,11 @@ func (c *Controller) LoadData() error {
 }
 
 func (c *Controller) showError(title, message string) {
-	c.view.ShowPrompt(title, message, widgets.ModalTypeErr, func(selectedOption string, remember bool) {
+	c.view.ShowPrompt(title, message, widgets.ModalTypeErr, func(selectedOption string, remember bool) error {
 		if selectedOption == "Ok" {
 			c.view.HidePrompt()
-			return
 		}
+		return nil
 	}, []widgets.Option{{Text: "Ok"}}...)
 }
 
@@ -78,12 +78,12 @@ func (c *Controller) addPath(path string) {
 }
 
 func (c *Controller) onAdd() {
-	c.explorer.ChoseFile(func(result explorer.Result) {
+	c.explorer.ChoseFile(func(result explorer.Result) error {
 		if result.Error != nil {
 			if !errors.Is(result.Error, explorer.ErrUserDecline) {
 				c.showError("Failed to open file", result.Error.Error())
 			}
-			return
+			return nil
 		}
 
 		fileName := filepath.Base(result.FilePath)
@@ -92,13 +92,13 @@ func (c *Controller) onAdd() {
 		filePath, err := c.repo.GetNewProtoFilePath(proto.MetaData.Name)
 		if err != nil {
 			c.showError("Failed to get new proto file path", err.Error())
-			return
+			return nil
 		}
 
 		pInfo, err := c.getProtoInfo(fileDir, fileName)
 		if err != nil {
 			c.showError("Failed to get proto info", err.Error())
-			return
+			return nil
 		}
 
 		proto.FilePath = filePath.Path
@@ -110,6 +110,7 @@ func (c *Controller) onAdd() {
 		c.state.AddProtoFile(proto)
 		c.saveProtoFileToDisc(proto.MetaData.ID)
 		c.view.AddItem(proto)
+		return nil
 	}, "proto")
 }
 

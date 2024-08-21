@@ -31,8 +31,9 @@ func NewExplorer(w *app.Window) *Explorer {
 	}
 }
 
-func (e *Explorer) ChoseFile(onResult func(r Result), extensions ...string) {
-	go func(onResult func(r Result)) {
+func (e *Explorer) ChoseFile(onResult func(r Result) error, extensions ...string) <-chan error {
+	errChan := make(chan error)
+	fn := func(onResult func(r Result) error) {
 		defer func(e *Explorer) {
 			e.w.Invalidate()
 		}(e)
@@ -40,7 +41,7 @@ func (e *Explorer) ChoseFile(onResult func(r Result), extensions ...string) {
 		file, err := e.expl.ChooseFile(extensions...)
 		if err != nil {
 			err = fmt.Errorf("failed opening file: %w", err)
-			onResult(Result{Error: err})
+			errChan <- onResult(Result{Error: err})
 			return
 		}
 
@@ -48,7 +49,7 @@ func (e *Explorer) ChoseFile(onResult func(r Result), extensions ...string) {
 			err := file.Close()
 			if err != nil {
 				err = fmt.Errorf("failed closing file: %w", err)
-				onResult(Result{Error: err})
+				errChan <- onResult(Result{Error: err})
 			}
 		}(file)
 
@@ -61,9 +62,15 @@ func (e *Explorer) ChoseFile(onResult func(r Result), extensions ...string) {
 		data, err := io.ReadAll(file)
 		if err != nil {
 			err = fmt.Errorf("failed reading file: %w", err)
-			onResult(Result{Error: err, FilePath: filePath})
+			errChan <- onResult(Result{Error: err, FilePath: filePath})
 			return
 		}
-		onResult(Result{Data: data, FilePath: filePath, Error: nil})
-	}(onResult)
+		errChan <- onResult(Result{Data: data, FilePath: filePath, Error: nil})
+	}
+
+	go func() {
+		fn(onResult)
+	}()
+
+	return errChan
 }

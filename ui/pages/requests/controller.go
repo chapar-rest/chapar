@@ -85,30 +85,32 @@ func (c *Controller) LoadData() error {
 	return nil
 }
 
-func (c *Controller) onSelectBinaryFile(id string) {
-	c.explorer.ChoseFile(func(result explorer.Result) {
+func (c *Controller) onSelectBinaryFile(id string) error {
+	err := c.explorer.ChoseFile(func(result explorer.Result) error {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
-			return
+
+			return fmt.Errorf("failed to get file, %w", result.Error)
 		}
 		if result.FilePath == "" {
-			return
+			return nil
 		}
 		c.view.SetBinaryBodyFilePath(id, result.FilePath)
+		return nil
 	}, "")
+
+	return <-err
 }
 
 func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
-	c.explorer.ChoseFile(func(result explorer.Result) {
+	c.explorer.ChoseFile(func(result explorer.Result) error {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
-			return
+			return fmt.Errorf("failed to get file, %w", result.Error)
 		}
 		if result.FilePath == "" {
-			return
+			return nil
 		}
 		c.view.AddFileToFormData(requestId, fieldId, result.FilePath)
-
+		return nil
 	}, "")
 }
 
@@ -175,18 +177,18 @@ func (c *Controller) onLoadRequestExample(id string) {
 }
 
 func (c *Controller) onProtoFileSelect(id string) {
-	c.explorer.ChoseFile(func(result explorer.Result) {
+	c.explorer.ChoseFile(func(result explorer.Result) error {
 		if result.Error != nil {
 			c.view.ShowGRPCRequestError(id, "Error", result.Error.Error())
-			return
+			return nil
 		}
 		c.view.HideGRPCRequestError(id)
 
 		if result.FilePath == "" {
-			return
+			return nil
 		}
 		c.view.SetProtoFilePath(id, result.FilePath)
-
+		return nil
 	}, ".proto")
 }
 
@@ -500,10 +502,10 @@ func (c *Controller) onRequestTabClose(id string) {
 	// TODO check user preference to remember the choice
 
 	c.view.ShowPrompt(id, "Save", "Do you want to save the changes? (Tips: you can always save the changes using CMD/CTRL+s)", widgets.ModalTypeWarn,
-		func(selectedOption string, remember bool) {
+		func(selectedOption string, remember bool) error {
 			if selectedOption == "Cancel" {
 				c.view.HidePrompt(id)
-				return
+				return nil
 			}
 
 			if selectedOption == "Yes" {
@@ -513,6 +515,8 @@ func (c *Controller) onRequestTabClose(id string) {
 			c.view.CloseTab(id)
 			c.model.ReloadRequestFromDisc(id)
 			c.view.SetTreeViewNodePrefix(id, reqFromFile)
+
+			return nil
 		},
 		[]widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
@@ -588,22 +592,20 @@ func (c *Controller) onNewRequest(requestType string) {
 }
 
 func (c *Controller) onImport() {
-	c.explorer.ChoseFile(func(result explorer.Result) {
+	c.explorer.ChoseFile(func(result explorer.Result) error {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
-			return
+			return fmt.Errorf("failed to get file, %s", result.Error)
 		}
 
 		if err := importer.ImportPostmanCollection(result.Data); err != nil {
-			fmt.Println("failed to import postman collection", err)
-			return
+			return fmt.Errorf("failed to import postman collection, %w", err)
 		}
 
 		if err := c.LoadData(); err != nil {
-			fmt.Println("failed to load collections", err)
-			return
+			return fmt.Errorf("failed to load collections, %w", err)
 		}
 
+		return nil
 	}, "json")
 }
 

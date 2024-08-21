@@ -71,7 +71,7 @@ type View struct {
 	onDataChanged               func(id string, data any, containerType string)
 	onCopyResponse              func(gtx layout.Context, dataType, data string)
 	onOnPostRequestSetChanged   func(id string, statusCode int, item, from, fromKey string)
-	onBinaryFileSelect          func(id string)
+	onBinaryFileSelect          func(id string) error
 	onProtoFileSelect           func(id string)
 	onFromDataFileSelect        func(requestID, fieldID string)
 	onServerInfoReload          func(id string)
@@ -200,7 +200,7 @@ func (v *View) SetOnCopyResponse(onCopyResponse func(gtx layout.Context, dataTyp
 	v.onCopyResponse = onCopyResponse
 }
 
-func (v *View) SetOnBinaryFileSelect(f func(id string)) {
+func (v *View) SetOnBinaryFileSelect(f func(id string) error) {
 	v.onBinaryFileSelect = f
 }
 
@@ -460,10 +460,11 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 		}
 	})
 
-	ct.SetOnProtoFileSelect(func(id string) {
+	ct.SetOnProtoFileSelect(func(id string) error {
 		if v.onProtoFileSelect != nil {
 			v.onProtoFileSelect(id)
 		}
+		return nil
 	})
 
 	ct.SetOnReload(func(id string) {
@@ -532,10 +533,11 @@ func (v *View) createRestfulContainer(req *domain.Request) Container {
 		}
 	})
 
-	ct.SetOnBinaryFileSelect(func(id string) {
+	ct.SetOnBinaryFileSelect(func(id string) error {
 		if v.onBinaryFileSelect != nil {
-			v.onBinaryFileSelect(id)
+			return v.onBinaryFileSelect(id)
 		}
+		return nil
 	})
 
 	ct.SetOnFormDataFileSelect(func(requestId, fieldId string) {
@@ -640,7 +642,7 @@ func (v *View) GetHTTPResponse(id string) *domain.HTTPResponseDetail {
 	return nil
 }
 
-func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option) {
 	ct, ok := v.containers.Get(id)
 	if !ok {
 		return
@@ -667,12 +669,13 @@ func (v *View) ShowGRPCRequestError(id, title, content string) {
 	}
 
 	if ct, ok := ct.(GrpcContainer); ok {
-		ct.ShowRequestPrompt(title, content, widgets.ModalTypeErr, func(selectedOption string, remember bool) {
+		ct.ShowRequestPrompt(title, content, widgets.ModalTypeErr, func(selectedOption string, remember bool) error {
 			if selectedOption == "Ok" {
 				ct.HideRequestPrompt()
-				return
+				return nil
 			}
 
+			return nil
 		}, []widgets.Option{{Text: "Ok"}}...)
 	}
 }

@@ -111,7 +111,7 @@ func (v *View) SetItems(items []*domain.ProtoFile) {
 	})
 }
 
-func (v *View) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+func (v *View) ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option) {
 	v.Prompt.Type = modalType
 	v.Prompt.Title = title
 	v.Prompt.Content = content

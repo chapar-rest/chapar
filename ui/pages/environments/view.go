@@ -32,14 +32,14 @@ type View struct {
 	tabHeader *widgets.Tabs
 
 	// callbacks
-	onTitleChanged        func(id, title string)
-	onNewEnv              func()
-	onImportEnv           func()
-	onTabClose            func(id string)
-	onItemsChanged        func(id string, items []domain.KeyValue)
-	onSave                func(id string)
-	onTreeViewNodeClicked func(id string)
-	onTreeViewMenuClicked func(id string, action string)
+	onTitleChanged        func(id, title string) error
+	onNewEnv              func() error
+	onImportEnv           func() error
+	onTabClose            func(id string) error
+	onItemsChanged        func(id string, items []domain.KeyValue) error
+	onSave                func(id string) error
+	onTreeViewNodeClicked func(id string) error
+	onTreeViewMenuClicked func(id string, action string) error
 	onTabSelected         func(id string)
 
 	// state
@@ -132,37 +132,37 @@ func (v *View) RemoveTreeViewNode(id string) {
 	v.treeView.RemoveNode(id)
 }
 
-func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.KeyValue)) {
+func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.KeyValue) error) {
 	v.onItemsChanged = onItemsChanged
 }
 
-func (v *View) SetOnTreeViewNodeClicked(onTreeViewNodeClicked func(id string)) {
+func (v *View) SetOnTreeViewNodeClicked(onTreeViewNodeClicked func(id string) error) {
 	v.onTreeViewNodeClicked = onTreeViewNodeClicked
 	v.treeView.OnNodeClick(func(node *widgets.TreeNode) {
-		v.onTreeViewNodeClicked(node.Identifier)
+		v.handleError(v.onTreeViewNodeClicked(node.Identifier))
 	})
 }
 
-func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id string, action string)) {
+func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id string, action string) error) {
 	v.onTreeViewMenuClicked = onTreeViewMenuClicked
 	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
-		v.onTreeViewMenuClicked(node.Identifier, item)
+		v.handleError(v.onTreeViewMenuClicked(node.Identifier, item))
 	})
 }
 
-func (v *View) SetOnSave(onSave func(id string)) {
+func (v *View) SetOnSave(onSave func(id string) error) {
 	v.onSave = onSave
 }
 
-func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string)) {
+func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string) error) {
 	v.onTitleChanged = onTitleChanged
 }
 
-func (v *View) SetOnNewEnv(onNewEnv func()) {
+func (v *View) SetOnNewEnv(onNewEnv func() error) {
 	v.onNewEnv = onNewEnv
 }
 
-func (v *View) SetOnImportEnv(onImportEnv func()) {
+func (v *View) SetOnImportEnv(onImportEnv func() error) {
 	v.onImportEnv = onImportEnv
 }
 
@@ -170,7 +170,7 @@ func (v *View) SetOnTabSelected(onTabSelected func(id string)) {
 	v.onTabSelected = onTabSelected
 }
 
-func (v *View) SetOnTabClose(onTabClose func(id string)) {
+func (v *View) SetOnTabClose(onTabClose func(id string) error) {
 	v.onTabClose = onTabClose
 }
 
@@ -195,7 +195,7 @@ func (v *View) SetTabDirty(id string, dirty bool) {
 	}
 }
 
-func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
+func (v *View) ShowPrompt(id, title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option) {
 	ct, ok := v.containers.Get(id)
 	if !ok {
 		return
@@ -228,7 +228,7 @@ func (v *View) OpenTab(env *domain.Environment) {
 	}
 	if v.onTabClose != nil {
 		tab.SetOnClose(func(tab *widgets.Tab) {
-			v.onTabClose(tab.Identifier)
+			v.handleError(v.onTabClose(tab.Identifier))
 		})
 	}
 	i := v.tabHeader.AddTab(tab)
@@ -244,13 +244,13 @@ func (v *View) OpenContainer(env *domain.Environment) {
 	ct := newContainer(env.MetaData.ID, env.MetaData.Name, env.Spec.Values)
 	ct.Title.SetOnChanged(func(text string) {
 		if v.onTitleChanged != nil {
-			v.onTitleChanged(env.MetaData.ID, text)
+			v.handleError(v.onTitleChanged(env.MetaData.ID, text))
 		}
 	})
 
 	ct.Items.SetOnChanged(func(items []*widgets.KeyValueItem) {
 		if v.onItemsChanged != nil {
-			v.onItemsChanged(env.MetaData.ID, converter.KeyValueFromWidgetItems(items))
+			v.handleError(v.onItemsChanged(env.MetaData.ID, converter.KeyValueFromWidgetItems(items)))
 		}
 	})
 
@@ -309,7 +309,7 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if v.importButton.Clicked(gtx) {
 								if v.onImportEnv != nil {
-									v.onImportEnv()
+									v.handleError(v.onImportEnv())
 								}
 							}
 							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
@@ -320,7 +320,7 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if v.newEnvButton.Clicked(gtx) {
 								if v.onNewEnv != nil {
-									v.onNewEnv()
+									v.handleError(v.onNewEnv())
 								}
 							}
 							btn := widgets.Button(theme.Material(), &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
@@ -347,7 +347,7 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
-			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())
+			v.handleError(v.onSave(v.tabHeader.SelectedTab().GetIdentifier()))
 		})
 	}
 
@@ -369,7 +369,7 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 				if ct, ok := v.containers.Get(selectedTab.Identifier); ok {
 					if v.onSave != nil {
 						if ct.SaveButton.Clicked(gtx) {
-							v.onSave(selectedTab.Identifier)
+							v.handleError(v.onSave(selectedTab.Identifier))
 						}
 					}
 
@@ -380,4 +380,8 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 			return layout.Dimensions{}
 		}),
 	)
+}
+
+func (v *View) handleError(err error) {
+	// TODO: Implement this
 }

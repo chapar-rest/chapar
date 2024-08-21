@@ -17,7 +17,7 @@ type FileSelector struct {
 	extensions []string
 
 	explorer     *explorer.Explorer
-	onSelectFile func()
+	onSelectFile func() error
 
 	onChanged func(filePath string)
 	changed   bool
@@ -43,36 +43,39 @@ func (b *FileSelector) SetExplorer(explorer *explorer.Explorer) {
 	b.explorer = explorer
 }
 
-func (b *FileSelector) handleExplorerSelect() {
+func (b *FileSelector) handleExplorerSelect() error {
 	if b.explorer == nil {
-		return
+		return nil
 	}
 
-	b.explorer.ChoseFile(func(result explorer.Result) {
+	err := b.explorer.ChoseFile(func(result explorer.Result) error {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
-			return
+
+			return fmt.Errorf("failed to get file, %w", result.Error)
 		}
 		if result.FilePath == "" {
-			return
+			return nil
 		}
 
 		b.SetFileName(result.FilePath)
 		b.changed = true
+		return nil
 	}, b.extensions...)
+
+	return <-err
 }
 
-func (b *FileSelector) SetOnSelectFile(f func()) {
+func (b *FileSelector) SetOnSelectFile(f func() error) {
 	b.onSelectFile = f
 	b.textField.SetOnIconClick(func() {
 		if b.FileName != "" {
 			b.RemoveFile()
 			b.changed = true
 			b.onChangeCallback()
-			return
 		} else {
 			// Select file
-			f()
+			// TODO: handle error
+			_ = f()
 		}
 	})
 }

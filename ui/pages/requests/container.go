@@ -21,7 +21,7 @@ type Container interface {
 	SetOnTitleChanged(f func(title string))
 	SetDataChanged(changed bool)
 	SetOnSave(f func(id string))
-	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option)
+	ShowPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option)
 	HidePrompt()
 }
 
@@ -37,7 +37,7 @@ type GrpcContainer interface {
 	SetResponse(response domain.GRPCResponseDetail)
 	SetOnLoadRequestExample(f func(id string))
 	SetRequestBody(body string)
-	ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option)
+	ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool) error, options ...widgets.Option)
 	HideRequestPrompt()
 }
 
