@@ -101,11 +101,14 @@ func (r *Grpc) setupHooks() {
 	})
 
 	r.Request.ServerInfo.FileSelector.SetOnChanged(func(filePath string) {
-		if r.Req.Spec.GRPC.ServerInfo.ProtoFiles == nil {
-			r.Req.Spec.GRPC.ServerInfo.ProtoFiles = make([]string, 0)
+		protoFiles := r.Req.Spec.GRPC.ServerInfo.ProtoFiles
+		if r.Req.Spec.GRPC.ServerInfo.ProtoFiles == nil || filePath == "" {
+			protoFiles = make([]string, 0)
+		} else {
+			protoFiles = append(protoFiles, filePath)
 		}
 
-		r.Req.Spec.GRPC.ServerInfo.ProtoFiles = append(r.Req.Spec.GRPC.ServerInfo.ProtoFiles, filePath)
+		r.Req.Spec.GRPC.ServerInfo.ProtoFiles = protoFiles
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
