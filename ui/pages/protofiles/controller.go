@@ -1,7 +1,7 @@
 package protofiles
 
 import (
-	"fmt"
+	"errors"
 	"path/filepath"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -11,6 +11,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type Controller struct {
@@ -33,6 +34,7 @@ func NewController(view *View, state *state.ProtoFiles, repo repository.Reposito
 	view.SetOnAdd(c.onAdd)
 	view.SetOnDelete(c.onDelete)
 	view.SetOnDeleteSelected(c.onDeleteSelected)
+	view.SetOnAddImportPath(c.addPath)
 
 	return c
 }
@@ -47,10 +49,40 @@ func (c *Controller) LoadData() error {
 	return nil
 }
 
+func (c *Controller) showError(title, message string) {
+	c.view.ShowPrompt(title, message, widgets.ModalTypeErr, func(selectedOption string, remember bool) {
+		if selectedOption == "Ok" {
+			c.view.HidePrompt()
+			return
+		}
+	}, []widgets.Option{{Text: "Ok"}}...)
+}
+
+func (c *Controller) addPath(path string) {
+	// get last part of the path as the name
+	fileName := filepath.Base(path)
+	proto := domain.NewProtoFile(fileName)
+	filePath, err := c.repo.GetNewProtoFilePath(fileName)
+	if err != nil {
+		c.showError("Failed to get new path", err.Error())
+		return
+	}
+
+	proto.FilePath = filePath.Path
+	proto.MetaData.Name = filePath.NewName
+	proto.Spec.IsImportPath = true
+	proto.Spec.Path = path
+	c.state.AddProtoFile(proto)
+	c.saveProtoFileToDisc(proto.MetaData.ID)
+	c.view.AddItem(proto)
+}
+
 func (c *Controller) onAdd() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
+			if !errors.Is(result.Error, explorer.ErrUserDecline) {
+				c.showError("Failed to open file", result.Error.Error())
+			}
 			return
 		}
 
@@ -59,13 +91,13 @@ func (c *Controller) onAdd() {
 		proto := domain.NewProtoFile(fileName)
 		filePath, err := c.repo.GetNewProtoFilePath(proto.MetaData.Name)
 		if err != nil {
-			fmt.Println("failed to get new proto file path", err)
+			c.showError("Failed to get new proto file path", err.Error())
 			return
 		}
 
 		pInfo, err := c.getProtoInfo(fileDir, fileName)
 		if err != nil {
-			fmt.Println("failed to get proto info", err)
+			c.showError("Failed to get proto info", err.Error())
 			return
 		}
 
@@ -87,7 +119,12 @@ type info struct {
 }
 
 func (c *Controller) getProtoInfo(path, filename string) (*info, error) {
-	pInfo, err := grpc.ProtoFilesFromDisk([]string{path}, []string{filename})
+	protoFiles, err := c.state.LoadProtoFilesFromDisk()
+	if err != nil {
+		return nil, err
+	}
+
+	pInfo, err := grpc.ProtoFilesFromDisk(grpc.GetImportPaths(protoFiles, []string{filepath.Join(path, filename)}))
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +145,12 @@ func (c *Controller) getProtoInfo(path, filename string) (*info, error) {
 func (c *Controller) onDelete(p *domain.ProtoFile) {
 	pr := c.state.GetProtoFile(p.MetaData.ID)
 	if pr == nil {
-		fmt.Println("failed to get proto-file", p.MetaData.ID)
+		c.showError("Failed to get proto-file", "failed to get proto-file")
 		return
 	}
 
 	if err := c.state.RemoveProtoFile(pr, false); err != nil {
-		fmt.Println("failed to remove proto-file", err)
+		c.showError("Failed to remove proto-file", err.Error())
 		return
 	}
 
@@ -124,12 +161,12 @@ func (c *Controller) onDeleteSelected(ids []string) {
 	for _, id := range ids {
 		pr := c.state.GetProtoFile(id)
 		if pr == nil {
-			fmt.Println("failed to get proto-file", id)
+			c.showError("Failed to get proto-file", "failed to get proto-file")
 			continue
 		}
 
 		if err := c.state.RemoveProtoFile(pr, false); err != nil {
-			fmt.Println("failed to remove proto-file", err)
+			c.showError("Failed to remove proto-file", err.Error())
 			continue
 		}
 
@@ -140,12 +177,12 @@ func (c *Controller) onDeleteSelected(ids []string) {
 func (c *Controller) saveProtoFileToDisc(id string) {
 	ws := c.state.GetProtoFile(id)
 	if ws == nil {
-		fmt.Println("failed to get proto-file", id)
+		c.showError("Failed to get proto-file", "failed to get proto-file")
 		return
 	}
 
 	if err := c.state.UpdateProtoFile(ws, false); err != nil {
-		fmt.Println("failed to update proto-file", err)
+		c.showError("Failed to update proto-file", err.Error())
 		return
 	}
 }

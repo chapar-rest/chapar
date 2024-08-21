@@ -46,6 +46,10 @@ func NewTextField(text, placeholder string) *TextField {
 	return t
 }
 
+func (t *TextField) GetText() string {
+	return t.textEditor.Text()
+}
+
 func (t *TextField) SetText(text string) {
 	t.textEditor.SetText(text)
 }

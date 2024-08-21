@@ -12,9 +12,11 @@ type ProtoFile struct {
 }
 
 type ProtoFileSpec struct {
-	Path     string   `yaml:"path"`
-	Package  string   `yaml:"package"`
-	Services []string `yaml:"services"`
+	Path string `yaml:"path"`
+	// TODO should it be a dedicated type?
+	IsImportPath bool     `yaml:"isImportPath"`
+	Package      string   `yaml:"package"`
+	Services     []string `yaml:"services"`
 }
 
 func NewProtoFile(name string) *ProtoFile {
@@ -38,6 +40,7 @@ func CompareProtoFiles(a, b *ProtoFile) bool {
 func CompareProtoFileSpecs(a, b ProtoFileSpec) bool {
 	return a.Path == b.Path &&
 		a.Package == b.Package &&
+		a.IsImportPath == b.IsImportPath &&
 		compareStringSlices(a.Services, b.Services)
 }
 
