@@ -469,7 +469,7 @@ func (c *Controller) getUrlParams(newURL string) []domain.KeyValue {
 func (c *Controller) onCollectionDataChanged(id string) {
 	col := c.model.GetCollection(id)
 	if col == nil {
-		c.view.showError(fmt.Errorf("failed to get collection, %w", id))
+		c.view.showError(fmt.Errorf("failed to get collection, %s", id))
 		return
 	}
 }
