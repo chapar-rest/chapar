@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/chapar-rest/chapar/internal/grpc"
-	"github.com/chapar-rest/chapar/internal/modal"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 
 	"gioui.org/app"
@@ -278,13 +277,6 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 			)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			if modal.Visible() {
-				macro := op.Record(gtx.Ops)
-				dims := modal.Layout(gtx, u.Theme.Theme)
-				op.Defer(gtx.Ops, macro.Stop())
-				return dims
-			}
-
 			return notify.NotificationController.Layout(gtx, u.Theme)
 		}),
 	)

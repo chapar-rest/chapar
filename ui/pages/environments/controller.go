@@ -1,6 +1,7 @@
 package environments
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -63,7 +64,7 @@ func (c *Controller) onNewEnvironment() {
 
 func (c *Controller) onImportEnvironment() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
-		if result.Error != nil {
+		if !errors.Is(result.Error, explorer.ErrUserDecline) {
 			c.view.showError(fmt.Errorf("failed to get file %w", result.Error))
 			return
 		}

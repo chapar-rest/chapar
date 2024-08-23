@@ -1,7 +1,6 @@
 package workspaces
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -20,6 +19,9 @@ import (
 type View struct {
 	newButton widget.Clickable
 	searchBox *widgets.TextField
+
+	// modal is used to show error and messages to the user
+	modal *widgets.MessageModal
 
 	mx            *sync.Mutex
 	filterText    string
@@ -68,7 +70,21 @@ func NewView() *View {
 }
 
 func (v *View) showError(err error) {
-	fmt.Println("error", err)
+	//v.prompt.Type = widgets.ModalTypeErr
+	//v.prompt.Title = "Error"
+	//v.prompt.Content = err.Error()
+	//v.prompt.SetOptions(widgets.Option{Text: "Ok"})
+	//v.prompt.WithoutRememberBool()
+	//v.prompt.SetOnSubmit(func(selectedOption string, remember bool) {
+	//	v.prompt.Hide()
+	//	return
+	//})
+	//v.prompt.Show()
+
+	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
+		v.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	v.modal.Show()
 }
 
 func (v *View) SetOnNew(f func()) {
@@ -187,6 +203,8 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	v.modal.Layout(gtx, theme)
+
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems

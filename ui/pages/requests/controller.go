@@ -1,18 +1,18 @@
 package requests
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/chapar-rest/chapar/internal/grpc"
-
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/notify"
 	"github.com/chapar-rest/chapar/internal/repository"
@@ -143,7 +143,6 @@ func (c *Controller) onGrpcInvoke(id string) {
 		c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
 			Error: err,
 		})
-		c.view.showError(fmt.Errorf("failed to invoke grpc, %w", err))
 		return
 	}
 
@@ -589,7 +588,7 @@ func (c *Controller) onNewRequest(requestType string) {
 
 func (c *Controller) onImport() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
-		if result.Error != nil {
+		if !errors.Is(result.Error, explorer.ErrUserDecline) {
 			c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
 			return
 		}

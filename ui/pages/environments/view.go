@@ -1,8 +1,6 @@
 package environments
 
 import (
-	"fmt"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -32,6 +30,9 @@ type View struct {
 
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
+
+	// modal is used to show error and messages to the user
+	modal *widgets.MessageModal
 
 	// callbacks
 	onTitleChanged        func(id, title string)
@@ -88,7 +89,10 @@ func NewView(theme *chapartheme.Theme) *View {
 }
 
 func (v *View) showError(err error) {
-	fmt.Println("error", err)
+	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
+		v.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	v.modal.Show()
 }
 
 func (v *View) PopulateTreeView(envs []*domain.Environment) {
@@ -351,6 +355,8 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 }
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	v.modal.Layout(gtx, theme)
+
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())
