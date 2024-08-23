@@ -347,8 +347,7 @@ func (f *Filesystem) LoadCollections() ([]*domain.Collection, error) {
 		if info.IsDir() {
 			col, err := f.loadCollection(path)
 			if err != nil {
-				fmt.Println("failed to load collection", path, err)
-				return err
+				return fmt.Errorf("failed to load collection, path: %s, %w", path, err)
 			}
 			out = append(out, col)
 		}
@@ -370,8 +369,7 @@ func (f *Filesystem) loadCollection(collectionPath string) (*domain.Collection, 
 
 	collection := &domain.Collection{}
 	if err = yaml.Unmarshal(collectionMetadata, collection); err != nil {
-		fmt.Println(collectionMetadataPath, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal collection %s, %w", collectionMetadata, err)
 	}
 
 	collection.FilePath = collectionMetadataPath

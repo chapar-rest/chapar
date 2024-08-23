@@ -44,7 +44,7 @@ func (c *Controller) onNew() {
 	ws := domain.NewWorkspace("New Workspace")
 	filePath, err := c.repo.GetNewWorkspaceDir(ws.MetaData.Name)
 	if err != nil {
-		fmt.Println("failed to get new workspace path", err)
+		c.view.showError(fmt.Errorf("failed to get new workspace path, %w", err))
 		return
 	}
 
@@ -59,12 +59,12 @@ func (c *Controller) onNew() {
 func (c *Controller) onDelete(w *domain.Workspace) {
 	ws := c.state.GetWorkspace(w.MetaData.ID)
 	if ws == nil {
-		fmt.Println("failed to get workspace", w.MetaData.ID)
+		c.view.showError(fmt.Errorf("failed to get workspace, %s", w.MetaData.ID))
 		return
 	}
 
 	if err := c.state.RemoveWorkspace(w, state.SourceController, false); err != nil {
-		fmt.Println("failed to remove workspace", err)
+		c.view.showError(fmt.Errorf("failed to remove workspace, %w", err))
 		return
 	}
 
@@ -74,12 +74,12 @@ func (c *Controller) onDelete(w *domain.Workspace) {
 func (c *Controller) onUpdate(w *domain.Workspace) {
 	ws := c.state.GetWorkspace(w.MetaData.ID)
 	if ws == nil {
-		fmt.Println("failed to get workspace", w.MetaData.ID)
+		c.view.showError(fmt.Errorf("failed to get workspace, %s", w.MetaData.ID))
 		return
 	}
 
 	if err := c.state.UpdateWorkspace(w, state.SourceController, false); err != nil {
-		fmt.Println("failed to update workspace", err)
+		c.view.showError(fmt.Errorf("failed to update workspace, %w", err))
 		return
 	}
 }
@@ -87,12 +87,12 @@ func (c *Controller) onUpdate(w *domain.Workspace) {
 func (c *Controller) saveWorkspaceToDisc(id string) {
 	ws := c.state.GetWorkspace(id)
 	if ws == nil {
-		fmt.Println("failed to get workspace", id)
+		c.view.showError(fmt.Errorf("failed to get workspace, %s", id))
 		return
 	}
 
 	if err := c.state.UpdateWorkspace(ws, state.SourceController, false); err != nil {
-		fmt.Println("failed to update workspace", err)
+		c.view.showError(fmt.Errorf("failed to update workspace, %w", err))
 		return
 	}
 }

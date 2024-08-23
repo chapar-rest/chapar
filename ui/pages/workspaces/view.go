@@ -1,6 +1,7 @@
 package workspaces
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -64,6 +65,10 @@ func NewView() *View {
 	})
 
 	return v
+}
+
+func (v *View) showError(err error) {
+	fmt.Println("error", err)
 }
 
 func (v *View) SetOnNew(f func()) {

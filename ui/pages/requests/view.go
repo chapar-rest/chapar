@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"fmt"
 	"image"
 
 	"gioui.org/widget/material"
@@ -136,6 +137,10 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	})
 
 	return v
+}
+
+func (v *View) showError(err error) {
+	fmt.Println("error", err)
 }
 
 func (v *View) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {

@@ -28,9 +28,9 @@ type Header struct {
 	iconDarkMode  material.LabelStyle
 	iconLightMode material.LabelStyle
 
-	OnSelectedEnvChanged       func(env *domain.Environment)
-	OnSelectedWorkspaceChanged func(env *domain.Workspace)
-	OnThemeSwitched            func(isLight bool)
+	OnSelectedEnvChanged       func(env *domain.Environment) error
+	OnSelectedWorkspaceChanged func(env *domain.Workspace) error
+	OnThemeSwitched            func(isLight bool) error
 }
 
 const (

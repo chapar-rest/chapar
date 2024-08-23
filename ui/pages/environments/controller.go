@@ -49,7 +49,7 @@ func (c *Controller) onNewEnvironment() {
 
 	filePath, err := c.repo.GetNewEnvironmentFilePath(env.MetaData.Name)
 	if err != nil {
-		fmt.Println("failed to get new environment file path", err)
+		c.view.showError(fmt.Errorf("failed to get new environment file path %w", err))
 		return
 	}
 
@@ -64,17 +64,17 @@ func (c *Controller) onNewEnvironment() {
 func (c *Controller) onImportEnvironment() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
+			c.view.showError(fmt.Errorf("failed to get file %w", result.Error))
 			return
 		}
 
 		if err := importer.ImportPostmanEnvironment(result.Data); err != nil {
-			fmt.Println("failed to import postman environment", err)
+			c.view.showError(fmt.Errorf("failed to import postman environment %w", err))
 			return
 		}
 
 		if err := c.LoadData(); err != nil {
-			fmt.Println("failed to load environments", err)
+			c.view.showError(fmt.Errorf("failed to load environments %w", err))
 			return
 		}
 
@@ -114,7 +114,7 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
 
 	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
-		fmt.Println("failed to update environment", err)
+		c.view.showError(fmt.Errorf("failed to update environment, %w", err))
 		return
 	}
 
@@ -170,14 +170,14 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 
 	env.Spec.Values = items
 	if err := c.state.UpdateEnvironment(env, state.SourceController, true); err != nil {
-		fmt.Println("failed to update environment", err)
+		c.view.showError(fmt.Errorf("failed to update environment, %w", err))
 		return
 	}
 
 	// set tab dirty if the in memory data is different from the file
 	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get environment from file", err)
+		c.view.showError(fmt.Errorf("failed to get environment from file %w", err))
 		return
 	}
 
@@ -194,13 +194,13 @@ func (c *Controller) onTabClose(id string) {
 	// if no close tab
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		fmt.Println("failed to get environment", id)
+		c.view.showError(fmt.Errorf("failed to get environment %s", id))
 		return
 	}
 
 	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get environment from file", err)
+		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return
 	}
 
@@ -232,12 +232,12 @@ func (c *Controller) onTabClose(id string) {
 func (c *Controller) saveEnvironmentToDisc(id string) {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
-		fmt.Println("failed to get environment", id)
+		c.view.showError(fmt.Errorf("failed to get environment, %s", id))
 		return
 	}
 
 	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
-		fmt.Println("failed to update environment", err)
+		c.view.showError(fmt.Errorf("failed to update environment, %w", err))
 		return
 	}
 
@@ -257,7 +257,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 	// read environment from file to make sure we have the latest persisted data
 	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get environment from file", err)
+		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return
 	}
 
@@ -276,7 +276,7 @@ func (c *Controller) deleteEnvironment(id string) {
 	}
 
 	if err := c.state.RemoveEnvironment(env, state.SourceController, false); err != nil {
-		fmt.Println("failed to delete environment", err)
+		c.view.showError(fmt.Errorf("failed to delete environment, %w", err))
 		return
 	}
 

@@ -1,6 +1,8 @@
 package environments
 
 import (
+	"fmt"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -83,6 +85,10 @@ func NewView(theme *chapartheme.Theme) *View {
 		v.treeView.Filter(text)
 	})
 	return v
+}
+
+func (v *View) showError(err error) {
+	fmt.Println("error", err)
 }
 
 func (v *View) PopulateTreeView(envs []*domain.Environment) {
