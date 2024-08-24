@@ -19,18 +19,12 @@ type Notification struct {
 	EndAt time.Time
 }
 
-type Notif struct {
-	// Text is the text to display in the notification.
-	Text string
-	// Duration is the duration to display the notification.
-	Duration time.Duration
+func (n *Notification) Show(text string, duration time.Duration) {
+	n.Text = text
+	n.EndAt = time.Now().Add(duration)
 }
 
-func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if n.Text == "" || n.EndAt == (time.Time{}) || time.Now().After(n.EndAt) {
-		return layout.Dimensions{}
-	}
-
+func (n *Notification) layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	// set max width for the notification
 	gtx.Constraints.Max.X = gtx.Dp(300)
 	// set max height for the notification
@@ -59,4 +53,15 @@ func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme) layo
 			return dim
 		})
 	})
+}
+
+func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if n.Text == "" || n.EndAt == (time.Time{}) || time.Now().After(n.EndAt) {
+		return layout.Dimensions{}
+	}
+
+	ops := op.Record(gtx.Ops)
+	dims := n.layout(gtx, theme)
+	defer op.Defer(gtx.Ops, ops.Stop())
+	return dims
 }

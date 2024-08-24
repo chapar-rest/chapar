@@ -14,7 +14,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/importer"
-	"github.com/chapar-rest/chapar/internal/notify"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -287,7 +286,9 @@ func (c *Controller) onCopyResponse(gtx layout.Context, dataType, data string) {
 		Data: io.NopCloser(strings.NewReader(data)),
 	})
 
-	notify.Send(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
+	c.view.showNotification(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
+
+	// notify.Send(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
 }
 
 func (c *Controller) onSubmitRequest(id string) {
