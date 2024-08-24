@@ -232,9 +232,12 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
 
 	vars := variables.GetVariables()
-	variables.ApplyToEnv(vars, &activeEnvironment.Spec)
 	variables.ApplyToGRPCRequest(vars, spec)
-	activeEnvironment.ApplyToGRPCRequest(spec)
+
+	if activeEnvironment != nil {
+		variables.ApplyToEnv(vars, &activeEnvironment.Spec)
+		activeEnvironment.ApplyToGRPCRequest(spec)
+	}
 
 	method := spec.LasSelectedMethod
 	if method == "" {
@@ -249,7 +252,7 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	}
 
 	// get the method descriptor
-	md, err := s.getMethodDesc(id, activeEnvironment.MetaData.ID, method)
+	md, err := s.getMethodDesc(id, activeEnvironmentID, method)
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +420,7 @@ func (s *Service) prepareAuth(req *domain.GRPCRequestSpec) *metadata.MD {
 	return nil
 }
 
-func (s *Service) getMethodDesc(id, envID, fullname string) (protoreflect.MethodDescriptor, error) {
+func (s *Service) getMethodDesc(id, envID, fullName string) (protoreflect.MethodDescriptor, error) {
 	registryFiles, exist := s.protoFilesRegistry.Get(id)
 	if !exist {
 		// reload the proto files we don't have them in registry
@@ -429,7 +432,7 @@ func (s *Service) getMethodDesc(id, envID, fullname string) (protoreflect.Method
 		registryFiles, _ = s.protoFilesRegistry.Get(id)
 	}
 
-	name := strings.Replace(fullname[1:], "/", ".", 1)
+	name := strings.Replace(fullName[1:], "/", ".", 1)
 	desc, err := registryFiles.FindDescriptorByName(protoreflect.FullName(name))
 	if err != nil {
 		return nil, fmt.Errorf("app: failed to find descriptor: %v", err)
