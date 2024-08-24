@@ -56,7 +56,7 @@ func (n *Notification) layout(gtx layout.Context, theme *chapartheme.Theme) layo
 }
 
 func (n *Notification) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if n.Text == "" || time.Now().After(n.EndAt) {
+	if n.Text == "" || n.EndAt == (time.Time{}) || time.Now().After(n.EndAt) {
 		return layout.Dimensions{}
 	}
 
