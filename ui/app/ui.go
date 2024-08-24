@@ -18,7 +18,6 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/notify"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -255,42 +254,31 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 	background := macro.Stop()
 
 	background.Add(gtx.Ops)
-	layout.Stack{Alignment: layout.S}.Layout(gtx,
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
+	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return u.header.Layout(gtx, u.Theme)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					// return layout.Dimensions{}
-					return u.header.Layout(gtx, u.Theme)
+					return u.sideBar.Layout(gtx, u.Theme)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return u.sideBar.Layout(gtx, u.Theme)
-						}),
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							switch u.sideBar.SelectedIndex() {
-							case 0:
-								return u.requestsView.Layout(gtx, u.Theme)
-							case 1:
-								return u.environmentsView.Layout(gtx, u.Theme)
-							case 2:
-								return u.workspacesView.Layout(gtx, u.Theme)
-							case 3:
-								return u.protoFilesView.Layout(gtx, u.Theme)
-								// case 4:
-								//	return u.consolePage.Layout(gtx, u.Theme)
-							}
-							return layout.Dimensions{}
-						}),
-					)
+					switch u.sideBar.SelectedIndex() {
+					case 0:
+						return u.requestsView.Layout(gtx, u.Theme)
+					case 1:
+						return u.environmentsView.Layout(gtx, u.Theme)
+					case 2:
+						return u.workspacesView.Layout(gtx, u.Theme)
+					case 3:
+						return u.protoFilesView.Layout(gtx, u.Theme)
+						// case 4:
+						//	return u.consolePage.Layout(gtx, u.Theme)
+					}
+					return layout.Dimensions{}
 				}),
 			)
 		}),
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return notify.NotificationController.Layout(gtx, u.Theme)
-		}),
 	)
-
-	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
