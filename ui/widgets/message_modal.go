@@ -20,9 +20,6 @@ const (
 )
 
 type MessageModal struct {
-	addBtn   widget.Clickable
-	closeBtn widget.Clickable
-
 	Title string
 	Body  string
 	Type  string

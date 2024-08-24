@@ -129,17 +129,6 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 }
 
 func (v *View) showError(err error) {
-	//v.prompt.Type = widgets.ModalTypeErr
-	//v.prompt.Title = "Error"
-	//v.prompt.Content = err.Error()
-	//v.prompt.SetOptions(widgets.Option{Text: "Ok"})
-	//v.prompt.WithoutRememberBool()
-	//v.prompt.SetOnSubmit(func(selectedOption string, remember bool) {
-	//	v.prompt.Hide()
-	//	return
-	//})
-	//v.prompt.Show()
-
 	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
 		v.modal.Hide()
 	}, widgets.ModalOption{Text: "Ok"})
