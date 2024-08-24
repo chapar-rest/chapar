@@ -20,6 +20,9 @@ type View struct {
 	newButton widget.Clickable
 	searchBox *widgets.TextField
 
+	// modal is used to show error and messages to the user
+	modal *widgets.MessageModal
+
 	mx            *sync.Mutex
 	filterText    string
 	filteredItems []*Item
@@ -64,6 +67,13 @@ func NewView() *View {
 	})
 
 	return v
+}
+
+func (v *View) showError(err error) {
+	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
+		v.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	v.modal.Show()
 }
 
 func (v *View) SetOnNew(f func()) {
@@ -182,6 +192,8 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	v.modal.Layout(gtx, theme)
+
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems

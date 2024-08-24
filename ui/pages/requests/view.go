@@ -3,11 +3,6 @@ package requests
 import (
 	"image"
 
-	"gioui.org/widget/material"
-
-	"github.com/chapar-rest/chapar/ui/explorer"
-	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
-
 	"gioui.org/app"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -16,6 +11,9 @@ import (
 	"gioui.org/x/component"
 	giox "gioui.org/x/component"
 	"github.com/google/uuid"
+
+	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
@@ -39,7 +37,8 @@ type View struct {
 	theme  *chapartheme.Theme
 	window *app.Window
 
-	modal *component.ModalLayer
+	// modal is used to show error and messages to the user
+	modal *widgets.MessageModal
 	// add menu
 	newRequestButton     widget.Clickable
 	importButton         widget.Clickable
@@ -113,17 +112,8 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 			AbsolutePosition: true,
 		},
 
-		modal:    component.NewModal(),
 		tipsView: tips.New(),
 		explorer: explorer,
-	}
-
-	v.modal.Widget = func(gtx layout.Context, th *material.Theme, anim *component.VisibilityAnimation) layout.Dimensions {
-		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return component.Surface(th).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Label(th, unit.Sp(16), "Hello, World!").Layout(gtx)
-			})
-		})
 	}
 
 	v.tabHeader.SetMaxTitleWidth(20)
@@ -136,6 +126,13 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	})
 
 	return v
+}
+
+func (v *View) showError(err error) {
+	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
+		v.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	v.modal.Show()
 }
 
 func (v *View) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {
@@ -883,6 +880,8 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 }
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	v.modal.Layout(gtx, theme)
+
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())

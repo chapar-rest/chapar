@@ -17,6 +17,9 @@ type Header struct {
 	selectedEnv   string
 	envDropDown   *widgets.DropDown
 
+	// modal is used to show error and messages to the user
+	modal *widgets.MessageModal
+
 	selectedWorkspace string
 	workspaceDropDown *widgets.DropDown
 
@@ -28,9 +31,9 @@ type Header struct {
 	iconDarkMode  material.LabelStyle
 	iconLightMode material.LabelStyle
 
-	OnSelectedEnvChanged       func(env *domain.Environment)
-	OnSelectedWorkspaceChanged func(env *domain.Workspace)
-	OnThemeSwitched            func(isLight bool)
+	OnSelectedEnvChanged       func(env *domain.Environment) error
+	OnSelectedWorkspaceChanged func(env *domain.Workspace) error
+	OnThemeSwitched            func(isLight bool) error
 }
 
 const (
@@ -61,6 +64,13 @@ func NewHeader(envState *state.Environments, workspacesState *state.Workspaces, 
 	h.envDropDown.MaxWidth = unit.Dp(150)
 	h.workspaceDropDown.MaxWidth = unit.Dp(150)
 	return h
+}
+
+func (h *Header) showError(err error) {
+	h.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
+		h.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	h.modal.Show()
 }
 
 func (h *Header) LoadEnvs(data []*domain.Environment) {
@@ -124,7 +134,9 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 			h.envState.SetActiveEnvironment(h.envState.GetEnvironment(id))
 
 			if h.OnSelectedEnvChanged != nil {
-				h.OnSelectedEnvChanged(h.envState.GetEnvironment(id))
+				if err := h.OnSelectedEnvChanged(h.envState.GetEnvironment(id)); err != nil {
+					h.showError(err)
+				}
 			}
 		} else {
 			h.envState.ClearActiveEnvironment()
@@ -133,7 +145,11 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 
 	if h.switchState.Update(gtx) {
 		if h.OnThemeSwitched != nil {
-			go h.OnThemeSwitched(!h.switchState.Value)
+			go func() {
+				if err := h.OnThemeSwitched(!h.switchState.Value); err != nil {
+					h.showError(err)
+				}
+			}()
 		}
 	}
 
@@ -144,7 +160,9 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 		h.workspacesState.SetActiveWorkspace(ws)
 
 		if h.OnSelectedWorkspaceChanged != nil {
-			h.OnSelectedWorkspaceChanged(ws)
+			if err := h.OnSelectedWorkspaceChanged(ws); err != nil {
+				h.showError(err)
+			}
 		}
 	}
 

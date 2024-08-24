@@ -1,18 +1,18 @@
 package requests
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/chapar-rest/chapar/internal/grpc"
-
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/notify"
 	"github.com/chapar-rest/chapar/internal/repository"
@@ -88,7 +88,7 @@ func (c *Controller) LoadData() error {
 func (c *Controller) onSelectBinaryFile(id string) {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
+			c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
 			return
 		}
 		if result.FilePath == "" {
@@ -101,7 +101,7 @@ func (c *Controller) onSelectBinaryFile(id string) {
 func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
+			c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
 			return
 		}
 		if result.FilePath == "" {
@@ -143,7 +143,6 @@ func (c *Controller) onGrpcInvoke(id string) {
 		c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
 			Error: err,
 		})
-		fmt.Println("failed to invoke grpc", err)
 		return
 	}
 
@@ -230,7 +229,7 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
 	resp, err := rest.GetJSONPATH(responseData.Response, fromKey)
 	if err != nil {
-		fmt.Println("failed to get data from response", err)
+		c.view.showError(fmt.Errorf("failed to get data from response, %w", err))
 		return
 	}
 
@@ -362,7 +361,7 @@ func (c *Controller) onDataChanged(id string, data any, containerType string) {
 func (c *Controller) onRequestDataChanged(id string, data any) {
 	req := c.model.GetRequest(id)
 	if req == nil {
-		fmt.Println("failed to get request", id)
+		c.view.showError(fmt.Errorf("failed to get request, %s", id))
 		return
 	}
 
@@ -383,14 +382,14 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	req.Spec = clone.Spec
 
 	if err := c.model.UpdateRequest(req, true); err != nil {
-		fmt.Println("failed to update request", err)
+		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return
 	}
 
 	// set tab dirty if the in memory data is different from the file
 	reqFromFile, err := c.model.GetRequestFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get request from file", err)
+		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
@@ -470,7 +469,7 @@ func (c *Controller) getUrlParams(newURL string) []domain.KeyValue {
 func (c *Controller) onCollectionDataChanged(id string) {
 	col := c.model.GetCollection(id)
 	if col == nil {
-		fmt.Println("failed to get collection", id)
+		c.view.showError(fmt.Errorf("failed to get collection, %s", id))
 		return
 	}
 }
@@ -481,13 +480,13 @@ func (c *Controller) onRequestTabClose(id string) {
 	// if no close tab
 	req := c.model.GetRequest(id)
 	if req == nil {
-		fmt.Println("failed to get request", id)
+		c.view.showError(fmt.Errorf("failed to get request, %s", id))
 		return
 	}
 
 	reqFromFile, err := c.model.GetRequestFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get environment from file", err)
+		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return
 	}
 
@@ -531,7 +530,7 @@ func (c *Controller) onRequestTitleChange(id, title string) {
 	req.MetaData.Name = title
 
 	if err := c.model.UpdateRequest(req, false); err != nil {
-		fmt.Println("failed to update request", err)
+		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return
 	}
 
@@ -552,7 +551,7 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	col.MetaData.Name = title
 
 	if err := c.model.UpdateCollection(col, false); err != nil {
-		fmt.Println("failed to update collection", err)
+		c.view.showError(fmt.Errorf("failed to update collection, %w", err))
 		return
 	}
 
@@ -570,7 +569,7 @@ func (c *Controller) onNewRequest(requestType string) {
 
 	newFilePath, err := c.repo.GetNewRequestFilePath(req.MetaData.Name)
 	if err != nil {
-		fmt.Println("failed to get new file path", err)
+		c.view.showError(fmt.Errorf("failed to get new file path, %w", err))
 		return
 	}
 
@@ -589,18 +588,18 @@ func (c *Controller) onNewRequest(requestType string) {
 
 func (c *Controller) onImport() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
-		if result.Error != nil {
-			fmt.Println("failed to get file", result.Error)
+		if !errors.Is(result.Error, explorer.ErrUserDecline) {
+			c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
 			return
 		}
 
 		if err := importer.ImportPostmanCollection(result.Data); err != nil {
-			fmt.Println("failed to import postman collection", err)
+			c.view.showError(fmt.Errorf("failed to import postman collection, %w", err))
 			return
 		}
 
 		if err := c.LoadData(); err != nil {
-			fmt.Println("failed to load collections", err)
+			c.view.showError(fmt.Errorf("failed to load collections, %w", err))
 			return
 		}
 
@@ -612,7 +611,7 @@ func (c *Controller) onNewCollection() {
 
 	dirPath, err := c.repo.GetNewCollectionDir(col.MetaData.Name)
 	if err != nil {
-		fmt.Println("failed to get new collection dir", err)
+		c.view.showError(fmt.Errorf("failed to get new collection dir, %w", err))
 		return
 	}
 
@@ -633,7 +632,7 @@ func (c *Controller) saveRequestToDisc(id string) {
 		return
 	}
 	if err := c.model.UpdateRequest(req, false); err != nil {
-		fmt.Println("failed to update request", err)
+		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return
 	}
 	c.view.SetTabDirty(id, false)
@@ -645,7 +644,7 @@ func (c *Controller) saveCollectionToDisc(id string) {
 		return
 	}
 	if err := c.model.UpdateCollection(col, false); err != nil {
-		fmt.Println("failed to update collection", err)
+		c.view.showError(fmt.Errorf("failed to update collection, %w", err))
 		return
 	}
 	c.view.SetTabDirty(id, false)
@@ -706,7 +705,7 @@ func (c *Controller) addRequestToCollection(id string, requestType string) {
 
 	newFilePath, err := c.repo.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
 	if err != nil {
-		fmt.Printf("failed to get new file path, err %v\n", err)
+		c.view.showError(fmt.Errorf("failed to get new file path, err %w", err))
 		return
 	}
 
@@ -730,7 +729,7 @@ func (c *Controller) addRequestToCollection(id string, requestType string) {
 func (c *Controller) viewRequest(id string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
-		fmt.Println("failed to get request", id)
+		c.view.showError(fmt.Errorf("failed to get request, %s", id))
 		return
 	}
 
@@ -775,7 +774,7 @@ func (c *Controller) duplicateCollection(id string) {
 
 	dirPath, err := c.repo.GetNewCollectionDir(colClone.MetaData.Name)
 	if err != nil {
-		fmt.Println("failed to get new collection dir", err)
+		c.view.showError(fmt.Errorf("failed to get new collection dir, %w", err))
 		return
 	}
 
@@ -793,7 +792,7 @@ func (c *Controller) duplicateCollection(id string) {
 
 		newFilePath, err := c.repo.GetCollectionRequestNewFilePath(colClone, reqClone.MetaData.Name)
 		if err != nil {
-			fmt.Printf("failed to get new file path, err %v\n", err)
+			c.view.showError(fmt.Errorf("failed to get new file path, err %w", err))
 			return
 		}
 
@@ -811,7 +810,7 @@ func (c *Controller) duplicateRequest(id string) {
 	// read request from file to make sure we have the latest persisted data
 	reqFromFile, err := c.model.GetRequestFromDisc(id)
 	if err != nil {
-		fmt.Println("failed to get request from file", err)
+		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
 	}
 
@@ -833,7 +832,7 @@ func (c *Controller) deleteRequest(id string) {
 		return
 	}
 	if err := c.model.RemoveRequest(req, false); err != nil {
-		fmt.Println("failed to remove request", err)
+		c.view.showError(fmt.Errorf("failed to remove request, %w", err))
 		return
 	}
 
@@ -847,7 +846,7 @@ func (c *Controller) deleteCollection(id string) {
 		return
 	}
 	if err := c.model.RemoveCollection(col, false); err != nil {
-		fmt.Println("failed to remove collection", err)
+		c.view.showError(fmt.Errorf("failed to remove collection, %w", err))
 		return
 	}
 	c.view.RemoveTreeViewNode(id)

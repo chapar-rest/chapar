@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/chapar-rest/chapar/internal/grpc"
-	"github.com/chapar-rest/chapar/internal/modal"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 
 	"gioui.org/app"
@@ -119,54 +118,54 @@ func New(w *app.Window) (*UI, error) {
 		u.header.LoadEnvs(u.environmentsState.GetEnvironments())
 	})
 
-	u.header.OnSelectedEnvChanged = func(env *domain.Environment) {
+	u.header.OnSelectedEnvChanged = func(env *domain.Environment) error {
 		preferences, err := u.repo.ReadPreferencesData()
 		if err != nil {
-			fmt.Println("failed to read preferences: ", err)
-			return
+			return fmt.Errorf("failed to read preferences, %w", err)
 		}
 
 		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
 		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
 		if err := repo.UpdatePreferences(preferences); err != nil {
-			fmt.Println("failed to update preferences: ", err)
+			return fmt.Errorf("failed to update preferences, %w", err)
 		}
 
 		u.environmentsState.SetActiveEnvironment(env)
+		return nil
 	}
 
 	u.requestsView = requests.NewView(w, u.Theme, explorerController)
 	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService, grpcService)
 
-	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) {
+	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) error {
 		if err := repo.SetActiveWorkspace(ws); err != nil {
-			fmt.Println("failed to set active workspace: ", err)
-			return
+			return fmt.Errorf("failed to set active workspace, %w", err)
 		}
 		u.workspacesState.SetActiveWorkspace(ws)
 
 		if err := u.load(); err != nil {
-			fmt.Println("failed to load data: ", err)
+			return fmt.Errorf("failed to load data, %w", err)
 		}
+		return nil
 	}
 
 	u.workspacesState.AddWorkspaceChangeListener(func(workspace *domain.Workspace, source state.Source, action state.Action) {
 		u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
 	})
 
-	u.header.OnThemeSwitched = func(isDark bool) {
+	u.header.OnThemeSwitched = func(isDark bool) error {
 		u.Theme.Switch(isDark)
 
 		preferences, err := u.repo.ReadPreferencesData()
 		if err != nil {
-			fmt.Println("failed to read preferences: ", err)
-			return
+			return fmt.Errorf("failed to read preferences, %w", err)
 		}
 
 		preferences.Spec.DarkMode = isDark
 		if err := repo.UpdatePreferences(preferences); err != nil {
-			fmt.Println("failed to update preferences: ", err)
+			return fmt.Errorf("failed to update preferences, %w", err)
 		}
+		return nil
 	}
 
 	return u, u.load()
@@ -278,13 +277,6 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 			)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			if modal.Visible() {
-				macro := op.Record(gtx.Ops)
-				dims := modal.Layout(gtx, u.Theme.Theme)
-				op.Defer(gtx.Ops, macro.Stop())
-				return dims
-			}
-
 			return notify.NotificationController.Layout(gtx, u.Theme)
 		}),
 	)

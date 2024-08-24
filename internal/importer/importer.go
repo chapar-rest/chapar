@@ -110,31 +110,25 @@ func convertItemToRequest(item RequestItem) *domain.Request {
 func ImportPostmanCollection(data []byte) error {
 	filesystem, err := repository.NewFilesystem()
 	if err != nil {
-		fmt.Printf("Error creating filesystem: %v\n", err)
-		return err
+		return fmt.Errorf("error creating filesystem: %w", err)
 	}
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
-		fmt.Printf("Error parsing JSON: %v\n", err)
-		return err
+		return fmt.Errorf("error parsing JSON: %w", err)
 	}
 
 	col := domain.NewCollection(collection.Info.Name)
 	fp, err := filesystem.GetNewCollectionDir(collection.Info.Name)
 	if err != nil {
-		fmt.Printf("Error getting new collection directory: %v\n", err)
-		return err
+		return fmt.Errorf("error getting new collection directory: %w", err)
 	}
 	col.FilePath = fp.Path
 	col.MetaData.Name = fp.NewName
 
 	if err := filesystem.UpdateCollection(col); err != nil {
-		fmt.Printf("Error saving collection: %v\n", err)
-		return err
+		return fmt.Errorf("error saving collection: %w", err)
 	}
-
-	fmt.Println("collection auth", collection.Auth)
 
 	// Convert each item in the collection to our Request structure
 	var requests = make([]*domain.Request, 0, len(collection.Item))
@@ -157,8 +151,7 @@ func ImportPostmanCollection(data []byte) error {
 	for _, req := range requests {
 		fp, err := filesystem.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
 		if err != nil {
-			fmt.Printf("Error getting new request file path: %v\n", err)
-			continue
+			return fmt.Errorf("error getting new request file path: %w", err)
 		}
 
 		if apiKey != nil {
@@ -190,8 +183,7 @@ func ImportPostmanCollection(data []byte) error {
 func ImportPostmanCollectionFromFile(filePath string) error {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
-		return err
+		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	return ImportPostmanCollection(fileContent)
@@ -212,7 +204,6 @@ func findAndReplaceVariables(filename string) error {
 
 func findApiKey(coll PostmanCollection) *domain.APIKeyAuth {
 	if coll.Auth == nil {
-		fmt.Printf("auth is nil")
 		return nil
 	}
 
@@ -229,7 +220,6 @@ func findApiKey(coll PostmanCollection) *domain.APIKeyAuth {
 	}
 
 	if out.Key == "" || out.Value == "" {
-		fmt.Println("fail to find key or value", out)
 		return nil
 	}
 
@@ -248,22 +238,19 @@ func findInApiKey(arr []ApiKey, filter func(apiKey ApiKey) bool) (int, bool) {
 func ImportPostmanEnvironment(data []byte) error {
 	filesystem, err := repository.NewFilesystem()
 	if err != nil {
-		fmt.Printf("Error creating filesystem: %v\n", err)
-		return err
+		return fmt.Errorf("error creating filesystem: %w", err)
 	}
 
 	var env PostmanEnvironment
 	if err := json.Unmarshal(data, &env); err != nil {
-		fmt.Printf("Error parsing JSON: %v\n", err)
-		return err
+		return fmt.Errorf("error parsing JSON: %w", err)
 	}
 
 	// Convert Postman environment to our Environment structure
 	environment := domain.NewEnvironment(env.Name)
 	fp, err := filesystem.GetNewEnvironmentFilePath(env.Name)
 	if err != nil {
-		fmt.Printf("Error getting new environment file path: %v\n", err)
-		return err
+		return fmt.Errorf("error getting new environment file path: %w", err)
 	}
 
 	environment.FilePath = fp.Path
@@ -283,8 +270,7 @@ func ImportPostmanEnvironment(data []byte) error {
 	environment.Spec.Values = variables
 
 	if err := filesystem.UpdateEnvironment(environment); err != nil {
-		fmt.Printf("Error saving environment: %v\n", err)
-		return err
+		return fmt.Errorf("error saving environment: %w", err)
 	}
 
 	// Replace variables in the request file
@@ -298,8 +284,7 @@ func ImportPostmanEnvironment(data []byte) error {
 func ImportPostmanEnvironmentFromFile(filePath string) error {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
-		return err
+		return fmt.Errorf("error reading file: %v\n", err)
 	}
 
 	return ImportPostmanEnvironment(fileContent)
