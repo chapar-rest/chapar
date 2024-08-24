@@ -124,13 +124,24 @@ func New(w *app.Window) (*UI, error) {
 			return fmt.Errorf("failed to read preferences, %w", err)
 		}
 
-		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
-		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
+		if env != nil {
+			preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
+			preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
+		} else {
+			preferences.Spec.SelectedEnvironment.ID = ""
+			preferences.Spec.SelectedEnvironment.Name = ""
+		}
+
 		if err := repo.UpdatePreferences(preferences); err != nil {
 			return fmt.Errorf("failed to update preferences, %w", err)
 		}
 
-		u.environmentsState.SetActiveEnvironment(env)
+		if env != nil {
+			u.environmentsState.SetActiveEnvironment(env)
+		} else {
+			u.environmentsState.ClearActiveEnvironment()
+		}
+
 		return nil
 	}
 

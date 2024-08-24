@@ -140,6 +140,11 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 			}
 		} else {
 			h.envState.ClearActiveEnvironment()
+			if h.OnSelectedEnvChanged != nil {
+				if err := h.OnSelectedEnvChanged(nil); err != nil {
+					h.showError(err)
+				}
+			}
 		}
 	}
 
