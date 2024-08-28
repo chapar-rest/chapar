@@ -66,6 +66,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnServerInfoReload(c.onServerInfoReload)
 	view.SetOnGrpcInvoke(c.onGrpcInvoke)
 	view.SetOnGrpcLoadRequestExample(c.onLoadRequestExample)
+	view.SetOnSetOnTriggerRequestChanged(c.onSetOnTriggerRequestChanged)
 	return c
 }
 
@@ -223,6 +224,9 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 	case domain.PostRequestSetFromResponseCookie:
 		c.setPreviewFromCookie(id, responseData, fromKey)
 	}
+}
+
+func (c *Controller) onSetOnTriggerRequestChanged(id, collectionID, requestID string) {
 }
 
 func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTPResponseDetail, fromKey string) {

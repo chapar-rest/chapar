@@ -22,6 +22,9 @@ type Request struct {
 	Metadata   *widgets.KeyValue
 	Auth       *component.Auth
 	Settings   *widgets.Settings
+
+	PreRequest  *component.PrePostRequest
+	PostRequest *component.PrePostRequest
 }
 
 func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Request {
@@ -39,6 +42,8 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			{Title: "Auth"},
 			{Title: "Meta Data"},
 			{Title: "Settings"},
+			{Title: "Pre Request"},
+			{Title: "Post Request"},
 		}, nil),
 		ServerInfo: NewServerInfo(explorer, req.Spec.GRPC.ServerInfo),
 		Body:       widgets.NewCodeEditor(req.Spec.GRPC.Body, widgets.CodeLanguageJSON, theme),
@@ -54,7 +59,33 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", req.Spec.GRPC.Settings.NameOverride).SetVisibleWhen(visibilityFunc),
 			widgets.NewNumberItem("Timeout", "timeoutMilliseconds", "Timeout for the request in milliseconds", req.Spec.GRPC.Settings.TimeoutMilliseconds),
 		}),
+		PreRequest: component.NewPrePostRequest([]component.Option{
+			{Title: "None", Value: domain.PrePostTypeNone},
+			{Title: "Trigger request", Value: domain.PrePostTypeTriggerRequest, Type: component.TypeTriggerRequest, Hint: "Trigger another request"},
+			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your pre request python script here"},
+			//	{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
+			//	{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
+			//	{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
+		}, theme),
+		PostRequest: component.NewPrePostRequest([]component.Option{
+			{Title: "None", Value: domain.PrePostTypeNone},
+			{Title: "Set Environment Variable", Value: domain.PrePostTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
+			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
+			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
+		}, theme),
 	}
+
+	if req.Spec.GRPC.PreRequest != (domain.PreRequest{}) {
+		r.PreRequest.SetSelectedDropDown(req.Spec.GRPC.PreRequest.Type)
+	}
+
+	if req.Spec.GRPC.PostRequest != (domain.PostRequest{}) {
+		r.PostRequest.SetSelectedDropDown(req.Spec.GRPC.PostRequest.Type)
+	}
+
+	//if req.Spec.HTTP.Request.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {
+	//	r.PostRequest.SetPostRequestSetValues(req.Spec.HTTP.Request.PostRequest.PostRequestSet)
+	//}
 
 	return r
 }
@@ -90,6 +121,10 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 					return r.Auth.Layout(gtx, theme)
 				case "Settings":
 					return r.Settings.Layout(gtx, theme)
+				case "Pre Request":
+					return r.PreRequest.Layout(gtx, theme)
+				case "Post Request":
+					return r.PostRequest.Layout(gtx, theme)
 				default:
 					return layout.Dimensions{}
 				}

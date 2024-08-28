@@ -16,6 +16,9 @@ type GRPCRequestSpec struct {
 	Settings          Settings      `yaml:"settings"`
 	Body              string        `yaml:"body"`
 	Services          []GRPCService `yaml:"services"`
+
+	PreRequest  PreRequest  `yaml:"preRequest"`
+	PostRequest PostRequest `yaml:"postRequest"`
 }
 
 type GRPCService struct {

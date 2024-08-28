@@ -60,26 +60,27 @@ type View struct {
 	tabHeader *widgets.Tabs
 
 	// callbacks
-	onTitleChanged              func(id, title, containerType string)
-	onNewRequest                func(requestType string)
-	onImport                    func()
-	onNewCollection             func()
-	onTabClose                  func(id string)
-	onTreeViewNodeDoubleClicked func(id string)
-	onTreeViewNodeClicked       func(id string)
-	onTreeViewMenuClicked       func(id string, action string)
-	onTabSelected               func(id string)
-	onSave                      func(id string)
-	onSubmit                    func(id, containerType string)
-	onDataChanged               func(id string, data any, containerType string)
-	onCopyResponse              func(gtx layout.Context, dataType, data string)
-	onOnPostRequestSetChanged   func(id string, statusCode int, item, from, fromKey string)
-	onBinaryFileSelect          func(id string)
-	onProtoFileSelect           func(id string)
-	onFromDataFileSelect        func(requestID, fieldID string)
-	onServerInfoReload          func(id string)
-	onGrpcInvoke                func(id string)
-	onGrpcLoadRequestExample    func(id string)
+	onTitleChanged                 func(id, title, containerType string)
+	onNewRequest                   func(requestType string)
+	onImport                       func()
+	onNewCollection                func()
+	onTabClose                     func(id string)
+	onTreeViewNodeDoubleClicked    func(id string)
+	onTreeViewNodeClicked          func(id string)
+	onTreeViewMenuClicked          func(id string, action string)
+	onTabSelected                  func(id string)
+	onSave                         func(id string)
+	onSubmit                       func(id, containerType string)
+	onDataChanged                  func(id string, data any, containerType string)
+	onCopyResponse                 func(gtx layout.Context, dataType, data string)
+	onOnPostRequestSetChanged      func(id string, statusCode int, item, from, fromKey string)
+	onOnSetOnTriggerRequestChanged func(id, collectionID, requestID string)
+	onBinaryFileSelect             func(id string)
+	onProtoFileSelect              func(id string)
+	onFromDataFileSelect           func(requestID, fieldID string)
+	onServerInfoReload             func(id string)
+	onGrpcInvoke                   func(id string)
+	onGrpcLoadRequestExample       func(id string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -131,6 +132,26 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	})
 
 	return v
+}
+
+func (v *View) SetPreRequestCollections(id string, collections []domain.Collection, selectedID string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPreRequestCollections(collections, selectedID)
+		}
+	}
+}
+
+func (v *View) SetPreRequestRequests(id string, requests []domain.Request, selectedID string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPreRequestRequests(requests, selectedID)
+		}
+	}
+}
+
+func (v *View) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
+	v.onOnSetOnTriggerRequestChanged = f
 }
 
 func (v *View) showNotification(text string, duration time.Duration) {
@@ -484,6 +505,18 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 		}
 	})
 
+	ct.SetOnSetOnTriggerRequestChanged(func(id, collectionID, requestID string) {
+		if v.onOnSetOnTriggerRequestChanged != nil {
+			v.onOnSetOnTriggerRequestChanged(id, collectionID, requestID)
+		}
+	})
+
+	ct.SetOnPostRequestSetChanged(func(id string, statusCode int, item, from, fromKey string) {
+		if v.onOnPostRequestSetChanged != nil {
+			v.onOnPostRequestSetChanged(id, statusCode, item, from, fromKey)
+		}
+	})
+
 	ct.SetOnLoadRequestExample(func(id string) {
 		if v.onGrpcLoadRequestExample != nil {
 			v.onGrpcLoadRequestExample(id)
@@ -535,6 +568,12 @@ func (v *View) createRestfulContainer(req *domain.Request) Container {
 	ct.SetOnPostRequestSetChanged(func(id string, statusCode int, item, from, fromKey string) {
 		if v.onOnPostRequestSetChanged != nil {
 			v.onOnPostRequestSetChanged(id, statusCode, item, from, fromKey)
+		}
+	})
+
+	ct.SetOnSetOnTriggerRequestChanged(func(id, collectionID, requestID string) {
+		if v.onOnSetOnTriggerRequestChanged != nil {
+			v.onOnSetOnTriggerRequestChanged(id, collectionID, requestID)
 		}
 	})
 

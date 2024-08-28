@@ -49,6 +49,20 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 	return r
 }
 
+func (r *Restful) SetPreRequestCollections(collections []domain.Collection, selectedID string) {
+	r.Request.PreRequest.SetCollections(collections, selectedID)
+}
+
+func (r *Restful) SetPreRequestRequests(requests []domain.Request, selectedID string) {
+	r.Request.PreRequest.SetRequests(requests, selectedID)
+}
+
+func (r *Restful) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
+	r.Request.PreRequest.SetOnTriggerRequestChanged(func(collectionID, requestID string) {
+		f(r.Req.MetaData.ID, collectionID, requestID)
+	})
+}
+
 func (r *Restful) SetPostRequestSetValues(set domain.PostRequestSet) {
 	r.Request.PostRequest.SetPostRequestSetValues(set)
 }
@@ -194,10 +208,10 @@ func (r *Restful) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
-	// r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
-	//	r.Req.Spec.HTTP.Request.PreRequest.Type = selected
-	//	r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	// })
+	r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
+		r.Req.Spec.HTTP.Request.PreRequest.Type = selected
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
 
 	// r.Request.PreRequest.SetOnScriptChanged(func(code string) {
 	//	r.Req.Spec.HTTP.Request.PreRequest.Script = code

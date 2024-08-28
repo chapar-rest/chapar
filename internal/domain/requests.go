@@ -28,11 +28,13 @@ const (
 	RequestBodyTypeBinary     = "binary"
 	RequestBodyTypeUrlEncoded = "urlEncoded"
 
-	PrePostTypeNone      = "none"
-	PrePostTypePython    = "python"
-	PrePostTypeShell     = "ssh"
-	PrePostTypeSSHTunnel = "sshTunnel"
-	PrePostTypeK8sTunnel = "k8sTunnel"
+	PrePostTypeNone           = "none"
+	PrePostTypeTriggerRequest = "triggerRequest"
+	PrePostTypeSetEnv         = "setEnv"
+	PrePostTypePython         = "python"
+	PrePostTypeShell          = "ssh"
+	PrePostTypeSSHTunnel      = "sshTunnel"
+	PrePostTypeK8sTunnel      = "k8sTunnel"
 )
 
 type Request struct {
@@ -133,16 +135,13 @@ type PreRequest struct {
 
 	SShTunnel        *SShTunnel        `yaml:"sshTunnel,omitempty"`
 	KubernetesTunnel *KubernetesTunnel `yaml:"kubernetesTunnel,omitempty"`
+	TriggerRequest   *TriggerRequest   `yaml:"triggerRequest,omitempty"`
 }
 
-const (
-	PostRequestTypeNone         = "none"
-	PostRequestTypeSetEnv       = "setEnv"
-	PostRequestTypePythonScript = "pythonScript"
-	PostRequestTypeK8sTunnel    = "k8sTunnel"
-	PostRequestTypeSSHTunnel    = "sshTunnel"
-	PostRequestTypeShellScript  = "shellScript"
-)
+type TriggerRequest struct {
+	CollectionID string `yaml:"collectionID"`
+	RequestID    string `yaml:"requestID"`
+}
 
 type PostRequest struct {
 	Type           string         `yaml:"type"`
@@ -295,6 +294,10 @@ func ComparePreRequest(a, b PreRequest) bool {
 		return false
 	}
 
+	if !CompareTriggerRequest(a.TriggerRequest, b.TriggerRequest) {
+		return false
+	}
+
 	return true
 }
 
@@ -319,6 +322,22 @@ func CompareSShTunnel(a, b *SShTunnel) bool {
 		if v != b.Flags[i] {
 			return false
 		}
+	}
+
+	return true
+}
+
+func CompareTriggerRequest(a, b *TriggerRequest) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
+	if a.CollectionID != b.CollectionID || a.RequestID != b.RequestID {
+		return false
 	}
 
 	return true

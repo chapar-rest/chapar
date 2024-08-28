@@ -82,7 +82,7 @@ func (s *Service) handlePostRequest(r domain.PostRequest, response *Response, en
 		return nil
 	}
 
-	if r.Type == domain.PostRequestTypeSetEnv {
+	if r.Type == domain.PrePostTypeSetEnv {
 		// only handle post request if the status code is the same as the one provided
 		if response.StatusCode != r.PostRequestSet.StatusCode {
 			return nil

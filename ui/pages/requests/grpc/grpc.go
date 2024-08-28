@@ -100,6 +100,11 @@ func (r *Grpc) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
+	r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
+		r.Req.Spec.GRPC.PreRequest.Type = selected
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
 	r.Request.ServerInfo.FileSelector.SetOnChanged(func(filePath string) {
 		protoFiles := r.Req.Spec.GRPC.ServerInfo.ProtoFiles
 		if r.Req.Spec.GRPC.ServerInfo.ProtoFiles == nil || filePath == "" {
@@ -150,6 +155,22 @@ func convertSettingsToItems(values map[string]any) domain.Settings {
 	}
 
 	return out
+}
+
+func (r *Grpc) SetPostRequestSetValues(set domain.PostRequestSet) {
+
+}
+func (r *Grpc) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {
+
+}
+func (r *Grpc) SetPreRequestCollections(collections []domain.Collection, selectedID string) {
+
+}
+func (r *Grpc) SetPreRequestRequests(requests []domain.Request, selectedID string) {
+
+}
+func (r *Grpc) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
+
 }
 
 func (r *Grpc) SetOnProtoFileSelect(f func(id string)) {
