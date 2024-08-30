@@ -20,6 +20,11 @@ jobs:
         with:
           go-version: 1.22.1
 
+      - name: Update Version in chapar.desktop
+        run: |
+          $VERSION = "${{ github.event.release.tag_name }}"
+          (Get-Content build/desktop-assets/chapar.desktop) -replace '^Version=.*', "Version=$VERSION" | Set-Content build/desktop-assets/chapar.desktop
+
       - name: Install gogio tool
         run: go install gioui.org/cmd/gogio@latest
 
