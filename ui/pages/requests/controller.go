@@ -228,7 +228,8 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
 	resp, err := rest.GetJSONPATH(responseData.Response, fromKey)
 	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get data from response, %w", err))
+		// TODO show error without interrupting the user
+		// c.view.showError(fmt.Errorf("failed to get data from response, %w", err))
 		return
 	}
 
