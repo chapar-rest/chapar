@@ -140,6 +140,14 @@ func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
 		return false
 	}
 
+	if !ComparePreRequest(a.PreRequest, b.PreRequest) {
+		return false
+	}
+
+	if !ComparePostRequest(a.PostRequest, b.PostRequest) {
+		return false
+	}
+
 	return true
 }
 

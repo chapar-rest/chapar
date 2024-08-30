@@ -181,6 +181,11 @@ func (v *View) SetPostRequestSetPreview(id, preview string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetPostRequestSetPreview(preview)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetPostRequestSetPreview(preview)
 		}
 	}
 }
@@ -679,6 +684,16 @@ func (v *View) GetHTTPResponse(id string) *domain.HTTPResponseDetail {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			return ct.GetHTTPResponse()
+		}
+	}
+
+	return nil
+}
+
+func (v *View) GetGRPCResponse(id string) *domain.GRPCResponseDetail {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			return ct.GetResponse()
 		}
 	}
 

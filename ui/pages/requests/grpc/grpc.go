@@ -158,19 +158,27 @@ func convertSettingsToItems(values map[string]any) domain.Settings {
 }
 
 func (r *Grpc) SetPostRequestSetValues(set domain.PostRequestSet) {
-
+	r.Request.PostRequest.SetPostRequestSetValues(set)
 }
+
 func (r *Grpc) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {
-
+	r.Request.PostRequest.SetOnPostRequestSetChanged(func(statusCode int, item, from, fromKey string) {
+		f(r.Req.MetaData.ID, statusCode, item, from, fromKey)
+	})
 }
+
 func (r *Grpc) SetPreRequestCollections(collections []domain.Collection, selectedID string) {
-
+	r.Request.PreRequest.SetCollections(collections, selectedID)
 }
+
 func (r *Grpc) SetPreRequestRequests(requests []domain.Request, selectedID string) {
-
+	r.Request.PreRequest.SetRequests(requests, selectedID)
 }
-func (r *Grpc) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
 
+func (r *Grpc) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
+	r.Request.PreRequest.SetOnTriggerRequestChanged(func(collectionID, requestID string) {
+		f(r.Req.MetaData.ID, collectionID, requestID)
+	})
 }
 
 func (r *Grpc) SetOnProtoFileSelect(f func(id string)) {
@@ -241,6 +249,18 @@ func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
 	r.Response.SetTrailers(detail.Trailers)
 	r.Response.SetError(detail.Error)
 	r.Response.SetStatusParams(detail.StatusCode, detail.Status, detail.Duration, detail.Size)
+}
+
+func (r *Grpc) GetResponse() *domain.GRPCResponseDetail {
+	return &domain.GRPCResponseDetail{
+		Response: r.Response.response,
+		Metadata: r.Response.Metadata.GetData(),
+		Trailers: r.Response.Trailers.GetData(),
+	}
+}
+
+func (r *Grpc) SetPostRequestSetPreview(preview string) {
+	r.Request.PostRequest.SetPreview(preview)
 }
 
 func (r *Grpc) SetOnSave(f func(id string)) {

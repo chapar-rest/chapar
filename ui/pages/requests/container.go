@@ -35,6 +35,7 @@ type GrpcContainer interface {
 	SetResponseLoading(loading bool)
 	SetOnInvoke(f func(id string))
 	SetResponse(response domain.GRPCResponseDetail)
+	GetResponse() *domain.GRPCResponseDetail
 	SetOnLoadRequestExample(f func(id string))
 	SetRequestBody(body string)
 	ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option)
@@ -44,6 +45,7 @@ type GrpcContainer interface {
 	SetPreRequestCollections(collections []domain.Collection, selectedID string)
 	SetPreRequestRequests(requests []domain.Request, selectedID string)
 	SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string))
+	SetPostRequestSetPreview(preview string)
 }
 
 type RestContainer interface {

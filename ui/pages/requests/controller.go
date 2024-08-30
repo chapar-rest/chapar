@@ -199,38 +199,103 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 	clone := req.Clone()
 	clone.MetaData.ID = id
 
-	clone.Spec.HTTP.Request.PostRequest.PostRequestSet = domain.PostRequestSet{
+	// Initialize PostRequestSet
+	postRequestSet := domain.PostRequestSet{
 		Target:     item,
 		StatusCode: statusCode,
 		From:       from,
 		FromKey:    fromKey,
 	}
+
+	// Assign the PostRequestSet based on request type
+	switch req.MetaData.Type {
+	case domain.RequestTypeHTTP:
+		clone.Spec.HTTP.Request.PostRequest.PostRequestSet = postRequestSet
+	case domain.RequestTypeGRPC:
+		clone.Spec.GRPC.PostRequest.PostRequestSet = postRequestSet
+	default:
+		return // Unknown request type, exit early
+	}
+
+	// Update the request data
 	c.onRequestDataChanged(id, clone)
 
-	responseData := c.view.GetHTTPResponse(id)
-	if responseData == nil {
-		return
+	var (
+		responseFrom string
+		response     string
+		headers      []domain.KeyValue
+		cookies      []domain.KeyValue
+		metaData     []domain.KeyValue
+		trailers     []domain.KeyValue
+	)
+
+	switch req.MetaData.Type {
+	case domain.RequestTypeHTTP:
+		responseData := c.view.GetHTTPResponse(id)
+		if responseData == nil || responseData.Response == "" {
+			return
+		}
+		response = responseData.Response
+		headers = responseData.Headers
+		cookies = responseData.Cookies
+		responseFrom = clone.Spec.HTTP.Request.PostRequest.PostRequestSet.From
+	case domain.RequestTypeGRPC:
+		responseData := c.view.GetGRPCResponse(id)
+		if responseData == nil || responseData.Response == "" {
+			return
+		}
+		response = responseData.Response
+		headers = responseData.Metadata
+		metaData = responseData.Metadata
+		trailers = responseData.Trailers
+		responseFrom = clone.Spec.GRPC.PostRequest.PostRequestSet.From
 	}
 
-	if responseData.Response == "" {
-		return
-	}
-
-	switch clone.Spec.HTTP.Request.PostRequest.PostRequestSet.From {
+	switch responseFrom {
 	case domain.PostRequestSetFromResponseBody:
-		c.setPreviewFromResponse(id, responseData, fromKey)
+		c.setPreviewFromResponse(id, response, fromKey)
 	case domain.PostRequestSetFromResponseHeader:
-		c.setPreviewFromHeader(id, responseData, fromKey)
+		c.setPreviewFromKeyValue(id, headers, fromKey)
 	case domain.PostRequestSetFromResponseCookie:
-		c.setPreviewFromCookie(id, responseData, fromKey)
+		c.setPreviewFromKeyValue(id, cookies, fromKey)
+	case domain.PostRequestSetFromResponseMetaData:
+		c.setPreviewFromKeyValue(id, metaData, fromKey)
+	case domain.PostRequestSetFromResponseTrailers:
+		c.setPreviewFromKeyValue(id, trailers, fromKey)
 	}
 }
 
 func (c *Controller) onSetOnTriggerRequestChanged(id, collectionID, requestID string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	// break the reference
+	clone := req.Clone()
+	clone.MetaData.ID = id
+
+	triggerRequest := &domain.TriggerRequest{
+		CollectionID: collectionID,
+		RequestID:    requestID,
+	}
+
+	// Assign the PostRequestSet based on request type
+	switch req.MetaData.Type {
+	case domain.RequestTypeHTTP:
+		clone.Spec.HTTP.Request.PreRequest.TriggerRequest = triggerRequest
+	case domain.RequestTypeGRPC:
+		clone.Spec.GRPC.PreRequest.TriggerRequest = triggerRequest
+	default:
+		return // Unknown request type, exit early
+	}
+
+	// Update the request data
+	c.onRequestDataChanged(id, clone)
 }
 
-func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
-	resp, err := rest.GetJSONPATH(responseData.Response, fromKey)
+func (c *Controller) setPreviewFromResponse(id string, response, fromKey string) {
+	resp, err := rest.GetJSONPATH(response, fromKey)
 	if err != nil {
 		// TODO show error without interrupting the user
 		fmt.Println("failed to get data from response, %w", err)
@@ -249,19 +314,10 @@ func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTP
 	}
 }
 
-func (c *Controller) setPreviewFromHeader(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
-	for _, header := range responseData.Headers {
+func (c *Controller) setPreviewFromKeyValue(id string, kv []domain.KeyValue, fromKey string) {
+	for _, header := range kv {
 		if header.Key == fromKey {
 			c.view.SetPostRequestSetPreview(id, header.Value)
-			return
-		}
-	}
-}
-
-func (c *Controller) setPreviewFromCookie(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
-	for _, cookie := range responseData.Cookies {
-		if cookie.Key == fromKey {
-			c.view.SetPostRequestSetPreview(id, cookie.Value)
 			return
 		}
 	}
@@ -295,8 +351,6 @@ func (c *Controller) onCopyResponse(gtx layout.Context, dataType, data string) {
 	})
 
 	c.view.showNotification(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
-
-	// notify.Send(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
 }
 
 func (c *Controller) onSubmitRequest(id string) {

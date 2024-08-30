@@ -150,9 +150,11 @@ type PostRequest struct {
 }
 
 const (
-	PostRequestSetFromResponseHeader = "responseHeader"
-	PostRequestSetFromResponseBody   = "responseBody"
-	PostRequestSetFromResponseCookie = "responseCookie"
+	PostRequestSetFromResponseHeader   = "responseHeader"
+	PostRequestSetFromResponseBody     = "responseBody"
+	PostRequestSetFromResponseCookie   = "responseCookie"
+	PostRequestSetFromResponseMetaData = "responseMetaData"
+	PostRequestSetFromResponseTrailers = "responseTrailers"
 )
 
 type PostRequestSet struct {
