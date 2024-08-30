@@ -229,6 +229,7 @@ func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTP
 	resp, err := rest.GetJSONPATH(responseData.Response, fromKey)
 	if err != nil {
 		// TODO show error without interrupting the user
+		fmt.Println("failed to get data from response, %w", err)
 		// c.view.showError(fmt.Errorf("failed to get data from response, %w", err))
 		return
 	}
@@ -239,6 +240,8 @@ func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTP
 
 	if result, ok := resp.(string); ok {
 		c.view.SetPostRequestSetPreview(id, result)
+	} else {
+		c.view.SetPostRequestSetPreview(id, fmt.Sprintf("%v", resp))
 	}
 }
 
