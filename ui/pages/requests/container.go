@@ -42,8 +42,8 @@ type GrpcContainer interface {
 	HideRequestPrompt()
 	SetPostRequestSetValues(set domain.PostRequestSet)
 	SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string))
-	SetPreRequestCollections(collections []domain.Collection, selectedID string)
-	SetPreRequestRequests(requests []domain.Request, selectedID string)
+	SetPreRequestCollections(collections []*domain.Collection, selectedID string)
+	SetPreRequestRequests(requests []*domain.Request, selectedID string)
 	SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string))
 	SetPostRequestSetPreview(preview string)
 }
@@ -64,7 +64,7 @@ type RestContainer interface {
 	SetBinaryBodyFilePath(filePath string)
 	SetOnFormDataFileSelect(f func(requestId, fieldId string))
 	AddFileToFormData(fieldId, filePath string)
-	SetPreRequestCollections(collections []domain.Collection, selectedID string)
-	SetPreRequestRequests(requests []domain.Request, selectedID string)
+	SetPreRequestCollections(collections []*domain.Collection, selectedID string)
+	SetPreRequestRequests(requests []*domain.Request, selectedID string)
 	SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string))
 }

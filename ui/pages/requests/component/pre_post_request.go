@@ -111,7 +111,7 @@ func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostReque
 	return p
 }
 
-func (p *PrePostRequest) SetCollections(collections []domain.Collection, selectedID string) {
+func (p *PrePostRequest) SetCollections(collections []*domain.Collection, selectedID string) {
 	opts := make([]*widgets.DropDownOption, 0, len(collections)+1)
 	opts = append(opts, widgets.NewDropDownOption("Select Collection").WithValue("none"))
 	for _, c := range collections {
@@ -121,7 +121,7 @@ func (p *PrePostRequest) SetCollections(collections []domain.Collection, selecte
 	p.triggerRequestForm.collectionsDropDown.SetSelectedByValue(selectedID)
 }
 
-func (p *PrePostRequest) SetRequests(requests []domain.Request, selectedID string) {
+func (p *PrePostRequest) SetRequests(requests []*domain.Request, selectedID string) {
 	opts := make([]*widgets.DropDownOption, 0, len(requests)+1)
 	opts = append(opts, widgets.NewDropDownOption("Select Request").WithValue("none"))
 	for _, r := range requests {
@@ -134,11 +134,11 @@ func (p *PrePostRequest) SetRequests(requests []domain.Request, selectedID strin
 func (p *PrePostRequest) SetOnTriggerRequestChanged(f func(collectionID, requestID string)) {
 	p.onTriggerRequestChange = f
 	p.triggerRequestForm.collectionsDropDown.SetOnChanged(func(selected string) {
-		p.onTriggerRequestChange(selected, p.triggerRequestForm.requestDropDown.GetSelected().Value)
+		p.onTriggerRequestChange(selected, p.triggerRequestForm.requestDropDown.GetSelected().GetValue())
 	})
 
 	p.triggerRequestForm.requestDropDown.SetOnChanged(func(selected string) {
-		p.onTriggerRequestChange(p.triggerRequestForm.collectionsDropDown.GetSelected().Value, selected)
+		p.onTriggerRequestChange(p.triggerRequestForm.collectionsDropDown.GetSelected().GetValue(), selected)
 	})
 }
 

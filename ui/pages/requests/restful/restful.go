@@ -49,11 +49,11 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 	return r
 }
 
-func (r *Restful) SetPreRequestCollections(collections []domain.Collection, selectedID string) {
+func (r *Restful) SetPreRequestCollections(collections []*domain.Collection, selectedID string) {
 	r.Request.PreRequest.SetCollections(collections, selectedID)
 }
 
-func (r *Restful) SetPreRequestRequests(requests []domain.Request, selectedID string) {
+func (r *Restful) SetPreRequestRequests(requests []*domain.Request, selectedID string) {
 	r.Request.PreRequest.SetRequests(requests, selectedID)
 }
 

@@ -167,11 +167,11 @@ func (r *Grpc) SetOnPostRequestSetChanged(f func(id string, statusCode int, item
 	})
 }
 
-func (r *Grpc) SetPreRequestCollections(collections []domain.Collection, selectedID string) {
+func (r *Grpc) SetPreRequestCollections(collections []*domain.Collection, selectedID string) {
 	r.Request.PreRequest.SetCollections(collections, selectedID)
 }
 
-func (r *Grpc) SetPreRequestRequests(requests []domain.Request, selectedID string) {
+func (r *Grpc) SetPreRequestRequests(requests []*domain.Request, selectedID string) {
 	r.Request.PreRequest.SetRequests(requests, selectedID)
 }
 

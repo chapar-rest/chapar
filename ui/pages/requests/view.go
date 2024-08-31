@@ -134,7 +134,7 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	return v
 }
 
-func (v *View) SetPreRequestCollections(id string, collections []domain.Collection, selectedID string) {
+func (v *View) SetPreRequestCollections(id string, collections []*domain.Collection, selectedID string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetPreRequestCollections(collections, selectedID)
@@ -142,7 +142,7 @@ func (v *View) SetPreRequestCollections(id string, collections []domain.Collecti
 	}
 }
 
-func (v *View) SetPreRequestRequests(id string, requests []domain.Request, selectedID string) {
+func (v *View) SetPreRequestRequests(id string, requests []*domain.Request, selectedID string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetPreRequestRequests(requests, selectedID)

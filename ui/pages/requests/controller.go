@@ -438,6 +438,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 
+	c.checkForPreRequestParams(id, req, inComingRequest)
 	c.checkForHTTPRequestParams(req, inComingRequest)
 
 	// break the reference
@@ -457,6 +458,24 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
 	c.view.SetTreeViewNodePrefix(id, req)
+}
+
+func (c *Controller) checkForPreRequestParams(id string, req *domain.Request, inComingRequest *domain.Request) {
+	if req.MetaData.Type == domain.RequestTypeHTTP {
+		// check if pre request type is changed
+		if req.Spec.HTTP.Request.PreRequest.Type != inComingRequest.Spec.HTTP.Request.PreRequest.Type {
+			c.view.SetPreRequestCollections(id, c.model.GetCollections(), "")
+			if inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest != nil {
+				if inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest.CollectionID != "" {
+					requests := c.model.GetCollection(inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest.CollectionID).Spec.Requests
+					c.view.SetPreRequestRequests(id, requests, "")
+				} else {
+					c.view.SetPreRequestRequests(id, c.model.GetRequests(), "")
+				}
+			}
+
+		}
+	}
 }
 
 func (c *Controller) checkForHTTPRequestParams(req *domain.Request, inComingRequest *domain.Request) {
