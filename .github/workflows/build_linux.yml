@@ -29,7 +29,7 @@ jobs:
       - name: Update Version in chapar.desktop
         run: |
           VERSION=${{ github.event.release.tag_name }}
-          sed -i "s/^Version=.*/Version=${VERSION}/" build/desktop-assets/chapar.desktop
+          sed -i "s/^Version=.*/Version=${VERSION:1}/" build/desktop-assets/chapar.desktop
 
       - name: Build linux amd64
         run: make build_linux
