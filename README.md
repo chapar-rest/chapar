@@ -77,6 +77,12 @@ You will need to run fixer script to fix the data:
 ```
 
 ### Installation
+#### Install From AUR
+to install chapar form aur in arch base distro you can use your favorits AUR helpers
+```bash
+yay -S chapar-bin
+```
+
 #### Download the latest release
 You can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
 
