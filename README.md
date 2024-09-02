@@ -82,7 +82,7 @@ To install Chapar from the AUR on an Arch-based distro, you can use your favorit
 ```bash
 yay -S chapar-bin
 ```
-
+Please note that this package is maintained by a community contributor. (@Monirzadeh )
 #### Download the latest release
 You can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
 
