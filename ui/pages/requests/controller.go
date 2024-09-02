@@ -266,6 +266,8 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 }
 
 func (c *Controller) onSetOnTriggerRequestChanged(id, collectionID, requestID string) {
+
+	fmt.Println("ID", id, "collectionID", collectionID, "requestID", requestID)
 	req := c.model.GetRequest(id)
 	if req == nil {
 		return
@@ -274,6 +276,8 @@ func (c *Controller) onSetOnTriggerRequestChanged(id, collectionID, requestID st
 	// break the reference
 	clone := req.Clone()
 	clone.MetaData.ID = id
+
+	fmt.Println("collectionID", collectionID, "requestID", requestID)
 
 	triggerRequest := &domain.TriggerRequest{
 		CollectionID: collectionID,
@@ -463,17 +467,40 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 func (c *Controller) checkForPreRequestParams(id string, req *domain.Request, inComingRequest *domain.Request) {
 	if req.MetaData.Type == domain.RequestTypeHTTP {
 		// check if pre request type is changed
-		if req.Spec.HTTP.Request.PreRequest.Type != inComingRequest.Spec.HTTP.Request.PreRequest.Type {
-			c.view.SetPreRequestCollections(id, c.model.GetCollections(), "")
+		if req.Spec.HTTP.Request.PreRequest.Type != inComingRequest.Spec.HTTP.Request.PreRequest.Type ||
+			inComingRequest.Spec.HTTP.Request.PreRequest.Type == domain.PrePostTypeTriggerRequest {
+
 			if inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest != nil {
-				if inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest.CollectionID != "" {
-					requests := c.model.GetCollection(inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest.CollectionID).Spec.Requests
-					c.view.SetPreRequestRequests(id, requests, "")
+				collectionID := inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest.CollectionID
+				requestID := inComingRequest.Spec.HTTP.Request.PreRequest.TriggerRequest.RequestID
+
+				c.view.SetPreRequestCollections(id, c.model.GetCollections(), collectionID)
+				if collectionID != domain.PrePostTypeNone {
+					requests := c.model.GetCollection(collectionID).Spec.Requests
+					c.view.SetPreRequestRequests(id, requests, requestID)
 				} else {
-					c.view.SetPreRequestRequests(id, c.model.GetRequests(), "")
+					c.view.SetPreRequestRequests(id, c.model.GetRequests(), requestID)
 				}
 			}
+		}
+	} else if req.MetaData.Type == domain.RequestTypeGRPC {
+		fmt.Println("req.Spec.GRPC.PreRequest", req.Spec.GRPC.PreRequest)
+		// check if pre request type is changed
+		if req.Spec.GRPC.PreRequest.Type != inComingRequest.Spec.GRPC.PreRequest.Type ||
+			inComingRequest.Spec.GRPC.PreRequest.Type == domain.PrePostTypeTriggerRequest {
 
+			if inComingRequest.Spec.GRPC.PreRequest.TriggerRequest != nil {
+				collectionID := inComingRequest.Spec.GRPC.PreRequest.TriggerRequest.CollectionID
+				requestID := inComingRequest.Spec.GRPC.PreRequest.TriggerRequest.RequestID
+
+				c.view.SetPreRequestCollections(id, c.model.GetCollections(), collectionID)
+				if collectionID != domain.PrePostTypeNone {
+					requests := c.model.GetCollection(collectionID).Spec.Requests
+					c.view.SetPreRequestRequests(id, requests, requestID)
+				} else {
+					c.view.SetPreRequestRequests(id, c.model.GetRequests(), requestID)
+				}
+			}
 		}
 	}
 }

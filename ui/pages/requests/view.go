@@ -138,6 +138,11 @@ func (v *View) SetPreRequestCollections(id string, collections []*domain.Collect
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetPreRequestCollections(collections, selectedID)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetPreRequestCollections(collections, selectedID)
 		}
 	}
 }
@@ -145,6 +150,11 @@ func (v *View) SetPreRequestCollections(id string, collections []*domain.Collect
 func (v *View) SetPreRequestRequests(id string, requests []*domain.Request, selectedID string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPreRequestRequests(requests, selectedID)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
 			ct.SetPreRequestRequests(requests, selectedID)
 		}
 	}
@@ -172,6 +182,11 @@ func (v *View) SetOnPostRequestSetChanged(f func(id string, statusCode int, item
 func (v *View) SetPostRequestSetValues(id string, set domain.PostRequestSet) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPostRequestSetValues(set)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
 			ct.SetPostRequestSetValues(set)
 		}
 	}
