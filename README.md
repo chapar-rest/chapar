@@ -78,7 +78,7 @@ You will need to run fixer script to fix the data:
 
 ### Installation
 #### Install From AUR
-to install chapar form AUR in arch base distro you can use your favorits AUR helpers
+To install Chapar from the AUR on an Arch-based distro, you can use your favorite AUR helper:
 ```bash
 yay -S chapar-bin
 ```
