@@ -234,6 +234,12 @@ func (r *Restful) setupHooks() {
 	})
 }
 
+func (r *Restful) SetOnRequestTabChange(f func(id, tab string)) {
+	r.Request.OnTabChange = func(title string) {
+		f(r.Req.MetaData.ID, title)
+	}
+}
+
 func (r *Restful) SetQueryParams(params []domain.KeyValue) {
 	r.Request.Params.SetQueryParams(params)
 }

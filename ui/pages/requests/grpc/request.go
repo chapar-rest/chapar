@@ -25,6 +25,9 @@ type Request struct {
 
 	PreRequest  *component.PrePostRequest
 	PostRequest *component.PrePostRequest
+
+	currentTab  string
+	OnTabChange func(title string)
 }
 
 func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Request {
@@ -104,6 +107,12 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				return r.Prompt.Layout(gtx, theme)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				if r.Tabs.SelectedTab().Title != r.currentTab {
+					r.currentTab = r.Tabs.SelectedTab().Title
+					if r.OnTabChange != nil {
+						r.OnTabChange(r.currentTab)
+					}
+				}
 				switch r.Tabs.SelectedTab().Title {
 				case "Server Info":
 					return layout.Inset{Top: unit.Dp(5), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

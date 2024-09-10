@@ -123,6 +123,12 @@ func (r *Grpc) setupHooks() {
 	})
 }
 
+func (r *Grpc) SetOnRequestTabChange(f func(id, tab string)) {
+	r.Request.OnTabChange = func(title string) {
+		f(r.Req.MetaData.ID, title)
+	}
+}
+
 func convertSettingsToItems(values map[string]any) domain.Settings {
 	out := domain.Settings{
 		Insecure:            false,

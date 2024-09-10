@@ -81,6 +81,7 @@ type View struct {
 	onServerInfoReload             func(id string)
 	onGrpcInvoke                   func(id string)
 	onGrpcLoadRequestExample       func(id string)
+	onRequestTabChanged            func(id string, tab string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -132,6 +133,10 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	})
 
 	return v
+}
+
+func (v *View) SetOnRequestTabChange(f func(id string, tab string)) {
+	v.onRequestTabChanged = f
 }
 
 func (v *View) SetPreRequestCollections(id string, collections []*domain.Collection, selectedID string) {
@@ -549,6 +554,12 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 		}
 	})
 
+	ct.SetOnRequestTabChange(func(id, tab string) {
+		if v.onRequestTabChanged != nil {
+			v.onRequestTabChanged(id, tab)
+		}
+	})
+
 	return ct
 }
 
@@ -606,6 +617,12 @@ func (v *View) createRestfulContainer(req *domain.Request) Container {
 	ct.SetOnFormDataFileSelect(func(requestId, fieldId string) {
 		if v.onFromDataFileSelect != nil {
 			v.onFromDataFileSelect(requestId, fieldId)
+		}
+	})
+
+	ct.SetOnRequestTabChange(func(id, tab string) {
+		if v.onRequestTabChanged != nil {
+			v.onRequestTabChanged(id, tab)
 		}
 	})
 

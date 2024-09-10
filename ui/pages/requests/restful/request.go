@@ -21,6 +21,9 @@ type Request struct {
 	Params  *Params
 	Headers *Headers
 	Auth    *component.Auth
+
+	currentTab  string
+	OnTabChange func(title string)
 }
 
 func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapartheme.Theme) *Request {
@@ -88,6 +91,13 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				return r.Tabs.Layout(gtx, theme)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if r.Tabs.SelectedTab().Title != r.currentTab {
+					r.currentTab = r.Tabs.SelectedTab().Title
+					if r.OnTabChange != nil {
+						r.OnTabChange(r.currentTab)
+					}
+				}
+
 				switch r.Tabs.SelectedTab().Title {
 				case "Pre Request":
 					return r.PreRequest.Layout(gtx, theme)

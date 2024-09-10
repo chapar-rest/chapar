@@ -46,6 +46,7 @@ type GrpcContainer interface {
 	SetPreRequestRequests(requests []*domain.Request, selectedID string)
 	SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string))
 	SetPostRequestSetPreview(preview string)
+	SetOnRequestTabChange(f func(id, tab string))
 }
 
 type RestContainer interface {
@@ -67,4 +68,5 @@ type RestContainer interface {
 	SetPreRequestCollections(collections []*domain.Collection, selectedID string)
 	SetPreRequestRequests(requests []*domain.Request, selectedID string)
 	SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string))
+	SetOnRequestTabChange(f func(id, tab string))
 }

@@ -67,6 +67,7 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnGrpcInvoke(c.onGrpcInvoke)
 	view.SetOnGrpcLoadRequestExample(c.onLoadRequestExample)
 	view.SetOnSetOnTriggerRequestChanged(c.onSetOnTriggerRequestChanged)
+	view.SetOnRequestTabChange(c.onRequestTabChange)
 	return c
 }
 
@@ -953,4 +954,45 @@ func (c *Controller) deleteCollection(id string) {
 	}
 	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
+}
+
+func (c *Controller) onRequestTabChange(id, tab string) {
+	if tab != "Pre Request" {
+		return
+	}
+
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	var (
+		collectionID = domain.PrePostTypeNone
+		requestID    string
+
+		preRequest *domain.PreRequest
+	)
+
+	if req.MetaData.Type == domain.RequestTypeHTTP {
+		preRequest = &req.Spec.HTTP.Request.PreRequest
+	} else if req.MetaData.Type == domain.RequestTypeGRPC {
+		preRequest = &req.Spec.GRPC.PreRequest
+	}
+
+	if preRequest == nil {
+		return
+	}
+
+	if preRequest.TriggerRequest != nil {
+		collectionID = preRequest.TriggerRequest.CollectionID
+		requestID = preRequest.TriggerRequest.RequestID
+	}
+
+	c.view.SetPreRequestCollections(id, c.model.GetCollections(), collectionID)
+	if collectionID != domain.PrePostTypeNone {
+		requests := c.model.GetCollection(collectionID).Spec.Requests
+		c.view.SetPreRequestRequests(id, requests, requestID)
+	} else {
+		c.view.SetPreRequestRequests(id, c.model.GetRequests(), requestID)
+	}
 }
