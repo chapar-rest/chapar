@@ -1,4 +1,4 @@
-package rest
+package jsonpath
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 )
 
-func GetJSONPATH(input string, path string) (interface{}, error) {
+func Get(input string, path string) (interface{}, error) {
 	v := interface{}(nil)
 	if err := json.Unmarshal([]byte(input), &v); err != nil {
 		return nil, err

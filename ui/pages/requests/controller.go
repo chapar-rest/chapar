@@ -14,6 +14,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/importer"
+	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -296,7 +297,7 @@ func (c *Controller) onSetOnTriggerRequestChanged(id, collectionID, requestID st
 }
 
 func (c *Controller) setPreviewFromResponse(id string, response, fromKey string) {
-	resp, err := rest.GetJSONPATH(response, fromKey)
+	resp, err := jsonpath.Get(response, fromKey)
 	if err != nil {
 		// TODO show error without interrupting the user
 		fmt.Println("failed to get data from response, %w", err)

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/internal/variables"
 )
@@ -114,7 +115,7 @@ func (s *Service) handlePostRequestFromBody(r domain.PostRequest, response *Resp
 	}
 
 	if response.JSON != "" && response.IsJSON {
-		data, err := GetJSONPATH(response.JSON, r.PostRequestSet.FromKey)
+		data, err := jsonpath.Get(response.JSON, r.PostRequestSet.FromKey)
 		if err != nil {
 			return err
 		}
