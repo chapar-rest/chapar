@@ -105,6 +105,11 @@ func (r *Grpc) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
+	r.Request.PostRequest.SetOnDropDownChanged(func(selected string) {
+		r.Req.Spec.GRPC.PostRequest.Type = selected
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
 	r.Request.ServerInfo.FileSelector.SetOnChanged(func(filePath string) {
 		protoFiles := r.Req.Spec.GRPC.ServerInfo.ProtoFiles
 		if r.Req.Spec.GRPC.ServerInfo.ProtoFiles == nil || filePath == "" {
