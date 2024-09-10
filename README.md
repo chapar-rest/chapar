@@ -55,7 +55,6 @@ Chapar is currently in the early beta phase and under active development, with r
 
 ### Roadmap
 * Support WebSocket, GraphQL protocol.
-* Syntax highlighting for request body.
 * Python as a scripting language for pre-request and post-request scripts.
 * Support for tunneling to servers and kube clusters as pre request actions.
 
@@ -77,14 +76,15 @@ You will need to run fixer script to fix the data:
 ```
 
 ### Installation
+#### Download the latest release
+You can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
+
 #### Install From AUR
 To install Chapar from the AUR on an Arch-based distro, you can use your favorite AUR helper:
 ```bash
 yay -S chapar-bin
 ```
-Please note that this package is maintained by a community contributor. (@Monirzadeh )
-#### Download the latest release
-You can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
+Please note that AUR package is maintained by a community contributor. (@Monirzadeh )
 
 #### Install From Source
 To install Chapar from source, clone the repository install the dependencies, and run the application using the following commands:
