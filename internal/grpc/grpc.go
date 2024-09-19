@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/internal/variables"
@@ -48,7 +48,6 @@ type Response struct {
 	Body       string
 	Metadata   []domain.KeyValue
 	Trailers   []domain.KeyValue
-	Cookies    []*http.Cookie
 	TimePassed time.Duration
 	Size       int
 	Error      error
@@ -311,14 +310,115 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 		StatueCode: int(status.Code(respErr)),
 		Status:     status.Code(respErr).String(),
 		Size:       len(respStr),
+		Body:       respStr,
+	}
+
+	if err := s.handlePostRequest(spec.PostRequest, out, activeEnvironment); err != nil {
+		return nil, err
 	}
 
 	if respErr != nil {
 		return out, respErr
 	}
 
-	out.Body = respStr
 	return out, nil
+}
+
+func (s *Service) handlePostRequest(r domain.PostRequest, res *Response, env *domain.Environment) error {
+	if r == (domain.PostRequest{}) || res == nil || env == nil {
+		return nil
+	}
+
+	if r.Type != domain.PrePostTypeSetEnv {
+		return nil
+	}
+
+	// only handle post request if the status code is the same as the one provided
+	if res.StatueCode != r.PostRequestSet.StatusCode {
+		return nil
+	}
+
+	fmt.Println("handlePostRequest", r.Type, res.StatueCode, r.PostRequestSet.StatusCode, r.PostRequestSet.From)
+
+	switch r.PostRequestSet.From {
+	case domain.PostRequestSetFromResponseBody:
+		return s.handlePostRequestFromBody(r, res, env)
+	case domain.PostRequestSetFromResponseMetaData:
+		return s.handlePostRequestFromMetaData(r, res, env)
+	case domain.PostRequestSetFromResponseTrailers:
+		return s.handlePostRequestFromTrailers(r, res, env)
+	}
+
+	return nil
+}
+
+func (s *Service) handlePostRequestFromBody(r domain.PostRequest, res *Response, env *domain.Environment) error {
+	fmt.Println("handlePostRequestFromBody", r.PostRequestSet.From, res.Body)
+	// handle post request
+	if r.PostRequestSet.From != domain.PostRequestSetFromResponseBody {
+		return nil
+	}
+
+	if res.Body == "" {
+		return nil
+	}
+
+	data, err := jsonpath.Get(res.Body, r.PostRequestSet.FromKey)
+	if err != nil {
+		return err
+	}
+
+	if data == nil {
+		return nil
+	}
+
+	fmt.Println("handlePostRequestFromBody", data)
+
+	if result, ok := data.(string); ok {
+		if env != nil {
+			env.SetKey(r.PostRequestSet.Target, result)
+
+			if err := s.environments.UpdateEnvironment(env, state.SourceGRPCService, false); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) handlePostRequestFromMetaData(r domain.PostRequest, res *Response, env *domain.Environment) error {
+	if r.PostRequestSet.From != domain.PostRequestSetFromResponseMetaData {
+		return nil
+	}
+
+	for _, item := range res.Metadata {
+		if item.Key == r.PostRequestSet.FromKey {
+			if env != nil {
+				env.SetKey(r.PostRequestSet.Target, item.Value)
+				return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) handlePostRequestFromTrailers(r domain.PostRequest, res *Response, env *domain.Environment) error {
+	if r.PostRequestSet.From != domain.PostRequestSetFromResponseTrailers {
+		return nil
+	}
+
+	for _, item := range res.Trailers {
+		if item.Key == r.PostRequestSet.FromKey {
+			if env != nil {
+				env.SetKey(r.PostRequestSet.Target, item.Value)
+				return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) invokeServerStream(ctx context.Context, conn *grpc.ClientConn, method string, req proto.Message, md protoreflect.MethodDescriptor, opts ...grpc.CallOption) (string, error) {

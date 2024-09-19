@@ -27,6 +27,14 @@ type Request struct {
 }
 
 func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapartheme.Theme) *Request {
+
+	postRequestDropDown := widgets.NewDropDown(
+		theme,
+		widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
+		widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
+		widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),
+	)
+
 	r := &Request{
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Params"},
@@ -43,13 +51,13 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
 			//	{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
 			//	{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
-		}, theme),
+		}, nil, theme),
 		PostRequest: component.NewPrePostRequest([]component.Option{
 			{Title: "None", Value: domain.PrePostTypeNone},
 			{Title: "Set Environment Variable", Value: domain.PrePostTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
 			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
-		}, theme),
+		}, postRequestDropDown, theme),
 
 		Body:    NewBody(req.Spec.HTTP.Request.Body, theme, explorer),
 		Params:  NewParams(nil, nil),

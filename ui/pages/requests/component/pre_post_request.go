@@ -16,7 +16,7 @@ type PrePostRequest struct {
 	dropDown *widgets.DropDown
 	script   *widgets.CodeEditor
 
-	dropDownItems []Option
+	actionDropDownItems []Option
 
 	onScriptChanged   func(script string)
 	onDropDownChanged func(selected string)
@@ -57,18 +57,13 @@ type Option struct {
 	Hint  string
 }
 
-func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostRequest {
+func NewPrePostRequest(actions []Option, setFormFromDropDown *widgets.DropDown, theme *chapartheme.Theme) *PrePostRequest {
 	p := &PrePostRequest{
-		dropDown:      widgets.NewDropDown(theme),
-		script:        widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
-		dropDownItems: options,
+		dropDown:            widgets.NewDropDown(theme),
+		script:              widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
+		actionDropDownItems: actions,
 		setEnvForm: &SetEnvForm{
-			fromDropDown: widgets.NewDropDown(
-				theme,
-				widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
-				widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
-				widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),
-			),
+			fromDropDown: setFormFromDropDown,
 			statusCodeEditor: &widgets.LabeledInput{
 				Label:          "Status Code",
 				SpaceBetween:   5,
@@ -97,12 +92,16 @@ func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostReque
 			requestDropDown:     widgets.NewDropDown(theme),
 		},
 	}
-	p.setEnvForm.fromDropDown.MaxWidth = unit.Dp(150)
+
+	if setFormFromDropDown != nil {
+		p.setEnvForm.fromDropDown.MaxWidth = unit.Dp(150)
+	}
+
 	p.triggerRequestForm.requestDropDown.MaxWidth = unit.Dp(150)
 	p.triggerRequestForm.collectionsDropDown.MaxWidth = unit.Dp(150)
 
-	opts := make([]*widgets.DropDownOption, 0, len(options))
-	for _, o := range options {
+	opts := make([]*widgets.DropDownOption, 0, len(actions))
+	for _, o := range actions {
 		opts = append(opts, widgets.NewDropDownOption(o.Title).WithValue(o.Value))
 	}
 
@@ -165,6 +164,10 @@ func (p *PrePostRequest) SetPreview(preview string) {
 }
 
 func (p *PrePostRequest) SetPostRequestSetValues(set domain.PostRequestSet) {
+	if p.setEnvForm.fromDropDown == nil {
+		return
+	}
+
 	p.setEnvForm.statusCodeEditor.SetText(strconv.Itoa(set.StatusCode))
 	p.setEnvForm.targetEditor.SetText(set.Target)
 	p.setEnvForm.fromEditor.SetText(set.FromKey)
@@ -172,6 +175,10 @@ func (p *PrePostRequest) SetPostRequestSetValues(set domain.PostRequestSet) {
 }
 
 func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(statusCode int, item, from, fromKey string)) {
+	if p.setEnvForm.fromDropDown == nil {
+		return
+	}
+
 	p.onSetEnvFormChanged = f
 	p.setEnvForm.fromDropDown.SetOnChanged(func(selected string) {
 		statusCode, _ := strconv.Atoi(p.setEnvForm.statusCodeEditor.Text())
@@ -205,7 +212,7 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) la
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				selectedIndex := p.dropDown.SelectedIndex()
-				selectedItem := p.dropDownItems[selectedIndex]
+				selectedItem := p.actionDropDownItems[selectedIndex]
 
 				switch selectedItem.Type {
 				case TypeScript:
@@ -213,6 +220,9 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) la
 						return p.script.Layout(gtx, theme, selectedItem.Hint)
 					})
 				case TypeSetEnv:
+					if p.setEnvForm.fromDropDown == nil {
+						return layout.Dimensions{}
+					}
 					return p.SetEnvForm(gtx, theme)
 				case TypeTriggerRequest:
 					return p.TriggerRequestForm(gtx, theme)

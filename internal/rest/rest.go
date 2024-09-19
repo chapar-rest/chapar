@@ -91,17 +91,11 @@ func (s *Service) handlePostRequest(r domain.PostRequest, response *Response, en
 
 		switch r.PostRequestSet.From {
 		case domain.PostRequestSetFromResponseBody:
-			if err := s.handlePostRequestFromBody(r, response, env); err != nil {
-				return err
-			}
+			return s.handlePostRequestFromBody(r, response, env)
 		case domain.PostRequestSetFromResponseHeader:
-			if err := s.handlePostRequestFromHeader(r, response, env); err != nil {
-				return err
-			}
+			return s.handlePostRequestFromHeader(r, response, env)
 		case domain.PostRequestSetFromResponseCookie:
-			if err := s.handlePostRequestFromCookie(r, response, env); err != nil {
-				return err
-			}
+			return s.handlePostRequestFromCookie(r, response, env)
 		}
 	}
 
@@ -114,26 +108,27 @@ func (s *Service) handlePostRequestFromBody(r domain.PostRequest, response *Resp
 		return nil
 	}
 
-	if response.JSON != "" && response.IsJSON {
-		data, err := jsonpath.Get(response.JSON, r.PostRequestSet.FromKey)
-		if err != nil {
-			return err
-		}
+	if response.JSON == "" || !response.IsJSON {
+		return nil
 
-		if data == nil {
-			return nil
-		}
+	}
 
-		if result, ok := data.(string); ok {
-			if env != nil {
-				env.SetKey(r.PostRequestSet.Target, result)
+	data, err := jsonpath.Get(response.JSON, r.PostRequestSet.FromKey)
+	if err != nil {
+		return err
+	}
 
-				if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
-					return err
-				}
-			}
+	if data == nil {
+		return nil
+	}
+
+	if result, ok := data.(string); ok {
+		if env != nil {
+			env.SetKey(r.PostRequestSet.Target, result)
+			return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
 		}
 	}
+
 	return nil
 }
 
@@ -163,10 +158,7 @@ func (s *Service) handlePostRequestFromCookie(r domain.PostRequest, response *Re
 		if c.Name == r.PostRequestSet.FromKey {
 			if env != nil {
 				env.SetKey(r.PostRequestSet.Target, c.Value)
-
-				if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
-					return err
-				}
+				return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
 			}
 		}
 	}

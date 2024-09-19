@@ -15,7 +15,8 @@ const (
 	SourceView        Source = "view"
 	SourceFile        Source = "file"
 	SourceController  Source = "controller"
-	SourceRestService Source = "reset-service"
+	SourceRestService Source = "rest-service"
+	SourceGRPCService Source = "grpc-service"
 )
 
 var ErrNotFound = errors.New("ErrNotFound")
