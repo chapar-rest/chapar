@@ -324,6 +324,20 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	return out, nil
 }
 
+func (s *Service) handlePreRequest(r domain.PreRequest, activeEnvironmentID string) error {
+	if r == (domain.PreRequest{}) {
+		return nil
+	}
+
+	if r.Type != domain.PrePostTypeTriggerRequest {
+		return nil
+	}
+
+	// trigger request
+	_, err := s.Invoke(r.TriggerRequest.RequestID, activeEnvironmentID)
+	return err
+}
+
 func (s *Service) handlePostRequest(r domain.PostRequest, res *Response, env *domain.Environment) error {
 	if r == (domain.PostRequest{}) || res == nil || env == nil {
 		return nil

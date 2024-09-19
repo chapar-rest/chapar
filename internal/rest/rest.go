@@ -61,6 +61,10 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 		}
 	}
 
+	if err := s.handlePreRequest(r.Spec.HTTP.Request.PreRequest, activeEnvironmentID); err != nil {
+		return nil, err
+	}
+
 	response, err := s.sendRequest(r.Spec.HTTP, activeEnvironment)
 	if err != nil {
 		return nil, err
@@ -72,6 +76,20 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 	}
 
 	return response, nil
+}
+
+func (s *Service) handlePreRequest(r domain.PreRequest, activeEnvironmentID string) error {
+	if r == (domain.PreRequest{}) {
+		return nil
+	}
+
+	if r.Type != domain.PrePostTypeTriggerRequest {
+		return nil
+	}
+
+	// trigger request
+	_, err := s.SendRequest(r.TriggerRequest.RequestID, activeEnvironmentID)
+	return err
 }
 
 func (s *Service) handlePostRequest(r domain.PostRequest, response *Response, env *domain.Environment) error {
