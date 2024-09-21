@@ -52,6 +52,10 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 	// clone the request to make sure we do not modify the original request
 	r := req.Clone()
 
+	if err := s.handlePreRequest(r.Spec.HTTP.Request.PreRequest, activeEnvironmentID); err != nil {
+		return nil, err
+	}
+
 	var activeEnvironment *domain.Environment
 	// Get environment if provided
 	if activeEnvironmentID != "" {
@@ -59,10 +63,6 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 		if activeEnvironment == nil {
 			return nil, fmt.Errorf("environment with id %s not found", activeEnvironmentID)
 		}
-	}
-
-	if err := s.handlePreRequest(r.Spec.HTTP.Request.PreRequest, activeEnvironmentID); err != nil {
-		return nil, err
 	}
 
 	response, err := s.sendRequest(r.Spec.HTTP, activeEnvironment)

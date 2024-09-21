@@ -97,10 +97,6 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 		}
 	}
 
-	//if req.Spec.HTTP.Request.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {
-	//	r.PostRequest.SetPostRequestSetValues(req.Spec.HTTP.Request.PostRequest.PostRequestSet)
-	//}
-
 	return r
 }
 

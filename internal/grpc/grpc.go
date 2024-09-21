@@ -228,6 +228,10 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 
 	spec := req.Clone().Spec.GRPC
 
+	if err := s.handlePreRequest(spec.PreRequest, activeEnvironmentID); err != nil {
+		return nil, err
+	}
+
 	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
 
 	vars := variables.GetVariables()
