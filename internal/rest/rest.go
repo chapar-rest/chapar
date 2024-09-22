@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/internal/variables"
 )
@@ -52,10 +51,6 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 	// clone the request to make sure we do not modify the original request
 	r := req.Clone()
 
-	if err := s.handlePreRequest(r.Spec.HTTP.Request.PreRequest, activeEnvironmentID); err != nil {
-		return nil, err
-	}
-
 	var activeEnvironment *domain.Environment
 	// Get environment if provided
 	if activeEnvironmentID != "" {
@@ -70,117 +65,7 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*Response,
 		return nil, err
 	}
 
-	// handle post request
-	if err := s.handlePostRequest(r.Spec.HTTP.Request.PostRequest, response, activeEnvironment); err != nil {
-		return nil, err
-	}
-
 	return response, nil
-}
-
-func (s *Service) handlePreRequest(r domain.PreRequest, activeEnvironmentID string) error {
-	if r == (domain.PreRequest{}) {
-		return nil
-	}
-
-	if r.Type != domain.PrePostTypeTriggerRequest {
-		return nil
-	}
-
-	// trigger request
-	_, err := s.SendRequest(r.TriggerRequest.RequestID, activeEnvironmentID)
-	return err
-}
-
-func (s *Service) handlePostRequest(r domain.PostRequest, response *Response, env *domain.Environment) error {
-	if r == (domain.PostRequest{}) {
-		return nil
-	}
-
-	if response == nil {
-		return nil
-	}
-
-	if r.Type == domain.PrePostTypeSetEnv {
-		// only handle post request if the status code is the same as the one provided
-		if response.StatusCode != r.PostRequestSet.StatusCode {
-			return nil
-		}
-
-		switch r.PostRequestSet.From {
-		case domain.PostRequestSetFromResponseBody:
-			return s.handlePostRequestFromBody(r, response, env)
-		case domain.PostRequestSetFromResponseHeader:
-			return s.handlePostRequestFromHeader(r, response, env)
-		case domain.PostRequestSetFromResponseCookie:
-			return s.handlePostRequestFromCookie(r, response, env)
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) handlePostRequestFromBody(r domain.PostRequest, response *Response, env *domain.Environment) error {
-	// handle post request
-	if r.PostRequestSet.From != domain.PostRequestSetFromResponseBody {
-		return nil
-	}
-
-	if response.JSON == "" || !response.IsJSON {
-		return nil
-
-	}
-
-	data, err := jsonpath.Get(response.JSON, r.PostRequestSet.FromKey)
-	if err != nil {
-		return err
-	}
-
-	if data == nil {
-		return nil
-	}
-
-	if result, ok := data.(string); ok {
-		if env != nil {
-			env.SetKey(r.PostRequestSet.Target, result)
-			return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) handlePostRequestFromHeader(r domain.PostRequest, response *Response, env *domain.Environment) error {
-	if r.PostRequestSet.From != domain.PostRequestSetFromResponseHeader {
-		return nil
-	}
-
-	if result, ok := response.Headers[r.PostRequestSet.FromKey]; ok {
-		if env != nil {
-			env.SetKey(r.PostRequestSet.Target, result)
-
-			if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (s *Service) handlePostRequestFromCookie(r domain.PostRequest, response *Response, env *domain.Environment) error {
-	if r.PostRequestSet.From != domain.PostRequestSetFromResponseCookie {
-		return nil
-	}
-
-	for _, c := range response.Cookies {
-		if c.Name == r.PostRequestSet.FromKey {
-			if env != nil {
-				env.SetKey(r.PostRequestSet.Target, c.Value)
-				return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
-			}
-		}
-	}
-	return nil
 }
 
 func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment) (*Response, error) {

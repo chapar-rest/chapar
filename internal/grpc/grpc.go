@@ -26,7 +26,6 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/internal/variables"
@@ -227,9 +226,8 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	}
 
 	spec := req.Clone().Spec.GRPC
-
-	if err := s.handlePreRequest(spec.PreRequest, activeEnvironmentID); err != nil {
-		return nil, err
+	if spec == nil {
+		return nil, nil
 	}
 
 	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
@@ -317,126 +315,11 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 		Body:       respStr,
 	}
 
-	if err := s.handlePostRequest(spec.PostRequest, out, activeEnvironment); err != nil {
-		return nil, err
-	}
-
 	if respErr != nil {
 		return out, respErr
 	}
 
 	return out, nil
-}
-
-func (s *Service) handlePreRequest(r domain.PreRequest, activeEnvironmentID string) error {
-	if r == (domain.PreRequest{}) {
-		return nil
-	}
-
-	if r.Type != domain.PrePostTypeTriggerRequest {
-		return nil
-	}
-
-	// trigger request
-	_, err := s.Invoke(r.TriggerRequest.RequestID, activeEnvironmentID)
-	return err
-}
-
-func (s *Service) handlePostRequest(r domain.PostRequest, res *Response, env *domain.Environment) error {
-	if r == (domain.PostRequest{}) || res == nil || env == nil {
-		return nil
-	}
-
-	if r.Type != domain.PrePostTypeSetEnv {
-		return nil
-	}
-
-	// only handle post request if the status code is the same as the one provided
-	if res.StatueCode != r.PostRequestSet.StatusCode {
-		return nil
-	}
-
-	fmt.Println("handlePostRequest", r.Type, res.StatueCode, r.PostRequestSet.StatusCode, r.PostRequestSet.From)
-
-	switch r.PostRequestSet.From {
-	case domain.PostRequestSetFromResponseBody:
-		return s.handlePostRequestFromBody(r, res, env)
-	case domain.PostRequestSetFromResponseMetaData:
-		return s.handlePostRequestFromMetaData(r, res, env)
-	case domain.PostRequestSetFromResponseTrailers:
-		return s.handlePostRequestFromTrailers(r, res, env)
-	}
-
-	return nil
-}
-
-func (s *Service) handlePostRequestFromBody(r domain.PostRequest, res *Response, env *domain.Environment) error {
-	fmt.Println("handlePostRequestFromBody", r.PostRequestSet.From, res.Body)
-	// handle post request
-	if r.PostRequestSet.From != domain.PostRequestSetFromResponseBody {
-		return nil
-	}
-
-	if res.Body == "" {
-		return nil
-	}
-
-	data, err := jsonpath.Get(res.Body, r.PostRequestSet.FromKey)
-	if err != nil {
-		return err
-	}
-
-	if data == nil {
-		return nil
-	}
-
-	fmt.Println("handlePostRequestFromBody", data)
-
-	if result, ok := data.(string); ok {
-		if env != nil {
-			env.SetKey(r.PostRequestSet.Target, result)
-
-			if err := s.environments.UpdateEnvironment(env, state.SourceGRPCService, false); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) handlePostRequestFromMetaData(r domain.PostRequest, res *Response, env *domain.Environment) error {
-	if r.PostRequestSet.From != domain.PostRequestSetFromResponseMetaData {
-		return nil
-	}
-
-	for _, item := range res.Metadata {
-		if item.Key == r.PostRequestSet.FromKey {
-			if env != nil {
-				env.SetKey(r.PostRequestSet.Target, item.Value)
-				return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) handlePostRequestFromTrailers(r domain.PostRequest, res *Response, env *domain.Environment) error {
-	if r.PostRequestSet.From != domain.PostRequestSetFromResponseTrailers {
-		return nil
-	}
-
-	for _, item := range res.Trailers {
-		if item.Key == r.PostRequestSet.FromKey {
-			if env != nil {
-				env.SetKey(r.PostRequestSet.Target, item.Value)
-				return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
-			}
-		}
-	}
-
-	return nil
 }
 
 func (s *Service) invokeServerStream(ctx context.Context, conn *grpc.ClientConn, method string, req proto.Message, md protoreflect.MethodDescriptor, opts ...grpc.CallOption) (string, error) {

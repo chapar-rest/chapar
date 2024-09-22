@@ -59,6 +59,48 @@ type RequestSpec struct {
 	HTTP *HTTPRequestSpec `yaml:"http,omitempty"`
 }
 
+func (r RequestSpec) GetGRPC() *GRPCRequestSpec {
+	if r.GRPC != nil {
+		return r.GRPC
+	}
+	return nil
+}
+
+func (r RequestSpec) GetHTTP() *HTTPRequestSpec {
+	if r.HTTP != nil {
+		return r.HTTP
+	}
+	return nil
+}
+
+func (r *GRPCRequestSpec) GetPreRequest() PreRequest {
+	if r != nil {
+		return r.PreRequest
+	}
+	return PreRequest{}
+}
+
+func (r *GRPCRequestSpec) GetPostRequest() PostRequest {
+	if r != nil {
+		return r.PostRequest
+	}
+	return PostRequest{}
+}
+
+func (r *HTTPRequestSpec) GetPreRequest() PreRequest {
+	if r != nil {
+		return r.Request.PreRequest
+	}
+	return PreRequest{}
+}
+
+func (r *HTTPRequestSpec) GetPostRequest() PostRequest {
+	if r != nil {
+		return r.Request.PostRequest
+	}
+	return PostRequest{}
+}
+
 type LastUsedEnvironment struct {
 	ID   string `yaml:"id"`
 	Name string `yaml:"name"`

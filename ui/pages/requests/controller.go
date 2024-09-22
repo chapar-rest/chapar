@@ -12,6 +12,7 @@ import (
 	"gioui.org/layout"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
@@ -32,11 +33,11 @@ type Controller struct {
 
 	explorer *explorer.Explorer
 
-	restService *rest.Service
-	grpcService *grpc.Service
+	grpcService   *grpc.Service
+	egressService *egress.Service
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service, grpcService *grpc.Service) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, egressService *egress.Service, grpcService *grpc.Service) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
@@ -45,8 +46,8 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 
 		explorer: explorer,
 
-		restService: restService,
-		grpcService: grpcService,
+		egressService: egressService,
+		grpcService:   grpcService,
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
@@ -140,12 +141,17 @@ func (c *Controller) onGrpcInvoke(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	resp, err := c.grpcService.Invoke(id, c.getActiveEnvID())
+	res, err := c.egressService.Send(id, c.getActiveEnvID())
 	if err != nil {
 		c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
 			Error: err,
 		})
 		return
+	}
+
+	resp, ok := res.(*grpc.Response)
+	if !ok {
+		panic("invalid response type")
 	}
 
 	c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
@@ -359,12 +365,17 @@ func (c *Controller) onSubmitRequest(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	res, err := c.restService.SendRequest(id, c.getActiveEnvID())
+	egRes, err := c.egressService.Send(id, c.getActiveEnvID())
 	if err != nil {
 		c.view.SetHTTPResponse(id, domain.HTTPResponseDetail{
 			Error: err,
 		})
 		return
+	}
+
+	res, ok := egRes.(*rest.Response)
+	if !ok {
+		panic("invalid response type")
 	}
 
 	resp := string(res.Body)

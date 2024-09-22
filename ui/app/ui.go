@@ -6,9 +6,6 @@ import (
 	"image"
 	"os"
 
-	"github.com/chapar-rest/chapar/internal/grpc"
-	"github.com/chapar-rest/chapar/ui/pages/protofiles"
-
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -18,6 +15,8 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/egress"
+	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -26,6 +25,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/fonts"
 	"github.com/chapar-rest/chapar/ui/pages/console"
 	"github.com/chapar-rest/chapar/ui/pages/environments"
+	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
 )
@@ -98,6 +98,8 @@ func New(w *app.Window) (*UI, error) {
 	grpcService := grpc.NewService(u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState)
 
+	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
+
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	// lest assume is dark theme, we will switch it later
@@ -145,7 +147,7 @@ func New(w *app.Window) (*UI, error) {
 	}
 
 	u.requestsView = requests.NewView(w, u.Theme, explorerController)
-	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, restService, grpcService)
+	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, egressService, grpcService)
 
 	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) error {
 		if err := repo.SetActiveWorkspace(ws); err != nil {
