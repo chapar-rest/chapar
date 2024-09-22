@@ -90,16 +90,14 @@ func (s *Service) postRequest(req *domain.Request, res any, env *domain.Environm
 		} else {
 			return fmt.Errorf("response is not of type *rest.Response")
 		}
-	} else {
-		postReq := req.Spec.GetGRPC().GetPostRequest()
-		if response, ok := res.(*grpc.Response); ok {
-			return s.handleGRPCPostRequest(postReq, response, env)
-		} else {
-			return fmt.Errorf("response is not of type *rest.Response")
-		}
 	}
 
-	return nil
+	postReq := req.Spec.GetGRPC().GetPostRequest()
+	if response, ok := res.(*grpc.Response); ok {
+		return s.handleGRPCPostRequest(postReq, response, env)
+	}
+
+	return fmt.Errorf("response is not of type *grpc.Response")
 }
 
 func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Response, env *domain.Environment) error {
