@@ -52,16 +52,31 @@ Chapar is currently in the early beta phase and under active development, with r
 * Support GRPC protocol.
 * Support for grpc reflection and proto files.
 * Load sample request structure of given grpc method.
+* Chaining requests with Pre/Post request option.
 
 ### Roadmap
 * Support WebSocket, GraphQL protocol.
 * Python as a scripting language for pre-request and post-request scripts.
 * Support for tunneling to servers and kube clusters as pre request actions.
 
-
 ### Getting Started
-Stay tuned for the upcoming early beta release of Chapar. Once released, clone the repository or download the beta version to get started with testing your API endpoints.
+To Get started with Chapar, you can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
+Their you can find the latest release for your operating system.
 
+#### Install From AUR
+On Arch-based distros, you can install Chapar from the AUR using your favorite AUR helper:
+```bash
+yay -S chapar-bin
+```
+Please note that AUR package is maintained by a community contributor. (@Monirzadeh ) may not be up to date with the latest release.
+
+#### Install From Source
+To install Chapar from source, clone the repository install the dependencies, and run the application using the following commands:
+```bash
+git clone https://github.com/chapar-rest/chapar.git
+cd chapar
+go build -o chapar .
+```
 
 ### Already using Chapar?
 In case you are already using Chapar, you may need to fix the following issues in the data:
@@ -73,25 +88,6 @@ In case you are already using Chapar, you may need to fix the following issues i
 You will need to run fixer script to fix the data:
 ```bash
     go run cmd/fixer/main.go fix-request-types
-```
-
-### Installation
-#### Download the latest release
-You can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
-
-#### Install From AUR
-To install Chapar from the AUR on an Arch-based distro, you can use your favorite AUR helper:
-```bash
-yay -S chapar-bin
-```
-Please note that AUR package is maintained by a community contributor. (@Monirzadeh )
-
-#### Install From Source
-To install Chapar from source, clone the repository install the dependencies, and run the application using the following commands:
-```bash
-git clone https://github.com/chapar-rest/chapar.git
-cd chapar
-go build -o chapar .
 ```
 
 ## Dependencies
@@ -106,7 +102,7 @@ for macOS follow instructions in [gio macos](https://gioui.org/doc/install/macos
 We welcome contributions from the community once the early beta is released! If you have ideas, feedback, or wish to contribute, please open an issue or submit a pull request.
 
 ### Support
-You can support the development of Chapar by starring the repository, sharing it with your friends, and contributing to the project. 
+You can support the development of Chapar by starring the repository, sharing it with your friends, and contributing to the project.
 Also you can support the project by donating to the project's wallet.
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/mohsen.mirzakhani)
