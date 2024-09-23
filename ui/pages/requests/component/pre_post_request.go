@@ -1,6 +1,7 @@
 package component
 
 import (
+	"sort"
 	"strconv"
 
 	"gioui.org/layout"
@@ -16,10 +17,13 @@ type PrePostRequest struct {
 	dropDown *widgets.DropDown
 	script   *widgets.CodeEditor
 
-	dropDownItems []Option
+	actionDropDownItems []Option
 
 	onScriptChanged   func(script string)
 	onDropDownChanged func(selected string)
+
+	triggerRequestForm     *TriggerRequestForm
+	onTriggerRequestChange func(collectionID, requestID string)
 
 	setEnvForm          *SetEnvForm
 	onSetEnvFormChanged func(statusCode int, item, from, fromKey string)
@@ -33,12 +37,18 @@ type SetEnvForm struct {
 	preview          string
 }
 
+type TriggerRequestForm struct {
+	collectionsDropDown *widgets.DropDown
+	requestDropDown     *widgets.DropDown
+}
+
 const (
-	TypeScript      = "script"
-	TypeSetEnv      = "set_env"
-	TypeShellScript = "shell_script"
-	TypeK8sTunnel   = "kubectl_tunnel"
-	TypeSSHTunnel   = "ssh_tunnel"
+	TypeScript         = "script"
+	TypeSetEnv         = "set_env"
+	TypeShellScript    = "shell_script"
+	TypeK8sTunnel      = "kubectl_tunnel"
+	TypeSSHTunnel      = "ssh_tunnel"
+	TypeTriggerRequest = "trigger_request"
 )
 
 type Option struct {
@@ -48,18 +58,13 @@ type Option struct {
 	Hint  string
 }
 
-func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostRequest {
+func NewPrePostRequest(actions []Option, setFormFromDropDown *widgets.DropDown, theme *chapartheme.Theme) *PrePostRequest {
 	p := &PrePostRequest{
-		dropDown:      widgets.NewDropDown(theme),
-		script:        widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
-		dropDownItems: options,
+		dropDown:            widgets.NewDropDown(theme),
+		script:              widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
+		actionDropDownItems: actions,
 		setEnvForm: &SetEnvForm{
-			fromDropDown: widgets.NewDropDown(
-				theme,
-				widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
-				widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
-				widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),
-			),
+			fromDropDown: setFormFromDropDown,
 			statusCodeEditor: &widgets.LabeledInput{
 				Label:          "Status Code",
 				SpaceBetween:   5,
@@ -83,17 +88,66 @@ func NewPrePostRequest(options []Option, theme *chapartheme.Theme) *PrePostReque
 				Hint:           "e.g. name",
 			},
 		},
+		triggerRequestForm: &TriggerRequestForm{
+			collectionsDropDown: widgets.NewDropDown(theme),
+			requestDropDown:     widgets.NewDropDown(theme),
+		},
 	}
-	p.setEnvForm.fromDropDown.MaxWidth = unit.Dp(150)
 
-	opts := make([]*widgets.DropDownOption, 0, len(options))
-	for _, o := range options {
+	if setFormFromDropDown != nil {
+		p.setEnvForm.fromDropDown.MaxWidth = unit.Dp(150)
+	}
+
+	p.triggerRequestForm.requestDropDown.MaxWidth = unit.Dp(150)
+	p.triggerRequestForm.collectionsDropDown.MaxWidth = unit.Dp(150)
+
+	opts := make([]*widgets.DropDownOption, 0, len(actions))
+	for _, o := range actions {
 		opts = append(opts, widgets.NewDropDownOption(o.Title).WithValue(o.Value))
 	}
 
 	p.dropDown.SetOptions(opts...)
 	p.dropDown.MaxWidth = unit.Dp(200)
 	return p
+}
+
+func (p *PrePostRequest) SetCollections(collections []*domain.Collection, selectedID string) {
+	sort.Slice(collections, func(i, j int) bool {
+		return collections[i].MetaData.Name < collections[j].MetaData.Name
+	})
+
+	opts := make([]*widgets.DropDownOption, 0, len(collections)+1)
+	opts = append(opts, widgets.NewDropDownOption("None").WithValue("none"))
+	for _, c := range collections {
+		opts = append(opts, widgets.NewDropDownOption(c.MetaData.Name).WithValue(c.MetaData.ID))
+	}
+	p.triggerRequestForm.collectionsDropDown.SetOptions(opts...)
+	p.triggerRequestForm.collectionsDropDown.SetSelectedByValue(selectedID)
+}
+
+func (p *PrePostRequest) SetRequests(requests []*domain.Request, selectedID string) {
+	sort.Slice(requests, func(i, j int) bool {
+		return requests[i].MetaData.Name < requests[j].MetaData.Name
+	})
+
+	opts := make([]*widgets.DropDownOption, 0, len(requests)+1)
+	opts = append(opts, widgets.NewDropDownOption("None").WithValue("none"))
+	for _, r := range requests {
+		opts = append(opts, widgets.NewDropDownOption(r.MetaData.Name).WithValue(r.MetaData.ID))
+	}
+	p.triggerRequestForm.requestDropDown.SetOptions(opts...)
+	p.triggerRequestForm.requestDropDown.SetSelectedByValue(selectedID)
+}
+
+func (p *PrePostRequest) SetOnTriggerRequestChanged(f func(collectionID, requestID string)) {
+	p.onTriggerRequestChange = f
+	p.triggerRequestForm.collectionsDropDown.SetOnChanged(func(selected string) {
+		p.onTriggerRequestChange(selected, p.triggerRequestForm.requestDropDown.GetSelected().GetValue())
+	})
+
+	p.triggerRequestForm.requestDropDown.SetOnChanged(func(selected string) {
+		p.onTriggerRequestChange(p.triggerRequestForm.collectionsDropDown.GetSelected().GetValue(), selected)
+	})
 }
 
 func (p *PrePostRequest) SetOnScriptChanged(f func(script string)) {
@@ -119,6 +173,10 @@ func (p *PrePostRequest) SetPreview(preview string) {
 }
 
 func (p *PrePostRequest) SetPostRequestSetValues(set domain.PostRequestSet) {
+	if p.setEnvForm.fromDropDown == nil {
+		return
+	}
+
 	p.setEnvForm.statusCodeEditor.SetText(strconv.Itoa(set.StatusCode))
 	p.setEnvForm.targetEditor.SetText(set.Target)
 	p.setEnvForm.fromEditor.SetText(set.FromKey)
@@ -126,6 +184,10 @@ func (p *PrePostRequest) SetPostRequestSetValues(set domain.PostRequestSet) {
 }
 
 func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(statusCode int, item, from, fromKey string)) {
+	if p.setEnvForm.fromDropDown == nil {
+		return
+	}
+
 	p.onSetEnvFormChanged = f
 	p.setEnvForm.fromDropDown.SetOnChanged(func(selected string) {
 		statusCode, _ := strconv.Atoi(p.setEnvForm.statusCodeEditor.Text())
@@ -159,7 +221,7 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) la
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				selectedIndex := p.dropDown.SelectedIndex()
-				selectedItem := p.dropDownItems[selectedIndex]
+				selectedItem := p.actionDropDownItems[selectedIndex]
 
 				switch selectedItem.Type {
 				case TypeScript:
@@ -167,7 +229,12 @@ func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) la
 						return p.script.Layout(gtx, theme, selectedItem.Hint)
 					})
 				case TypeSetEnv:
+					if p.setEnvForm.fromDropDown == nil {
+						return layout.Dimensions{}
+					}
 					return p.SetEnvForm(gtx, theme)
+				case TypeTriggerRequest:
+					return p.TriggerRequestForm(gtx, theme)
 				}
 				return layout.Dimensions{}
 			}),
@@ -244,6 +311,47 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme
 			return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return material.Label(theme.Material(), theme.TextSize, p.setEnvForm.preview).Layout(gtx)
 			})
+		}),
+	)
+}
+
+func (p *PrePostRequest) TriggerRequestForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Axis:      layout.Horizontal,
+				Alignment: layout.Middle,
+			}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Dp(85)
+					return material.Label(theme.Material(), theme.TextSize, "Collection").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					p.triggerRequestForm.collectionsDropDown.MinWidth = unit.Dp(162)
+					return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return p.triggerRequestForm.collectionsDropDown.Layout(gtx, theme)
+					})
+				}),
+			)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Axis:      layout.Horizontal,
+				Alignment: layout.Middle,
+			}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Dp(85)
+					return material.Label(theme.Material(), theme.TextSize, "Request").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					p.triggerRequestForm.requestDropDown.MinWidth = unit.Dp(162)
+					return topButtonInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return p.triggerRequestForm.requestDropDown.Layout(gtx, theme)
+					})
+				}),
+			)
 		}),
 	)
 }

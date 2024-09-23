@@ -21,31 +21,43 @@ type Request struct {
 	Params  *Params
 	Headers *Headers
 	Auth    *component.Auth
+
+	currentTab  string
+	OnTabChange func(title string)
 }
 
 func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapartheme.Theme) *Request {
+
+	postRequestDropDown := widgets.NewDropDown(
+		theme,
+		widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
+		widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
+		widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),
+	)
+
 	r := &Request{
 		Tabs: widgets.NewTabs([]*widgets.Tab{
 			{Title: "Params"},
 			{Title: "Body"},
 			{Title: "Auth"},
 			{Title: "Headers"},
-			//	{Title: "Pre Request"},
+			{Title: "Pre Request"},
 			{Title: "Post Request"},
 		}, nil),
-		// PreRequest: component.NewPrePostRequest([]component.Option{
-		//	{Title: "None", Value: domain.PostRequestTypeNone},
-		//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your pre request python script here"},
-		//	{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
-		//	{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
-		//	{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
-		// }, theme),
+		PreRequest: component.NewPrePostRequest([]component.Option{
+			{Title: "None", Value: domain.PrePostTypeNone},
+			{Title: "Trigger request", Value: domain.PrePostTypeTriggerRequest, Type: component.TypeTriggerRequest, Hint: "Trigger another request"},
+			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your pre request python script here"},
+			//	{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
+			//	{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
+			//	{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
+		}, nil, theme),
 		PostRequest: component.NewPrePostRequest([]component.Option{
-			{Title: "None", Value: domain.PostRequestTypeNone},
-			{Title: "Set Environment Variable", Value: domain.PostRequestTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
+			{Title: "None", Value: domain.PrePostTypeNone},
+			{Title: "Set Environment Variable", Value: domain.PrePostTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
 			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
-		}, theme),
+		}, postRequestDropDown, theme),
 
 		Body:    NewBody(req.Spec.HTTP.Request.Body, theme, explorer),
 		Params:  NewParams(nil, nil),
@@ -58,10 +70,10 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 		r.Params.SetPathParams(req.Spec.HTTP.Request.PathParams)
 		r.Headers.SetHeaders(req.Spec.HTTP.Request.Headers)
 
-		// if req.Spec.HTTP.Request.PreRequest != (domain.PreRequest{}) {
-		//	r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
-		//	r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
-		// }
+		if req.Spec.HTTP.Request.PreRequest != (domain.PreRequest{}) {
+			r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
+			//	r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
+		}
 
 		if req.Spec.HTTP.Request.PostRequest != (domain.PostRequest{}) {
 			r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PostRequest.Type)
@@ -87,9 +99,16 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				return r.Tabs.Layout(gtx, theme)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if r.Tabs.SelectedTab().Title != r.currentTab {
+					r.currentTab = r.Tabs.SelectedTab().Title
+					if r.OnTabChange != nil {
+						r.OnTabChange(r.currentTab)
+					}
+				}
+
 				switch r.Tabs.SelectedTab().Title {
-				// case "Pre Request":
-				//	return r.PreRequest.Layout(gtx, theme)
+				case "Pre Request":
+					return r.PreRequest.Layout(gtx, theme)
 				case "Post Request":
 					return r.PostRequest.Layout(gtx, theme)
 				case "Params":

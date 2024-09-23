@@ -12,8 +12,10 @@ import (
 	"gioui.org/layout"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/importer"
+	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -31,11 +33,11 @@ type Controller struct {
 
 	explorer *explorer.Explorer
 
-	restService *rest.Service
-	grpcService *grpc.Service
+	grpcService   *grpc.Service
+	egressService *egress.Service
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, restService *rest.Service, grpcService *grpc.Service) *Controller {
+func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, egressService *egress.Service, grpcService *grpc.Service) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
@@ -44,8 +46,8 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 
 		explorer: explorer,
 
-		restService: restService,
-		grpcService: grpcService,
+		egressService: egressService,
+		grpcService:   grpcService,
 	}
 
 	view.SetOnNewRequest(c.onNewRequest)
@@ -66,6 +68,8 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnServerInfoReload(c.onServerInfoReload)
 	view.SetOnGrpcInvoke(c.onGrpcInvoke)
 	view.SetOnGrpcLoadRequestExample(c.onLoadRequestExample)
+	view.SetOnSetOnTriggerRequestChanged(c.onSetOnTriggerRequestChanged)
+	view.SetOnRequestTabChange(c.onRequestTabChange)
 	return c
 }
 
@@ -137,12 +141,17 @@ func (c *Controller) onGrpcInvoke(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	resp, err := c.grpcService.Invoke(id, c.getActiveEnvID())
+	res, err := c.egressService.Send(id, c.getActiveEnvID())
 	if err != nil {
 		c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
 			Error: err,
 		})
 		return
+	}
+
+	resp, ok := res.(*grpc.Response)
+	if !ok {
+		panic("invalid response type")
 	}
 
 	c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
@@ -198,35 +207,103 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 	clone := req.Clone()
 	clone.MetaData.ID = id
 
-	clone.Spec.HTTP.Request.PostRequest.PostRequestSet = domain.PostRequestSet{
+	// Initialize PostRequestSet
+	postRequestSet := domain.PostRequestSet{
 		Target:     item,
 		StatusCode: statusCode,
 		From:       from,
 		FromKey:    fromKey,
 	}
+
+	// Assign the PostRequestSet based on request type
+	switch req.MetaData.Type {
+	case domain.RequestTypeHTTP:
+		clone.Spec.HTTP.Request.PostRequest.PostRequestSet = postRequestSet
+	case domain.RequestTypeGRPC:
+		clone.Spec.GRPC.PostRequest.PostRequestSet = postRequestSet
+	default:
+		return // Unknown request type, exit early
+	}
+
+	// Update the request data
 	c.onRequestDataChanged(id, clone)
 
-	responseData := c.view.GetHTTPResponse(id)
-	if responseData == nil {
-		return
+	var (
+		responseFrom string
+		response     string
+		headers      []domain.KeyValue
+		cookies      []domain.KeyValue
+		metaData     []domain.KeyValue
+		trailers     []domain.KeyValue
+	)
+
+	switch req.MetaData.Type {
+	case domain.RequestTypeHTTP:
+		responseData := c.view.GetHTTPResponse(id)
+		if responseData == nil || responseData.Response == "" {
+			return
+		}
+		response = responseData.Response
+		headers = responseData.Headers
+		cookies = responseData.Cookies
+		responseFrom = clone.Spec.HTTP.Request.PostRequest.PostRequestSet.From
+	case domain.RequestTypeGRPC:
+		responseData := c.view.GetGRPCResponse(id)
+		if responseData == nil || responseData.Response == "" {
+			return
+		}
+		response = responseData.Response
+		headers = responseData.Metadata
+		metaData = responseData.Metadata
+		trailers = responseData.Trailers
+		responseFrom = clone.Spec.GRPC.PostRequest.PostRequestSet.From
 	}
 
-	if responseData.Response == "" {
-		return
-	}
-
-	switch clone.Spec.HTTP.Request.PostRequest.PostRequestSet.From {
+	switch responseFrom {
 	case domain.PostRequestSetFromResponseBody:
-		c.setPreviewFromResponse(id, responseData, fromKey)
+		c.setPreviewFromResponse(id, response, fromKey)
 	case domain.PostRequestSetFromResponseHeader:
-		c.setPreviewFromHeader(id, responseData, fromKey)
+		c.setPreviewFromKeyValue(id, headers, fromKey)
 	case domain.PostRequestSetFromResponseCookie:
-		c.setPreviewFromCookie(id, responseData, fromKey)
+		c.setPreviewFromKeyValue(id, cookies, fromKey)
+	case domain.PostRequestSetFromResponseMetaData:
+		c.setPreviewFromKeyValue(id, metaData, fromKey)
+	case domain.PostRequestSetFromResponseTrailers:
+		c.setPreviewFromKeyValue(id, trailers, fromKey)
 	}
 }
 
-func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
-	resp, err := rest.GetJSONPATH(responseData.Response, fromKey)
+func (c *Controller) onSetOnTriggerRequestChanged(id, collectionID, requestID string) {
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	// break the reference
+	clone := req.Clone()
+	clone.MetaData.ID = id
+
+	triggerRequest := &domain.TriggerRequest{
+		CollectionID: collectionID,
+		RequestID:    requestID,
+	}
+
+	// Assign the PostRequestSet based on request type
+	switch req.MetaData.Type {
+	case domain.RequestTypeHTTP:
+		clone.Spec.HTTP.Request.PreRequest.TriggerRequest = triggerRequest
+	case domain.RequestTypeGRPC:
+		clone.Spec.GRPC.PreRequest.TriggerRequest = triggerRequest
+	default:
+		return // Unknown request type, exit early
+	}
+
+	// Update the request data
+	c.onRequestDataChanged(id, clone)
+}
+
+func (c *Controller) setPreviewFromResponse(id string, response, fromKey string) {
+	resp, err := jsonpath.Get(response, fromKey)
 	if err != nil {
 		// TODO show error without interrupting the user
 		fmt.Println("failed to get data from response, %w", err)
@@ -245,19 +322,10 @@ func (c *Controller) setPreviewFromResponse(id string, responseData *domain.HTTP
 	}
 }
 
-func (c *Controller) setPreviewFromHeader(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
-	for _, header := range responseData.Headers {
+func (c *Controller) setPreviewFromKeyValue(id string, kv []domain.KeyValue, fromKey string) {
+	for _, header := range kv {
 		if header.Key == fromKey {
 			c.view.SetPostRequestSetPreview(id, header.Value)
-			return
-		}
-	}
-}
-
-func (c *Controller) setPreviewFromCookie(id string, responseData *domain.HTTPResponseDetail, fromKey string) {
-	for _, cookie := range responseData.Cookies {
-		if cookie.Key == fromKey {
-			c.view.SetPostRequestSetPreview(id, cookie.Value)
 			return
 		}
 	}
@@ -291,20 +359,23 @@ func (c *Controller) onCopyResponse(gtx layout.Context, dataType, data string) {
 	})
 
 	c.view.showNotification(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
-
-	// notify.Send(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
 }
 
 func (c *Controller) onSubmitRequest(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
-	res, err := c.restService.SendRequest(id, c.getActiveEnvID())
+	egRes, err := c.egressService.Send(id, c.getActiveEnvID())
 	if err != nil {
 		c.view.SetHTTPResponse(id, domain.HTTPResponseDetail{
 			Error: err,
 		})
 		return
+	}
+
+	res, ok := egRes.(*rest.Response)
+	if !ok {
+		panic("invalid response type")
 	}
 
 	resp := string(res.Body)
@@ -380,6 +451,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 		return
 	}
 
+	c.checkForPreRequestParams(id, req, inComingRequest)
 	c.checkForHTTPRequestParams(req, inComingRequest)
 
 	// break the reference
@@ -399,6 +471,44 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
 	c.view.SetTreeViewNodePrefix(id, req)
+}
+
+func (c *Controller) checkForPreRequestParams(id string, req *domain.Request, inComingRequest *domain.Request) {
+	var (
+		reqType        string
+		preReq         *domain.PreRequest
+		incomingPreReq *domain.PreRequest
+	)
+
+	if req.MetaData.Type == domain.RequestTypeHTTP {
+		reqType = domain.RequestTypeHTTP
+		preReq = &req.Spec.HTTP.Request.PreRequest
+		incomingPreReq = &inComingRequest.Spec.HTTP.Request.PreRequest
+	} else if req.MetaData.Type == domain.RequestTypeGRPC {
+		reqType = domain.RequestTypeGRPC
+		preReq = &req.Spec.GRPC.PreRequest
+		incomingPreReq = &inComingRequest.Spec.GRPC.PreRequest
+	}
+
+	if reqType != "" && (preReq.Type != incomingPreReq.Type || incomingPreReq.Type == domain.PrePostTypeTriggerRequest) {
+		var (
+			collectionID = domain.PrePostTypeNone
+			requestID    string
+		)
+
+		if incomingPreReq.TriggerRequest != nil {
+			collectionID = incomingPreReq.TriggerRequest.CollectionID
+			requestID = incomingPreReq.TriggerRequest.RequestID
+		}
+
+		c.view.SetPreRequestCollections(id, c.model.GetCollections(), collectionID)
+		if collectionID != domain.PrePostTypeNone {
+			requests := c.model.GetCollection(collectionID).Spec.Requests
+			c.view.SetPreRequestRequests(id, requests, requestID)
+		} else {
+			c.view.SetPreRequestRequests(id, c.model.GetStandAloneRequests(), requestID)
+		}
+	}
 }
 
 func (c *Controller) checkForHTTPRequestParams(req *domain.Request, inComingRequest *domain.Request) {
@@ -856,4 +966,45 @@ func (c *Controller) deleteCollection(id string) {
 	}
 	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
+}
+
+func (c *Controller) onRequestTabChange(id, tab string) {
+	if tab != "Pre Request" {
+		return
+	}
+
+	req := c.model.GetRequest(id)
+	if req == nil {
+		return
+	}
+
+	var (
+		collectionID = domain.PrePostTypeNone
+		requestID    string
+
+		preRequest *domain.PreRequest
+	)
+
+	if req.MetaData.Type == domain.RequestTypeHTTP {
+		preRequest = &req.Spec.HTTP.Request.PreRequest
+	} else if req.MetaData.Type == domain.RequestTypeGRPC {
+		preRequest = &req.Spec.GRPC.PreRequest
+	}
+
+	if preRequest == nil {
+		return
+	}
+
+	if preRequest.TriggerRequest != nil {
+		collectionID = preRequest.TriggerRequest.CollectionID
+		requestID = preRequest.TriggerRequest.RequestID
+	}
+
+	c.view.SetPreRequestCollections(id, c.model.GetCollections(), collectionID)
+	if collectionID != domain.PrePostTypeNone {
+		requests := c.model.GetCollection(collectionID).Spec.Requests
+		c.view.SetPreRequestRequests(id, requests, requestID)
+	} else {
+		c.view.SetPreRequestRequests(id, c.model.GetRequests(), requestID)
+	}
 }

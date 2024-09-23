@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,7 +47,6 @@ type Response struct {
 	Body       string
 	Metadata   []domain.KeyValue
 	Trailers   []domain.KeyValue
-	Cookies    []*http.Cookie
 	TimePassed time.Duration
 	Size       int
 	Error      error
@@ -228,6 +226,9 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	}
 
 	spec := req.Clone().Spec.GRPC
+	if spec == nil {
+		return nil, nil
+	}
 
 	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
 
@@ -311,13 +312,13 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 		StatueCode: int(status.Code(respErr)),
 		Status:     status.Code(respErr).String(),
 		Size:       len(respStr),
+		Body:       respStr,
 	}
 
 	if respErr != nil {
 		return out, respErr
 	}
 
-	out.Body = respStr
 	return out, nil
 }
 

@@ -166,6 +166,16 @@ func (m *Requests) GetRequests() []*domain.Request {
 	return m.requests.Values()
 }
 
+func (m *Requests) GetStandAloneRequests() []*domain.Request {
+	var standAloneRequests []*domain.Request
+	for _, req := range m.requests.Values() {
+		if req.CollectionID == "" {
+			standAloneRequests = append(standAloneRequests, req)
+		}
+	}
+	return standAloneRequests
+}
+
 func (m *Requests) GetCollections() []*domain.Collection {
 	return m.collections.Values()
 }

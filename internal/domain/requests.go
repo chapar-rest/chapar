@@ -28,11 +28,13 @@ const (
 	RequestBodyTypeBinary     = "binary"
 	RequestBodyTypeUrlEncoded = "urlEncoded"
 
-	PrePostTypeNone      = "none"
-	PrePostTypePython    = "python"
-	PrePostTypeShell     = "ssh"
-	PrePostTypeSSHTunnel = "sshTunnel"
-	PrePostTypeK8sTunnel = "k8sTunnel"
+	PrePostTypeNone           = "none"
+	PrePostTypeTriggerRequest = "triggerRequest"
+	PrePostTypeSetEnv         = "setEnv"
+	PrePostTypePython         = "python"
+	PrePostTypeShell          = "ssh"
+	PrePostTypeSSHTunnel      = "sshTunnel"
+	PrePostTypeK8sTunnel      = "k8sTunnel"
 )
 
 type Request struct {
@@ -55,6 +57,48 @@ type RequestMeta struct {
 type RequestSpec struct {
 	GRPC *GRPCRequestSpec `yaml:"grpc,omitempty"`
 	HTTP *HTTPRequestSpec `yaml:"http,omitempty"`
+}
+
+func (r RequestSpec) GetGRPC() *GRPCRequestSpec {
+	if r.GRPC != nil {
+		return r.GRPC
+	}
+	return nil
+}
+
+func (r RequestSpec) GetHTTP() *HTTPRequestSpec {
+	if r.HTTP != nil {
+		return r.HTTP
+	}
+	return nil
+}
+
+func (r *GRPCRequestSpec) GetPreRequest() PreRequest {
+	if r != nil {
+		return r.PreRequest
+	}
+	return PreRequest{}
+}
+
+func (r *GRPCRequestSpec) GetPostRequest() PostRequest {
+	if r != nil {
+		return r.PostRequest
+	}
+	return PostRequest{}
+}
+
+func (r *HTTPRequestSpec) GetPreRequest() PreRequest {
+	if r != nil {
+		return r.Request.PreRequest
+	}
+	return PreRequest{}
+}
+
+func (r *HTTPRequestSpec) GetPostRequest() PostRequest {
+	if r != nil {
+		return r.Request.PostRequest
+	}
+	return PostRequest{}
 }
 
 type LastUsedEnvironment struct {
@@ -133,16 +177,13 @@ type PreRequest struct {
 
 	SShTunnel        *SShTunnel        `yaml:"sshTunnel,omitempty"`
 	KubernetesTunnel *KubernetesTunnel `yaml:"kubernetesTunnel,omitempty"`
+	TriggerRequest   *TriggerRequest   `yaml:"triggerRequest,omitempty"`
 }
 
-const (
-	PostRequestTypeNone         = "none"
-	PostRequestTypeSetEnv       = "setEnv"
-	PostRequestTypePythonScript = "pythonScript"
-	PostRequestTypeK8sTunnel    = "k8sTunnel"
-	PostRequestTypeSSHTunnel    = "sshTunnel"
-	PostRequestTypeShellScript  = "shellScript"
-)
+type TriggerRequest struct {
+	CollectionID string `yaml:"collectionID"`
+	RequestID    string `yaml:"requestID"`
+}
 
 type PostRequest struct {
 	Type           string         `yaml:"type"`
@@ -151,9 +192,11 @@ type PostRequest struct {
 }
 
 const (
-	PostRequestSetFromResponseHeader = "responseHeader"
-	PostRequestSetFromResponseBody   = "responseBody"
-	PostRequestSetFromResponseCookie = "responseCookie"
+	PostRequestSetFromResponseHeader   = "responseHeader"
+	PostRequestSetFromResponseBody     = "responseBody"
+	PostRequestSetFromResponseCookie   = "responseCookie"
+	PostRequestSetFromResponseMetaData = "responseMetaData"
+	PostRequestSetFromResponseTrailers = "responseTrailers"
 )
 
 type PostRequestSet struct {
@@ -295,6 +338,10 @@ func ComparePreRequest(a, b PreRequest) bool {
 		return false
 	}
 
+	if !CompareTriggerRequest(a.TriggerRequest, b.TriggerRequest) {
+		return false
+	}
+
 	return true
 }
 
@@ -319,6 +366,22 @@ func CompareSShTunnel(a, b *SShTunnel) bool {
 		if v != b.Flags[i] {
 			return false
 		}
+	}
+
+	return true
+}
+
+func CompareTriggerRequest(a, b *TriggerRequest) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
+	if a.CollectionID != b.CollectionID || a.RequestID != b.RequestID {
+		return false
 	}
 
 	return true

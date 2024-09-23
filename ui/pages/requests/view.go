@@ -60,26 +60,28 @@ type View struct {
 	tabHeader *widgets.Tabs
 
 	// callbacks
-	onTitleChanged              func(id, title, containerType string)
-	onNewRequest                func(requestType string)
-	onImport                    func()
-	onNewCollection             func()
-	onTabClose                  func(id string)
-	onTreeViewNodeDoubleClicked func(id string)
-	onTreeViewNodeClicked       func(id string)
-	onTreeViewMenuClicked       func(id string, action string)
-	onTabSelected               func(id string)
-	onSave                      func(id string)
-	onSubmit                    func(id, containerType string)
-	onDataChanged               func(id string, data any, containerType string)
-	onCopyResponse              func(gtx layout.Context, dataType, data string)
-	onOnPostRequestSetChanged   func(id string, statusCode int, item, from, fromKey string)
-	onBinaryFileSelect          func(id string)
-	onProtoFileSelect           func(id string)
-	onFromDataFileSelect        func(requestID, fieldID string)
-	onServerInfoReload          func(id string)
-	onGrpcInvoke                func(id string)
-	onGrpcLoadRequestExample    func(id string)
+	onTitleChanged                 func(id, title, containerType string)
+	onNewRequest                   func(requestType string)
+	onImport                       func()
+	onNewCollection                func()
+	onTabClose                     func(id string)
+	onTreeViewNodeDoubleClicked    func(id string)
+	onTreeViewNodeClicked          func(id string)
+	onTreeViewMenuClicked          func(id string, action string)
+	onTabSelected                  func(id string)
+	onSave                         func(id string)
+	onSubmit                       func(id, containerType string)
+	onDataChanged                  func(id string, data any, containerType string)
+	onCopyResponse                 func(gtx layout.Context, dataType, data string)
+	onOnPostRequestSetChanged      func(id string, statusCode int, item, from, fromKey string)
+	onOnSetOnTriggerRequestChanged func(id, collectionID, requestID string)
+	onBinaryFileSelect             func(id string)
+	onProtoFileSelect              func(id string)
+	onFromDataFileSelect           func(requestID, fieldID string)
+	onServerInfoReload             func(id string)
+	onGrpcInvoke                   func(id string)
+	onGrpcLoadRequestExample       func(id string)
+	onRequestTabChanged            func(id string, tab string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -133,6 +135,40 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	return v
 }
 
+func (v *View) SetOnRequestTabChange(f func(id string, tab string)) {
+	v.onRequestTabChanged = f
+}
+
+func (v *View) SetPreRequestCollections(id string, collections []*domain.Collection, selectedID string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPreRequestCollections(collections, selectedID)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetPreRequestCollections(collections, selectedID)
+		}
+	}
+}
+
+func (v *View) SetPreRequestRequests(id string, requests []*domain.Request, selectedID string) {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPreRequestRequests(requests, selectedID)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetPreRequestRequests(requests, selectedID)
+		}
+	}
+}
+
+func (v *View) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
+	v.onOnSetOnTriggerRequestChanged = f
+}
+
 func (v *View) showNotification(text string, duration time.Duration) {
 	v.notify.Show(text, duration)
 }
@@ -152,6 +188,11 @@ func (v *View) SetPostRequestSetValues(id string, set domain.PostRequestSet) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.SetPostRequestSetValues(set)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
+			ct.SetPostRequestSetValues(set)
 		}
 	}
 }
@@ -159,6 +200,11 @@ func (v *View) SetPostRequestSetValues(id string, set domain.PostRequestSet) {
 func (v *View) SetPostRequestSetPreview(id, preview string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
+			ct.SetPostRequestSetPreview(preview)
+			return
+		}
+
+		if ct, ok := ct.(GrpcContainer); ok {
 			ct.SetPostRequestSetPreview(preview)
 		}
 	}
@@ -484,6 +530,18 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 		}
 	})
 
+	ct.SetOnSetOnTriggerRequestChanged(func(id, collectionID, requestID string) {
+		if v.onOnSetOnTriggerRequestChanged != nil {
+			v.onOnSetOnTriggerRequestChanged(id, collectionID, requestID)
+		}
+	})
+
+	ct.SetOnPostRequestSetChanged(func(id string, statusCode int, item, from, fromKey string) {
+		if v.onOnPostRequestSetChanged != nil {
+			v.onOnPostRequestSetChanged(id, statusCode, item, from, fromKey)
+		}
+	})
+
 	ct.SetOnLoadRequestExample(func(id string) {
 		if v.onGrpcLoadRequestExample != nil {
 			v.onGrpcLoadRequestExample(id)
@@ -493,6 +551,12 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 	ct.SetOnCopyResponse(func(gtx layout.Context, dataType, data string) {
 		if v.onCopyResponse != nil {
 			v.onCopyResponse(gtx, dataType, data)
+		}
+	})
+
+	ct.SetOnRequestTabChange(func(id, tab string) {
+		if v.onRequestTabChanged != nil {
+			v.onRequestTabChanged(id, tab)
 		}
 	})
 
@@ -538,6 +602,12 @@ func (v *View) createRestfulContainer(req *domain.Request) Container {
 		}
 	})
 
+	ct.SetOnSetOnTriggerRequestChanged(func(id, collectionID, requestID string) {
+		if v.onOnSetOnTriggerRequestChanged != nil {
+			v.onOnSetOnTriggerRequestChanged(id, collectionID, requestID)
+		}
+	})
+
 	ct.SetOnBinaryFileSelect(func(id string) {
 		if v.onBinaryFileSelect != nil {
 			v.onBinaryFileSelect(id)
@@ -547,6 +617,12 @@ func (v *View) createRestfulContainer(req *domain.Request) Container {
 	ct.SetOnFormDataFileSelect(func(requestId, fieldId string) {
 		if v.onFromDataFileSelect != nil {
 			v.onFromDataFileSelect(requestId, fieldId)
+		}
+	})
+
+	ct.SetOnRequestTabChange(func(id, tab string) {
+		if v.onRequestTabChanged != nil {
+			v.onRequestTabChanged(id, tab)
 		}
 	})
 
@@ -640,6 +716,16 @@ func (v *View) GetHTTPResponse(id string) *domain.HTTPResponseDetail {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			return ct.GetHTTPResponse()
+		}
+	}
+
+	return nil
+}
+
+func (v *View) GetGRPCResponse(id string) *domain.GRPCResponseDetail {
+	if ct, ok := v.containers.Get(id); ok {
+		if ct, ok := ct.(GrpcContainer); ok {
+			return ct.GetResponse()
 		}
 	}
 
