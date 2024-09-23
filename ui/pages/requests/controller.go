@@ -506,7 +506,7 @@ func (c *Controller) checkForPreRequestParams(id string, req *domain.Request, in
 			requests := c.model.GetCollection(collectionID).Spec.Requests
 			c.view.SetPreRequestRequests(id, requests, requestID)
 		} else {
-			c.view.SetPreRequestRequests(id, c.model.GetRequests(), requestID)
+			c.view.SetPreRequestRequests(id, c.model.GetStandAloneRequests(), requestID)
 		}
 	}
 }

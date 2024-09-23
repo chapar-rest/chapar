@@ -1,6 +1,7 @@
 package component
 
 import (
+	"sort"
 	"strconv"
 
 	"gioui.org/layout"
@@ -111,8 +112,12 @@ func NewPrePostRequest(actions []Option, setFormFromDropDown *widgets.DropDown, 
 }
 
 func (p *PrePostRequest) SetCollections(collections []*domain.Collection, selectedID string) {
+	sort.Slice(collections, func(i, j int) bool {
+		return collections[i].MetaData.Name < collections[j].MetaData.Name
+	})
+
 	opts := make([]*widgets.DropDownOption, 0, len(collections)+1)
-	opts = append(opts, widgets.NewDropDownOption("Select Collection").WithValue("none"))
+	opts = append(opts, widgets.NewDropDownOption("None").WithValue("none"))
 	for _, c := range collections {
 		opts = append(opts, widgets.NewDropDownOption(c.MetaData.Name).WithValue(c.MetaData.ID))
 	}
@@ -121,8 +126,12 @@ func (p *PrePostRequest) SetCollections(collections []*domain.Collection, select
 }
 
 func (p *PrePostRequest) SetRequests(requests []*domain.Request, selectedID string) {
+	sort.Slice(requests, func(i, j int) bool {
+		return requests[i].MetaData.Name < requests[j].MetaData.Name
+	})
+
 	opts := make([]*widgets.DropDownOption, 0, len(requests)+1)
-	opts = append(opts, widgets.NewDropDownOption("Select Request").WithValue("none"))
+	opts = append(opts, widgets.NewDropDownOption("None").WithValue("none"))
 	for _, r := range requests {
 		opts = append(opts, widgets.NewDropDownOption(r.MetaData.Name).WithValue(r.MetaData.ID))
 	}

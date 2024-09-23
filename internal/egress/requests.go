@@ -69,7 +69,7 @@ func (s *Service) preRequest(req *domain.Request, activeEnvironmentID string) er
 		preReq = req.Spec.GetGRPC().GetPreRequest()
 	}
 
-	if preReq == (domain.PreRequest{}) {
+	if preReq == (domain.PreRequest{}) || preReq.TriggerRequest == nil || preReq.TriggerRequest.RequestID == "none" {
 		return nil
 	}
 
