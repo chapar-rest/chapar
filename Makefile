@@ -1,11 +1,11 @@
-TAG_NAME?=$(shell git describe --tags)
+TAG_NAME?=$(shell git describe --tags 2> /dev/null | echo snapshot)
 APP_NAME="Chapar"
 
 .PHONY: build_macos_app
 build_macos_app:
 	@echo "Building Macos..."
-	gogio -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
-	gogio -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
+	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
 	codesign --force --deep --sign - ./dist/amd64/Chapar.app
 	codesign --force --deep --sign - ./dist/arm64/Chapar.app
 
@@ -53,8 +53,8 @@ build_macos_dmg: build_macos_app
 build_windows:
 	@echo "Building Windows..."
 	cp build\appicon.png .
-	gogio -target=windows -arch=amd64 -o dist\amd64\Chapar.exe .
-	gogio -target=windows -arch=386 -o dist\i386\Chapar.exe .
+	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -target=windows -arch=amd64 -o dist\amd64\Chapar.exe .
+	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -target=windows -arch=386 -o dist\i386\Chapar.exe .
 	rm *.syso
 	powershell -Command "Compress-Archive -Path dist\amd64\Chapar.exe -Destination dist\chapar-windows-$(TAG_NAME)-amd64.zip"
 	powershell -Command "Compress-Archive -Path dist\i386\Chapar.exe -Destination dist\chapar-windows-$(TAG_NAME)-i386.zip"
@@ -64,7 +64,7 @@ build_windows:
 .PHONY: build_linux
 build_linux:
 	@echo "Building Linux amd64..."
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ./dist/amd64/chapar .
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-X main.serviceVersion=$(TAG_NAME)" -o ./dist/amd64/chapar .
 	cp ./build/install-linux.sh ./dist/amd64
 	cp ./build/appicon.png ./dist/amd64
 	cp ./LICENSE ./dist/amd64

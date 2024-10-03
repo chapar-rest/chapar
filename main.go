@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	enablePprof = flag.Bool("pprof", false, "enable pprof")
+	serviceVersion = ""
+	enablePprof    = flag.Bool("pprof", false, "enable pprof")
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 		var w app.Window
 		w.Option(app.Title("Chapar"), app.Size(unit.Dp(1200), unit.Dp(800)))
 
-		mainUI, err := mainApp.New(&w)
+		mainUI, err := mainApp.New(&w, serviceVersion)
 		if err != nil {
 			log.Fatal(err)
 		}

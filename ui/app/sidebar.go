@@ -7,8 +7,10 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -26,6 +28,8 @@ type Sidebar struct {
 	clickables []*widget.Clickable
 
 	selectedIndex int
+
+	serviceVersion string
 }
 
 type SideBarButton struct {
@@ -33,10 +37,11 @@ type SideBarButton struct {
 	Text string
 }
 
-func NewSidebar(theme *chapartheme.Theme) *Sidebar {
+func NewSidebar(theme *chapartheme.Theme, serviceVersion string) *Sidebar {
 	s := &Sidebar{
-		Theme: theme,
-		cache: new(op.Ops),
+		serviceVersion: serviceVersion,
+		Theme:          theme,
+		cache:          new(op.Ops),
 
 		Buttons: []*SideBarButton{
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
@@ -104,19 +109,36 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Left: unit.Dp(2), Right: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{
+				Left:  unit.Dp(2),
+				Right: unit.Dp(2),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
-							btn := s.flatButtons[i]
-							if s.selectedIndex == i {
-								btn.TextColor = theme.SideBarTextColor
-							} else {
-								btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
-							}
+						return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
+									btn := s.flatButtons[i]
+									if s.selectedIndex == i {
+										btn.TextColor = theme.SideBarTextColor
+									} else {
+										btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
+									}
 
-							return btn.Layout(gtx, theme)
-						})
+									return btn.Layout(gtx, theme)
+								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{
+									Bottom: unit.Dp(5),
+								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									gtx.Constraints.Min.X = gtx.Dp(70)
+									st := material.Subtitle1(theme.Theme, s.serviceVersion)
+									st.Alignment = text.Middle
+									return st.Layout(gtx)
+								})
+							}),
+						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if !theme.IsDark() {

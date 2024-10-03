@@ -58,7 +58,7 @@ type UI struct {
 }
 
 // New creates a new UI using the Go Fonts.
-func New(w *app.Window) (*UI, error) {
+func New(w *app.Window, serviceVersion string) (*UI, error) {
 	u := &UI{
 		window: w,
 	}
@@ -108,7 +108,7 @@ func New(w *app.Window) (*UI, error) {
 	u.consolePage = console.New()
 
 	u.header = NewHeader(u.environmentsState, u.workspacesState, u.Theme)
-	u.sideBar = NewSidebar(u.Theme)
+	u.sideBar = NewSidebar(u.Theme, serviceVersion)
 
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
 
