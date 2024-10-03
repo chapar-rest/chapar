@@ -1,4 +1,4 @@
-TAG_NAME?=$(shell git describe --tags 2> /dev/null | echo snapshot)
+TAG_NAME?=$(shell git describe --tags)
 APP_NAME="Chapar"
 
 .PHONY: build_macos_app
