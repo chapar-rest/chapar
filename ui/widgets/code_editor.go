@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	CodeLanguageJSON   = "JSON"
-	CodeLanguageYAML   = "YAML"
-	CodeLanguageXML    = "XML"
-	CodeLanguagePython = "Python"
+	CodeLanguageJSON       = "JSON"
+	CodeLanguageYAML       = "YAML"
+	CodeLanguageXML        = "XML"
+	CodeLanguagePython     = "Python"
+	CodeLanguageProperties = "properties"
 )
 
 type CodeEditor struct {
@@ -96,6 +97,10 @@ func (c *CodeEditor) SetOnChanged(f func(text string)) {
 
 func (c *CodeEditor) SetOnBeautify(f func()) {
 	c.onBeautify = f
+}
+
+func (c *CodeEditor) SetReadOnly(readOnly bool) {
+	c.editor.ReadOnly = readOnly
 }
 
 func (c *CodeEditor) SetOnLoadExample(f func()) {

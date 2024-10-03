@@ -27,8 +27,8 @@ type Response struct {
 	duration     time.Duration
 	responseSize int
 
-	Metadata *component.ValuesTable
-	Trailers *component.ValuesTable
+	Metadata *widgets.CodeEditor
+	Trailers *widgets.CodeEditor
 
 	response string
 	message  string
@@ -59,9 +59,13 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 			{Title: "Trailers"},
 		}, nil),
 		jsonViewer: widgets.NewJsonViewer(),
-		Metadata:   component.NewValuesTable("Metadata", nil),
-		Trailers:   component.NewValuesTable("Trailers", nil),
+		Metadata:   widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
+		Trailers:   widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
 	}
+
+	r.Metadata.SetReadOnly(true)
+	r.Trailers.SetReadOnly(true)
+
 	return r
 }
 
@@ -85,11 +89,11 @@ func (r *Response) SetStatusParams(code int, status string, duration time.Durati
 }
 
 func (r *Response) SetMetadata(metadata []domain.KeyValue) {
-	r.Metadata.SetData(metadata)
+	r.Metadata.SetCode(domain.KeyValuesToText(metadata))
 }
 
 func (r *Response) SetTrailers(trailers []domain.KeyValue) {
-	r.Trailers.SetData(trailers)
+	r.Trailers.SetCode(domain.KeyValuesToText(trailers))
 }
 
 func (r *Response) SetMessage(message string) {
@@ -161,9 +165,9 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 						return r.jsonViewer.Layout(gtx, theme)
 					})
 				case 1:
-					return r.Metadata.Layout(gtx, theme)
+					return r.Metadata.Layout(gtx, theme, "")
 				default:
-					return r.Trailers.Layout(gtx, theme)
+					return r.Trailers.Layout(gtx, theme, "")
 				}
 			}),
 		)
@@ -183,8 +187,8 @@ func (r *Response) handleCopy(gtx layout.Context) {
 	case 0:
 		r.onCopyResponse(gtx, "Response", r.response)
 	case 1:
-		r.onCopyResponse(gtx, "Metadata", domain.KeyValuesToText(r.Metadata.GetData()))
+		r.onCopyResponse(gtx, "Metadata", r.Metadata.Code())
 	default:
-		r.onCopyResponse(gtx, "Trailers", domain.KeyValuesToText(r.Trailers.GetData()))
+		r.onCopyResponse(gtx, "Trailers", r.Trailers.Code())
 	}
 }

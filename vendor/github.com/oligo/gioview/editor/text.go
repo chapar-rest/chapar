@@ -440,7 +440,7 @@ func (e *textView) paintLineHighlight(gtx layout.Context, material op.CallOp) {
 	}
 
 	bounds := image.Rectangle{Min: image.Point{X: 0, Y: start.y - start.ascent.Ceil()},
-		Max: image.Point{X: e.viewSize.X, Y: end.y + end.descent.Ceil()}}.Sub(e.scrollOff)
+		Max: image.Point{X: gtx.Constraints.Max.X, Y: end.y + end.descent.Ceil()}}.Sub(e.scrollOff)
 
 	area := clip.Rect(bounds).Push(gtx.Ops)
 	material.Add(gtx.Ops)

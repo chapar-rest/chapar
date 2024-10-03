@@ -27,8 +27,8 @@ type Response struct {
 	duration     time.Duration
 	responseSize int
 
-	responseHeaders *component.ValuesTable
-	responseCookies *component.ValuesTable
+	responseHeaders *widgets.CodeEditor
+	responseCookies *widgets.CodeEditor
 
 	response string
 	message  string
@@ -59,9 +59,13 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 			{Title: "Cookies"},
 		}, nil),
 		jsonViewer:      widgets.NewJsonViewer(),
-		responseHeaders: component.NewValuesTable("Headers", nil),
-		responseCookies: component.NewValuesTable("Cookies", nil),
+		responseHeaders: widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
+		responseCookies: widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
 	}
+
+	r.responseHeaders.SetReadOnly(true)
+	r.responseCookies.SetReadOnly(true)
+
 	return r
 }
 
@@ -84,7 +88,7 @@ func (r *Response) SetStatusParams(code int, duration time.Duration, size int) {
 }
 
 func (r *Response) SetHeaders(headers []domain.KeyValue) {
-	r.responseHeaders.SetData(headers)
+	r.responseHeaders.SetCode(domain.KeyValuesToText(headers))
 }
 
 func (r *Response) SetMessage(message string) {
@@ -96,7 +100,7 @@ func (r *Response) SetError(err error) {
 }
 
 func (r *Response) SetCookies(cookies []domain.KeyValue) {
-	r.responseCookies.SetData(cookies)
+	r.responseCookies.SetCode(domain.KeyValuesToText(cookies))
 }
 
 func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -148,9 +152,9 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				switch r.Tabs.Selected() {
 				case 1:
-					return r.responseHeaders.Layout(gtx, theme)
+					return r.responseHeaders.Layout(gtx, theme, "")
 				case 2:
-					return r.responseCookies.Layout(gtx, theme)
+					return r.responseCookies.Layout(gtx, theme, "")
 				default:
 					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if !r.isResponseUpdated {
@@ -173,9 +177,9 @@ func formatStatus(statueCode int, duration time.Duration, size uint64) string {
 func (r *Response) handleCopy(gtx layout.Context) {
 	switch r.Tabs.Selected() {
 	case 1:
-		r.onCopyResponse(gtx, "Headers", domain.KeyValuesToText(r.responseHeaders.GetData()))
+		r.onCopyResponse(gtx, "Headers", r.responseHeaders.Code())
 	case 2:
-		r.onCopyResponse(gtx, "Cookies", domain.KeyValuesToText(r.responseCookies.GetData()))
+		r.onCopyResponse(gtx, "Cookies", r.responseCookies.Code())
 	default:
 		r.onCopyResponse(gtx, "Response", r.response)
 	}

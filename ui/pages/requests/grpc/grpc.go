@@ -265,8 +265,8 @@ func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
 func (r *Grpc) GetResponse() *domain.GRPCResponseDetail {
 	return &domain.GRPCResponseDetail{
 		Response: r.Response.response,
-		Metadata: r.Response.Metadata.GetData(),
-		Trailers: r.Response.Trailers.GetData(),
+		Metadata: domain.TextToKeyValue(r.Response.Metadata.Code()),
+		Trailers: domain.TextToKeyValue(r.Response.Trailers.Code()),
 	}
 }
 

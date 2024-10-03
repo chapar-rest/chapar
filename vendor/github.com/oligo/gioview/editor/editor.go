@@ -514,6 +514,12 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 				return ChangeEvent{}, true
 			}
 		}
+	case key.NameTab:
+		if !e.ReadOnly {
+			if e.Insert("\t") != 0 {
+				return ChangeEvent{}, true
+			}
+		}
 	case key.NameDeleteBackward:
 		if !e.ReadOnly {
 			if moveByWord {
