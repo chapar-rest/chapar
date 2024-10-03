@@ -50,7 +50,7 @@ func KeyValuesToText(values []KeyValue) string {
 }
 
 func TextToKeyValue(txt string) []KeyValue {
-	var values []KeyValue
+	values := make([]KeyValue, 0)
 	lines := strings.Split(txt, "\n")
 	for _, line := range lines {
 		if line == "" {
