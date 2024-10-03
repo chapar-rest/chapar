@@ -1,5 +1,7 @@
 package domain
 
+import "strings"
+
 const (
 	ApiVersion = "v1"
 
@@ -45,4 +47,26 @@ func KeyValuesToText(values []KeyValue) string {
 		text += v.Key + ": " + v.Value + "\n"
 	}
 	return text
+}
+
+func TextToKeyValue(txt string) []KeyValue {
+	values := make([]KeyValue, 0)
+	lines := strings.Split(txt, "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		values = append(values, KeyValue{
+			Key:   strings.TrimSpace(parts[0]),
+			Value: strings.TrimSpace(parts[1]),
+		})
+	}
+
+	return values
 }

@@ -136,8 +136,8 @@ func (r *Restful) SetHTTPResponse(detail domain.HTTPResponseDetail) {
 func (r *Restful) GetHTTPResponse() *domain.HTTPResponseDetail {
 	return &domain.HTTPResponseDetail{
 		Response: r.Response.response,
-		Headers:  r.Response.responseHeaders.GetData(),
-		Cookies:  r.Response.responseCookies.GetData(),
+		Headers:  domain.TextToKeyValue(r.Response.responseHeaders.Code()),
+		Cookies:  domain.TextToKeyValue(r.Response.responseCookies.Code()),
 	}
 }
 
