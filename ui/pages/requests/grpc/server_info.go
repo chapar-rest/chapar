@@ -33,7 +33,7 @@ func NewServerInfo(explorer *explorer.Explorer, info domain.ServerInfo) *ServerI
 
 	s := &ServerInfo{
 		definitionFrom: new(widget.Enum),
-		FileSelector:   widgets.NewFileSelector(fileName, explorer),
+		FileSelector:   widgets.NewFileSelector(fileName, explorer, ".proto"),
 		ReloadButton:   new(widget.Clickable),
 		IsLoading:      false,
 	}

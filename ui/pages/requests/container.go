@@ -27,8 +27,6 @@ type Container interface {
 
 type GrpcContainer interface {
 	Container
-	SetOnProtoFileSelect(func(id string))
-	SetProtoBodyFilePath(filePath string)
 	SetOnReload(func(id string))
 	SetServices(services []domain.GRPCService)
 	SetMethodsLoading(loading bool)
