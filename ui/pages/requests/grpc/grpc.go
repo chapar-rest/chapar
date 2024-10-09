@@ -192,19 +192,6 @@ func (r *Grpc) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestI
 	})
 }
 
-func (r *Grpc) SetOnProtoFileSelect(f func(id string)) {
-	r.Request.ServerInfo.FileSelector.SetOnSelectFile(func() {
-		f(r.Req.MetaData.ID)
-	})
-}
-
-func (r *Grpc) SetProtoBodyFilePath(filePath string) {
-	r.Request.ServerInfo.FileSelector.SetFileName(filePath)
-	if r.onDataChanged != nil {
-		r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	}
-}
-
 func (r *Grpc) ShowRequestPrompt(title, content, modalType string, onSubmit func(selectedOption string, remember bool), options ...widgets.Option) {
 	r.Request.Prompt.Type = modalType
 	r.Request.Prompt.Title = title

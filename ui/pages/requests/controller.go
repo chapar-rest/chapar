@@ -62,7 +62,6 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 	view.SetOnSubmit(c.onSubmit)
 	view.SetOnCopyResponse(c.onCopyResponse)
 	view.SetOnBinaryFileSelect(c.onSelectBinaryFile)
-	view.SetOnProtoFileSelect(c.onProtoFileSelect)
 	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
 	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
 	view.SetOnServerInfoReload(c.onServerInfoReload)
@@ -183,22 +182,6 @@ func (c *Controller) onLoadRequestExample(id string) {
 
 	c.view.HideGRPCRequestError(id)
 	c.view.SetSetGrpcRequestBody(id, example)
-}
-
-func (c *Controller) onProtoFileSelect(id string) {
-	c.explorer.ChoseFile(func(result explorer.Result) {
-		if result.Error != nil {
-			c.view.ShowGRPCRequestError(id, "Error", result.Error.Error())
-			return
-		}
-		c.view.HideGRPCRequestError(id)
-
-		if result.FilePath == "" {
-			return
-		}
-		c.view.SetProtoFilePath(id, result.FilePath)
-
-	}, ".proto")
 }
 
 func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, from, fromKey string) {
