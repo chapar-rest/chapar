@@ -31,6 +31,7 @@ type Theme struct {
 	SwitchBgColor         color.NRGBA
 	TabInactiveColor      color.NRGBA
 	SeparatorColor        color.NRGBA
+	SeparatorHoveredColor color.NRGBA
 	SideBarBgColor        color.NRGBA
 	SideBarTextColor      color.NRGBA
 	TableBorderColor      color.NRGBA

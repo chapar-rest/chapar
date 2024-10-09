@@ -56,7 +56,7 @@ type View struct {
 	treeViewSearchBox *widgets.TextField
 	treeView          *widgets.TreeView
 
-	split     widgets.SplitView
+	split     *widgets.SplitView
 	tabHeader *widgets.Tabs
 
 	// callbacks
@@ -103,16 +103,10 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
-		split: widgets.SplitView{
-			// Ratio:       -0.64,
-			Resize: giox.Resize{
-				Ratio: 0.19,
-			},
-			BarWidth: unit.Dp(2),
-		},
-		containers:    safemap.New[Container](),
-		treeViewNodes: safemap.New[*widgets.TreeNode](),
-		openTabs:      safemap.New[*widgets.Tab](),
+		split:             widgets.NewSpitView(theme, 0.19, unit.Dp(2)),
+		containers:        safemap.New[Container](),
+		treeViewNodes:     safemap.New[*widgets.TreeNode](),
+		openTabs:          safemap.New[*widgets.Tab](),
 		newMenuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
 			AbsolutePosition: true,

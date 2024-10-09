@@ -4,7 +4,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	giox "gioui.org/x/component"
 	"github.com/google/uuid"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -28,7 +27,7 @@ type View struct {
 	treeViewSearchBox *widgets.TextField
 	treeView          *widgets.TreeView
 
-	split     widgets.SplitView
+	split     *widgets.SplitView
 	tabHeader *widgets.Tabs
 
 	// modal is used to show error and messages to the user
@@ -66,15 +65,10 @@ func NewView(theme *chapartheme.Theme) *View {
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
-		split: widgets.SplitView{
-			Resize: giox.Resize{
-				Ratio: 0.19,
-			},
-			BarWidth: unit.Dp(2),
-		},
-		treeViewNodes: safemap.New[*widgets.TreeNode](),
-		openTabs:      safemap.New[*widgets.Tab](),
-		containers:    safemap.New[*container](),
+		split:             widgets.NewSpitView(theme, 0.19, unit.Dp(2)),
+		treeViewNodes:     safemap.New[*widgets.TreeNode](),
+		openTabs:          safemap.New[*widgets.Tab](),
+		containers:        safemap.New[*container](),
 
 		tipsView: tips.New(),
 	}
