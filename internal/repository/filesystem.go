@@ -63,7 +63,7 @@ func NewFilesystem() (*Filesystem, error) {
 	return fs, nil
 }
 
-func (f *Filesystem) GetProtoFilesDir() (string, error) {
+func (f *Filesystem) getProtoFilesDir() (string, error) {
 	dir, err := CreateConfigDir()
 	if err != nil {
 		return "", err
@@ -78,7 +78,7 @@ func (f *Filesystem) GetProtoFilesDir() (string, error) {
 }
 
 func (f *Filesystem) LoadProtoFiles() ([]*domain.ProtoFile, error) {
-	dir, err := f.GetProtoFilesDir()
+	dir, err := f.getProtoFilesDir()
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (f *Filesystem) UpdateProtoFile(protoFile *domain.ProtoFile) error {
 }
 
 func (f *Filesystem) GetNewProtoFilePath(name string) (*FilePath, error) {
-	dir, err := f.GetProtoFilesDir()
+	dir, err := f.getProtoFilesDir()
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (f *Filesystem) UpdateConfig(config *domain.Config) error {
 }
 
 func (f *Filesystem) LoadWorkspaces() ([]*domain.Workspace, error) {
-	wdir, err := f.GetWorkspacesDir()
+	wdir, err := f.getWorkspacesDir()
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (f *Filesystem) GetWorkspace(dirPath string) (*domain.Workspace, error) {
 	return ws, nil
 }
 
-func (f *Filesystem) GetWorkspacesDir() (string, error) {
+func (f *Filesystem) getWorkspacesDir() (string, error) {
 	dir, err := CreateConfigDir()
 	if err != nil {
 		return "", err
@@ -295,7 +295,7 @@ func (f *Filesystem) DeleteWorkspace(workspace *domain.Workspace) error {
 }
 
 func (f *Filesystem) GetNewWorkspaceDir(name string) (*FilePath, error) {
-	wDir, err := f.GetWorkspacesDir()
+	wDir, err := f.getWorkspacesDir()
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func (f *Filesystem) GetNewCollectionDir(name string) (*FilePath, error) {
 }
 
 func (f *Filesystem) LoadEnvironments() ([]*domain.Environment, error) {
-	dir, err := f.GetEnvironmentDir()
+	dir, err := f.getEnvironmentDir()
 	if err != nil {
 		return nil, err
 	}
@@ -517,7 +517,7 @@ func (f *Filesystem) GetEnvironment(filepath string) (*domain.Environment, error
 	return env, nil
 }
 
-func (f *Filesystem) GetEnvironmentDir() (string, error) {
+func (f *Filesystem) getEnvironmentDir() (string, error) {
 	dir, err := CreateConfigDir()
 	if err != nil {
 		return "", err
@@ -549,7 +549,7 @@ func (f *Filesystem) UpdateEnvironment(env *domain.Environment) error {
 }
 
 func (f *Filesystem) GetNewEnvironmentFilePath(name string) (*FilePath, error) {
-	dir, err := f.GetEnvironmentDir()
+	dir, err := f.getEnvironmentDir()
 	if err != nil {
 		return nil, err
 	}
@@ -587,7 +587,7 @@ func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
 }
 
 func (f *Filesystem) LoadRequests() ([]*domain.Request, error) {
-	dir, err := f.GetRequestsDir()
+	dir, err := f.getRequestsDir()
 	if err != nil {
 		return nil, err
 	}
@@ -636,7 +636,7 @@ func (f *Filesystem) GetRequest(filepath string) (*domain.Request, error) {
 	return req, nil
 }
 
-func (f *Filesystem) GetRequestsDir() (string, error) {
+func (f *Filesystem) getRequestsDir() (string, error) {
 	dir, err := CreateConfigDir()
 	if err != nil {
 		return "", err
@@ -677,7 +677,7 @@ func (f *Filesystem) UpdateRequest(request *domain.Request) error {
 }
 
 func (f *Filesystem) GetNewRequestFilePath(name string) (*FilePath, error) {
-	dir, err := f.GetRequestsDir()
+	dir, err := f.getRequestsDir()
 	if err != nil {
 		return nil, err
 	}
