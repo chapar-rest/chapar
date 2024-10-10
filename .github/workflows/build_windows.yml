@@ -30,6 +30,7 @@ jobs:
         run: |
           gh release upload ${{ github.event.release.tag_name }} ./dist/chapar-windows-${{ github.ref_name }}-amd64.zip
           gh release upload ${{ github.event.release.tag_name }} ./dist/chapar-windows-${{ github.ref_name }}-i386.zip
+          gh release upload ${{ github.event.release.tag_name }} ./dist/chapar-windows-${{ github.ref_name }}-arm64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash

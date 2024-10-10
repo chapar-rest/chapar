@@ -53,13 +53,16 @@ build_macos_dmg: build_macos_app
 build_windows:
 	@echo "Building Windows..."
 	cp build\appicon.png .
-	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -target=windows -arch=amd64 -o dist\amd64\Chapar.exe .
-	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -target=windows -arch=386 -o dist\i386\Chapar.exe .
+	gogio -ldflags="-X main.serviceVersion=${TAG_NAME}" -target=windows -arch=amd64 -o "dist\amd64\Chapar.exe" .
+	gogio -ldflags="-X main.serviceVersion=${TAG_NAME}" -target=windows -arch=386 -o "dist\i386\Chapar.exe" .
+	gogio -ldflags="-X main.serviceVersion=${TAG_NAME}" -target=windows -arch=arm64 -o "dist\arm64\Chapar.exe" .
 	rm *.syso
-	powershell -Command "Compress-Archive -Path dist\amd64\Chapar.exe -Destination dist\chapar-windows-$(TAG_NAME)-amd64.zip"
-	powershell -Command "Compress-Archive -Path dist\i386\Chapar.exe -Destination dist\chapar-windows-$(TAG_NAME)-i386.zip"
+	powershell -Command "Compress-Archive -Path dist\amd64\Chapar.exe -Destination dist\chapar-windows-${TAG_NAME}-amd64.zip"
+	powershell -Command "Compress-Archive -Path dist\i386\Chapar.exe -Destination dist\chapar-windows-${TAG_NAME}-i386.zip"
+	powershell -Command "Compress-Archive -Path dist\arm64\Chapar.exe -Destination dist\chapar-windows-${TAG_NAME}-arm64.zip"
 	rm -rf .\dist\amd64
 	rm -rf .\dist\i386
+	rm -rf .\dist\arm64
 
 .PHONY: build_linux
 build_linux:
