@@ -1,6 +1,7 @@
 package explorer
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,8 @@ type Result struct {
 	Data     []byte
 	Error    error
 	FilePath string
+
+	Declined bool
 }
 
 func NewExplorer(w *app.Window) *Explorer {
@@ -39,6 +42,11 @@ func (e *Explorer) ChoseFile(onResult func(r Result), extensions ...string) {
 
 		file, err := e.expl.ChooseFile(extensions...)
 		if err != nil {
+			if errors.Is(err, explorer.ErrUserDecline) {
+				onResult(Result{Error: err, Declined: true})
+				return
+			}
+
 			err = fmt.Errorf("failed opening file: %w", err)
 			onResult(Result{Error: err})
 			return

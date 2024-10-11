@@ -1,7 +1,6 @@
 package widgets
 
 import (
-	"errors"
 	"fmt"
 
 	"gioui.org/layout"
@@ -50,13 +49,14 @@ func (b *FileSelector) handleExplorerSelect() {
 	}
 
 	b.explorer.ChoseFile(func(result explorer.Result) {
-		if result.Error != nil {
-			if !errors.Is(result.Error, explorer.ErrUserDecline) {
-				fmt.Printf("failed to get file, %s\n", result.Error)
-				return
-			}
+		if result.Declined {
 			return
 		}
+		if result.Error != nil {
+			fmt.Printf("failed to get file, %s\n", result.Error)
+			return
+		}
+
 		if result.FilePath == "" {
 			return
 		}
