@@ -1,7 +1,6 @@
 package requests
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,12 +88,15 @@ func (c *Controller) LoadData() error {
 
 func (c *Controller) onSelectBinaryFile(id string) {
 	c.explorer.ChoseFile(func(result explorer.Result) {
-		if result.Error != nil {
-			if !errors.Is(result.Error, explorer.ErrUserDecline) {
-				c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
-				return
-			}
+		if result.Declined {
+			return
 		}
+
+		if result.Error != nil {
+			c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
+			return
+		}
+
 		if result.FilePath == "" {
 			return
 		}
@@ -104,12 +106,15 @@ func (c *Controller) onSelectBinaryFile(id string) {
 
 func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
 	c.explorer.ChoseFile(func(result explorer.Result) {
-		if result.Error != nil {
-			if !errors.Is(result.Error, explorer.ErrUserDecline) {
-				c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
-				return
-			}
+		if result.Declined {
+			return
 		}
+
+		if result.Error != nil {
+			c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
+			return
+		}
+
 		if result.FilePath == "" {
 			return
 		}
@@ -690,7 +695,11 @@ func (c *Controller) onNewRequest(requestType string) {
 
 func (c *Controller) onImport() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
-		if !errors.Is(result.Error, explorer.ErrUserDecline) {
+		if result.Declined {
+			return
+		}
+
+		if result.Error != nil {
 			c.view.showError(fmt.Errorf("failed to get file, %w", result.Error))
 			return
 		}

@@ -2,6 +2,7 @@ package importer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -115,6 +116,11 @@ func ImportPostmanCollection(data []byte) error {
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
+		// it might be v2 of the collection. inform the user to convert it to v2.1
+		if strings.Contains(string(data), "https://schema.getpostman.com/json/collection/v2.0.0/collection.json") {
+			return errors.New("it seems like you are using v2 of the collection. Please export it as v2.1 and try again")
+		}
+
 		return fmt.Errorf("error parsing JSON: %w", err)
 	}
 
