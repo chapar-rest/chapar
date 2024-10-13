@@ -18,7 +18,7 @@ func SaveButtonLayout(gtx layout.Context, theme *chapartheme.Theme, clickable *w
 
 	return layout.Inset{Left: unit.Dp(15)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return Clickable(gtx, clickable, func(gtx layout.Context) layout.Dimensions {
+			return Clickable(gtx, clickable, unit.Dp(4), func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {

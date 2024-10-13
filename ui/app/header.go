@@ -1,6 +1,7 @@
 package app
 
 import (
+	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -13,9 +14,11 @@ import (
 )
 
 type Header struct {
-	materialTheme *material.Theme
-	selectedEnv   string
-	envDropDown   *widgets.DropDown
+	w *app.Window
+
+	theme       *chapartheme.Theme
+	selectedEnv string
+	envDropDown *widgets.DropDown
 
 	// modal is used to show error and messages to the user
 	modal *widgets.MessageModal
@@ -25,15 +28,16 @@ type Header struct {
 
 	envState        *state.Environments
 	workspacesState *state.Workspaces
-	switchState     *widget.Bool
-	themeSwitcher   material.SwitchStyle
 
+	themeSwitcherClickable widget.Clickable
+
+	isDarkMode    bool
 	iconDarkMode  material.LabelStyle
 	iconLightMode material.LabelStyle
 
 	OnSelectedEnvChanged       func(env *domain.Environment) error
 	OnSelectedWorkspaceChanged func(env *domain.Workspace) error
-	OnThemeSwitched            func(isLight bool) error
+	OnThemeSwitched            func(isDark bool) error
 }
 
 const (
@@ -41,20 +45,17 @@ const (
 	noEnvironment = "No Environment"
 )
 
-func NewHeader(envState *state.Environments, workspacesState *state.Workspaces, theme *chapartheme.Theme) *Header {
+func NewHeader(w *app.Window, envState *state.Environments, workspacesState *state.Workspaces, theme *chapartheme.Theme) *Header {
 	h := &Header{
-		materialTheme:   theme.Material(),
+		w:               w,
+		theme:           theme,
 		selectedEnv:     noEnvironment,
 		envState:        envState,
 		workspacesState: workspacesState,
-		switchState:     new(widget.Bool),
 	}
 	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
 
-	h.themeSwitcher = material.Switch(theme.Material(), h.switchState, "")
-	h.themeSwitcher.Color.Enabled = theme.SwitchBgColor
-	h.themeSwitcher.Color.Disabled = theme.Palette.Fg
 	h.envDropDown = widgets.NewDropDown(theme)
 	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
 		theme,
@@ -121,7 +122,16 @@ func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 }
 
 func (h *Header) SetTheme(isDark bool) {
-	h.switchState.Value = !isDark
+	h.isDarkMode = isDark
+}
+
+func (h *Header) themeSwitchIcon() material.LabelStyle {
+	if h.isDarkMode {
+		h.iconDarkMode = widgets.MaterialIcons("dark_mode", h.theme)
+		return h.iconDarkMode
+	}
+	h.iconLightMode = widgets.MaterialIcons("light_mode", h.theme)
+	return h.iconLightMode
 }
 
 func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -148,13 +158,13 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 		}
 	}
 
-	if h.switchState.Update(gtx) {
+	if h.themeSwitcherClickable.Clicked(gtx) {
+		h.isDarkMode = !h.isDarkMode
 		if h.OnThemeSwitched != nil {
-			go func() {
-				if err := h.OnThemeSwitched(!h.switchState.Value); err != nil {
-					h.showError(err)
-				}
-			}()
+			if err := h.OnThemeSwitched(h.isDarkMode); err != nil {
+				h.showError(err)
+			}
+			h.w.Invalidate()
 		}
 	}
 
@@ -178,7 +188,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return material.H6(h.materialTheme, "Chapar").Layout(gtx)
+								return material.H6(h.theme.Material(), "Chapar").Layout(gtx)
 							})
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -191,17 +201,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							h.iconDarkMode.Color = theme.TextColor
-							return h.iconDarkMode.Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Right: unit.Dp(10), Left: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return h.themeSwitcher.Layout(gtx)
-							})
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							h.iconLightMode.Color = theme.TextColor
-							return h.iconLightMode.Layout(gtx)
+							return widgets.Clickable(gtx, &h.themeSwitcherClickable, unit.Dp(4), h.themeSwitchIcon().Layout)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(20), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

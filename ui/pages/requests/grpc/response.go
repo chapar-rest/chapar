@@ -155,20 +155,22 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 				)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				switch r.Tabs.Selected() {
-				case 0:
-					return layout.Inset{Left: unit.Dp(5), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: unit.Dp(5), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					switch r.Tabs.Selected() {
+					case 0:
+
 						if !r.isResponseUpdated {
 							r.jsonViewer.SetData(r.response)
 							r.isResponseUpdated = true
 						}
 						return r.jsonViewer.Layout(gtx, theme)
-					})
-				case 1:
-					return r.Metadata.Layout(gtx, theme, "")
-				default:
-					return r.Trailers.Layout(gtx, theme, "")
-				}
+
+					case 1:
+						return r.Metadata.Layout(gtx, theme, "")
+					default:
+						return r.Trailers.Layout(gtx, theme, "")
+					}
+				})
 			}),
 		)
 	})

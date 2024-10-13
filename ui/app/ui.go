@@ -77,6 +77,11 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 
 	u.repo = repo
 
+	preferences, err := u.repo.ReadPreferencesData()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read preferences, %w", err)
+	}
+
 	u.workspacesView = workspaces.NewView()
 	u.workspacesState = state.NewWorkspaces(repo)
 	u.workspacesController = workspaces.NewController(u.workspacesView, u.workspacesState, repo)
@@ -102,12 +107,11 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
-	// lest assume is dark theme, we will switch it later
-	u.Theme = chapartheme.New(theme, true)
+	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 
-	u.header = NewHeader(u.environmentsState, u.workspacesState, u.Theme)
+	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
 	u.sideBar = NewSidebar(u.Theme, serviceVersion)
 
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
@@ -119,32 +123,7 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 		u.header.LoadEnvs(u.environmentsState.GetEnvironments())
 	})
 
-	u.header.OnSelectedEnvChanged = func(env *domain.Environment) error {
-		preferences, err := u.repo.ReadPreferencesData()
-		if err != nil {
-			return fmt.Errorf("failed to read preferences, %w", err)
-		}
-
-		if env != nil {
-			preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
-			preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
-		} else {
-			preferences.Spec.SelectedEnvironment.ID = ""
-			preferences.Spec.SelectedEnvironment.Name = ""
-		}
-
-		if err := repo.UpdatePreferences(preferences); err != nil {
-			return fmt.Errorf("failed to update preferences, %w", err)
-		}
-
-		if env != nil {
-			u.environmentsState.SetActiveEnvironment(env)
-		} else {
-			u.environmentsState.ClearActiveEnvironment()
-		}
-
-		return nil
-	}
+	u.header.OnSelectedEnvChanged = u.onSelectedEnvChanged
 
 	u.requestsView = requests.NewView(w, u.Theme, explorerController)
 	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, egressService, grpcService)
@@ -165,22 +144,51 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 		u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
 	})
 
-	u.header.OnThemeSwitched = func(isDark bool) error {
-		u.Theme.Switch(isDark)
-
-		preferences, err := u.repo.ReadPreferencesData()
-		if err != nil {
-			return fmt.Errorf("failed to read preferences, %w", err)
-		}
-
-		preferences.Spec.DarkMode = isDark
-		if err := repo.UpdatePreferences(preferences); err != nil {
-			return fmt.Errorf("failed to update preferences, %w", err)
-		}
-		return nil
-	}
+	u.header.OnThemeSwitched = u.onThemeChange
 
 	return u, u.load()
+}
+
+func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
+	preferences, err := u.repo.ReadPreferencesData()
+	if err != nil {
+		return fmt.Errorf("failed to read preferences, %w", err)
+	}
+
+	if env != nil {
+		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
+		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
+	} else {
+		preferences.Spec.SelectedEnvironment.ID = ""
+		preferences.Spec.SelectedEnvironment.Name = ""
+	}
+
+	if err := u.repo.UpdatePreferences(preferences); err != nil {
+		return fmt.Errorf("failed to update preferences, %w", err)
+	}
+
+	if env != nil {
+		u.environmentsState.SetActiveEnvironment(env)
+	} else {
+		u.environmentsState.ClearActiveEnvironment()
+	}
+
+	return nil
+}
+
+func (u *UI) onThemeChange(isDark bool) error {
+	u.Theme.Switch(isDark)
+
+	preferences, err := u.repo.ReadPreferencesData()
+	if err != nil {
+		return fmt.Errorf("failed to read preferences, %w", err)
+	}
+
+	preferences.Spec.DarkMode = isDark
+	if err := u.repo.UpdatePreferences(preferences); err != nil {
+		return fmt.Errorf("failed to update preferences, %w", err)
+	}
+	return nil
 }
 
 func (u *UI) load() error {
