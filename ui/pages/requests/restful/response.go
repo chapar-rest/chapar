@@ -150,21 +150,22 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 				)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				switch r.Tabs.Selected() {
-				case 1:
-					return r.responseHeaders.Layout(gtx, theme, "")
-				case 2:
-					return r.responseCookies.Layout(gtx, theme, "")
-				default:
-					return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					switch r.Tabs.Selected() {
+					case 1:
+						return r.responseHeaders.Layout(gtx, theme, "")
+					case 2:
+						return r.responseCookies.Layout(gtx, theme, "")
+					default:
+
 						if !r.isResponseUpdated {
 							r.jsonViewer.SetData(r.response)
 							r.isResponseUpdated = true
 						}
 
 						return r.jsonViewer.Layout(gtx, theme)
-					})
-				}
+					}
+				})
 			}),
 		)
 	})

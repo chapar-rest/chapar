@@ -180,7 +180,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 				var dims layout.Dimensions
 				if t.Closable {
-					dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
+					dims = Clickable(gtx, &t.btn, 0, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return layout.UniformInset(unit.Dp(12)).Layout(gtx,
@@ -223,7 +223,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 						)
 					})
 				} else {
-					dims = Clickable(gtx, &t.btn, func(gtx layout.Context) layout.Dimensions {
+					dims = Clickable(gtx, &t.btn, 0, func(gtx layout.Context) layout.Dimensions {
 						return layout.UniformInset(unit.Dp(12)).Layout(gtx,
 							material.Label(theme.Material(), unit.Sp(13), t.Title).Layout,
 						)

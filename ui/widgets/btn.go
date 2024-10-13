@@ -94,7 +94,7 @@ func (b ButtonStyle) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		})
 
 		items := []layout.FlexChild{iconDims, labelDims}
-		if b.IconPosition == IconPositionEnd {
+		if b.Icon != nil && b.IconPosition == IconPositionEnd {
 			items = []layout.FlexChild{labelDims, iconDims}
 
 			b.Inset.Right = unit.Dp(5)
