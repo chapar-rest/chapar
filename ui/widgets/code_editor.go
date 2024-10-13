@@ -34,6 +34,7 @@ type CodeEditor struct {
 
 	styledCode string
 	styles     []*giovieweditor.TextStyle
+	editorConf *giovieweditor.EditorConf
 
 	lexer     chroma.Lexer
 	codeStyle *chroma.Style
@@ -54,11 +55,30 @@ type CodeEditor struct {
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
+	eFont := fonts.MustGetCodeEditorFont()
 	c := &CodeEditor{
 		editor: new(giovieweditor.Editor),
 		code:   code,
-		font:   fonts.MustGetCodeEditorFont(),
+		font:   eFont,
 		lang:   lang,
+
+		editorConf: &giovieweditor.EditorConf{
+			Shaper:          theme.Shaper,
+			TextColor:       theme.Fg,
+			Bg:              theme.Bg,
+			SelectionColor:  theme.TextSelectionColor,
+			TypeFace:        eFont.Font.Typeface,
+			TextSize:        unit.Sp(14),
+			LineHeightScale: 1.2,
+			ShowLineNum:     true,
+			LineNumPadding:  unit.Dp(10),
+			LineHighlightColor: color.NRGBA{
+				R: 0xbb,
+				G: 0xbb,
+				B: 0xbb,
+				A: 0x33,
+			},
+		},
 	}
 
 	c.border = widget.Border{
@@ -129,12 +149,14 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 		c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 	}
 
-	if ev, ok := c.editor.Update(gtx); ok {
-		if _, ok := ev.(giovieweditor.ChangeEvent); ok {
-			c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
-			if c.onChange != nil {
-				c.onChange(c.editor.Text())
-				c.code = c.editor.Text()
+	if !c.editor.ReadOnly {
+		if ev, ok := c.editor.Update(gtx); ok {
+			if _, ok := ev.(giovieweditor.ChangeEvent); ok {
+				c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+				if c.onChange != nil {
+					c.onChange(c.editor.Text())
+					c.code = c.editor.Text()
+				}
 			}
 		}
 	}
@@ -195,25 +217,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 							Left:   unit.Dp(8),
 							Right:  unit.Dp(4),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							editorConf := &giovieweditor.EditorConf{
-								Shaper:          theme.Shaper,
-								TextColor:       theme.Fg,
-								Bg:              theme.Bg,
-								SelectionColor:  theme.TextSelectionColor,
-								TypeFace:        c.font.Font.Typeface,
-								TextSize:        unit.Sp(14),
-								LineHeightScale: 1.2,
-								ShowLineNum:     true,
-								LineNumPadding:  unit.Dp(10),
-								LineHighlightColor: color.NRGBA{
-									R: 0xbb,
-									G: 0xbb,
-									B: 0xbb,
-									A: 0x33,
-								},
-							}
-
-							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
+							return giovieweditor.NewEditor(c.editor, c.editorConf, hint).Layout(gtx)
 						})
 					}),
 				)

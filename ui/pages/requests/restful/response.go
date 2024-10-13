@@ -38,7 +38,7 @@ type Response struct {
 
 	isResponseUpdated   bool
 	responseIsAvailable bool
-	jsonViewer          *widgets.JsonViewer
+	jsonViewer          *widgets.CodeEditor
 }
 
 func NewResponse(theme *chapartheme.Theme) *Response {
@@ -58,7 +58,7 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 			{Title: "Headers"},
 			{Title: "Cookies"},
 		}, nil),
-		jsonViewer:      widgets.NewJsonViewer(),
+		jsonViewer:      widgets.NewCodeEditor("", widgets.CodeLanguageJSON, theme),
 		responseHeaders: widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
 		responseCookies: widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
 	}
@@ -159,13 +159,13 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					default:
 
 						if !r.isResponseUpdated {
-							r.jsonViewer.SetData(r.response)
+							r.jsonViewer.SetCode(r.response)
 							r.isResponseUpdated = true
 						}
 
-						return r.jsonViewer.Layout(gtx, theme)
+						return r.jsonViewer.Layout(gtx, theme, "")
 					}
-				})
+				}
 			}),
 		)
 	})
