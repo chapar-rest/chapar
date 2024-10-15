@@ -165,7 +165,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 
 						return r.jsonViewer.Layout(gtx, theme, "")
 					}
-				}
+				})
 			}),
 		)
 	})
