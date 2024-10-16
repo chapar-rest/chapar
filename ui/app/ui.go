@@ -77,7 +77,7 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 
 	u.repo = repo
 
-	preferences, err := u.repo.ReadPreferencesData()
+	preferences, err := u.ReadPreferencesData()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read preferences, %w", err)
 	}
@@ -191,17 +191,26 @@ func (u *UI) onThemeChange(isDark bool) error {
 	return nil
 }
 
-func (u *UI) load() error {
+func (u *UI) ReadPreferencesData() (*domain.Preferences, error) {
 	preferences, err := u.repo.ReadPreferencesData()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			preferences = domain.NewPreferences()
 			if err := u.repo.UpdatePreferences(preferences); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
-			return err
+			return nil, err
 		}
+	}
+
+	return preferences, nil
+}
+
+func (u *UI) load() error {
+	preferences, err := u.ReadPreferencesData()
+	if err != nil {
+		return err
 	}
 
 	config, err := u.repo.GetConfig()

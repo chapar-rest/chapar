@@ -351,9 +351,7 @@ func (f *Filesystem) LoadCollections() ([]*domain.Collection, error) {
 			}
 			out = append(out, col)
 		}
-
-		// Skip further processing since we're only interested in directories here
-		return filepath.SkipDir
+		return nil
 	})
 
 	return out, err
