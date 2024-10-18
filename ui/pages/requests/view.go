@@ -476,6 +476,8 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 		v.containers.Set(req.MetaData.ID, ct)
 		return
 	}
+
+	v.window.Invalidate()
 }
 
 func (v *View) createGrpcContainer(req *domain.Request) Container {
