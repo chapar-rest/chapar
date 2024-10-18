@@ -117,7 +117,7 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
 
 	//
-	u.environmentsView = environments.NewView(u.Theme)
+	u.environmentsView = environments.NewView(w, u.Theme)
 	u.environmentsController = environments.NewController(u.environmentsView, repo, u.environmentsState, explorerController)
 	u.environmentsState.AddEnvironmentChangeListener(func(environment *domain.Environment, source state.Source, action state.Action) {
 		u.header.LoadEnvs(u.environmentsState.GetEnvironments())

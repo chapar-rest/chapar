@@ -1,6 +1,7 @@
 package environments
 
 import (
+	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -22,6 +23,8 @@ const (
 )
 
 type View struct {
+	window *app.Window
+
 	newEnvButton widget.Clickable
 	importButton widget.Clickable
 
@@ -53,7 +56,7 @@ type View struct {
 	tipsView *tips.Tips
 }
 
-func NewView(theme *chapartheme.Theme) *View {
+func NewView(window *app.Window, theme *chapartheme.Theme) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(theme.BorderColor)
@@ -63,6 +66,7 @@ func NewView(theme *chapartheme.Theme) *View {
 	itemsSearchBox.SetBorderColor(theme.BorderColor)
 
 	v := &View{
+		window:            window,
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
@@ -272,6 +276,8 @@ func (v *View) OpenContainer(env *domain.Environment) {
 	})
 
 	v.containers.Set(env.MetaData.ID, ct)
+
+	v.window.Invalidate()
 }
 
 func (v *View) ReloadContainerData(env *domain.Environment) {
