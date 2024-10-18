@@ -128,17 +128,7 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 	u.requestsView = requests.NewView(w, u.Theme, explorerController)
 	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, egressService, grpcService)
 
-	u.header.OnSelectedWorkspaceChanged = func(ws *domain.Workspace) error {
-		if err := repo.SetActiveWorkspace(ws); err != nil {
-			return fmt.Errorf("failed to set active workspace, %w", err)
-		}
-		u.workspacesState.SetActiveWorkspace(ws)
-
-		if err := u.load(); err != nil {
-			return fmt.Errorf("failed to load data, %w", err)
-		}
-		return nil
-	}
+	u.header.OnSelectedWorkspaceChanged = u.onWorkspaceChanged
 
 	u.workspacesState.AddWorkspaceChangeListener(func(workspace *domain.Workspace, source state.Source, action state.Action) {
 		u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
@@ -147,6 +137,18 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 	u.header.OnThemeSwitched = u.onThemeChange
 
 	return u, u.load()
+}
+
+func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
+	if err := u.repo.SetActiveWorkspace(ws); err != nil {
+		return fmt.Errorf("failed to set active workspace, %w", err)
+	}
+	u.workspacesState.SetActiveWorkspace(ws)
+
+	if err := u.load(); err != nil {
+		return fmt.Errorf("failed to load data, %w", err)
+	}
+	return nil
 }
 
 func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
@@ -179,7 +181,7 @@ func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
 func (u *UI) onThemeChange(isDark bool) error {
 	u.Theme.Switch(isDark)
 
-	preferences, err := u.repo.ReadPreferencesData()
+	preferences, err := u.ReadPreferencesData()
 	if err != nil {
 		return fmt.Errorf("failed to read preferences, %w", err)
 	}
@@ -192,6 +194,7 @@ func (u *UI) onThemeChange(isDark bool) error {
 }
 
 func (u *UI) ReadPreferencesData() (*domain.Preferences, error) {
+	// TODO repo should return a default preferences if it does not exist
 	preferences, err := u.repo.ReadPreferencesData()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -219,6 +222,7 @@ func (u *UI) load() error {
 	}
 
 	u.header.SetTheme(preferences.Spec.DarkMode)
+	u.Theme.Switch(preferences.Spec.DarkMode)
 
 	if err := u.environmentsController.LoadData(); err != nil {
 		return err
