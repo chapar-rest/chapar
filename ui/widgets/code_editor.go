@@ -56,6 +56,8 @@ type CodeEditor struct {
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
 	eFont := fonts.MustGetCodeEditorFont()
+	shaper := text.NewShaper(text.WithCollection([]font.FontFace{eFont}))
+
 	c := &CodeEditor{
 		editor: new(giovieweditor.Editor),
 		code:   code,
@@ -63,7 +65,7 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 		lang:   lang,
 
 		editorConf: &giovieweditor.EditorConf{
-			Shaper:          theme.Shaper,
+			Shaper:          shaper,
 			TextColor:       theme.Fg,
 			Bg:              theme.Bg,
 			SelectionColor:  theme.TextSelectionColor,
