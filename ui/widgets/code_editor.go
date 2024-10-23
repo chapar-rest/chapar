@@ -10,6 +10,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -52,6 +53,9 @@ type CodeEditor struct {
 
 	onBeautify    func()
 	onLoadExample func()
+
+	VScrollbar      widget.Scrollbar
+	VScrollbarStyle material.ScrollbarStyle
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
@@ -82,6 +86,7 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 			},
 		},
 	}
+	c.VScrollbarStyle = material.Scrollbar(theme.Material(), &c.VScrollbar)
 
 	c.border = widget.Border{
 		Color:        theme.BorderColor,
@@ -219,13 +224,28 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 							Left:   unit.Dp(8),
 							Right:  unit.Dp(4),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return giovieweditor.NewEditor(c.editor, c.editorConf, hint).Layout(gtx)
+							return c.editorStyle(gtx, hint)
 						})
 					}),
 				)
 			})
 		}),
 	)
+}
+
+func (c *CodeEditor) editorStyle(gtx layout.Context, hint string) layout.Dimensions {
+	editorDims := giovieweditor.NewEditor(c.editor, c.editorConf, hint).Layout(gtx)
+
+	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		viewportStart, viewportEnd := c.editor.ViewPortRatio()
+		return c.VScrollbarStyle.Layout(gtx, layout.Vertical, viewportStart, viewportEnd)
+	})
+
+	if delta := c.VScrollbar.ScrollDistance(); delta != 0 {
+		c.editor.ScrollByRatio(gtx, delta)
+	}
+
+	return editorDims
 }
 
 func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {

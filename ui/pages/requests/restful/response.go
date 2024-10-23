@@ -65,6 +65,7 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 
 	r.responseHeaders.SetReadOnly(true)
 	r.responseCookies.SetReadOnly(true)
+	r.jsonViewer.SetReadOnly(true)
 
 	return r
 }
