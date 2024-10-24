@@ -370,7 +370,7 @@ func (s *Service) invokeServerStream(ctx context.Context, conn *grpc.ClientConn,
 		}
 
 		// concat responses with a new line and message counter
-		out += fmt.Sprintf("Message %d:\n%s\n\n", counter, string(respJSON))
+		out += fmt.Sprintf("// Message %d:\n%s\n\n", counter, string(respJSON))
 		counter++
 	}
 
