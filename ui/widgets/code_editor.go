@@ -75,7 +75,7 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 			SelectionColor:  theme.TextSelectionColor,
 			TypeFace:        editorFont.Font.Typeface,
 			TextSize:        unit.Sp(14),
-			LineHeightScale: 1.2,
+			LineHeightScale: 1,
 			ShowLineNum:     true,
 			LineNumPadding:  unit.Dp(10),
 			LineHighlightColor: color.NRGBA{

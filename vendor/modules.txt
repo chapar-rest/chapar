@@ -124,7 +124,7 @@ github.com/jhump/protoreflect/desc/protoparse/ast
 github.com/jhump/protoreflect/desc/sourceinfo
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
-# github.com/oligo/gioview v0.5.1-0.20240927170146-13f7040fd150
+# github.com/oligo/gioview v0.5.1-0.20241023132638-afe3a6e8a3f1
 ## explicit; go 1.21.4
 github.com/oligo/gioview/editor
 github.com/oligo/gioview/misc
@@ -173,7 +173,7 @@ golang.org/x/net/trace
 # golang.org/x/sync v0.7.0
 ## explicit; go 1.18
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.22.0
+# golang.org/x/sys v0.25.0
 ## explicit; go 1.18
 golang.org/x/sys/unix
 golang.org/x/sys/windows
