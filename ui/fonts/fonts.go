@@ -72,7 +72,7 @@ func getFont(path string) ([]byte, error) {
 }
 
 func MustGetCodeEditorFont() font.FontFace {
-	data, err := getFont("source_sans_pro_regular.otf")
+	data, err := getFont("UbuntuMono-Regular.ttf")
 	if err != nil {
 		panic(err)
 	}
