@@ -11,7 +11,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
-	github.com/oligo/gioview v0.5.1-0.20240927170146-13f7040fd150
+	github.com/oligo/gioview v0.5.1-0.20241023132638-afe3a6e8a3f1
 	golang.org/x/exp/shiny v0.0.0-20240707233637-46b078467d37
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.1
@@ -32,7 +32,7 @@ require (
 	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 )

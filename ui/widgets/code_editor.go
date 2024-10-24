@@ -10,6 +10,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -51,15 +52,42 @@ type CodeEditor struct {
 
 	onBeautify    func()
 	onLoadExample func()
+
+	editorConf      *giovieweditor.EditorConf
+	vScrollbar      widget.Scrollbar
+	vScrollbarStyle material.ScrollbarStyle
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
+	editorFont := fonts.MustGetCodeEditorFont()
+	shaper := text.NewShaper(text.WithCollection([]font.FontFace{editorFont}))
+
 	c := &CodeEditor{
 		editor: new(giovieweditor.Editor),
 		code:   code,
 		font:   fonts.MustGetCodeEditorFont(),
 		lang:   lang,
+
+		editorConf: &giovieweditor.EditorConf{
+			Shaper:          shaper,
+			TextColor:       theme.Fg,
+			Bg:              theme.Bg,
+			SelectionColor:  theme.TextSelectionColor,
+			TypeFace:        editorFont.Font.Typeface,
+			TextSize:        unit.Sp(14),
+			LineHeightScale: 1,
+			ShowLineNum:     true,
+			LineNumPadding:  unit.Dp(10),
+			LineHighlightColor: color.NRGBA{
+				R: 0xbb,
+				G: 0xbb,
+				B: 0xbb,
+				A: 0x33,
+			},
+		},
 	}
+
+	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)
 
 	c.border = widget.Border{
 		Color:        theme.BorderColor,
@@ -129,14 +157,24 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 		c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 	}
 
-	if ev, ok := c.editor.Update(gtx); ok {
-		if _, ok := ev.(giovieweditor.ChangeEvent); ok {
-			c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
-			if c.onChange != nil {
-				c.onChange(c.editor.Text())
-				c.code = c.editor.Text()
+	if !c.editor.ReadOnly {
+		if ev, ok := c.editor.Update(gtx); ok {
+			if _, ok := ev.(giovieweditor.ChangeEvent); ok {
+				c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+				if c.onChange != nil {
+					c.onChange(c.editor.Text())
+					c.code = c.editor.Text()
+				}
 			}
 		}
+	}
+
+	if c.loadExample.Clicked(gtx) {
+		c.onLoadExample()
+	}
+
+	if c.beatufier.Clicked(gtx) {
+		c.onBeautify()
 	}
 
 	flexH := layout.Flex{Axis: layout.Horizontal}
@@ -159,10 +197,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 						Left: unit.Dp(4), Right: unit.Dp(4),
 					}
 
-					if c.loadExample.Clicked(gtx) {
-						c.onLoadExample()
-					}
-
 					return btn.Layout(gtx, theme)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -175,10 +209,6 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 					btn.Inset = layout.Inset{
 						Top: 4, Bottom: 4,
 						Left: 4, Right: 4,
-					}
-
-					if c.beatufier.Clicked(gtx) {
-						c.onBeautify()
 					}
 
 					return btn.Layout(gtx, theme)
@@ -195,31 +225,28 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 							Left:   unit.Dp(8),
 							Right:  unit.Dp(4),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							editorConf := &giovieweditor.EditorConf{
-								Shaper:          theme.Shaper,
-								TextColor:       theme.Fg,
-								Bg:              theme.Bg,
-								SelectionColor:  theme.TextSelectionColor,
-								TypeFace:        c.font.Font.Typeface,
-								TextSize:        unit.Sp(14),
-								LineHeightScale: 1.2,
-								ShowLineNum:     true,
-								LineNumPadding:  unit.Dp(10),
-								LineHighlightColor: color.NRGBA{
-									R: 0xbb,
-									G: 0xbb,
-									B: 0xbb,
-									A: 0x33,
-								},
-							}
-
-							return giovieweditor.NewEditor(c.editor, editorConf, hint).Layout(gtx)
+							return c.editorStyle(gtx, hint)
 						})
 					}),
 				)
 			})
 		}),
 	)
+}
+
+func (c *CodeEditor) editorStyle(gtx layout.Context, hint string) layout.Dimensions {
+	editorDims := giovieweditor.NewEditor(c.editor, c.editorConf, hint).Layout(gtx)
+
+	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		viewportStart, viewportEnd := c.editor.ViewPortRatio()
+		return c.vScrollbarStyle.Layout(gtx, layout.Vertical, viewportStart, viewportEnd)
+	})
+
+	if delta := c.vScrollbar.ScrollDistance(); delta != 0 {
+		c.editor.ScrollByRatio(gtx, delta)
+	}
+
+	return editorDims
 }
 
 func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
