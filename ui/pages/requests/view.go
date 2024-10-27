@@ -468,14 +468,14 @@ func (v *View) OpenRequestContainer(req *domain.Request) {
 	if req.MetaData.Type == domain.RequestTypeHTTP {
 		ct := v.createRestfulContainer(req)
 		v.containers.Set(req.MetaData.ID, ct)
-		return
 	}
 
 	if req.MetaData.Type == domain.RequestTypeGRPC {
 		ct := v.createGrpcContainer(req)
 		v.containers.Set(req.MetaData.ID, ct)
-		return
 	}
+
+	v.window.Invalidate()
 }
 
 func (v *View) createGrpcContainer(req *domain.Request) Container {
