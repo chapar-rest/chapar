@@ -89,8 +89,24 @@ func (r *Response) SetStatusParams(code int, status string, duration time.Durati
 	r.status = status
 }
 
-func (r *Response) SetMetadata(metadata []domain.KeyValue) {
-	r.Metadata.SetCode(domain.KeyValuesToText(metadata))
+func (r *Response) SetMetadata(requestMetadata, responseMetadata []domain.KeyValue) {
+	if len(requestMetadata) == 0 && len(responseMetadata) == 0 {
+		r.Metadata.SetCode("")
+		return
+	}
+
+	if len(requestMetadata) == 0 {
+		r.Metadata.SetCode(domain.KeyValuesToText(responseMetadata))
+		return
+	}
+
+	if len(responseMetadata) == 0 {
+		r.Metadata.SetCode(domain.KeyValuesToText(requestMetadata))
+		return
+	}
+
+	txt := fmt.Sprintf("# --- Request Metadata ---\n\n%s\n\n# --- Response Metadata ---\n\n%s", domain.KeyValuesToText(requestMetadata), domain.KeyValuesToText(responseMetadata))
+	r.Metadata.SetCode(txt)
 }
 
 func (r *Response) SetTrailers(trailers []domain.KeyValue) {

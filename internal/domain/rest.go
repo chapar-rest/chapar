@@ -381,12 +381,13 @@ func EncodeQueryParams(params []KeyValue) string {
 }
 
 type HTTPResponseDetail struct {
-	Response   string
-	Headers    []KeyValue
-	Cookies    []KeyValue
-	StatusCode int
-	Duration   time.Duration
-	Size       int
+	Response        string
+	ResponseHeaders []KeyValue
+	RequestHeaders  []KeyValue
+	Cookies         []KeyValue
+	StatusCode      int
+	Duration        time.Duration
+	Size            int
 
 	Error error
 }

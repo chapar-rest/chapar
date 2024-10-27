@@ -162,7 +162,7 @@ func (s *Service) handlePostRequestFromHeader(r domain.PostRequest, response *re
 		return nil
 	}
 
-	if result, ok := response.Headers[r.PostRequestSet.FromKey]; ok {
+	if result, ok := response.ResponseHeaders[r.PostRequestSet.FromKey]; ok {
 		if env != nil {
 			env.SetKey(r.PostRequestSet.Target, result)
 
@@ -252,7 +252,7 @@ func (s *Service) handlePostRequestFromMetaData(r domain.PostRequest, res *grpc.
 		return nil
 	}
 
-	for _, item := range res.Metadata {
+	for _, item := range res.ResponseMetadata {
 		if item.Key == r.PostRequestSet.FromKey {
 			if env != nil {
 				env.SetKey(r.PostRequestSet.Target, item.Value)

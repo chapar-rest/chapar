@@ -243,7 +243,7 @@ func (r *Grpc) SetRequestBody(body string) {
 
 func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
 	r.Response.SetResponse(detail.Response)
-	r.Response.SetMetadata(detail.Metadata)
+	r.Response.SetMetadata(detail.RequestMetadata, detail.ResponseMetadata)
 	r.Response.SetTrailers(detail.Trailers)
 	r.Response.SetError(detail.Error)
 	r.Response.SetStatusParams(detail.StatusCode, detail.Status, detail.Duration, detail.Size)
@@ -251,9 +251,9 @@ func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
 
 func (r *Grpc) GetResponse() *domain.GRPCResponseDetail {
 	return &domain.GRPCResponseDetail{
-		Response: r.Response.response,
-		Metadata: domain.TextToKeyValue(r.Response.Metadata.Code()),
-		Trailers: domain.TextToKeyValue(r.Response.Trailers.Code()),
+		Response:         r.Response.response,
+		ResponseMetadata: domain.TextToKeyValue(r.Response.Metadata.Code()),
+		Trailers:         domain.TextToKeyValue(r.Response.Trailers.Code()),
 	}
 }
 

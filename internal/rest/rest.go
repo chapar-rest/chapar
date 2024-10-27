@@ -19,10 +19,11 @@ import (
 )
 
 type Response struct {
-	StatusCode int
-	Headers    map[string]string
-	Cookies    []*http.Cookie
-	Body       []byte
+	StatusCode      int
+	ResponseHeaders map[string]string
+	RequestHeaders  map[string]string
+	Cookies         []*http.Cookie
+	Body            []byte
 
 	TimePassed time.Duration
 
@@ -164,12 +165,13 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	// handle response
 	response := &Response{
-		StatusCode: res.StatusCode,
-		Headers:    map[string]string{},
-		Cookies:    res.Cookies(),
-		Body:       body,
-		TimePassed: elapsed,
-		IsJSON:     false,
+		StatusCode:      res.StatusCode,
+		ResponseHeaders: map[string]string{},
+		RequestHeaders:  map[string]string{},
+		Cookies:         res.Cookies(),
+		Body:            body,
+		TimePassed:      elapsed,
+		IsJSON:          false,
 	}
 
 	if IsJSON(string(body)) {
@@ -183,7 +185,11 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	// handle headers
 	for k, v := range res.Header {
-		response.Headers[k] = strings.Join(v, ", ")
+		response.ResponseHeaders[k] = strings.Join(v, ", ")
+	}
+
+	for k, v := range httpReq.Header {
+		response.RequestHeaders[k] = strings.Join(v, ", ")
 	}
 
 	return response, nil

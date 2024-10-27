@@ -51,13 +51,14 @@ type GRPCMethod struct {
 }
 
 type GRPCResponseDetail struct {
-	Response   string
-	Metadata   []KeyValue
-	Trailers   []KeyValue
-	StatusCode int
-	Duration   time.Duration
-	Size       int
-	Error      error
+	Response         string
+	RequestMetadata  []KeyValue
+	ResponseMetadata []KeyValue
+	Trailers         []KeyValue
+	StatusCode       int
+	Duration         time.Duration
+	Size             int
+	Error            error
 
 	StatueCode int
 	Status     string

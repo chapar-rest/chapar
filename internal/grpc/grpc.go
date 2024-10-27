@@ -36,6 +36,8 @@ var (
 )
 
 type Service struct {
+	appVersion string
+
 	requests     *state.Requests
 	environments *state.Environments
 	protoFiles   *state.ProtoFiles
@@ -44,12 +46,13 @@ type Service struct {
 }
 
 type Response struct {
-	Body       string
-	Metadata   []domain.KeyValue
-	Trailers   []domain.KeyValue
-	TimePassed time.Duration
-	Size       int
-	Error      error
+	Body             string
+	RequestMetadata  []domain.KeyValue
+	ResponseMetadata []domain.KeyValue
+	Trailers         []domain.KeyValue
+	TimePassed       time.Duration
+	Size             int
+	Error            error
 
 	StatueCode int
 	Status     string
@@ -57,11 +60,11 @@ type Response struct {
 
 var (
 	appName = "Chapar"
-	semver  = "0.1.0-beta1"
 )
 
-func NewService(requests *state.Requests, envs *state.Environments, protoFiles *state.ProtoFiles) *Service {
+func NewService(appVersion string, requests *state.Requests, envs *state.Environments, protoFiles *state.ProtoFiles) *Service {
 	return &Service{
+		appVersion:         appVersion,
 		requests:           requests,
 		environments:       envs,
 		protoFiles:         protoFiles,
@@ -71,7 +74,7 @@ func NewService(requests *state.Requests, envs *state.Environments, protoFiles *
 
 func (s *Service) Dial(req *domain.GRPCRequestSpec) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
-		grpc.WithUserAgent(fmt.Sprintf("%s/%s", appName, semver)),
+		grpc.WithUserAgent(fmt.Sprintf("%s/%s", appName, s.appVersion)),
 	}
 
 	if !req.Settings.Insecure {
@@ -286,6 +289,8 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeOut)
 	defer cancel()
 
+	outgoingMetadata, _ := metadata.FromOutgoingContext(ctx)
+
 	callOpts := []grpc.CallOption{
 		grpc.Header(&respHeaders),
 		grpc.Trailer(&respTrailers),
@@ -305,14 +310,15 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 	elapsed := time.Since(start)
 
 	out := &Response{
-		TimePassed: elapsed,
-		Metadata:   domain.MetadataToKeyValue(respHeaders),
-		Trailers:   domain.MetadataToKeyValue(respTrailers),
-		Error:      respErr,
-		StatueCode: int(status.Code(respErr)),
-		Status:     status.Code(respErr).String(),
-		Size:       len(respStr),
-		Body:       respStr,
+		TimePassed:       elapsed,
+		ResponseMetadata: domain.MetadataToKeyValue(respHeaders),
+		RequestMetadata:  domain.MetadataToKeyValue(outgoingMetadata),
+		Trailers:         domain.MetadataToKeyValue(respTrailers),
+		Error:            respErr,
+		StatueCode:       int(status.Code(respErr)),
+		Status:           status.Code(respErr).String(),
+		Size:             len(respStr),
+		Body:             respStr,
 	}
 
 	if respErr != nil {

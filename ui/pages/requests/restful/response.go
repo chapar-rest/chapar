@@ -88,8 +88,23 @@ func (r *Response) SetStatusParams(code int, duration time.Duration, size int) {
 	r.responseSize = size
 }
 
-func (r *Response) SetHeaders(headers []domain.KeyValue) {
-	r.responseHeaders.SetCode(domain.KeyValuesToText(headers))
+func (r *Response) SetHeaders(requestHeaders, responseHeaders []domain.KeyValue) {
+	if len(requestHeaders) == 0 && len(responseHeaders) == 0 {
+		r.responseHeaders.SetCode("")
+	}
+
+	if len(requestHeaders) == 0 {
+		r.responseHeaders.SetCode(domain.KeyValuesToText(responseHeaders))
+		return
+	}
+
+	if len(responseHeaders) == 0 {
+		r.responseHeaders.SetCode(domain.KeyValuesToText(requestHeaders))
+		return
+	}
+
+	txt := fmt.Sprintf("# --- Request Headers ---\n\n%s\n\n# --- Response Headers ---\n\n%s", domain.KeyValuesToText(requestHeaders), domain.KeyValuesToText(responseHeaders))
+	r.responseHeaders.SetCode(txt)
 }
 
 func (r *Response) SetMessage(message string) {
