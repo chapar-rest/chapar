@@ -163,13 +163,14 @@ func (c *Controller) onGrpcInvoke(id string) {
 	}
 
 	c.view.SetGRPCResponse(id, domain.GRPCResponseDetail{
-		Response:   resp.Body,
-		Metadata:   resp.Metadata,
-		Trailers:   resp.Trailers,
-		StatusCode: resp.StatueCode,
-		Duration:   resp.TimePassed,
-		Status:     resp.Status,
-		Size:       resp.Size,
+		Response:         resp.Body,
+		ResponseMetadata: resp.ResponseMetadata,
+		RequestMetadata:  resp.RequestMetadata,
+		Trailers:         resp.Trailers,
+		StatusCode:       resp.StatueCode,
+		Duration:         resp.TimePassed,
+		Status:           resp.Status,
+		Size:             resp.Size,
 	})
 }
 
@@ -236,7 +237,7 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 			return
 		}
 		response = responseData.Response
-		headers = responseData.Headers
+		headers = responseData.ResponseHeaders
 		cookies = responseData.Cookies
 		responseFrom = clone.Spec.HTTP.Request.PostRequest.PostRequestSet.From
 	case domain.RequestTypeGRPC:
@@ -245,8 +246,8 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 			return
 		}
 		response = responseData.Response
-		headers = responseData.Metadata
-		metaData = responseData.Metadata
+		headers = responseData.ResponseMetadata
+		metaData = responseData.ResponseMetadata
 		trailers = responseData.Trailers
 		responseFrom = clone.Spec.GRPC.PostRequest.PostRequestSet.From
 	}
@@ -376,12 +377,13 @@ func (c *Controller) onSubmitRequest(id string) {
 	}
 
 	c.view.SetHTTPResponse(id, domain.HTTPResponseDetail{
-		Response:   resp,
-		Headers:    mapToKeyValue(res.Headers),
-		Cookies:    cookieToKeyValue(res.Cookies),
-		StatusCode: res.StatusCode,
-		Duration:   res.TimePassed,
-		Size:       len(res.Body),
+		Response:        resp,
+		ResponseHeaders: mapToKeyValue(res.ResponseHeaders),
+		RequestHeaders:  mapToKeyValue(res.RequestHeaders),
+		Cookies:         cookieToKeyValue(res.Cookies),
+		StatusCode:      res.StatusCode,
+		Duration:        res.TimePassed,
+		Size:            len(res.Body),
 	})
 }
 

@@ -128,16 +128,16 @@ func (r *Restful) SetHTTPResponse(detail domain.HTTPResponseDetail) {
 	}
 
 	r.Response.SetResponse(detail.Response)
-	r.Response.SetHeaders(detail.Headers)
+	r.Response.SetHeaders(detail.RequestHeaders, detail.ResponseHeaders)
 	r.Response.SetCookies(detail.Cookies)
 	r.Response.SetStatusParams(detail.StatusCode, detail.Duration, detail.Size)
 }
 
 func (r *Restful) GetHTTPResponse() *domain.HTTPResponseDetail {
 	return &domain.HTTPResponseDetail{
-		Response: r.Response.response,
-		Headers:  domain.TextToKeyValue(r.Response.responseHeaders.Code()),
-		Cookies:  domain.TextToKeyValue(r.Response.responseCookies.Code()),
+		Response:        r.Response.response,
+		ResponseHeaders: domain.TextToKeyValue(r.Response.responseHeaders.Code()),
+		Cookies:         domain.TextToKeyValue(r.Response.responseCookies.Code()),
 	}
 }
 

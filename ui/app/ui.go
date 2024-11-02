@@ -58,7 +58,7 @@ type UI struct {
 }
 
 // New creates a new UI using the Go Fonts.
-func New(w *app.Window, serviceVersion string) (*UI, error) {
+func New(w *app.Window, appVersion string) (*UI, error) {
 	u := &UI{
 		window: w,
 	}
@@ -100,7 +100,7 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 		return nil, err
 	}
 
-	grpcService := grpc.NewService(u.requestsState, u.environmentsState, u.protoFilesState)
+	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState)
 
 	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
@@ -112,7 +112,7 @@ func New(w *app.Window, serviceVersion string) (*UI, error) {
 	u.consolePage = console.New()
 
 	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
-	u.sideBar = NewSidebar(u.Theme, serviceVersion)
+	u.sideBar = NewSidebar(u.Theme, appVersion)
 
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
 

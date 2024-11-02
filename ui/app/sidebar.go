@@ -29,7 +29,7 @@ type Sidebar struct {
 
 	selectedIndex int
 
-	serviceVersion string
+	appVersion string
 }
 
 type SideBarButton struct {
@@ -37,11 +37,11 @@ type SideBarButton struct {
 	Text string
 }
 
-func NewSidebar(theme *chapartheme.Theme, serviceVersion string) *Sidebar {
+func NewSidebar(theme *chapartheme.Theme, appVersion string) *Sidebar {
 	s := &Sidebar{
-		serviceVersion: serviceVersion,
-		Theme:          theme,
-		cache:          new(op.Ops),
+		appVersion: appVersion,
+		Theme:      theme,
+		cache:      new(op.Ops),
 
 		Buttons: []*SideBarButton{
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
@@ -133,7 +133,7 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 									Bottom: unit.Dp(5),
 								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									gtx.Constraints.Min.X = gtx.Dp(70)
-									st := material.Subtitle1(theme.Theme, s.serviceVersion)
+									st := material.Subtitle1(theme.Theme, s.appVersion)
 									st.Alignment = text.Middle
 									return st.Layout(gtx)
 								})
