@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"strings"
 	"text/template"
+
+	"golang.org/x/text/cases"
+	_ "golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func GeneratePythonRequest(requestSpec HTTPRequestSpec) (string, error) {
@@ -58,9 +62,7 @@ print(response.text)
 
 	// Parse and execute the template
 	tmpl, err := template.New("pythonRequest").Funcs(template.FuncMap{
-		"lower": func(s string) string {
-			return string(bytes.ToLower([]byte(s)))
-		},
+		"lower": lower,
 	}).Parse(pythonTemplate)
 	if err != nil {
 		return "", err
@@ -96,16 +98,7 @@ curl -X {{ .Method }} "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p :
 
 	// Parse and execute the template
 	tmpl, err := template.New("curlCommand").Funcs(template.FuncMap{
-		"last": func(i int, list interface{}) bool {
-			switch v := list.(type) {
-			case []KeyValue:
-				return i == len(v)-1
-			case []FormField:
-				return i == len(v)-1
-			default:
-				return false
-			}
-		},
+		"last": last,
 	}).Parse(curlTemplate)
 	if err != nil {
 		return "", err
@@ -149,16 +142,7 @@ axios({
 `
 	// Same helper function as before to detect the last element
 	tmpl, err := template.New("axiosCommand").Funcs(template.FuncMap{
-		"last": func(i int, list interface{}) bool {
-			switch v := list.(type) {
-			case []KeyValue:
-				return i == len(v)-1
-			case []FormField:
-				return i == len(v)-1
-			default:
-				return false
-			}
-		},
+		"last": last,
 	}).Parse(axiosTemplate)
 
 	if err != nil {
@@ -197,16 +181,7 @@ fetch('{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.Query
 `
 	// Parse and execute the template
 	tmpl, err := template.New("fetchCommand").Funcs(template.FuncMap{
-		"last": func(i int, list interface{}) bool {
-			switch v := list.(type) {
-			case []KeyValue:
-				return i == len(v)-1
-			case []FormField:
-				return i == len(v)-1
-			default:
-				return false
-			}
-		},
+		"last": last,
 	}).Parse(fetchTemplate)
 
 	if err != nil {
@@ -335,9 +310,7 @@ puts "Response body: \#{response.body}"
 
 	// Parse and execute the template
 	tmpl, err := template.New("rubyCommand").Funcs(template.FuncMap{
-		"titleize": func(s string) string {
-			return strings.Title(strings.ToLower(s))
-		},
+		"titleize": titleize,
 	}).Parse(rubyTemplate)
 
 	if err != nil {
@@ -387,9 +360,7 @@ public class Program {
 
 	// Parse and execute the template
 	tmpl, err := template.New("dotNetCommand").Funcs(template.FuncMap{
-		"titleize": func(s string) string {
-			return strings.Title(strings.ToLower(s))
-		},
+		"titleize": titleize,
 	}).Parse(dotNetTemplate)
 
 	if err != nil {
@@ -403,4 +374,23 @@ public class Program {
 	}
 
 	return buf.String(), nil
+}
+
+func lower(s string) string {
+	return strings.ToLower(s)
+}
+
+func titleize(s string) string {
+	return cases.Title(language.English).String(strings.ToLower(s))
+}
+
+func last(i int, list interface{}) bool {
+	switch v := list.(type) {
+	case []KeyValue:
+		return i == len(v)-1
+	case []FormField:
+		return i == len(v)-1
+	default:
+		return false
+	}
 }
