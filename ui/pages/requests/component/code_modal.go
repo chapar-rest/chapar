@@ -1,0 +1,160 @@
+package component
+
+import (
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/unit"
+	"gioui.org/widget"
+	"gioui.org/x/component"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/widgets"
+)
+
+type CodeModal struct {
+	req *domain.Request
+
+	codeEditor  *widgets.CodeEditor
+	CopyButton  widget.Clickable
+	CloseButton widget.Clickable
+	dropDown    *widgets.DropDown
+
+	updateCode bool
+	visible    bool
+
+	lang string
+	code string
+}
+
+func NewCodeModal(theme *chapartheme.Theme) *CodeModal {
+	c := &CodeModal{
+		dropDown: widgets.NewDropDown(
+			theme,
+			widgets.NewDropDownOption("Curl").WithValue("curl"),
+			widgets.NewDropDownOption("Python").WithValue("python"),
+			widgets.NewDropDownOption("Golang").WithValue("golang"),
+			widgets.NewDropDownOption("Axios").WithValue("axios"),
+			widgets.NewDropDownOption("Node Fetch").WithValue("node-fetch"),
+			widgets.NewDropDownOption("Java OkHTTP").WithValue("jave-okhttp"),
+			widgets.NewDropDownOption("Ruby Net").WithValue("ruby-net"),
+			widgets.NewDropDownOption(".Net").WithValue("dot-net"),
+		),
+		codeEditor: widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
+	}
+
+	c.dropDown.MaxWidth = unit.Dp(200)
+
+	c.dropDown.SetOnChanged(c.onLangSelected)
+
+	return c
+}
+
+func (c *CodeModal) onLangSelected(lang string) {
+	var code string
+	switch lang {
+	case "curl":
+		c.lang = widgets.CodeLanguageShell
+		code, _ = domain.GenerateCurlCommand(*c.req.Spec.HTTP)
+	case "python":
+		c.lang = widgets.CodeLanguagePython
+		code, _ = domain.GeneratePythonRequest(*c.req.Spec.HTTP)
+	case "golang":
+		c.lang = widgets.CodeLanguageGolang
+		// code, _ = domain.Gene(*c.req.Spec.HTTP)
+	case "axios":
+		c.lang = widgets.CodeLanguageJavaScript
+		code, _ = domain.GenerateAxiosCommand(*c.req.Spec.HTTP)
+	case "node-fetch":
+		c.lang = widgets.CodeLanguageJavaScript
+		code, _ = domain.GenerateFetchCommand(*c.req.Spec.HTTP)
+	case "java-okhttp":
+		c.lang = widgets.CodeLanguageJava
+		code, _ = domain.GenerateJavaOkHttpCommand(*c.req.Spec.HTTP)
+	case "ruby-net":
+		c.lang = widgets.CodeLanguageRuby
+		code, _ = domain.GenerateRubyNetHttpCommand(*c.req.Spec.HTTP)
+	}
+
+	c.code = code
+	c.updateCode = true
+}
+
+func (c *CodeModal) SetVisible(visible bool) {
+	c.visible = visible
+}
+
+func (c *CodeModal) SetRequest(req *domain.Request) {
+	c.req = req
+}
+
+func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	border := widget.Border{
+		Color:        theme.TableBorderColor,
+		CornerRadius: unit.Dp(4),
+		Width:        unit.Dp(2),
+	}
+
+	if c.CloseButton.Clicked(gtx) {
+		c.visible = false
+		c.codeEditor.SetCode("")
+		c.req = nil
+		c.dropDown.SetSelected(0)
+	}
+
+	return layout.N.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Max.X = gtx.Dp(600)
+			gtx.Constraints.Max.Y = gtx.Dp(600)
+
+			return component.NewModalSheet(component.NewModal()).Layout(gtx, theme.Material(), &component.VisibilityAnimation{}, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return c.dropDown.Layout(gtx, theme)
+										}),
+										layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											return widgets.Button(theme.Material(), &c.CopyButton, widgets.CopyIcon, widgets.IconPositionStart, "Copy").Layout(gtx, theme)
+										}),
+									)
+								}),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return widgets.Button(theme.Material(), &c.CloseButton, widgets.CloseIcon, widgets.IconPositionStart, "Close").Layout(gtx, theme)
+								}),
+							)
+						}),
+						layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if c.updateCode {
+								c.codeEditor.SetLanguage(c.lang)
+								c.codeEditor.SetCode(c.code)
+								c.updateCode = false
+							}
+
+							return c.codeEditor.Layout(gtx, theme, "")
+						}),
+					)
+				})
+			})
+		})
+	})
+}
+
+func (c *CodeModal) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if !c.visible {
+		return layout.Dimensions{}
+	}
+
+	gtx.Constraints.Max.Y = gtx.Constraints.Max.Y + 10000
+
+	ops := op.Record(gtx.Ops)
+	dims := c.layout(gtx, theme)
+	defer op.Defer(gtx.Ops, ops.Stop())
+
+	return dims
+}

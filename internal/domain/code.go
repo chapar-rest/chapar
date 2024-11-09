@@ -12,9 +12,7 @@ import (
 
 func GeneratePythonRequest(requestSpec HTTPRequestSpec) (string, error) {
 	// Define a Go template to generate the Python `requests` code
-	const pythonTemplate = `
-import requests
-
+	const pythonTemplate = `import requests
 url = "{{ .URL }}"
 
 headers = {
@@ -79,8 +77,7 @@ print(response.text)
 
 func GenerateCurlCommand(requestSpec HTTPRequestSpec) (string, error) {
 	// Define a Go template to generate the `curl` command
-	const curlTemplate = `
-curl -X {{ .Method }} "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}"{{ if .Request.Headers }} \
+	const curlTemplate = `curl -X {{ .Method }} "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}"{{ if .Request.Headers }} \
 {{- range $i, $header := .Request.Headers }}
     -H "{{ $header.Key }}: {{ $header.Value }}"{{ if not (last $i $.Request.Headers) }} \{{ end }}
 {{- end }}
@@ -114,9 +111,7 @@ curl -X {{ .Method }} "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p :
 }
 
 func GenerateAxiosCommand(requestSpec HTTPRequestSpec) (string, error) {
-	const axiosTemplate = `
-const axios = require('axios');
-
+	const axiosTemplate = `const axios = require('axios');
 axios({
     method: '{{ .Method }}',
     url: '{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}',
@@ -159,8 +154,7 @@ axios({
 }
 
 func GenerateFetchCommand(requestSpec HTTPRequestSpec) (string, error) {
-	const fetchTemplate = `
-fetch('{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}', {
+	const fetchTemplate = `fetch('{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}', {
     method: '{{ .Method }}',
     {{- if .Request.Headers }}
     headers: {
@@ -198,8 +192,7 @@ fetch('{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.Query
 }
 
 func GenerateKotlinOkHttpCommand(requestSpec HTTPRequestSpec) (string, error) {
-	const kotlinTemplate = `
-import okhttp3.*
+	const kotlinTemplate = `import okhttp3.*
 import java.io.IOException
 
 val client = OkHttpClient()
@@ -238,8 +231,7 @@ client.newCall(request).enqueue(object : Callback {
 }
 
 func GenerateJavaOkHttpCommand(requestSpec HTTPRequestSpec) (string, error) {
-	const javaTemplate = `
-import okhttp3.*;
+	const javaTemplate = `import okhttp3.*;
 import java.io.IOException;
 
 public class ApiRequest {
@@ -283,8 +275,7 @@ public class ApiRequest {
 }
 
 func GenerateRubyNetHttpCommand(requestSpec HTTPRequestSpec) (string, error) {
-	const rubyTemplate = `
-require 'net/http'
+	const rubyTemplate = `require 'net/http'
 require 'uri'
 require 'json'
 
@@ -327,8 +318,7 @@ puts "Response body: \#{response.body}"
 }
 
 func GenerateDotNetHttpClientCommand(requestSpec HTTPRequestSpec) (string, error) {
-	const dotNetTemplate = `
-using System;
+	const dotNetTemplate = `using System;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
