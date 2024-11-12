@@ -262,8 +262,9 @@ func (r *Restful) SetPathParams(params []domain.KeyValue) {
 func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	r.codeModal.Layout(gtx, theme)
 
-	if r.Actions.IsDataChanged && r.SaveButton.Clicked(gtx) && r.onSave != nil {
+	if r.Actions.IsDataChanged && r.Actions.SaveButton.Clicked(gtx) && r.onSave != nil {
 		r.onSave(r.Req.MetaData.ID)
+		r.Actions.IsDataChanged = false
 	}
 
 	if r.Actions.CodeButton.Clicked(gtx) {

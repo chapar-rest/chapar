@@ -87,16 +87,16 @@ func (r *GRPCRequestSpec) GetPostRequest() PostRequest {
 	return PostRequest{}
 }
 
-func (r *HTTPRequestSpec) GetPreRequest() PreRequest {
-	if r != nil {
-		return r.Request.PreRequest
+func (h *HTTPRequestSpec) GetPreRequest() PreRequest {
+	if h != nil {
+		return h.Request.PreRequest
 	}
 	return PreRequest{}
 }
 
-func (r *HTTPRequestSpec) GetPostRequest() PostRequest {
-	if r != nil {
-		return r.Request.PostRequest
+func (h *HTTPRequestSpec) GetPostRequest() PostRequest {
+	if h != nil {
+		return h.Request.PostRequest
 	}
 	return PostRequest{}
 }

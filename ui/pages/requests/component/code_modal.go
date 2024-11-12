@@ -7,6 +7,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/x/component"
 
+	"github.com/chapar-rest/chapar/internal/coder"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -55,25 +56,25 @@ func (c *CodeModal) onLangSelected(lang string) {
 	switch lang {
 	case "curl":
 		c.lang = widgets.CodeLanguageShell
-		code, _ = domain.GenerateCurlCommand(*c.req.Spec.HTTP)
+		code, _ = coder.DefaultService.GenerateCurlCommand(c.req.Spec.HTTP)
 	case "python":
 		c.lang = widgets.CodeLanguagePython
-		code, _ = domain.GeneratePythonRequest(*c.req.Spec.HTTP)
+		code, _ = coder.DefaultService.GeneratePythonRequest(c.req.Spec.HTTP)
 	case "golang":
 		c.lang = widgets.CodeLanguageGolang
-		// code, _ = domain.Gene(*c.req.Spec.HTTP)
+		// code, _ = coder.DefaultService.Gene(c.req.Spec.HTTP)
 	case "axios":
 		c.lang = widgets.CodeLanguageJavaScript
-		code, _ = domain.GenerateAxiosCommand(*c.req.Spec.HTTP)
+		code, _ = coder.DefaultService.GenerateAxiosCommand(c.req.Spec.HTTP)
 	case "node-fetch":
 		c.lang = widgets.CodeLanguageJavaScript
-		code, _ = domain.GenerateFetchCommand(*c.req.Spec.HTTP)
+		code, _ = coder.DefaultService.GenerateFetchCommand(c.req.Spec.HTTP)
 	case "java-okhttp":
 		c.lang = widgets.CodeLanguageJava
-		code, _ = domain.GenerateJavaOkHttpCommand(*c.req.Spec.HTTP)
+		code, _ = coder.DefaultService.GenerateJavaOkHttpCommand(c.req.Spec.HTTP)
 	case "ruby-net":
 		c.lang = widgets.CodeLanguageRuby
-		code, _ = domain.GenerateRubyNetHttpCommand(*c.req.Spec.HTTP)
+		code, _ = coder.DefaultService.GenerateRubyNetHttpCommand(c.req.Spec.HTTP)
 	}
 
 	c.code = code

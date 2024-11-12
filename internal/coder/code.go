@@ -1,4 +1,4 @@
-package domain
+package coder
 
 import (
 	"bytes"
@@ -8,9 +8,40 @@ import (
 	"golang.org/x/text/cases"
 	_ "golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/variables"
 )
 
-func GeneratePythonRequest(requestSpec HTTPRequestSpec) (string, error) {
+var DefaultService = New()
+
+type Service struct {
+	currentEnvironment *domain.Environment
+}
+
+func New() *Service {
+	return &Service{}
+}
+
+func (svc *Service) OnActiveEnvironmentChange(env *domain.Environment) {
+	svc.currentEnvironment = env
+}
+
+func (svc *Service) applyVariablesAndEnv(req *domain.HTTPRequestSpec) {
+	vars := variables.GetVariables()
+	r := req.Clone()
+
+	variables.ApplyToHTTPRequest(vars, r)
+
+	if svc.currentEnvironment != nil {
+		variables.ApplyToEnv(vars, &svc.currentEnvironment.Spec)
+		svc.currentEnvironment.ApplyToHTTPRequest(req)
+	}
+}
+
+func (svc *Service) GeneratePythonRequest(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
+
 	// Define a Go template to generate the Python `requests` code
 	const pythonTemplate = `import requests
 url = "{{ .URL }}"
@@ -75,7 +106,8 @@ print(response.text)
 	return buf.String(), nil
 }
 
-func GenerateCurlCommand(requestSpec HTTPRequestSpec) (string, error) {
+func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
 	// Define a Go template to generate the `curl` command
 	const curlTemplate = `curl -X {{ .Method }} "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}"{{ if .Request.Headers }} \
 {{- range $i, $header := .Request.Headers }}
@@ -110,7 +142,8 @@ func GenerateCurlCommand(requestSpec HTTPRequestSpec) (string, error) {
 	return buf.String(), nil
 }
 
-func GenerateAxiosCommand(requestSpec HTTPRequestSpec) (string, error) {
+func (svc *Service) GenerateAxiosCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
 	const axiosTemplate = `const axios = require('axios');
 axios({
     method: '{{ .Method }}',
@@ -153,7 +186,8 @@ axios({
 	return buf.String(), nil
 }
 
-func GenerateFetchCommand(requestSpec HTTPRequestSpec) (string, error) {
+func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
 	const fetchTemplate = `fetch('{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}', {
     method: '{{ .Method }}',
     {{- if .Request.Headers }}
@@ -191,7 +225,8 @@ func GenerateFetchCommand(requestSpec HTTPRequestSpec) (string, error) {
 	return buf.String(), nil
 }
 
-func GenerateKotlinOkHttpCommand(requestSpec HTTPRequestSpec) (string, error) {
+func (svc *Service) GenerateKotlinOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
 	const kotlinTemplate = `import okhttp3.*
 import java.io.IOException
 
@@ -230,7 +265,8 @@ client.newCall(request).enqueue(object : Callback {
 	return buf.String(), nil
 }
 
-func GenerateJavaOkHttpCommand(requestSpec HTTPRequestSpec) (string, error) {
+func (svc *Service) GenerateJavaOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
 	const javaTemplate = `import okhttp3.*;
 import java.io.IOException;
 
@@ -274,7 +310,8 @@ public class ApiRequest {
 	return buf.String(), nil
 }
 
-func GenerateRubyNetHttpCommand(requestSpec HTTPRequestSpec) (string, error) {
+func (svc *Service) GenerateRubyNetHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
 	const rubyTemplate = `require 'net/http'
 require 'uri'
 require 'json'
@@ -317,7 +354,8 @@ puts "Response body: \#{response.body}"
 	return buf.String(), nil
 }
 
-func GenerateDotNetHttpClientCommand(requestSpec HTTPRequestSpec) (string, error) {
+func (svc *Service) GenerateDotNetHttpClientCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	svc.applyVariablesAndEnv(requestSpec)
 	const dotNetTemplate = `using System;
 using System.Net.Http;
 using System.Text;
@@ -376,9 +414,9 @@ func titleize(s string) string {
 
 func last(i int, list interface{}) bool {
 	switch v := list.(type) {
-	case []KeyValue:
+	case []domain.KeyValue:
 		return i == len(v)-1
-	case []FormField:
+	case []domain.FormField:
 		return i == len(v)-1
 	default:
 		return false
