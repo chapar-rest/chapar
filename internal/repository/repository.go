@@ -19,7 +19,6 @@ type Repository interface {
 
 	LoadEnvironments() ([]*domain.Environment, error)
 	GetEnvironment(filepath string) (*domain.Environment, error)
-	GetEnvironmentDir() (string, error)
 	UpdateEnvironment(env *domain.Environment) error
 	DeleteEnvironment(env *domain.Environment) error
 	GetNewEnvironmentFilePath(name string) (*FilePath, error)
@@ -29,19 +28,16 @@ type Repository interface {
 
 	LoadRequests() ([]*domain.Request, error)
 	GetRequest(filepath string) (*domain.Request, error)
-	GetRequestsDir() (string, error)
 	UpdateRequest(request *domain.Request) error
 	DeleteRequest(request *domain.Request) error
 	GetNewRequestFilePath(name string) (*FilePath, error)
 
 	LoadWorkspaces() ([]*domain.Workspace, error)
 	GetWorkspace(filepath string) (*domain.Workspace, error)
-	GetWorkspacesDir() (string, error)
 	UpdateWorkspace(workspace *domain.Workspace) error
 	DeleteWorkspace(workspace *domain.Workspace) error
 	GetNewWorkspaceDir(name string) (*FilePath, error)
 
-	GetProtoFilesDir() (string, error)
 	LoadProtoFiles() ([]*domain.ProtoFile, error)
 	DeleteProtoFile(protoFile *domain.ProtoFile) error
 	UpdateProtoFile(protoFile *domain.ProtoFile) error
