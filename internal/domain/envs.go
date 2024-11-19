@@ -139,3 +139,84 @@ func (e *Environment) ApplyToGRPCRequest(req *GRPCRequestSpec) {
 		}
 	}
 }
+
+func (e *Environment) ApplyToHTTPRequest(req *HTTPRequestSpec) {
+	if e == nil || req == nil {
+		return
+	}
+
+	for _, kv := range e.Spec.Values {
+		for i, kv := range req.Request.Headers {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+kv.Key+"}}") {
+				req.Request.Headers[i].Value = strings.ReplaceAll(kv.Value, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		for i, kv := range req.Request.PathParams {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+kv.Key+"}}") {
+				req.Request.PathParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		for i, kv := range req.Request.QueryParams {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+kv.Key+"}}") {
+				req.Request.QueryParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		if strings.Contains(req.URL, "{{"+kv.Key+"}}") {
+			req.URL = strings.ReplaceAll(req.URL, "{{"+kv.Key+"}}", kv.Value)
+		}
+
+		if strings.Contains(req.Request.Body.Data, "{{"+kv.Key+"}}") {
+			req.Request.Body.Data = strings.ReplaceAll(req.Request.Body.Data, "{{"+kv.Key+"}}", kv.Value)
+		}
+
+		for i, field := range req.Request.Body.FormData.Fields {
+			if field.Type == FormFieldTypeFile {
+				continue
+			}
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(field.Value, "{{"+kv.Key+"}}") {
+				req.Request.Body.FormData.Fields[i].Value = strings.ReplaceAll(field.Value, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		for i, kv := range req.Request.Body.URLEncoded {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+kv.Key+"}}") {
+				req.Request.Body.URLEncoded[i].Value = strings.ReplaceAll(kv.Value, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		if req.Request.Auth != (Auth{}) && req.Request.Auth.TokenAuth != nil {
+			if strings.Contains(req.Request.Auth.TokenAuth.Token, "{{"+kv.Key+"}}") {
+				req.Request.Auth.TokenAuth.Token = strings.ReplaceAll(req.Request.Auth.TokenAuth.Token, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		if req.Request.Auth != (Auth{}) && req.Request.Auth.BasicAuth != nil {
+			if strings.Contains(req.Request.Auth.BasicAuth.Username, "{{"+kv.Key+"}}") {
+				req.Request.Auth.BasicAuth.Username = strings.ReplaceAll(req.Request.Auth.BasicAuth.Username, "{{"+kv.Key+"}}", kv.Value)
+			}
+
+			if strings.Contains(req.Request.Auth.BasicAuth.Password, "{{"+kv.Key+"}}") {
+				req.Request.Auth.BasicAuth.Password = strings.ReplaceAll(req.Request.Auth.BasicAuth.Password, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+		if req.Request.Auth != (Auth{}) && req.Request.Auth.APIKeyAuth != nil {
+			if strings.Contains(req.Request.Auth.APIKeyAuth.Key, "{{"+kv.Key+"}}") {
+				req.Request.Auth.APIKeyAuth.Key = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Key, "{{"+kv.Key+"}}", kv.Value)
+			}
+
+			if strings.Contains(req.Request.Auth.APIKeyAuth.Value, "{{"+kv.Key+"}}") {
+				req.Request.Auth.APIKeyAuth.Value = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Value, "{{"+kv.Key+"}}", kv.Value)
+			}
+		}
+
+	}
+}

@@ -48,12 +48,12 @@ func ApplyToEnv(variables map[string]string, env *domain.EnvSpec) {
 	}
 
 	// add env variables to variables
-	for _, kv := range env.Values {
-		if !kv.Enable {
-			continue
-		}
-		variables[kv.Key] = kv.Value
-	}
+	//for _, kv := range env.Values {
+	//	if !kv.Enable {
+	//		continue
+	//	}
+	//	variables[kv.Key] = kv.Value
+	//}
 }
 
 // ApplyToGRPCRequest apply variables to the request
@@ -85,6 +85,90 @@ func ApplyToGRPCRequest(variables map[string]string, req *domain.GRPCRequestSpec
 
 		if req.Auth != (domain.Auth{}) {
 			ApplyToAuth(variables, &req.Auth)
+		}
+	}
+}
+
+func ApplyToHTTPRequest(variables map[string]string, req *domain.HTTPRequestSpec) {
+	if variables == nil {
+		variables = GetVariables()
+	}
+
+	if req == nil {
+		return
+	}
+
+	for k, v := range variables {
+		for i, kv := range req.Request.Headers {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.Headers[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		for i, kv := range req.Request.PathParams {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.PathParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		for i, kv := range req.Request.QueryParams {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.QueryParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		if strings.Contains(req.URL, "{{"+k+"}}") {
+			req.URL = strings.ReplaceAll(req.URL, "{{"+k+"}}", v)
+		}
+
+		if strings.Contains(req.Request.Body.Data, "{{"+k+"}}") {
+			req.Request.Body.Data = strings.ReplaceAll(req.Request.Body.Data, "{{"+k+"}}", v)
+		}
+
+		for i, field := range req.Request.Body.FormData.Fields {
+			if field.Type == domain.FormFieldTypeFile {
+				continue
+			}
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(field.Value, "{{"+k+"}}") {
+				req.Request.Body.FormData.Fields[i].Value = strings.ReplaceAll(field.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		for i, kv := range req.Request.Body.URLEncoded {
+			// if value contain the variable in double curly braces then replace it
+			if strings.Contains(kv.Value, "{{"+k+"}}") {
+				req.Request.Body.URLEncoded[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
+			}
+		}
+
+		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.TokenAuth != nil {
+			if strings.Contains(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}") {
+				req.Request.Auth.TokenAuth.Token = strings.ReplaceAll(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}", v)
+			}
+		}
+
+		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.BasicAuth != nil {
+			if strings.Contains(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}") {
+				req.Request.Auth.BasicAuth.Username = strings.ReplaceAll(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}", v)
+			}
+
+			if strings.Contains(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}") {
+				req.Request.Auth.BasicAuth.Password = strings.ReplaceAll(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}", v)
+			}
+		}
+
+		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.APIKeyAuth != nil {
+			if strings.Contains(req.Request.Auth.APIKeyAuth.Key, "{{"+k+"}}") {
+				req.Request.Auth.APIKeyAuth.Key = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Key, "{{"+k+"}}", v)
+			}
+
+			if strings.Contains(req.Request.Auth.APIKeyAuth.Value, "{{"+k+"}}") {
+				req.Request.Auth.APIKeyAuth.Value = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Value, "{{"+k+"}}", v)
+			}
 		}
 	}
 }
