@@ -1,6 +1,12 @@
 package component
 
 import (
+	"fmt"
+	"io"
+	"strings"
+	"time"
+
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -20,6 +26,8 @@ type CodeModal struct {
 	CopyButton  widget.Clickable
 	CloseButton widget.Clickable
 	dropDown    *widgets.DropDown
+
+	copyButtonText string
 
 	updateCode bool
 	visible    bool
@@ -41,7 +49,8 @@ func NewCodeModal(theme *chapartheme.Theme) *CodeModal {
 			widgets.NewDropDownOption("Ruby Net").WithValue("ruby-net"),
 			widgets.NewDropDownOption(".Net").WithValue("dot-net"),
 		),
-		codeEditor: widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
+		codeEditor:     widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
+		copyButtonText: "Copy",
 	}
 
 	c.dropDown.MaxWidth = unit.Dp(200)
@@ -96,6 +105,23 @@ func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		Width:        unit.Dp(2),
 	}
 
+	if c.CopyButton.Clicked(gtx) {
+		gtx.Execute(clipboard.WriteCmd{
+			Data: io.NopCloser(strings.NewReader(c.code)),
+		})
+		c.copyButtonText = "Copied"
+
+		// Start a goroutine to reset the button text after 900ms
+		go func() {
+			time.Sleep(900 * time.Millisecond)
+			c.copyButtonText = "Copy"
+
+			fmt.Println("resetting copy button text")
+			// Trigger a re-render
+			gtx.Execute(op.InvalidateCmd{})
+		}()
+	}
+
 	if c.CloseButton.Clicked(gtx) {
 		c.visible = false
 		c.codeEditor.SetCode("")
@@ -120,7 +146,7 @@ func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 										}),
 										layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return widgets.Button(theme.Material(), &c.CopyButton, widgets.CopyIcon, widgets.IconPositionStart, "Copy").Layout(gtx, theme)
+											return widgets.Button(theme.Material(), &c.CopyButton, widgets.CopyIcon, widgets.IconPositionStart, c.copyButtonText).Layout(gtx, theme)
 										}),
 									)
 								}),
@@ -150,6 +176,18 @@ func (c *CodeModal) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 	if !c.visible {
 		return layout.Dimensions{}
 	}
+
+	// if code is empty, generate curl command
+	if c.code == "" {
+		c.onLangSelected("curl")
+	}
+
+	//if c.copyButtonText == "Copied" {
+	//	time.AfterFunc(time.Millisecond*900, func() {
+	//		c.copyButtonText = "Copy"
+	//		gtx.Execute(op.InvalidateCmd{})
+	//	})
+	//}
 
 	gtx.Constraints.Max.Y = gtx.Constraints.Max.Y + 10000
 

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -59,14 +60,14 @@ type RequestSpec struct {
 	HTTP *HTTPRequestSpec `yaml:"http,omitempty"`
 }
 
-func (r RequestSpec) GetGRPC() *GRPCRequestSpec {
+func (r *RequestSpec) GetGRPC() *GRPCRequestSpec {
 	if r.GRPC != nil {
 		return r.GRPC
 	}
 	return nil
 }
 
-func (r RequestSpec) GetHTTP() *HTTPRequestSpec {
+func (r *RequestSpec) GetHTTP() *HTTPRequestSpec {
 	if r.HTTP != nil {
 		return r.HTTP
 	}
@@ -99,6 +100,24 @@ func (h *HTTPRequestSpec) GetPostRequest() PostRequest {
 		return h.Request.PostRequest
 	}
 	return PostRequest{}
+}
+
+func (h *HTTPRequestSpec) RenderParams() {
+	for _, p := range h.Request.PathParams {
+		if !p.Enable {
+			continue
+		}
+
+		h.URL = strings.ReplaceAll(h.URL, "{"+p.Key+"}", p.Value)
+	}
+
+	for _, p := range h.Request.QueryParams {
+		if !p.Enable {
+			continue
+		}
+
+		h.URL = strings.ReplaceAll(h.URL, "{"+p.Key+"}", p.Value)
+	}
 }
 
 type LastUsedEnvironment struct {

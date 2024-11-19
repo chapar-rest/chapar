@@ -27,9 +27,10 @@ func (svc *Service) OnActiveEnvironmentChange(env *domain.Environment) {
 	svc.currentEnvironment = env
 }
 
-func (svc *Service) applyVariablesAndEnv(req *domain.HTTPRequestSpec) {
+func (svc *Service) applyVariables(req *domain.HTTPRequestSpec) *domain.HTTPRequestSpec {
 	vars := variables.GetVariables()
 	r := req.Clone()
+	r.RenderParams()
 
 	variables.ApplyToHTTPRequest(vars, r)
 
@@ -37,10 +38,12 @@ func (svc *Service) applyVariablesAndEnv(req *domain.HTTPRequestSpec) {
 		variables.ApplyToEnv(vars, &svc.currentEnvironment.Spec)
 		svc.currentEnvironment.ApplyToHTTPRequest(req)
 	}
+
+	return r
 }
 
 func (svc *Service) GeneratePythonRequest(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
 
 	// Define a Go template to generate the Python `requests` code
 	const pythonTemplate = `import requests
@@ -98,7 +101,7 @@ print(response.text)
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
@@ -107,7 +110,8 @@ print(response.text)
 }
 
 func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
+
 	// Define a Go template to generate the `curl` command
 	const curlTemplate = `curl -X {{ .Method }} "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}"{{ if .Request.Headers }} \
 {{- range $i, $header := .Request.Headers }}
@@ -134,7 +138,7 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
@@ -143,7 +147,7 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
 }
 
 func (svc *Service) GenerateAxiosCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
 	const axiosTemplate = `const axios = require('axios');
 axios({
     method: '{{ .Method }}',
@@ -178,7 +182,7 @@ axios({
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
@@ -187,7 +191,7 @@ axios({
 }
 
 func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
 	const fetchTemplate = `fetch('{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}', {
     method: '{{ .Method }}',
     {{- if .Request.Headers }}
@@ -217,7 +221,7 @@ func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (s
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
@@ -226,7 +230,7 @@ func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (s
 }
 
 func (svc *Service) GenerateKotlinOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
 	const kotlinTemplate = `import okhttp3.*
 import java.io.IOException
 
@@ -257,7 +261,7 @@ client.newCall(request).enqueue(object : Callback {
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
@@ -266,7 +270,7 @@ client.newCall(request).enqueue(object : Callback {
 }
 
 func (svc *Service) GenerateJavaOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
 	const javaTemplate = `import okhttp3.*;
 import java.io.IOException;
 
@@ -302,7 +306,7 @@ public class ApiRequest {
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
@@ -311,7 +315,7 @@ public class ApiRequest {
 }
 
 func (svc *Service) GenerateRubyNetHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
 	const rubyTemplate = `require 'net/http'
 require 'uri'
 require 'json'
@@ -346,7 +350,7 @@ puts "Response body: \#{response.body}"
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
@@ -355,7 +359,7 @@ puts "Response body: \#{response.body}"
 }
 
 func (svc *Service) GenerateDotNetHttpClientCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	svc.applyVariablesAndEnv(requestSpec)
+	req := svc.applyVariables(requestSpec)
 	const dotNetTemplate = `using System;
 using System.Net.Http;
 using System.Text;
@@ -396,7 +400,7 @@ public class Program {
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, requestSpec)
+	err = tmpl.Execute(&buf, req)
 	if err != nil {
 		return "", err
 	}
