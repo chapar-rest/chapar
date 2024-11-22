@@ -124,6 +124,7 @@ func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 
 	if c.CloseButton.Clicked(gtx) {
 		c.visible = false
+		c.code = ""
 		c.codeEditor.SetCode("")
 		c.req = nil
 		c.dropDown.SetSelected(0)
@@ -181,13 +182,6 @@ func (c *CodeModal) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 	if c.code == "" {
 		c.onLangSelected("curl")
 	}
-
-	//if c.copyButtonText == "Copied" {
-	//	time.AfterFunc(time.Millisecond*900, func() {
-	//		c.copyButtonText = "Copy"
-	//		gtx.Execute(op.InvalidateCmd{})
-	//	})
-	//}
 
 	gtx.Constraints.Max.Y = gtx.Constraints.Max.Y + 10000
 
