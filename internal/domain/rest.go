@@ -41,16 +41,6 @@ type HTTPRequest struct {
 	PostRequest PostRequest `yaml:"postRequest"`
 }
 
-const (
-	BodyTypeNone       = "none"
-	BodyTypeJSON       = "json"
-	BodyTypeText       = "text"
-	BodyTypeXML        = "xml"
-	BodyTypeFormData   = "formData"
-	BodyTypeBinary     = "binary"
-	BodyTypeUrlencoded = "urlencoded"
-)
-
 type Body struct {
 	Type string `yaml:"type"`
 	// Can be json, xml, or plain text
@@ -282,7 +272,7 @@ func IsHTTPResponseEmpty(r HTTPResponse) bool {
 
 func (r *Request) SetDefaultValuesForHTTP() {
 	if r.Spec.HTTP.Method == "" {
-		r.Spec.HTTP.Method = "GET"
+		r.Spec.HTTP.Method = RequestMethodGET
 	}
 
 	if r.Spec.HTTP.URL == "" {

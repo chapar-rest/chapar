@@ -1,4 +1,4 @@
-package coder
+package codegen
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 )
 
 func TestGeneratePythonRequest(t *testing.T) {
-	requestSpec := domain.HTTPRequestSpec{
-		Method: "POST",
+	requestSpec := &domain.HTTPRequestSpec{
+		Method: domain.RequestMethodPOST,
 		URL:    "https://api.example.com/resource",
 		Request: &domain.HTTPRequest{
 			Headers: []domain.KeyValue{

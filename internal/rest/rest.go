@@ -199,12 +199,12 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) error {
 	// apply body
 	switch req.Request.Body.Type {
-	case domain.BodyTypeJSON, domain.BodyTypeXML, domain.BodyTypeText:
+	case domain.RequestBodyTypeJSON, domain.RequestBodyTypeXML, domain.RequestBodyTypeText:
 		if req.Request.Body.Data != "" {
 			httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
 		}
 
-	case domain.BodyTypeBinary:
+	case domain.RequestBodyTypeBinary:
 		if req.Request.Body.BinaryFilePath != "" {
 			// read file
 			file, err := os.ReadFile(req.Request.Body.BinaryFilePath)
@@ -221,7 +221,7 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 			httpReq.Header.Add("Content-Length", strconv.Itoa(len(file)))
 		}
 
-	case domain.BodyTypeFormData:
+	case domain.RequestBodyTypeFormData:
 		// apply form body
 		if len(req.Request.Body.FormData.Fields) > 0 {
 			var b bytes.Buffer
@@ -271,7 +271,7 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 			httpReq.ContentLength = int64(b.Len())
 		}
 
-	case domain.BodyTypeUrlencoded:
+	case domain.RequestBodyTypeUrlencoded:
 		// apply url encoded
 		if len(req.Request.Body.URLEncoded) > 0 {
 			form := url.Values{}

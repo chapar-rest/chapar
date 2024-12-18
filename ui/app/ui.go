@@ -14,7 +14,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/widget/material"
 
-	"github.com/chapar-rest/chapar/internal/coder"
+	"github.com/chapar-rest/chapar/internal/codegen"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
@@ -94,7 +94,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.requestsState = state.NewRequests(repo)
 
 	// listen for changes in the active environment
-	u.environmentsState.AddActiveEnvironmentChangeListener(coder.DefaultService.OnActiveEnvironmentChange)
+	u.environmentsState.AddActiveEnvironmentChangeListener(codegen.DefaultService.OnActiveEnvironmentChange)
 
 	//
 	u.protoFilesView = protofiles.NewView()

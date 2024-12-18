@@ -30,13 +30,13 @@ func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Expl
 		body: body,
 		DropDown: widgets.NewDropDown(
 			theme,
-			widgets.NewDropDownOption("None").WithValue(domain.BodyTypeNone),
-			widgets.NewDropDownOption("JSON").WithValue(domain.BodyTypeJSON),
-			widgets.NewDropDownOption("Text").WithValue(domain.BodyTypeText),
-			widgets.NewDropDownOption("XML").WithValue(domain.BodyTypeXML),
-			widgets.NewDropDownOption("Form data").WithValue(domain.BodyTypeFormData),
-			widgets.NewDropDownOption("Binary").WithValue(domain.BodyTypeBinary),
-			widgets.NewDropDownOption("Urlencoded").WithValue(domain.BodyTypeUrlencoded),
+			widgets.NewDropDownOption("None").WithValue(domain.RequestBodyTypeNone),
+			widgets.NewDropDownOption("JSON").WithValue(domain.RequestBodyTypeJSON),
+			widgets.NewDropDownOption("Text").WithValue(domain.RequestBodyTypeText),
+			widgets.NewDropDownOption("XML").WithValue(domain.RequestBodyTypeXML),
+			widgets.NewDropDownOption("Form data").WithValue(domain.RequestBodyTypeFormData),
+			widgets.NewDropDownOption("Binary").WithValue(domain.RequestBodyTypeBinary),
+			widgets.NewDropDownOption("Urlencoded").WithValue(domain.RequestBodyTypeUrlencoded),
 		),
 		FormData:   component.NewFormData(theme),
 		urlencoded: widgets.NewKeyValue(),
@@ -46,7 +46,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Expl
 
 	b.FormData.SetValues(body.FormData.Fields)
 
-	if body.Type == domain.BodyTypeBinary {
+	if body.Type == domain.RequestBodyTypeBinary {
 		b.BinaryFile.SetFileName(body.BinaryFilePath)
 	}
 
@@ -64,7 +64,7 @@ func (b *Body) SetOnChange(f func(body domain.Body)) {
 		b.body.Type = selected
 		b.onChange(b.body)
 
-		if selected == domain.BodyTypeJSON || selected == domain.BodyTypeXML {
+		if selected == domain.RequestBodyTypeJSON || selected == domain.RequestBodyTypeXML {
 			b.script.SetLanguage(selected)
 		}
 	})
@@ -107,17 +107,17 @@ func (b *Body) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					switch b.DropDown.GetSelected().Value {
-					case domain.BodyTypeJSON:
+					case domain.RequestBodyTypeJSON:
 						return b.script.Layout(gtx, theme, "JSON")
-					case domain.BodyTypeText:
+					case domain.RequestBodyTypeText:
 						return b.script.Layout(gtx, theme, "Text")
-					case domain.BodyTypeXML:
+					case domain.RequestBodyTypeXML:
 						return b.script.Layout(gtx, theme, "XML")
-					case domain.BodyTypeFormData:
+					case domain.RequestBodyTypeFormData:
 						return b.FormData.Layout(gtx, "Form data", "Add form data", theme)
-					case domain.BodyTypeBinary:
+					case domain.RequestBodyTypeBinary:
 						return b.BinaryFile.Layout(gtx, theme)
-					case domain.BodyTypeUrlencoded:
+					case domain.RequestBodyTypeUrlencoded:
 						return b.urlencoded.WithAddLayout(gtx, "Urlencoded", "Add urlencoded", theme)
 					default:
 						return layout.Dimensions{}

@@ -25,9 +25,9 @@ const (
 	RequestBodyTypeJSON       = "json"
 	RequestBodyTypeXML        = "xml"
 	RequestBodyTypeText       = "text"
-	RequestBodyTypeForm       = "form"
+	RequestBodyTypeFormData   = "formData"
 	RequestBodyTypeBinary     = "binary"
-	RequestBodyTypeUrlEncoded = "urlEncoded"
+	RequestBodyTypeUrlencoded = "urlencoded"
 
 	PrePostTypeNone           = "none"
 	PrePostTypeTriggerRequest = "triggerRequest"
@@ -37,6 +37,18 @@ const (
 	PrePostTypeSSHTunnel      = "sshTunnel"
 	PrePostTypeK8sTunnel      = "k8sTunnel"
 )
+
+var RequestMethods = []string{
+	RequestMethodGET,
+	RequestMethodPOST,
+	RequestMethodPUT,
+	RequestMethodDELETE,
+	RequestMethodPATCH,
+	RequestMethodHEAD,
+	RequestMethodOPTIONS,
+	RequestMethodCONNECT,
+	RequestMethodTRACE,
+}
 
 type Request struct {
 	ApiVersion string      `yaml:"apiVersion"`

@@ -1,4 +1,4 @@
-package coder
+package codegen
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"text/template"
 
 	"golang.org/x/text/cases"
-	_ "golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -31,44 +30,81 @@ func (svc *Service) applyVariables(req *domain.HTTPRequestSpec) *domain.HTTPRequ
 	vars := variables.GetVariables()
 	r := req.Clone()
 	r.RenderParams()
-
 	variables.ApplyToHTTPRequest(vars, r)
 
 	if svc.currentEnvironment != nil {
 		variables.ApplyToEnv(vars, &svc.currentEnvironment.Spec)
-		svc.currentEnvironment.ApplyToHTTPRequest(req)
+		svc.currentEnvironment.ApplyToHTTPRequest(r)
 	}
 
 	return r
 }
 
-func (svc *Service) GeneratePythonRequest(requestSpec *domain.HTTPRequestSpec) (string, error) {
+func (svc *Service) generate(codeTmpl string, requestSpec *domain.HTTPRequestSpec) (string, error) {
 	req := svc.applyVariables(requestSpec)
 
+	// Parse and execute the template
+	tmpl, err := template.New("code-template").Funcs(template.FuncMap{
+		"last": func(i int, list interface{}) bool {
+			switch v := list.(type) {
+			case []domain.KeyValue:
+				return i == len(v)-1
+			case []domain.FormField:
+				return i == len(v)-1
+			default:
+				return false
+			}
+		},
+		"lower": func(s string) string { return strings.ToLower(s) },
+		"titleize": func(s string) string {
+			return cases.Title(language.English).String(strings.ToLower(s))
+		},
+	}).Parse(codeTmpl)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err = tmpl.Execute(&buf, req); err != nil {
+		return "", err
+	}
+	out := buf.String()
+
+	// trim the last backslash
+	if strings.HasSuffix(out, "\\") {
+		out = out[:len(out)-1]
+	}
+
+	return out, nil
+}
+
+func (svc *Service) GeneratePythonRequest(requestSpec *domain.HTTPRequestSpec) (string, error) {
 	// Define a Go template to generate the Python `requests` code
 	const pythonTemplate = `import requests
+{{- if eq .Request.Body.Type "json" }}
+import json
+{{- end }}
+
 url = "{{ .URL }}"
 
 headers = {
-{{- range .Request.Headers }}
-    "{{ .Key }}": "{{ .Value }}",
-{{- end }}
-}
-
-params = {
-{{- range .Request.QueryParams }}
-    "{{ .Key }}": "{{ .Value }}",
+{{- range $i, $header := .Request.Headers }}
+	{{- if $header.Enable }}
+     "{{ .Key }}": "{{ .Value }}"{{ if not (last $i $.Request.Headers) }},{{ end }}
+	{{- end }}
 {{- end }}
 }
 
 {{- if eq .Request.Body.Type "json" }}
-json_data = {{ .Request.Body.Data }}
+json_data = json.dumps({{ .Request.Body.Data }})
 {{- else if eq .Request.Body.Type "text" }}
 data = '''{{ .Request.Body.Data }}'''
 {{- else if eq .Request.Body.Type "formData" }}
 files = {
-{{- range .Request.Body.FormData }}
-    "{{ .Key }}": "{{ .Value }}",
+{{- range $i, $formData := .Request.Body.FormData }}
+	{{- if $formData.Enable }}
+    "{{ .Key }}": "{{ .Value }}"{{ if not (last $i $.Request.Body.FormData) }},{{ end }}
+	{{- end }}
 {{- end }}
 }
 {{- else }}
@@ -76,9 +112,9 @@ data = None
 {{- end }}
 
 response = requests.{{ .Method | lower }}(
-    url, headers=headers, params=params,
+    url, headers=headers,
 {{- if eq .Request.Body.Type "json" }}
-    json=json_data
+    data=json_data
 {{- else if eq .Request.Body.Type "text" }}
     data=data
 {{- else if eq .Request.Body.Type "formData" }}
@@ -92,30 +128,24 @@ print(response.status_code)
 print(response.text)
 `
 
-	// Parse and execute the template
-	tmpl, err := template.New("pythonRequest").Funcs(template.FuncMap{
-		"lower": lower,
-	}).Parse(pythonTemplate)
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return svc.generate(pythonTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	req := svc.applyVariables(requestSpec)
+	if requestSpec.Method == "" {
+		requestSpec.Method = domain.RequestMethodGET
+	}
+
+	if requestSpec.Method == domain.RequestMethodHEAD {
+		requestSpec.Method = "--head"
+	}
 
 	// Define a Go template to generate the `curl` command
-	const curlTemplate = `curl -X {{ .Method }} "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}"{{ if .Request.Headers }} \
+	const curlTemplate = `curl -X {{ .Method }} "{{ .URL }}"{{ if .Request.Headers }} \
 {{- range $i, $header := .Request.Headers }}
-    -H "{{ $header.Key }}: {{ $header.Value }}"{{ if not (last $i $.Request.Headers) }} \{{ end }}
+	{{- if $header.Enable }}
+    -H "{{ $header.Key }}: {{ $header.Value }}" \
+	{{- end }}
 {{- end }}
 {{- end }}
 {{- if eq .Request.Body.Type "json" }}
@@ -129,29 +159,14 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
 {{- end }}
 `
 
-	// Parse and execute the template
-	tmpl, err := template.New("curlCommand").Funcs(template.FuncMap{
-		"last": last,
-	}).Parse(curlTemplate)
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return svc.generate(curlTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateAxiosCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	req := svc.applyVariables(requestSpec)
 	const axiosTemplate = `const axios = require('axios');
 axios({
     method: '{{ .Method }}',
-    url: '{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}',
+    url: '{{ .URL }}',
     {{- if .Request.Headers }}
     headers: {
         {{- range $i, $header := .Request.Headers }}
@@ -172,27 +187,11 @@ axios({
     console.error(error);
 });
 `
-	// Same helper function as before to detect the last element
-	tmpl, err := template.New("axiosCommand").Funcs(template.FuncMap{
-		"last": last,
-	}).Parse(axiosTemplate)
-
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return svc.generate(axiosTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	req := svc.applyVariables(requestSpec)
-	const fetchTemplate = `fetch('{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}', {
+	const fetchTemplate = `fetch('{{ .URL }}', {
     method: '{{ .Method }}',
     {{- if .Request.Headers }}
     headers: {
@@ -211,33 +210,17 @@ func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (s
 .then(data => console.log(data))
 .catch(error => console.error(error));
 `
-	// Parse and execute the template
-	tmpl, err := template.New("fetchCommand").Funcs(template.FuncMap{
-		"last": last,
-	}).Parse(fetchTemplate)
-
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return svc.generate(fetchTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateKotlinOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	req := svc.applyVariables(requestSpec)
 	const kotlinTemplate = `import okhttp3.*
 import java.io.IOException
 
 val client = OkHttpClient()
 
 val request = Request.Builder()
-    .url("{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}")
+    .url("{{ .URL }}")
     .method("{{ .Method }}", {{ if eq .Request.Body.Type "json" }}RequestBody.create(MediaType.parse("application/json"), "{{ .Request.Body.Data }}"){{ else }}null{{ end }})
     {{- range .Request.Headers }}
     .addHeader("{{ .Key }}", "{{ .Value }}")
@@ -254,23 +237,10 @@ client.newCall(request).enqueue(object : Callback {
     }
 })
 `
-	tmpl, err := template.New("kotlinCommand").Parse(kotlinTemplate)
-
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return svc.generate(kotlinTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateJavaOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	req := svc.applyVariables(requestSpec)
 	const javaTemplate = `import okhttp3.*;
 import java.io.IOException;
 
@@ -279,7 +249,7 @@ public class ApiRequest {
         OkHttpClient client = new OkHttpClient();
 
         Request request = new Request.Builder()
-            .url("{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}")
+            .url("{{ .URL }}")
             .method("{{ .Method }}", {{ if eq .Request.Body.Type "json" }}RequestBody.create(MediaType.parse("application/json"), "{{ .Request.Body.Data }}"){{ else }}null{{ end }})
             {{- range .Request.Headers }}
             .addHeader("{{ .Key }}", "{{ .Value }}")
@@ -300,27 +270,15 @@ public class ApiRequest {
     }
 }
 `
-	tmpl, err := template.New("javaCommand").Parse(javaTemplate)
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return svc.generate(javaTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateRubyNetHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	req := svc.applyVariables(requestSpec)
 	const rubyTemplate = `require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI.parse("{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}")
+uri = URI.parse("{{ .URL }}")
 http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = uri.scheme == "https"
 
@@ -340,26 +298,10 @@ puts "Response code: \#{response.code}"
 puts "Response body: \#{response.body}"
 `
 
-	// Parse and execute the template
-	tmpl, err := template.New("rubyCommand").Funcs(template.FuncMap{
-		"titleize": titleize,
-	}).Parse(rubyTemplate)
-
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return svc.generate(rubyTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateDotNetHttpClientCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	req := svc.applyVariables(requestSpec)
 	const dotNetTemplate = `using System;
 using System.Net.Http;
 using System.Text;
@@ -369,7 +311,7 @@ public class Program {
     private static readonly HttpClient client = new HttpClient();
 
     public static async Task Main(string[] args) {
-        var url = "{{ .URL }}{{ if .Request.QueryParams }}?{{ range $i, $p := .Request.QueryParams }}{{ if $i }}&{{ end }}{{ $p.Key }}={{ $p.Value }}{{ end }}{{ end }}";
+        var url = "{{ .URL }}";
         var request = new HttpRequestMessage(HttpMethod.{{ .Method | titleize }}, url);
         
         {{- range .Request.Headers }}
@@ -390,39 +332,5 @@ public class Program {
 }
 `
 
-	// Parse and execute the template
-	tmpl, err := template.New("dotNetCommand").Funcs(template.FuncMap{
-		"titleize": titleize,
-	}).Parse(dotNetTemplate)
-
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, req)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
-}
-
-func lower(s string) string {
-	return strings.ToLower(s)
-}
-
-func titleize(s string) string {
-	return cases.Title(language.English).String(strings.ToLower(s))
-}
-
-func last(i int, list interface{}) bool {
-	switch v := list.(type) {
-	case []domain.KeyValue:
-		return i == len(v)-1
-	case []domain.FormField:
-		return i == len(v)-1
-	default:
-		return false
-	}
+	return svc.generate(dotNetTemplate, requestSpec)
 }
