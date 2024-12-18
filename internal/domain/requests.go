@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -24,9 +25,9 @@ const (
 	RequestBodyTypeJSON       = "json"
 	RequestBodyTypeXML        = "xml"
 	RequestBodyTypeText       = "text"
-	RequestBodyTypeForm       = "form"
+	RequestBodyTypeFormData   = "formData"
 	RequestBodyTypeBinary     = "binary"
-	RequestBodyTypeUrlEncoded = "urlEncoded"
+	RequestBodyTypeUrlencoded = "urlencoded"
 
 	PrePostTypeNone           = "none"
 	PrePostTypeTriggerRequest = "triggerRequest"
@@ -36,6 +37,18 @@ const (
 	PrePostTypeSSHTunnel      = "sshTunnel"
 	PrePostTypeK8sTunnel      = "k8sTunnel"
 )
+
+var RequestMethods = []string{
+	RequestMethodGET,
+	RequestMethodPOST,
+	RequestMethodPUT,
+	RequestMethodDELETE,
+	RequestMethodPATCH,
+	RequestMethodHEAD,
+	RequestMethodOPTIONS,
+	RequestMethodCONNECT,
+	RequestMethodTRACE,
+}
 
 type Request struct {
 	ApiVersion string      `yaml:"apiVersion"`
@@ -59,14 +72,14 @@ type RequestSpec struct {
 	HTTP *HTTPRequestSpec `yaml:"http,omitempty"`
 }
 
-func (r RequestSpec) GetGRPC() *GRPCRequestSpec {
+func (r *RequestSpec) GetGRPC() *GRPCRequestSpec {
 	if r.GRPC != nil {
 		return r.GRPC
 	}
 	return nil
 }
 
-func (r RequestSpec) GetHTTP() *HTTPRequestSpec {
+func (r *RequestSpec) GetHTTP() *HTTPRequestSpec {
 	if r.HTTP != nil {
 		return r.HTTP
 	}
@@ -87,18 +100,36 @@ func (r *GRPCRequestSpec) GetPostRequest() PostRequest {
 	return PostRequest{}
 }
 
-func (r *HTTPRequestSpec) GetPreRequest() PreRequest {
-	if r != nil {
-		return r.Request.PreRequest
+func (h *HTTPRequestSpec) GetPreRequest() PreRequest {
+	if h != nil {
+		return h.Request.PreRequest
 	}
 	return PreRequest{}
 }
 
-func (r *HTTPRequestSpec) GetPostRequest() PostRequest {
-	if r != nil {
-		return r.Request.PostRequest
+func (h *HTTPRequestSpec) GetPostRequest() PostRequest {
+	if h != nil {
+		return h.Request.PostRequest
 	}
 	return PostRequest{}
+}
+
+func (h *HTTPRequestSpec) RenderParams() {
+	for _, p := range h.Request.PathParams {
+		if !p.Enable {
+			continue
+		}
+
+		h.URL = strings.ReplaceAll(h.URL, "{"+p.Key+"}", p.Value)
+	}
+
+	for _, p := range h.Request.QueryParams {
+		if !p.Enable {
+			continue
+		}
+
+		h.URL = strings.ReplaceAll(h.URL, "{"+p.Key+"}", p.Value)
+	}
 }
 
 type LastUsedEnvironment struct {

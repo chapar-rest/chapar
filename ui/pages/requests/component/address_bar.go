@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
+	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -36,11 +37,11 @@ func NewAddressBar(theme *chapartheme.Theme, address, method string) *AddressBar
 	a.url.Submit = true
 	a.url.SetText(address)
 
-	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
-	opts := make([]*widgets.DropDownOption, 0, len(methods))
-	for _, m := range methods {
+	opts := make([]*widgets.DropDownOption, 0, len(domain.RequestMethods))
+	for _, m := range domain.RequestMethods {
 		opts = append(opts, widgets.NewDropDownOption(m))
 	}
+
 	a.methodDropDown.SetOptions(opts...)
 	a.methodDropDown.SetSelectedByTitle(strings.ToUpper(method))
 	a.methodDropDown.MaxWidth = unit.Dp(90)
