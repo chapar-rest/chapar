@@ -55,7 +55,7 @@ func (svc *Service) generate(codeTmpl string, requestSpec *domain.HTTPRequestSpe
 				return false
 			}
 		},
-		"lower": func(s string) string { return strings.ToLower(s) },
+		"lower": strings.ToLower,
 		"titleize": func(s string) string {
 			return cases.Title(language.English).String(strings.ToLower(s))
 		},
@@ -160,6 +160,68 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
 `
 
 	return svc.generate(curlTemplate, requestSpec)
+}
+
+func (svc *Service) GenerateGoRequest(requestSpec *domain.HTTPRequestSpec) (string, error) {
+	const goTemplate = `package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	  url := "{{ .URL }}"
+
+      {{- if eq .Request.Body.Type "json" }}
+	  payload := strings.NewReader(` + "`{{ .Request.Body.Data }}`" + `)
+	  {{- else if eq .Request.Body.Type "text" }}
+	  payload := strings.NewReader("{{ .Request.Body.Data }}")
+	  {{- else if eq .Request.Body.Type "formData" }}
+	  payload := &bytes.Buffer{}
+	  writer := multipart.NewWriter(payload)
+	  {{- range $i, $field := .Request.Body.FormData }}
+	  	{{- if $field.Enable }}
+	  _ = writer.WriteField("{{ $field.Key }}", "{{ $field.Value }}")
+	  	{{- end }}
+	  {{- end }}
+	  err := writer.Close()
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return
+	  }
+	  {{- end }}
+	  client := &http.Client{}
+
+	  req, err := http.NewRequest("{{ .Method }}", url, payload)
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return
+      }
+{{- range $i, $header := .Request.Headers }}
+	{{- if $header.Enable }}
+	  req.Header.Add("{{ $header.Key }}", "{{ $header.Value }}")
+	{{- end }}
+{{- end }}
+
+	  res, err := client.Do(req)
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return
+      }
+	  defer res.Body.Close()
+		
+	  body, err := io.ReadAll(res.Body)
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return
+	  }
+	  fmt.Println(string(body))
+}`
+
+	return svc.generate(goTemplate, requestSpec)
 }
 
 func (svc *Service) GenerateAxiosCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {

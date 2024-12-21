@@ -1,7 +1,6 @@
 package component
 
 import (
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -45,7 +44,7 @@ func NewCodeModal(theme *chapartheme.Theme) *CodeModal {
 			widgets.NewDropDownOption("Golang").WithValue("golang"),
 			widgets.NewDropDownOption("Axios").WithValue("axios"),
 			widgets.NewDropDownOption("Node Fetch").WithValue("node-fetch"),
-			widgets.NewDropDownOption("Java OkHTTP").WithValue("jave-okhttp"),
+			widgets.NewDropDownOption("Java OkHTTP").WithValue("java-okhttp"),
 			widgets.NewDropDownOption("Ruby Net").WithValue("ruby-net"),
 			widgets.NewDropDownOption(".Net").WithValue("dot-net"),
 		),
@@ -71,7 +70,7 @@ func (c *CodeModal) onLangSelected(lang string) {
 		code, _ = codegen.DefaultService.GeneratePythonRequest(c.req.Spec.HTTP)
 	case "golang":
 		c.lang = widgets.CodeLanguageGolang
-		// code, _ = coder.DefaultService.Gene(c.req.Spec.HTTP)
+		code, _ = codegen.DefaultService.GenerateGoRequest(c.req.Spec.HTTP)
 	case "axios":
 		c.lang = widgets.CodeLanguageJavaScript
 		code, _ = codegen.DefaultService.GenerateAxiosCommand(c.req.Spec.HTTP)
@@ -115,8 +114,6 @@ func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		go func() {
 			time.Sleep(900 * time.Millisecond)
 			c.copyButtonText = "Copy"
-
-			fmt.Println("resetting copy button text")
 			// Trigger a re-render
 			gtx.Execute(op.InvalidateCmd{})
 		}()
@@ -182,8 +179,6 @@ func (c *CodeModal) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 	if c.code == "" {
 		c.onLangSelected("curl")
 	}
-
-	gtx.Constraints.Max.Y = gtx.Constraints.Max.Y + 10000
 
 	ops := op.Record(gtx.Ops)
 	dims := c.layout(gtx, theme)

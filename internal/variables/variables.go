@@ -46,14 +46,6 @@ func ApplyToEnv(variables map[string]string, env *domain.EnvSpec) {
 			}
 		}
 	}
-
-	// add env variables to variables
-	//for _, kv := range env.Values {
-	//	if !kv.Enable {
-	//		continue
-	//	}
-	//	variables[kv.Key] = kv.Value
-	//}
 }
 
 // ApplyToGRPCRequest apply variables to the request
