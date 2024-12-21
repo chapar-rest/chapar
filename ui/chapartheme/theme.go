@@ -5,6 +5,8 @@ import (
 
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 var (
@@ -143,19 +145,19 @@ func GetRequestPrefixColor(method string) color.NRGBA {
 	switch method {
 	case "gRPC":
 		return LightGreen
-	case "GET":
+	case domain.RequestMethodGET:
 		return LightGreen
-	case "POST":
+	case domain.RequestMethodPOST:
 		return LightYellow
-	case "PUT":
+	case domain.RequestMethodPUT:
 		return LightBlue
-	case "DELETE":
+	case domain.RequestMethodDELETE:
 		return LightRed
-	case "PATCH":
+	case domain.RequestMethodPATCH:
 		return LightPurple
-	case "OPTIONS":
+	case domain.RequestMethodOPTIONS:
 		return color.NRGBA{R: 0x00, G: 0x80, B: 0x80, A: 0xff}
-	case "HEAD":
+	case domain.RequestMethodHEAD:
 		return color.NRGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff}
 	default:
 		return color.NRGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff}

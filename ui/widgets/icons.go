@@ -160,3 +160,8 @@ var CleanIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.EditorFormatColorText)
 	return icon
 }()
+
+var CodeIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionCode)
+	return icon
+}()

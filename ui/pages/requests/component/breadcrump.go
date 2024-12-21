@@ -76,14 +76,5 @@ func (b *Breadcrumb) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		return b.Title.Layout(gtx, theme)
 	}))
 
-	if b.dataChanged && b.onSave != nil {
-		items = append(items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if b.SaveButton.Clicked(gtx) {
-				b.onSave(b.ID)
-			}
-			return widgets.SaveButtonLayout(gtx, theme, &b.SaveButton)
-		}))
-	}
-
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceEnd, Alignment: layout.Middle}.Layout(gtx, items...)
 }

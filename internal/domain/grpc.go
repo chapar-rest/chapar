@@ -64,13 +64,13 @@ type GRPCResponseDetail struct {
 	Status     string
 }
 
-func (g *GRPCRequestSpec) Clone() *GRPCRequestSpec {
-	clone := *g
+func (r *GRPCRequestSpec) Clone() *GRPCRequestSpec {
+	clone := *r
 	return &clone
 }
 
-func (g *GRPCRequestSpec) HasMethod(method string) bool {
-	for _, srv := range g.Services {
+func (r *GRPCRequestSpec) HasMethod(method string) bool {
+	for _, srv := range r.Services {
 		for _, m := range srv.Methods {
 			if m.FullName == method {
 				return true

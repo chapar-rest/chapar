@@ -26,6 +26,12 @@ const (
 	CodeLanguageYAML       = "YAML"
 	CodeLanguageXML        = "XML"
 	CodeLanguagePython     = "Python"
+	CodeLanguageGolang     = "Golang"
+	CodeLanguageJava       = "Java"
+	CodeLanguageJavaScript = "JavaScript"
+	CodeLanguageRuby       = "Ruby"
+	CodeLanguageShell      = "Shell"
+	CodeLanguageDotNet     = "Shell"
 	CodeLanguageProperties = "properties"
 )
 
