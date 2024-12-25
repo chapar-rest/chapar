@@ -71,9 +71,7 @@ func (svc *Service) generate(codeTmpl string, requestSpec *domain.HTTPRequestSpe
 	out := buf.String()
 
 	// trim the last backslash
-	if strings.HasSuffix(out, "\\") {
-		out = out[:len(out)-1]
-	}
+	out = strings.TrimSuffix(out, "\\")
 
 	return out, nil
 }
