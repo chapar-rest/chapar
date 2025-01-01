@@ -151,11 +151,20 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
 {{- else if eq .Request.Body.Type "text" }}
     --data '{{ .Request.Body.Data }}'
 {{- else if eq .Request.Body.Type "formData" }}
-{{- range $i, $field := .Request.Body.FormData }}
-	{{- if $field.Enable }}
-    -F "{{ $field.Key }}={{ $field.Value }}"{{ if not (last $i $.Request.Body.FormData) }} \{{ end }}
+	{{- range $i, $field := .Request.Body.FormData }}
+		{{- if $field.Enable }}
+    		{{ if eq $field.Type "file" }}
+	-F "{{ $field.Key }}=@{{ $field.Value }}"{{ else }}-F "{{ $field.Key }}={{ $field.Value }}"{{ end }} {{ if not (last $i $.Request.Body.FormData) }} \{{ end }}
+		{{- end }}
+	{{ end }}
+{{- else if eq .Request.Body.Type "binary" }}
+	--data-binary "@{{ .Request.Body.BinaryFilePath }}"
+{{- else if eq .Request.Body.Type "urlEncoded" }}
+	{{- range $i, $field := .Request.Body.URLEncoded }}
+		{{- if $field.Enable }}
+	-d "{{ $field.Key }}={{ $field.Value }}"{{ if not (last $i $.Request.Body.URLEncoded) }} \{{ end }}
+    	{{- end }}
 	{{- end }}
-{{- end }}
 {{- end }}
 `
 
@@ -184,7 +193,28 @@ func main() {
 	  writer := multipart.NewWriter(payload)
 	  {{- range $i, $field := .Request.Body.FormData }}
 	  	{{- if $field.Enable }}
+			{{ if eq $field.Type "file" }}
+
+	  file, err := os.Open("{{ $field.Value }}")
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return	
+	  }
+
+	  part, err := writer.CreateFormFile("{{ $field.Key }}", filepath.Base("{{ $field.Value }}"))
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return	
+	  }
+	  _, err = io.Copy(part, file)
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return
+	  }
+	  file.Close()
+			{{ else }}
 	  _ = writer.WriteField("{{ $field.Key }}", "{{ $field.Value }}")
+	  		{{- end }}
 	  	{{- end }}
 	  {{- end }}
 	  err := writer.Close()
