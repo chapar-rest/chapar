@@ -152,7 +152,9 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
     --data '{{ .Request.Body.Data }}'
 {{- else if eq .Request.Body.Type "formData" }}
 {{- range $i, $field := .Request.Body.FormData }}
+	{{- if $field.Enable }}
     -F "{{ $field.Key }}={{ $field.Value }}"{{ if not (last $i $.Request.Body.FormData) }} \{{ end }}
+	{{- end }}
 {{- end }}
 {{- end }}
 `
@@ -230,7 +232,9 @@ axios({
     {{- if .Request.Headers }}
     headers: {
         {{- range $i, $header := .Request.Headers }}
+		{{- if $header.Enable }}
         "{{ $header.Key }}": "{{ $header.Value }}"{{ if not (last $i $.Request.Headers) }},{{ end }}
+		{{- end }}
         {{- end }}
     },
     {{- end }}
@@ -256,7 +260,9 @@ func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (s
     {{- if .Request.Headers }}
     headers: {
         {{- range $i, $header := .Request.Headers }}
+		{{- if $header.Enable }}
         "{{ $header.Key }}": "{{ $header.Value }}"{{ if not (last $i $.Request.Headers) }},{{ end }}
+		{{- end }}
         {{- end }}
     },
     {{- end }}
@@ -282,8 +288,10 @@ val client = OkHttpClient()
 val request = Request.Builder()
     .url("{{ .URL }}")
     .method("{{ .Method }}", {{ if eq .Request.Body.Type "json" }}RequestBody.create(MediaType.parse("application/json"), "{{ .Request.Body.Data }}"){{ else }}null{{ end }})
-    {{- range .Request.Headers }}
+    {{- range $i, $header := .Request.Headers }}
+	{{- if $header.Enable }}
     .addHeader("{{ .Key }}", "{{ .Value }}")
+    {{- end }}
     {{- end }}
     .build()
 
@@ -311,8 +319,10 @@ public class ApiRequest {
         Request request = new Request.Builder()
             .url("{{ .URL }}")
             .method("{{ .Method }}", {{ if eq .Request.Body.Type "json" }}RequestBody.create(MediaType.parse("application/json"), "{{ .Request.Body.Data }}"){{ else }}null{{ end }})
-            {{- range .Request.Headers }}
+			{{- range $i, $header := .Request.Headers }}
+			{{- if $header.Enable }}
             .addHeader("{{ .Key }}", "{{ .Value }}")
+            {{- end }}
             {{- end }}
             .build();
 
@@ -343,8 +353,10 @@ http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = uri.scheme == "https"
 
 request = Net::HTTP::{{ .Method | titleize }}.new(uri.request_uri)
-{{- range .Request.Headers }}
+{{- range $i, $header := .Request.Headers }}
+{{- if $header.Enable }}
 request["{{ .Key }}"] = "{{ .Value }}"
+{{- end }}
 {{- end }}
 
 {{- if eq .Request.Body.Type "json" }}
@@ -374,8 +386,10 @@ public class Program {
         var url = "{{ .URL }}";
         var request = new HttpRequestMessage(HttpMethod.{{ .Method | titleize }}, url);
         
-        {{- range .Request.Headers }}
+        {{- range $i, $header := .Request.Headers }}
+		{{- if $header.Enable }}
         request.Headers.Add("{{ .Key }}", "{{ .Value }}");
+        {{- end }}
         {{- end }}
         
         {{- if eq .Request.Body.Type "json" }}
