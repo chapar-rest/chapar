@@ -101,9 +101,17 @@ json_data = json.dumps({{ .Request.Body.Data }})
 data = '''{{ .Request.Body.Data }}'''
 {{- else if eq .Request.Body.Type "formData" }}
 files = {
-{{- range $i, $formData := .Request.Body.FormData }}
+{{- range $i, $formData := .Request.Body.FormData.Fields }}
 	{{- if $formData.Enable }}
-    "{{ .Key }}": "{{ .Value }}"{{ if not (last $i $.Request.Body.FormData) }},{{ end }}
+	{{- if eq $formData.Type "file" }}
+		{{ if eq (len $formData.Files) 1 }}
+	"{{ $formData.Key }}": open("{{ index $formData.Files 0 }}", "rb"){{ if not (last $i $.Request.Body.FormData.Fields) }},{{ end }}
+		{{- else }}
+	"{{ $formData.Key }}": [open(file, "rb") for file in [{{- range $j, $file := $formData.Files }}"{{ $file }}"{{ if not (last $j $formData.Files) }},{{ end }}{{- end }}]]{{ if not (last $i $.Request.Body.FormData.Fields) }},{{ end }}
+		{{- end }}
+	{{- else }}
+	"{{ $formData.Key }}": "{{ $formData.Value }}"{{ if not (last $i $.Request.Body.FormData.Fields) }},{{ end }}
+	{{- end }}
 	{{- end }}
 {{- end }}
 }
@@ -291,7 +299,8 @@ func main() {
 }
 
 func (svc *Service) GenerateAxiosCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	const axiosTemplate = `const axios = require('axios');
+	const axiosTemplate = `// This template is not completed yet, please use it as inspiration. 
+const axios = require('axios');
 axios({
     method: '{{ .Method }}',
     url: '{{ .URL }}',
@@ -310,6 +319,21 @@ axios({
     data: "{{ .Request.Body.Data }}",
     {{- else if eq .Request.Body.Type "formData" }}
     data: new FormData(),
+	{{- range $i, $field := .Request.Body.FormData.Fields }}
+		{{- if $field.Enable }}
+			{{- if eq $field.Type "file" }}
+				{{- if eq (len $field.Files) 1 }}
+	data.append("{{ $field.Key }}", new Blob([new Uint8Array(Buffer.from(fs.readFileSync("{{ index $field.Files 0 }}")))], { type: 'application/octet-stream' }))
+				{{- else }}
+					{{- range $j, $file := $field.Files }}
+	data.append("{{ $field.Key }}", new Blob([new Uint8Array(Buffer.from(fs.readFileSync("{{ $file }}")))], { type: 'application/octet-stream' }){{ if not (last $j $field.Files) }},{{ end }}
+					{{- end }}
+				{{- end }}
+			{{- else }}
+	data.append("{{ $field.Key }}", "{{ $field.Value }}")
+			{{- end }}
+        {{- end }}
+    {{- end }}
     {{- end }}
 }).then(response => {
     console.log(response.data);
@@ -321,7 +345,8 @@ axios({
 }
 
 func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	const fetchTemplate = `fetch('{{ .URL }}', {
+	const fetchTemplate = `// This template is not completed yet, please use it as inspiration. 
+fetch('{{ .URL }}', {
     method: '{{ .Method }}',
     {{- if .Request.Headers }}
     headers: {
@@ -346,7 +371,8 @@ func (svc *Service) GenerateFetchCommand(requestSpec *domain.HTTPRequestSpec) (s
 }
 
 func (svc *Service) GenerateKotlinOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	const kotlinTemplate = `import okhttp3.*
+	const kotlinTemplate = `// This template is not completed yet, please use it as inspiration. 
+import okhttp3.*
 import java.io.IOException
 
 val client = OkHttpClient()
@@ -375,7 +401,8 @@ client.newCall(request).enqueue(object : Callback {
 }
 
 func (svc *Service) GenerateJavaOkHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	const javaTemplate = `import okhttp3.*;
+	const javaTemplate = `// This template is not completed yet, please use it as inspiration. 
+import okhttp3.*;
 import java.io.IOException;
 
 public class ApiRequest {
@@ -410,7 +437,8 @@ public class ApiRequest {
 }
 
 func (svc *Service) GenerateRubyNetHttpCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	const rubyTemplate = `require 'net/http'
+	const rubyTemplate = `# This template is not completed yet, please use it as inspiration. 
+require 'net/http'
 require 'uri'
 require 'json'
 
@@ -440,7 +468,8 @@ puts "Response body: \#{response.body}"
 }
 
 func (svc *Service) GenerateDotNetHttpClientCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	const dotNetTemplate = `using System;
+	const dotNetTemplate = `// This template is not completed yet, please use it as inspiration. 
+using System;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
