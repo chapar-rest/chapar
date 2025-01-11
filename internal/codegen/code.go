@@ -71,7 +71,9 @@ func (svc *Service) generate(codeTmpl string, requestSpec *domain.HTTPRequestSpe
 	out := buf.String()
 
 	// trim the last backslash
+	out = strings.TrimSpace(out)
 	out = strings.TrimSuffix(out, "\\")
+	out = out + "\n"
 
 	return out, nil
 }
@@ -151,12 +153,21 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
 {{- else if eq .Request.Body.Type "text" }}
     --data '{{ .Request.Body.Data }}'
 {{- else if eq .Request.Body.Type "formData" }}
-	{{- range $i, $field := .Request.Body.FormData }}
+	{{- range $i, $field := .Request.Body.FormData.Fields }}
 		{{- if $field.Enable }}
-    		{{ if eq $field.Type "file" }}
-	-F "{{ $field.Key }}=@{{ $field.Value }}"{{ else }}-F "{{ $field.Key }}={{ $field.Value }}"{{ end }} {{ if not (last $i $.Request.Body.FormData) }} \{{ end }}
+    		{{- if eq $field.Type "file" }}
+				{{- if eq (len $field.Files) 1 }}
+	-F "{{ $field.Key }}=@{{ index $field.Files 0 }}"
+				{{- else }}
+				{{- range $j, $file := $field.Files }}	
+	-F "{{ $field.Key }}[]=@{{ $file }}"{{ if not (last $j $field.Files) }} \{{ end }}
+				{{- end }}
+				{{- end }}
+			{{- else }}
+	-F "{{ $field.Key }}={{ $field.Value }}" {{- if not (last $i $.Request.Body.FormData.Fields) }} \{{- end }}
+			{{- end }} 
 		{{- end }}
-	{{ end }}
+    {{- end }}
 {{- else if eq .Request.Body.Type "binary" }}
 	--data-binary "@{{ .Request.Body.BinaryFilePath }}"
 {{- else if eq .Request.Body.Type "urlEncoded" }}
@@ -175,10 +186,13 @@ func (svc *Service) GenerateGoRequest(requestSpec *domain.HTTPRequestSpec) (stri
 	const goTemplate = `package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
-	"strings"
+	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -191,34 +205,56 @@ func main() {
 	  {{- else if eq .Request.Body.Type "formData" }}
 	  payload := &bytes.Buffer{}
 	  writer := multipart.NewWriter(payload)
-	  {{- range $i, $field := .Request.Body.FormData }}
+	  {{- range $i, $field := .Request.Body.FormData.Fields }}
 	  	{{- if $field.Enable }}
 			{{ if eq $field.Type "file" }}
 
-	  file, err := os.Open("{{ $field.Value }}")
-	  if err != nil {
-	  	  fmt.Println(err)
-	  	  return	
-	  }
+	  			{{- if eq (len $field.Files) 1 }}
 
-	  part, err := writer.CreateFormFile("{{ $field.Key }}", filepath.Base("{{ $field.Value }}"))
-	  if err != nil {
-	  	  fmt.Println(err)
-	  	  return	
-	  }
-	  _, err = io.Copy(part, file)
+	  file, err := os.Open("{{ index $field.Files 0 }}")
 	  if err != nil {
 	  	  fmt.Println(err)
 	  	  return
 	  }
-	  file.Close()
+	  defer file.Close()
+
+	  part, err := writer.CreateFormFile("{{ $field.Key }}", filepath.Base("{{ index $field.Files 0 }}"))
+	  if err != nil {
+	  	  fmt.Println(err)
+	  	  return	
+	  }
+
+	  if _, err := io.Copy(part, file); err != nil {
+	  	  fmt.Println(err)
+	  	  return
+	  }
+				{{- else }}
+	  for _, filePath := range []string{ {{- range $j, $file := $field.Files }}"{{ $file }}"{{ if not (last $j $field.Files) }},{{ end }}{{- end }} } {
+		  file, err := os.Open(filePath)
+		  if err != nil {
+			  fmt.Println(err)
+			  return
+		  }
+		  defer file.Close()
+
+		  part, err := writer.CreateFormFile("{{ $field.Key }}", filepath.Base(filePath))
+		  if err != nil {
+			  fmt.Println(err)
+			  return
+		 }
+
+		 if _, err := io.Copy(part, file); err != nil {
+		   fmt.Println(err)
+		   return
+		 }
+	  }
+				{{- end }}
 			{{ else }}
 	  _ = writer.WriteField("{{ $field.Key }}", "{{ $field.Value }}")
 	  		{{- end }}
 	  	{{- end }}
 	  {{- end }}
-	  err := writer.Close()
-	  if err != nil {
+	  if err := writer.Close(); err != nil {
 	  	  fmt.Println(err)
 	  	  return
 	  }

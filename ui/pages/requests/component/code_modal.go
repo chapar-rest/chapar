@@ -61,28 +61,33 @@ func NewCodeModal(theme *chapartheme.Theme) *CodeModal {
 
 func (c *CodeModal) onLangSelected(lang string) {
 	var code string
+	var err error
 	switch lang {
 	case "curl":
 		c.lang = widgets.CodeLanguageShell
-		code, _ = codegen.DefaultService.GenerateCurlCommand(c.req.Spec.HTTP)
+		code, err = codegen.DefaultService.GenerateCurlCommand(c.req.Spec.HTTP)
 	case "python":
 		c.lang = widgets.CodeLanguagePython
-		code, _ = codegen.DefaultService.GeneratePythonRequest(c.req.Spec.HTTP)
+		code, err = codegen.DefaultService.GeneratePythonRequest(c.req.Spec.HTTP)
 	case "golang":
 		c.lang = widgets.CodeLanguageGolang
-		code, _ = codegen.DefaultService.GenerateGoRequest(c.req.Spec.HTTP)
+		code, err = codegen.DefaultService.GenerateGoRequest(c.req.Spec.HTTP)
 	case "axios":
 		c.lang = widgets.CodeLanguageJavaScript
-		code, _ = codegen.DefaultService.GenerateAxiosCommand(c.req.Spec.HTTP)
+		code, err = codegen.DefaultService.GenerateAxiosCommand(c.req.Spec.HTTP)
 	case "node-fetch":
 		c.lang = widgets.CodeLanguageJavaScript
-		code, _ = codegen.DefaultService.GenerateFetchCommand(c.req.Spec.HTTP)
+		code, err = codegen.DefaultService.GenerateFetchCommand(c.req.Spec.HTTP)
 	case "java-okhttp":
 		c.lang = widgets.CodeLanguageJava
-		code, _ = codegen.DefaultService.GenerateJavaOkHttpCommand(c.req.Spec.HTTP)
+		code, err = codegen.DefaultService.GenerateJavaOkHttpCommand(c.req.Spec.HTTP)
 	case "ruby-net":
 		c.lang = widgets.CodeLanguageRuby
-		code, _ = codegen.DefaultService.GenerateRubyNetHttpCommand(c.req.Spec.HTTP)
+		code, err = codegen.DefaultService.GenerateRubyNetHttpCommand(c.req.Spec.HTTP)
+	}
+
+	if err != nil {
+		code = err.Error()
 	}
 
 	c.code = code
