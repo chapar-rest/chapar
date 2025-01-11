@@ -20,6 +20,7 @@ type Grpc struct {
 
 	Breadcrumb *component.Breadcrumb
 	AddressBar *AddressBar
+	Actions    *component.Actions
 
 	Request  *Request
 	Response *Response
@@ -36,6 +37,7 @@ func (r *Grpc) SetOnTitleChanged(f func(title string)) {
 }
 
 func (r *Grpc) SetDataChanged(changed bool) {
+	r.Actions.IsDataChanged = changed
 	r.Breadcrumb.SetDataChanged(changed)
 }
 
@@ -51,6 +53,7 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 			BarWidth: unit.Dp(2),
 		},
 		AddressBar: NewAddressBar(theme, req.Spec.GRPC.ServerInfo.Address, req.Spec.GRPC.LasSelectedMethod, req.Spec.GRPC.Services),
+		Actions:    component.NewActions(false),
 		Request:    NewRequest(req, theme, explorer),
 		Response:   NewResponse(theme),
 	}
@@ -75,9 +78,9 @@ func (r *Grpc) setupHooks() {
 		r.onInvoke(r.Req.MetaData.ID)
 	})
 
-	r.Breadcrumb.SetOnSave(func(id string) {
-		r.onSave(id)
-	})
+	//r.Breadcrumb.SetOnSave(func(id string) {
+	//	r.onSave(id)
+	//})
 
 	r.Request.Body.SetOnChanged(func(data string) {
 		r.Req.Spec.GRPC.Body = data
@@ -308,15 +311,27 @@ func (r *Grpc) SetMethodsLoading(loading bool) {
 }
 
 func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if r.Actions.IsDataChanged && r.Actions.SaveButton.Clicked(gtx) && r.onSave != nil {
+		r.onSave(r.Req.MetaData.ID)
+		r.Actions.IsDataChanged = false
+	}
+
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.Prompt.Layout(gtx, theme)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.Breadcrumb.Layout(gtx, theme)
-				})
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return r.Breadcrumb.Layout(gtx, theme)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return r.Actions.Layout(gtx, theme)
+					}),
+				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.AddressBar.Layout(gtx, theme)

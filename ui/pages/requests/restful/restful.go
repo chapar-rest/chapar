@@ -43,7 +43,7 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 		Prompt:     widgets.NewPrompt("", "", ""),
 		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
 		AddressBar: component.NewAddressBar(theme, req.Spec.HTTP.URL, req.Spec.HTTP.Method),
-		Actions:    component.NewActions(),
+		Actions:    component.NewActions(true),
 		split: widgets.SplitView{
 			Resize: giox.Resize{
 				Ratio: 0.5,
