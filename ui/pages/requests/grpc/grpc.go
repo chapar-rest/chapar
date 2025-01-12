@@ -77,10 +77,6 @@ func (r *Grpc) setupHooks() {
 		r.onInvoke(r.Req.MetaData.ID)
 	})
 
-	//r.Breadcrumb.SetOnSave(func(id string) {
-	//	r.onSave(id)
-	//})
-
 	r.Request.Body.SetOnChanged(func(data string) {
 		r.Req.Spec.GRPC.Body = data
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)

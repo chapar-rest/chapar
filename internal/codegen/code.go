@@ -73,7 +73,7 @@ func (svc *Service) generate(codeTmpl string, requestSpec *domain.HTTPRequestSpe
 	// trim the last backslash
 	out = strings.TrimSpace(out)
 	out = strings.TrimSuffix(out, "\\")
-	out = out + "\n"
+	out += "\n"
 
 	return out, nil
 }
