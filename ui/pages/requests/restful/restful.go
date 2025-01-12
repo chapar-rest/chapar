@@ -121,7 +121,6 @@ func (r *Restful) SetBinaryBodyFilePath(filePath string) {
 
 func (r *Restful) SetDataChanged(changed bool) {
 	r.Actions.IsDataChanged = changed
-	r.Breadcrumb.SetDataChanged(changed)
 }
 
 func (r *Restful) SetOnTitleChanged(f func(title string)) {
@@ -179,10 +178,6 @@ func (r *Restful) HidePrompt() {
 }
 
 func (r *Restful) setupHooks() {
-	r.Breadcrumb.SetOnSave(func(id string) {
-		r.onSave(id)
-	})
-
 	r.AddressBar.SetOnMethodChanged(func(method string) {
 		r.Req.Spec.HTTP.Method = method
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
@@ -305,5 +300,4 @@ func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}),
 		)
 	})
-
 }

@@ -38,7 +38,6 @@ func (r *Grpc) SetOnTitleChanged(f func(title string)) {
 
 func (r *Grpc) SetDataChanged(changed bool) {
 	r.Actions.IsDataChanged = changed
-	r.Breadcrumb.SetDataChanged(changed)
 }
 
 func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Grpc {
@@ -266,7 +265,6 @@ func (r *Grpc) SetPostRequestSetPreview(preview string) {
 
 func (r *Grpc) SetOnSave(f func(id string)) {
 	r.onSave = f
-	r.Breadcrumb.SetOnSave(f)
 }
 
 func (r *Grpc) HidePrompt() {
