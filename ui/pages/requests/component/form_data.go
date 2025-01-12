@@ -234,7 +234,9 @@ func (f *FormData) fieldLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(100))
-				return material.Editor(theme.Material(), item.keyEditor, "Key").Layout(gtx)
+				editor := material.Editor(theme.Material(), item.keyEditor, "Key")
+				editor.SelectionColor = theme.TextSelectionColor
+				return editor.Layout(gtx)
 			})
 		}),
 		widgets.DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),
@@ -244,7 +246,9 @@ func (f *FormData) fieldLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 	if itemType == string(FormDataFieldTypeText) {
 		items = append(items, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme.Material(), item.valueEditor, "Value").Layout(gtx)
+				editor := material.Editor(theme.Material(), item.valueEditor, "Value")
+				editor.SelectionColor = theme.TextSelectionColor
+				return editor.Layout(gtx)
 			})
 		}))
 	}
