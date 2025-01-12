@@ -7,6 +7,7 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 MAKEFLAGS += --no-print-directory
 BIN ?= $(abspath .tmp/bin)
+CACHE := $(abspath .tmp/cache)
 COPYRIGHT_YEARS := 2020-2024
 LICENSE_IGNORE := -e /testdata/
 # Set to use a different compiler. For example, `GO=go1.18rc1 make test`.
@@ -20,7 +21,7 @@ PROTOC_VERSION := $(shell cat ./.protoc_version)
 # For release candidates, the download artifact has a dash between "rc" and the number even
 # though the version tag does not :(
 PROTOC_ARTIFACT_VERSION := $(shell echo $(PROTOC_VERSION) | sed -E 's/-rc([0-9]+)$$/-rc-\1/g')
-PROTOC_DIR ?= $(abspath ./internal/testdata/protoc/$(PROTOC_VERSION))
+PROTOC_DIR := $(abspath $(CACHE)/protoc/$(PROTOC_VERSION))
 PROTOC := $(PROTOC_DIR)/bin/protoc
 
 LOWER_UNAME_OS := $(shell echo $(UNAME_OS) | tr A-Z a-z)
@@ -54,6 +55,8 @@ clean: ## Delete intermediate build artifacts
 .PHONY: test
 test: build ## Run unit tests
 	$(GO) test -race -cover ./...
+	$(GO) test -tags protolegacy ./...
+	$(GO) test -tags purego ./...
 	cd internal/benchmarks && SKIP_DOWNLOAD_GOOGLEAPIS=true $(GO) test -race -cover ./...
 
 .PHONY: benchmarks
@@ -80,7 +83,7 @@ lintfix: $(BIN)/golangci-lint ## Automatically fix some lint errors
 	cd internal/benchmarks && $(BIN)/golangci-lint run --fix
 
 .PHONY: generate
-generate: $(BIN)/license-header $(BIN)/goyacc test-descriptors ## Regenerate code and licenses
+generate: $(BIN)/license-header $(BIN)/goyacc test-descriptors ext-features-descriptors ## Regenerate code and licenses
 	PATH="$(BIN)$(PATH_SEP)$(PATH)" $(GO) generate ./...
 	@# We want to operate on a list of modified and new files, excluding
 	@# deleted and ignored files. git-ls-files can't do this alone. comm -23 takes
@@ -120,17 +123,24 @@ $(BIN)/goyacc: internal/tools/go.mod internal/tools/go.sum
 	cd $(TOOLS_MOD_DIR) && \
 		GOWORK=off $(GO) build -o $@ golang.org/x/tools/cmd/goyacc
 
-internal/testdata/protoc/cache/protoc-$(PROTOC_VERSION).zip:
+$(CACHE)/protoc-$(PROTOC_VERSION).zip:
 	@mkdir -p $(@D)
 	curl -o $@ -fsSL https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOC_VERSION)/protoc-$(PROTOC_ARTIFACT_VERSION)-$(PROTOC_ARTIFACT_SUFFIX).zip
 
 .PHONY: protoc
 protoc: $(PROTOC)
 
-$(PROTOC): internal/testdata/protoc/cache/protoc-$(PROTOC_VERSION).zip
+$(PROTOC): $(CACHE)/protoc-$(PROTOC_VERSION).zip
 	@mkdir -p $(@D)
 	unzip -o -q $< -d $(PROTOC_DIR) && \
 	touch $@
+
+.PHONY: wellknownimports
+wellknownimports: $(PROTOC) $(sort $(wildcard $(PROTOC_DIR)/include/google/protobuf/*.proto)) $(sort $(wildcard $(PROTOC_DIR)/include/google/protobuf/*/*.proto))
+	@rm -rf wellknownimports/google 2>/dev/null && true
+	@mkdir -p wellknownimports/google/protobuf/compiler
+	cp -R $(PROTOC_DIR)/include/google/protobuf/*.proto wellknownimports/google/protobuf
+	cp -R $(PROTOC_DIR)/include/google/protobuf/compiler/*.proto wellknownimports/google/protobuf/compiler
 
 internal/testdata/all.protoset: $(PROTOC) $(sort $(wildcard internal/testdata/*.proto))
 	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) --include_imports -I. $(filter-out protoc,$(^F))
@@ -147,11 +157,11 @@ internal/testdata/desc_test_proto3_optional.protoset: $(PROTOC) internal/testdat
 internal/testdata/descriptor_impl_tests.protoset: $(PROTOC) internal/testdata/desc_test2.proto internal/testdata/desc_test_complex.proto internal/testdata/desc_test_defaults.proto internal/testdata/desc_test_proto3.proto internal/testdata/desc_test_proto3_optional.proto
 	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) --include_imports -I. $(filter-out protoc,$(^F))
 
-internal/testdata/descriptor_editions_impl_tests.protoset: $(PROTOC) internal/testdata/editions/all_default_features.proto internal/testdata/editions/features_with_overrides.proto
-	cd $(@D)/editions && $(PROTOC) --experimental_editions --descriptor_set_out=../$(@F) --include_imports -I. $(filter-out protoc,$(^F))
+internal/testdata/descriptor_editions_impl_tests.protoset: $(PROTOC) internal/testdata/editions/all_default_features.proto internal/testdata/editions/features_with_overrides.proto internal/testdata/editions/file_default_delimited.proto
+	cd $(@D)/editions && $(PROTOC) --descriptor_set_out=../$(@F) --include_imports -I. $(filter-out protoc,$(^F))
 
 internal/testdata/editions/all.protoset: $(PROTOC) $(sort $(wildcard internal/testdata/editions/*.proto))
-	cd $(@D) && $(PROTOC) --experimental_editions --descriptor_set_out=$(@F) --include_imports -I. $(filter-out protoc,$(^F))
+	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) --include_imports -I. $(filter-out protoc,$(^F))
 
 internal/testdata/source_info.protoset: $(PROTOC) internal/testdata/desc_test_options.proto internal/testdata/desc_test_comments.proto internal/testdata/desc_test_complex.proto
 	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) --include_source_info -I. $(filter-out protoc,$(^F))
@@ -166,7 +176,7 @@ internal/testdata/options/test_proto3.protoset: $(PROTOC) internal/testdata/opti
 	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) -I. $(filter-out protoc,$(^F))
 
 internal/testdata/options/test_editions.protoset: $(PROTOC) internal/testdata/options/test_editions.proto
-	cd $(@D) && $(PROTOC) --experimental_editions --descriptor_set_out=$(@F) -I. $(filter-out protoc,$(^F))
+	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) -I. $(filter-out protoc,$(^F))
 
 .PHONY: test-descriptors
 test-descriptors: internal/testdata/all.protoset
@@ -181,3 +191,11 @@ test-descriptors: internal/testdata/options/options.protoset
 test-descriptors: internal/testdata/options/test.protoset
 test-descriptors: internal/testdata/options/test_proto3.protoset
 test-descriptors: internal/testdata/options/test_editions.protoset
+
+internal/featuresext/cpp_features.protoset: $(PROTOC)
+	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) google/protobuf/cpp_features.proto
+internal/featuresext/java_features.protoset: $(PROTOC)
+	cd $(@D) && $(PROTOC) --descriptor_set_out=$(@F) google/protobuf/java_features.proto
+
+.PHONY: ext-features-descriptors
+ext-features-descriptors: internal/featuresext/cpp_features.protoset internal/featuresext/java_features.protoset

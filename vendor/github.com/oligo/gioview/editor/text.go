@@ -448,6 +448,21 @@ func (e *textView) paintLineHighlight(gtx layout.Context, material op.CallOp) {
 	area.Pop()
 }
 
+func (e *textView) paintMatches(gtx layout.Context, matches []MatchRange, material op.CallOp) {
+	localViewport := image.Rectangle{Max: e.viewSize}
+	docViewport := image.Rectangle{Max: e.viewSize}.Add(e.scrollOff)
+	defer clip.Rect(localViewport).Push(gtx.Ops).Pop()
+	for _, match := range matches {
+		e.regions = e.index.locate(docViewport, match.Start, match.End, e.regions)
+		for _, region := range e.regions {
+			area := clip.Rect(region.Bounds).Push(gtx.Ops)
+			material.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+			area.Pop()
+		}
+	}
+}
+
 // PaintText clips and paints the visible text glyph outlines using the provided
 // material to fill the glyphs.
 func (e *textView) PaintText(gtx layout.Context, material op.CallOp, textStyles []*TextStyle) {

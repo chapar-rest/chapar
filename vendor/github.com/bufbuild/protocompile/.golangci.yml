@@ -1,7 +1,3 @@
-run:
-  skip-dirs-use-default: false
-  skip-files:
-    - ".*\\.y\\.go$"
 linters-settings:
   errcheck:
     check-type-assertions: true
@@ -51,7 +47,7 @@ linters:
     - gochecknoinits
     - goconst
     - gocyclo
-    - goerr113
+    - err113
     - interfacebloat
     - nestif
     - nilerr
@@ -61,37 +57,32 @@ linters:
     - varnamelen
     # Other disabled linters
     - cyclop            # covered by gocyclo
-    - deadcode          # deprecated by author
-    - exhaustivestruct  # replaced by exhaustruct
+    - execinquery       # deprecated in golangci v1.58.0
     - funlen            # rely on code review to limit function length
     - gocognit          # dubious "cognitive overhead" quantification
     - gofumpt           # prefer standard gofmt
-    - golint            # deprecated by Go team
     - gomnd             # some unnamed constants are okay
-    - ifshort           # deprecated by author
     - inamedparam       # named params in interface signatures are not always necessary
-    - interfacer        # deprecated by author
     - ireturn           # "accept interfaces, return structs" isn't ironclad
     - lll               # don't want hard limits for line length
     - maintidx          # covered by gocyclo
-    - maligned          # readability trumps efficient struct packing
+    - mnd               # some unnamed constants are okay
     - nlreturn          # generous whitespace violates house style
-    - nosnakecase       # deprecated in https://github.com/golangci/golangci-lint/pull/3065
     - protogetter       # lots of false positives: can't use getter to check if field is present
     - rowserrcheck      # no SQL code in protocompile
-    - scopelint         # deprecated by author
     - sqlclosecheck     # no SQL code in protocompile
-    - structcheck       # deprecated by author
     - testpackage       # internal tests are fine
-    - varcheck          # deprecated by author
     - wastedassign      # not supported with generics
     - wrapcheck         # don't _always_ need to wrap errors
     - wsl               # generous whitespace violates house style
 issues:
+  exclude-dirs-use-default: false
+  exclude-files:
+    - ".*\\.y\\.go$"
   exclude:
     # Don't ban use of fmt.Errorf to create new errors, but the remaining
     # checks from err113 are useful.
-    - "err113: do not define dynamic errors.*"
+    - "do not define dynamic errors.*"
   exclude-rules:
     # Benchmarks can't be run in parallel
     - path: benchmark_test\.go
