@@ -3,6 +3,7 @@ package restful
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	giox "gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -19,14 +20,21 @@ type Restful struct {
 
 	Breadcrumb *component.Breadcrumb
 	AddressBar *component.AddressBar
-	Response   *Response
-	Request    *Request
+	Actions    *component.Actions
+
+	codeModal *component.CodeModal
+
+	Response *Response
+	Request  *Request
 
 	split widgets.SplitView
 
 	onSave        func(id string)
 	onDataChanged func(id string, data any)
 	onSubmit      func(id string)
+
+	SaveButton widget.Clickable
+	CodeButton widget.Clickable
 }
 
 func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Restful {
@@ -35,14 +43,16 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 		Prompt:     widgets.NewPrompt("", "", ""),
 		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
 		AddressBar: component.NewAddressBar(theme, req.Spec.HTTP.URL, req.Spec.HTTP.Method),
+		Actions:    component.NewActions(true),
 		split: widgets.SplitView{
 			Resize: giox.Resize{
 				Ratio: 0.5,
 			},
 			BarWidth: unit.Dp(2),
 		},
-		Response: NewResponse(theme),
-		Request:  NewRequest(req, explorer, theme),
+		Response:  NewResponse(theme),
+		Request:   NewRequest(req, explorer, theme),
+		codeModal: component.NewCodeModal(theme),
 	}
 	r.setupHooks()
 
@@ -110,7 +120,7 @@ func (r *Restful) SetBinaryBodyFilePath(filePath string) {
 }
 
 func (r *Restful) SetDataChanged(changed bool) {
-	r.Breadcrumb.SetDataChanged(changed)
+	r.Actions.IsDataChanged = changed
 }
 
 func (r *Restful) SetOnTitleChanged(f func(title string)) {
@@ -168,10 +178,6 @@ func (r *Restful) HidePrompt() {
 }
 
 func (r *Restful) setupHooks() {
-	r.Breadcrumb.SetOnSave(func(id string) {
-		r.onSave(id)
-	})
-
 	r.AddressBar.SetOnMethodChanged(func(method string) {
 		r.Req.Spec.HTTP.Method = method
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
@@ -249,6 +255,18 @@ func (r *Restful) SetPathParams(params []domain.KeyValue) {
 }
 
 func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	r.codeModal.Layout(gtx, theme)
+
+	if r.Actions.IsDataChanged && r.Actions.SaveButton.Clicked(gtx) && r.onSave != nil {
+		r.onSave(r.Req.MetaData.ID)
+		r.Actions.IsDataChanged = false
+	}
+
+	if r.Actions.CodeButton.Clicked(gtx) {
+		r.codeModal.SetRequest(r.Req)
+		r.codeModal.SetVisible(true)
+	}
+
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -256,9 +274,16 @@ func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				// return layout.Dimensions{}
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return r.Breadcrumb.Layout(gtx, theme)
-				})
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return r.Breadcrumb.Layout(gtx, theme)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return r.Actions.Layout(gtx, theme)
+					}),
+				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.AddressBar.Layout(gtx, theme)

@@ -75,11 +75,12 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	// - apply variables
 	// - apply authentication (if any) is not already applied to the headers
 
-	if e == nil {
-		applyVariables(req, nil)
-	} else {
-		env := e.Clone()
-		applyVariables(req, &env.Spec)
+	vars := variables.GetVariables()
+	variables.ApplyToHTTPRequest(vars, req)
+
+	if e != nil {
+		variables.ApplyToEnv(vars, &e.Spec)
+		e.ApplyToHTTPRequest(req)
 	}
 
 	httpReq, err := http.NewRequest(req.Method, req.URL, nil)
@@ -198,12 +199,12 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) error {
 	// apply body
 	switch req.Request.Body.Type {
-	case domain.BodyTypeJSON, domain.BodyTypeXML, domain.BodyTypeText:
+	case domain.RequestBodyTypeJSON, domain.RequestBodyTypeXML, domain.RequestBodyTypeText:
 		if req.Request.Body.Data != "" {
 			httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
 		}
 
-	case domain.BodyTypeBinary:
+	case domain.RequestBodyTypeBinary:
 		if req.Request.Body.BinaryFilePath != "" {
 			// read file
 			file, err := os.ReadFile(req.Request.Body.BinaryFilePath)
@@ -220,7 +221,7 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 			httpReq.Header.Add("Content-Length", strconv.Itoa(len(file)))
 		}
 
-	case domain.BodyTypeFormData:
+	case domain.RequestBodyTypeFormData:
 		// apply form body
 		if len(req.Request.Body.FormData.Fields) > 0 {
 			var b bytes.Buffer
@@ -270,7 +271,7 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 			httpReq.ContentLength = int64(b.Len())
 		}
 
-	case domain.BodyTypeUrlencoded:
+	case domain.RequestBodyTypeUrlencoded:
 		// apply url encoded
 		if len(req.Request.Body.URLEncoded) > 0 {
 			form := url.Values{}
@@ -286,95 +287,6 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 	}
 
 	return nil
-}
-
-// TODO refactor
-// nolint:gocyclo
-func applyVariables(req *domain.HTTPRequestSpec, env *domain.EnvSpec) {
-	// apply internal variables to environment
-	// apply environment to request
-	vars := variables.GetVariables()
-
-	// apply environment variables if any
-	if env != nil {
-		variables.ApplyToEnv(vars, env)
-	}
-
-	// apply variables to request
-	for k, v := range vars {
-		for i, kv := range req.Request.Headers {
-			// if value contain the variable in double curly braces then replace it
-			if strings.Contains(kv.Value, "{{"+k+"}}") {
-				req.Request.Headers[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
-			}
-		}
-
-		for i, kv := range req.Request.PathParams {
-			// if value contain the variable in double curly braces then replace it
-			if strings.Contains(kv.Value, "{{"+k+"}}") {
-				req.Request.PathParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
-			}
-		}
-
-		for i, kv := range req.Request.QueryParams {
-			// if value contain the variable in double curly braces then replace it
-			if strings.Contains(kv.Value, "{{"+k+"}}") {
-				req.Request.QueryParams[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
-			}
-		}
-
-		if strings.Contains(req.URL, "{{"+k+"}}") {
-			req.URL = strings.ReplaceAll(req.URL, "{{"+k+"}}", v)
-		}
-
-		if strings.Contains(req.Request.Body.Data, "{{"+k+"}}") {
-			req.Request.Body.Data = strings.ReplaceAll(req.Request.Body.Data, "{{"+k+"}}", v)
-		}
-
-		for i, field := range req.Request.Body.FormData.Fields {
-			if field.Type == domain.FormFieldTypeFile {
-				continue
-			}
-			// if value contain the variable in double curly braces then replace it
-			if strings.Contains(field.Value, "{{"+k+"}}") {
-				req.Request.Body.FormData.Fields[i].Value = strings.ReplaceAll(field.Value, "{{"+k+"}}", v)
-			}
-		}
-
-		for i, kv := range req.Request.Body.URLEncoded {
-			// if value contain the variable in double curly braces then replace it
-			if strings.Contains(kv.Value, "{{"+k+"}}") {
-				req.Request.Body.URLEncoded[i].Value = strings.ReplaceAll(kv.Value, "{{"+k+"}}", v)
-			}
-		}
-
-		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.TokenAuth != nil {
-			if strings.Contains(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}") {
-				req.Request.Auth.TokenAuth.Token = strings.ReplaceAll(req.Request.Auth.TokenAuth.Token, "{{"+k+"}}", v)
-			}
-		}
-
-		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.BasicAuth != nil {
-			if strings.Contains(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}") {
-				req.Request.Auth.BasicAuth.Username = strings.ReplaceAll(req.Request.Auth.BasicAuth.Username, "{{"+k+"}}", v)
-			}
-
-			if strings.Contains(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}") {
-				req.Request.Auth.BasicAuth.Password = strings.ReplaceAll(req.Request.Auth.BasicAuth.Password, "{{"+k+"}}", v)
-			}
-		}
-
-		if req.Request.Auth != (domain.Auth{}) && req.Request.Auth.APIKeyAuth != nil {
-			if strings.Contains(req.Request.Auth.APIKeyAuth.Key, "{{"+k+"}}") {
-				req.Request.Auth.APIKeyAuth.Key = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Key, "{{"+k+"}}", v)
-			}
-
-			if strings.Contains(req.Request.Auth.APIKeyAuth.Value, "{{"+k+"}}") {
-				req.Request.Auth.APIKeyAuth.Value = strings.ReplaceAll(req.Request.Auth.APIKeyAuth.Value, "{{"+k+"}}", v)
-			}
-		}
-
-	}
 }
 
 func IsJSON(s string) bool {
