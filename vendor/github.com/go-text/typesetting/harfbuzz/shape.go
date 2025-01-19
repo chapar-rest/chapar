@@ -3,7 +3,7 @@ package harfbuzz
 import (
 	"fmt"
 
-	"github.com/go-text/typesetting/opentype/tables"
+	"github.com/go-text/typesetting/font/opentype/tables"
 )
 
 // ported from harfbuzz/src/hb-shape.cc, harfbuzz/src/hb-shape-plan.cc Copyright © 2009, 2012 Behdad Esfahbod
@@ -43,7 +43,7 @@ func (b *Buffer) Shape(font *Font, features []Feature) {
 //
 // Most client programs will not need to deal with shape plans directly.
 type shapePlan struct {
-	shaper       *shaperOpentype
+	shaper       shaperOpentype
 	props        SegmentProperties
 	userFeatures []Feature
 }
@@ -68,7 +68,7 @@ func (plan *shapePlan) init(copy bool, font *Font, props SegmentProperties,
 	}
 
 	// init shaper
-	plan.shaper = newShaperOpentype(font.face.Font, coords)
+	plan.shaper.init(font.face.Font, coords)
 }
 
 func (plan shapePlan) userFeaturesMatch(other shapePlan) bool {

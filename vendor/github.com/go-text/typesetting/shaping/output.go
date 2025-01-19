@@ -50,7 +50,13 @@ type Glyph struct {
 	// GlyphCount is the number of glyphs in this output glyph cluster.
 	GlyphCount int
 	GlyphID    font.GID
-	Mask       font.GlyphMask
+	Mask       uint32
+
+	// startLetterSpacing and endLetterSpacing are set when letter spacing is applied,
+	// measuring the whitespace added on one side (half of the user provided letter spacing)
+	// The line wrapper will ignore [endLetterSpacing] when deciding where to break,
+	// and will trim [startLetterSpacing] at the start of the lines
+	startLetterSpacing, endLetterSpacing fixed.Int26_6
 }
 
 // LeftSideBearing returns the distance from the glyph's X origin to
@@ -139,7 +145,12 @@ type Output struct {
 	// Face is the font face that this output is rendered in. This is needed in
 	// the output in order to render each run in a multi-font sequence in the
 	// correct font.
-	Face font.Face
+	Face *font.Face
+
+	// VisualIndex is the visual position of this run within its containing line where
+	// 0 indicates the leftmost run and increasing values move to the right. This is
+	// useful for sorting the runs for drawing purposes.
+	VisualIndex int32
 }
 
 // ToFontUnit converts a metrics (typically found in [Glyph] fields)
@@ -172,25 +183,35 @@ func (o *Output) RecomputeAdvance() {
 
 // advanceSpaceAware adjust the value in [Advance]
 // if a white space character ends the run.
+// Any end letter spacing (on the last glyph) is also removed
+// The paragraphDir is the text direction of the overall paragraph containing o.
+// If the paragraphDir is different then o's Direction, this method has no effect
+// because the trailing space in this run will always be internal to the paragraph.
+//
 // TODO: should we take into account multiple spaces ?
-func (o *Output) advanceSpaceAware() fixed.Int26_6 {
+func (o *Output) advanceSpaceAware(paragraphDir di.Direction) fixed.Int26_6 {
 	L := len(o.Glyphs)
-	if L == 0 {
+	if L == 0 || paragraphDir != o.Direction {
 		return o.Advance
 	}
 
 	// adjust the last to account for spaces
+	var lastG Glyph
+	if o.Direction.Progression() == di.FromTopLeft {
+		lastG = o.Glyphs[L-1]
+	} else {
+		lastG = o.Glyphs[0]
+	}
 	if o.Direction.IsVertical() {
-		if g := o.Glyphs[L-1]; g.Height == 0 {
-			return o.Advance - g.YAdvance
+		if lastG.Height == 0 {
+			return o.Advance - lastG.YAdvance
 		}
 	} else { // horizontal
-		if g := o.Glyphs[L-1]; g.Width == 0 {
-			return o.Advance - g.XAdvance
+		if lastG.Width == 0 {
+			return o.Advance - lastG.XAdvance
 		}
 	}
-
-	return o.Advance
+	return o.Advance - lastG.endLetterSpacing
 }
 
 // RecalculateAll updates the all other fields of the Output

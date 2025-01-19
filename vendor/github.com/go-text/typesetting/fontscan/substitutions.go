@@ -3,8 +3,8 @@ package fontscan
 import (
 	"strings"
 
+	"github.com/go-text/typesetting/font"
 	"github.com/go-text/typesetting/language"
-	meta "github.com/go-text/typesetting/opentype/api/metadata"
 )
 
 // this file implements the family substitution feature,
@@ -20,7 +20,7 @@ func init() {
 	// replace families keys by their no case no blank version
 	for i, v := range familySubstitution {
 		for i, s := range v.additionalFamilies {
-			v.additionalFamilies[i] = meta.NormalizeFamily(s)
+			v.additionalFamilies[i] = font.NormalizeFamily(s)
 		}
 
 		familySubstitution[i].test = v.test.normalize()
@@ -39,7 +39,7 @@ func newFamilyList(families []string) familyList {
 	fl := make([]string, 0, 140)
 	fl = append(fl, families...)
 	for i, f := range fl {
-		fl[i] = meta.NormalizeFamily(f)
+		fl[i] = font.NormalizeFamily(f)
 	}
 	return fl
 }
@@ -127,7 +127,7 @@ func (mf familyEquals) test(list familyList) int {
 }
 
 func (mf familyEquals) normalize() substitutionTest {
-	return familyEquals(meta.NormalizeFamily(string(mf)))
+	return familyEquals(font.NormalizeFamily(string(mf)))
 }
 
 // a family in the list must contain 'mf'
@@ -138,7 +138,7 @@ func (mf familyContains) test(list familyList) int {
 }
 
 func (mf familyContains) normalize() substitutionTest {
-	return familyContains(meta.NormalizeFamily(string(mf)))
+	return familyContains(font.NormalizeFamily(string(mf)))
 }
 
 // the family list has no "serif", "sans-serif" or "monospace" generic fallback
@@ -171,7 +171,7 @@ func (langAndFamilyEqual) test(list familyList) int {
 }
 
 func (t langAndFamilyEqual) normalize() substitutionTest {
-	t.family = meta.NormalizeFamily(t.family)
+	t.family = font.NormalizeFamily(t.family)
 	return t
 }
 
@@ -188,7 +188,7 @@ func (langContainsAndFamilyEquals) test(list familyList) int {
 }
 
 func (t langContainsAndFamilyEquals) normalize() substitutionTest {
-	t.family = meta.NormalizeFamily(t.family)
+	t.family = font.NormalizeFamily(t.family)
 	return t
 }
 
@@ -205,7 +205,7 @@ func (langEqualsAndNoFamily) test(list familyList) int {
 }
 
 func (t langEqualsAndNoFamily) normalize() substitutionTest {
-	t.family = meta.NormalizeFamily(t.family)
+	t.family = font.NormalizeFamily(t.family)
 	return t
 }
 

@@ -1,4 +1,4 @@
-# gioui.org v0.7.1
+# gioui.org v0.8.0
 ## explicit; go 1.21
 gioui.org/app
 gioui.org/app/internal/windows
@@ -43,15 +43,11 @@ gioui.org/text
 gioui.org/unit
 gioui.org/widget
 gioui.org/widget/material
-# gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7
-## explicit; go 1.17
-gioui.org/cpu
 # gioui.org/shader v1.0.8
 ## explicit; go 1.16
 gioui.org/shader
 gioui.org/shader/gio
-gioui.org/shader/piet
-# gioui.org/x v0.7.1
+# gioui.org/x v0.8.1
 ## explicit; go 1.21
 gioui.org/x/component
 gioui.org/x/explorer
@@ -89,20 +85,17 @@ github.com/dlclark/regexp2/syntax
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
-# github.com/go-text/typesetting v0.1.1
+# github.com/go-text/typesetting v0.2.1
 ## explicit; go 1.17
 github.com/go-text/typesetting/di
 github.com/go-text/typesetting/font
+github.com/go-text/typesetting/font/cff
+github.com/go-text/typesetting/font/cff/interpreter
+github.com/go-text/typesetting/font/opentype
+github.com/go-text/typesetting/font/opentype/tables
 github.com/go-text/typesetting/fontscan
 github.com/go-text/typesetting/harfbuzz
 github.com/go-text/typesetting/language
-github.com/go-text/typesetting/opentype/api
-github.com/go-text/typesetting/opentype/api/font
-github.com/go-text/typesetting/opentype/api/font/cff
-github.com/go-text/typesetting/opentype/api/font/cff/interpreter
-github.com/go-text/typesetting/opentype/api/metadata
-github.com/go-text/typesetting/opentype/loader
-github.com/go-text/typesetting/opentype/tables
 github.com/go-text/typesetting/segmenter
 github.com/go-text/typesetting/shaping
 github.com/go-text/typesetting/unicodedata
@@ -124,8 +117,8 @@ github.com/jhump/protoreflect/desc/protoparse/ast
 github.com/jhump/protoreflect/desc/sourceinfo
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
-# github.com/oligo/gioview v0.5.1-0.20241023132638-afe3a6e8a3f1
-## explicit; go 1.21.4
+# github.com/oligo/gioview v0.8.1
+## explicit; go 1.23.1
 github.com/oligo/gioview/editor
 github.com/oligo/gioview/misc
 github.com/oligo/gioview/theme
