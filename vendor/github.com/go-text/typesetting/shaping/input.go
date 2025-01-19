@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-text/typesetting/di"
 	"github.com/go-text/typesetting/font"
+	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/harfbuzz"
 	"github.com/go-text/typesetting/language"
-	"github.com/go-text/typesetting/opentype/loader"
 	"github.com/go-text/typesetting/unicodedata"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/text/unicode/bidi"
@@ -25,7 +25,7 @@ type Input struct {
 	// Direction is the directionality of the text.
 	Direction di.Direction
 	// Face is the font face to render the text in.
-	Face font.Face
+	Face *font.Face
 
 	// FontFeatures activates or deactivates optional features
 	// provided by the font.
@@ -55,12 +55,12 @@ type Input struct {
 // An exemple of font feature is the replacement of fractions (like 1/2, 3/4)
 // by specialized glyphs, which would be activated by using
 //
-//	FontFeature{Tag: loader.MustNewTag("frac"), Value: 1}
+//	FontFeature{Tag: ot.MustNewTag("frac"), Value: 1}
 //
 // See also https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist
 // and https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_fonts/OpenType_fonts_guide
 type FontFeature struct {
-	Tag   loader.Tag
+	Tag   ot.Tag
 	Value uint32
 }
 
@@ -69,16 +69,16 @@ type FontFeature struct {
 type Fontmap interface {
 	// ResolveFace is called by `SplitByFace` for each input rune potentially
 	// triggering a face change.
-	// It must always return a valid (non nil) font.Face value.
-	ResolveFace(r rune) font.Face
+	// It must always return a valid (non nil ) *font.Face value.
+	ResolveFace(r rune) *font.Face
 }
 
 var _ Fontmap = fixedFontmap(nil)
 
-type fixedFontmap []font.Face
+type fixedFontmap []*font.Face
 
 // ResolveFace panics if the slice is empty
-func (ff fixedFontmap) ResolveFace(r rune) font.Face {
+func (ff fixedFontmap) ResolveFace(r rune) *font.Face {
 	for _, f := range ff {
 		if _, has := f.NominalGlyph(r); has {
 			return f
@@ -96,7 +96,7 @@ func (ff fixedFontmap) ResolveFace(r rune) font.Face {
 // The 'Face' field of 'input' is ignored: only 'availableFaces' are consulted.
 // Rune coverage is obtained by calling the NominalGlyph() method of each font.
 // See also SplitByFace for a more general approach of font selection.
-func SplitByFontGlyphs(input Input, availableFaces []font.Face) []Input {
+func SplitByFontGlyphs(input Input, availableFaces []*font.Face) []Input {
 	return SplitByFace(input, fixedFontmap(availableFaces))
 }
 

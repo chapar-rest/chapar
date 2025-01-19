@@ -49,12 +49,16 @@ type DiscloserStyle struct {
 	// ControlSide defines whether the control widget is drawn to the
 	// left or right of the summary widget.
 	ControlSide Side
+	// Alignment dictates how the control and summary are aligned relative
+	// to one another.
+	Alignment layout.Alignment
 }
 
 // Discloser configures a discloser from the provided theme and state.
 func Discloser(th *material.Theme, state *DiscloserState) DiscloserStyle {
 	return DiscloserStyle{
 		DiscloserState: state,
+		Alignment:      layout.Middle,
 	}
 }
 
@@ -80,7 +84,7 @@ func (d DiscloserStyle) Layout(gtx C, control, summary, detail layout.Widget) D 
 				return d.Clickable.Layout(gtx, control)
 			}
 			return layout.Flex{
-				Alignment: layout.Middle,
+				Alignment: d.Alignment,
 			}.Layout(gtx,
 				layout.Rigid(func(gtx C) D {
 					if d.ControlSide == Left {
