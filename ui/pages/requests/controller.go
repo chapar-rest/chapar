@@ -526,6 +526,15 @@ func (c *Controller) checkForHTTPRequestParams(req *domain.Request, inComingRequ
 
 		// update the path params based on the new url
 		newPathParams := domain.ParsePathParams(inComingRequest.Spec.HTTP.URL)
+		// keep the values of the path params that are already set
+		for _, param := range inComingRequest.Spec.HTTP.Request.PathParams {
+			for i, newParam := range newPathParams {
+				if newParam.Key == param.Key {
+					newPathParams[i].Value = param.Value
+				}
+			}
+		}
+
 		c.view.SetPathParams(req.MetaData.ID, newPathParams)
 		inComingRequest.Spec.HTTP.Request.PathParams = newPathParams
 	}

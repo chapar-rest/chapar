@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -325,24 +326,26 @@ func ParseQueryParams(params string) []KeyValue {
 }
 
 func ParsePathParams(params string) []KeyValue {
-	// remove / from the beginning
-	if len(params) > 0 && params[0] == '/' {
-		params = params[1:]
-	}
+	// Remove leading slash
+	params = strings.TrimPrefix(params, "/")
 
-	// separate the path params
-	pairs := strings.Split(params, "/")
-	if len(params) == 0 {
-		return nil
-	}
+	// Regex to find properly formatted {key} with no nesting
+	re := regexp.MustCompile(`\{([^{}]+)\}`)
+	matches := re.FindAllStringSubmatch(params, -1)
 
-	// find path params, which are surrounded by single curly braces and not in query params
 	out := make([]KeyValue, 0)
-	for _, p := range pairs {
-		if strings.Count(p, "{") == 1 && strings.Count(p, "}") == 1 && !strings.Contains(p, "=") {
-			key := strings.Trim(p, "{}")
-			kv := KeyValue{ID: uuid.NewString(), Key: key, Value: "", Enable: true}
-			out = append(out, kv)
+	for _, match := range matches {
+		if len(match) >= 2 {
+			key := strings.TrimSpace(match[1])
+			if key != "" {
+				kv := KeyValue{
+					ID:     uuid.NewString(),
+					Key:    key,
+					Value:  "",
+					Enable: true,
+				}
+				out = append(out, kv)
+			}
 		}
 	}
 
