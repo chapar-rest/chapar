@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"regexp"
 	"strings"
 	"time"
 
@@ -329,23 +328,49 @@ func ParsePathParams(params string) []KeyValue {
 	// Remove leading slash
 	params = strings.TrimPrefix(params, "/")
 
-	// Regex to find properly formatted {key} with no nesting
-	re := regexp.MustCompile(`\{([^{}]+)\}`)
-	matches := re.FindAllStringSubmatch(params, -1)
-
 	out := make([]KeyValue, 0)
-	for _, match := range matches {
-		if len(match) >= 2 {
-			key := strings.TrimSpace(match[1])
-			if key != "" {
-				kv := KeyValue{
-					ID:     uuid.NewString(),
-					Key:    key,
-					Value:  "",
-					Enable: true,
-				}
-				out = append(out, kv)
+	i := 0
+
+	for i < len(params) {
+		// Look for an opening brace
+		if params[i] == '{' {
+			// Skip double-opening braces
+			if i+1 < len(params) && params[i+1] == '{' {
+				i += 2
+				continue
 			}
+
+			s := i
+			valid := false
+			for j := i + 1; j < len(params); j++ {
+				if params[j] == '}' {
+					// Found a valid closing brace
+					valid = true
+					key := params[s+1 : j]
+					if key != "" {
+						kv := KeyValue{
+							ID:     uuid.NewString(),
+							Key:    key,
+							Value:  "",
+							Enable: true,
+						}
+						out = append(out, kv)
+					}
+					i = j // Move index to the closing brace
+					break
+				} else if params[j] == '{' {
+					// Found another opening brace before closing the current one; invalid nesting
+					valid = false
+					break
+				}
+			}
+			if !valid {
+				// Skip invalid key by moving to the next character after the opening brace
+				i = s + 1
+			}
+		} else {
+			// Move to the next character if not a brace
+			i++
 		}
 	}
 
