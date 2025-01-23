@@ -325,24 +325,52 @@ func ParseQueryParams(params string) []KeyValue {
 }
 
 func ParsePathParams(params string) []KeyValue {
-	// remove / from the beginning
-	if len(params) > 0 && params[0] == '/' {
-		params = params[1:]
-	}
+	// Remove leading slash
+	params = strings.TrimPrefix(params, "/")
 
-	// separate the path params
-	pairs := strings.Split(params, "/")
-	if len(params) == 0 {
-		return nil
-	}
-
-	// find path params, which are surrounded by single curly braces and not in query params
 	out := make([]KeyValue, 0)
-	for _, p := range pairs {
-		if strings.Count(p, "{") == 1 && strings.Count(p, "}") == 1 && !strings.Contains(p, "=") {
-			key := strings.Trim(p, "{}")
-			kv := KeyValue{ID: uuid.NewString(), Key: key, Value: "", Enable: true}
-			out = append(out, kv)
+	i := 0
+
+	for i < len(params) {
+		// Look for an opening brace
+		if params[i] == '{' {
+			// Skip double-opening braces
+			if i+1 < len(params) && params[i+1] == '{' {
+				i += 2
+				continue
+			}
+
+			s := i
+			valid := false
+			for j := i + 1; j < len(params); j++ {
+				if params[j] == '}' {
+					// Found a valid closing brace
+					valid = true
+					key := params[s+1 : j]
+					if key != "" {
+						kv := KeyValue{
+							ID:     uuid.NewString(),
+							Key:    key,
+							Value:  "",
+							Enable: true,
+						}
+						out = append(out, kv)
+					}
+					i = j // Move index to the closing brace
+					break
+				} else if params[j] == '{' {
+					// Found another opening brace before closing the current one; invalid nesting
+					valid = false
+					break
+				}
+			}
+			if !valid {
+				// Skip invalid key by moving to the next character after the opening brace
+				i = s + 1
+			}
+		} else {
+			// Move to the next character if not a brace
+			i++
 		}
 	}
 
