@@ -151,7 +151,7 @@ func NewVariable() *Variable {
 		TargetEnvVariable: "",
 		From:              domain.VariableFromBody,
 		SourceKey:         "",
-		OnStatusCode:      0,
+		OnStatusCode:      200,
 		JsonPath:          "",
 		Enable:            true,
 	}
@@ -202,7 +202,7 @@ func (f *Variables) itemLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: unit.Dp(1), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(100))
-				editor := material.Editor(theme.Material(), item.sourceKeyEditor, "Target")
+				editor := material.Editor(theme.Material(), item.sourceKeyEditor, "Target Key")
 				editor.SelectionColor = theme.TextSelectionColor
 				return editor.Layout(gtx)
 			})
@@ -253,6 +253,44 @@ func (f *Variables) itemLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 	return items
 }
 
+func (f *Variables) headerLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(1)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(128))
+				return material.Label(theme.Material(), theme.TextSize, "Target Key").Layout(gtx)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.DrawLine(gtx, theme.TableBorderColor, unit.Dp(35), unit.Dp(1))
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(1)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(75))
+				return material.Label(theme.Material(), theme.TextSize, "From").Layout(gtx)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.DrawLine(gtx, theme.TableBorderColor, unit.Dp(35), unit.Dp(1))
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(1)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(40))
+				return material.Label(theme.Material(), theme.TextSize, "Status").Layout(gtx)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.DrawLine(gtx, theme.TableBorderColor, unit.Dp(35), unit.Dp(1))
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(1)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Label(theme.Material(), theme.TextSize, "Source Key/JSON Path").Layout(gtx)
+			})
+
+		}),
+	)
+}
+
 func (f *Variables) layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	border := widget.Border{
 		Color:        theme.TableBorderColor,
@@ -260,26 +298,34 @@ func (f *Variables) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		Width:        unit.Dp(1),
 	}
 
-	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		if len(f.Items) == 0 {
-			return layout.UniformInset(unit.Dp(10)).Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
-		}
-
-		return material.List(theme.Material(), f.list).Layout(gtx, len(f.Items), func(gtx layout.Context, i int) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return f.itemLayout(gtx, theme, f.Items[i])
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					// only if it's not the last item
-					if i == len(f.Items)-1 {
-						return layout.Dimensions{}
-					}
-					return widgets.DrawLine(gtx, theme.TableBorderColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X))
-				}),
-			)
-		})
-	})
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return f.headerLayout(gtx, theme)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if len(f.Items) == 0 {
+				return layout.UniformInset(unit.Dp(10)).Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
+			}
+			return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.List(theme.Material(), f.list).Layout(gtx, len(f.Items), func(gtx layout.Context, i int) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return f.itemLayout(gtx, theme, f.Items[i])
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							// only if it's not the last item
+							if i == len(f.Items)-1 {
+								return layout.Dimensions{}
+							}
+							return widgets.DrawLine(gtx, theme.TableBorderColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X))
+						}),
+					)
+				})
+			})
+		}),
+	)
 }
 
 func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapartheme.Theme) layout.Dimensions {
@@ -290,8 +336,14 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 		}
 	}
 
+	border := widget.Border{
+		Color:        theme.TableBorderColor,
+		CornerRadius: unit.Dp(4),
+		Width:        unit.Dp(1),
+	}
+
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
-	prevInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
+	prevInset := layout.Inset{Left: unit.Dp(8), Top: unit.Dp(4), Bottom: unit.Dp(4)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -320,17 +372,29 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 					}),
 				)
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return f.layout(gtx, theme)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return prevInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme.Material(), theme.TextSize, "Preview:").Layout(gtx)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return prevInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Label(theme.Material(), theme.TextSize, f.preview).Layout(gtx)
+				return layout.Inset{
+					Top:   unit.Dp(10),
+					Right: unit.Dp(0),
+					Left:  unit.Dp(0),
+				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return prevInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return material.Label(theme.Material(), theme.TextSize, "Preview:").Layout(gtx)
+								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return prevInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return material.Label(theme.Material(), theme.TextSize, f.preview).Layout(gtx)
+								})
+							}),
+						)
+					})
 				})
 			}),
 		)
