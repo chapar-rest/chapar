@@ -773,7 +773,16 @@ func (c *Controller) saveCollectionToDisc(id string) {
 }
 
 func (c *Controller) onTreeViewNodeClicked(id string) {
-	c.viewRequest(id)
+	nodeType := c.view.GetTreeViewNodeType(id)
+	if nodeType == "" {
+		return
+	}
+
+	if nodeType == TypeCollection {
+		c.viewCollection(id)
+	} else if nodeType == TypeRequest {
+		c.viewRequest(id)
+	}
 }
 
 func (c *Controller) onTreeViewMenuClicked(id, action string) {
