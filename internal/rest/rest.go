@@ -282,7 +282,12 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 
 				form.Add(f.Key, f.Value)
 			}
-			httpReq.PostForm = form
+			// Convert form to encoded string
+			encodedData := form.Encode()
+			// Set the request body with the encoded data
+			httpReq.Body = io.NopCloser(strings.NewReader(encodedData))
+			// Set the content type
+			httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 	}
 
