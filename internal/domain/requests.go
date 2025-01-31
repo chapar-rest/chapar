@@ -261,6 +261,28 @@ type SShTunnel struct {
 	Flags []string `yaml:"flags"`
 }
 
+type VariableFrom string
+
+func (v VariableFrom) String() string {
+	return string(v)
+}
+
+const (
+	VariableFromBody    VariableFrom = "body"
+	VariableFromHeader  VariableFrom = "header"
+	VariableFromCookies VariableFrom = "cookies"
+)
+
+type Variable struct {
+	ID                string       `yaml:"id"`                // Unique identifier
+	TargetEnvVariable string       `yaml:"TargetEnvVariable"` // The environment variable to set
+	From              VariableFrom `yaml:"from"`              // Source: "body", "header", "cookie"
+	SourceKey         string       `yaml:"sourceKey"`         // For "header" or "cookie", specify the key name
+	OnStatusCode      int          `yaml:"onStatusCode"`      // Trigger on a specific status code
+	JsonPath          string       `yaml:"jsonPath"`          // JSONPath for extracting value (for "body")
+	Enable            bool         `yaml:"enable"`            // Enable or disable the variable
+}
+
 func (r *Request) Clone() *Request {
 	clone := *r
 	clone.MetaData.ID = uuid.NewString()

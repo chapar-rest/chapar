@@ -35,7 +35,8 @@ type HTTPRequest struct {
 
 	Body Body `yaml:"body"`
 
-	Auth Auth `yaml:"auth"`
+	Auth      Auth       `yaml:"auth"`
+	Variables []Variable `yaml:"variables"`
 
 	PreRequest  PreRequest  `yaml:"preRequest"`
 	PostRequest PostRequest `yaml:"postRequest"`
