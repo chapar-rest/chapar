@@ -1,6 +1,7 @@
 package component
 
 import (
+	"fmt"
 	"strconv"
 
 	"gioui.org/layout"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/keys"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -25,7 +27,10 @@ type Variables struct {
 	onSelectFile func(id string)
 	onChanged    func(values []domain.Variable)
 
-	preview string
+	previewTitle string
+	previewValue string
+
+	responseDetail *domain.ResponseDetail
 }
 
 type Variable struct {
@@ -78,6 +83,10 @@ func NewVariables(theme *chapartheme.Theme, items ...*Variable) *Variables {
 
 func (f *Variables) SetOnChanged(fn func(values []domain.Variable)) {
 	f.onChanged = fn
+}
+
+func (f *Variables) SetResponseDetail(resp *domain.ResponseDetail) {
+	f.responseDetail = resp
 }
 
 func (f *Variables) GetValues() []domain.Variable {
@@ -168,30 +177,7 @@ func (f *Variables) triggerChanged() {
 }
 
 func (f *Variables) itemLayouts(gtx layout.Context, theme *chapartheme.Theme, item *Variable) []layout.FlexChild {
-	keys.OnEditorChange(gtx, item.targetEnvEditor, func() {
-		item.TargetEnvVariable = item.targetEnvEditor.Text()
-		f.triggerChanged()
-	})
-
-	keys.OnEditorChange(gtx, item.sourceKeyEditor, func() {
-		item.SourceKey = item.sourceKeyEditor.Text()
-		f.triggerChanged()
-	})
-
-	keys.OnEditorChange(gtx, &item.onStatusCodeEditor.Editor, func() {
-		item.OnStatusCode = item.onStatusCodeEditor.Value()
-		f.triggerChanged()
-	})
-
-	keys.OnEditorChange(gtx, item.jsonPathCodeEditor, func() {
-		item.JsonPath = item.jsonPathCodeEditor.Text()
-		f.triggerChanged()
-	})
-
-	if item.enableBool.Update(gtx) {
-		item.Enable = item.enableBool.Value
-		f.triggerChanged()
-	}
+	f.update(gtx, item)
 
 	items := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -202,7 +188,7 @@ func (f *Variables) itemLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: unit.Dp(1), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(100))
-				editor := material.Editor(theme.Material(), item.sourceKeyEditor, "Target Key")
+				editor := material.Editor(theme.Material(), item.targetEnvEditor, "Target Key")
 				editor.SelectionColor = theme.TextSelectionColor
 				return editor.Layout(gtx)
 			})
@@ -286,7 +272,6 @@ func (f *Variables) headerLayout(gtx layout.Context, theme *chapartheme.Theme) l
 			return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(1)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return material.Label(theme.Material(), theme.TextSize, "Source Key/JSON Path").Layout(gtx)
 			})
-
 		}),
 	)
 }
@@ -343,7 +328,7 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 	}
 
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
-	prevInset := layout.Inset{Left: unit.Dp(8), Top: unit.Dp(4), Bottom: unit.Dp(4)}
+	prevInset := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(4), Bottom: unit.Dp(4)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -385,12 +370,12 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return prevInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return material.Label(theme.Material(), theme.TextSize, "Preview:").Layout(gtx)
+									return material.Label(theme.Material(), theme.TextSize, "Preview: "+f.previewTitle).Layout(gtx)
 								})
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return prevInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return material.Label(theme.Material(), theme.TextSize, f.preview).Layout(gtx)
+									return material.Label(theme.Material(), theme.TextSize, f.previewValue).Layout(gtx)
 								})
 							}),
 						)
@@ -399,4 +384,71 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 			}),
 		)
 	})
+}
+
+func (f *Variables) update(gtx layout.Context, item *Variable) {
+	changed := false
+	keys.OnEditorChange(gtx, item.targetEnvEditor, func() {
+		item.TargetEnvVariable = item.targetEnvEditor.Text()
+		changed = true
+	})
+
+	keys.OnEditorChange(gtx, &item.onStatusCodeEditor.Editor, func() {
+		item.OnStatusCode = item.onStatusCodeEditor.Value()
+		changed = true
+	})
+
+	keys.OnEditorChange(gtx, item.sourceKeyEditor, func() {
+		item.SourceKey = item.sourceKeyEditor.Text()
+		changed = true
+	})
+
+	keys.OnEditorChange(gtx, item.jsonPathCodeEditor, func() {
+		item.JsonPath = item.jsonPathCodeEditor.Text()
+		changed = true
+	})
+
+	if item.enableBool.Update(gtx) {
+		item.Enable = item.enableBool.Value
+		changed = true
+	}
+
+	if changed {
+		f.triggerChanged()
+
+		if f.responseDetail == nil {
+			return
+		}
+
+		// its either the http or grpc response available
+		if f.responseDetail.HTTP != nil {
+			if f.responseDetail.HTTP.StatusCode != item.OnStatusCode {
+				return
+			}
+
+			var (
+				pre interface{}
+				err error
+			)
+			switch item.From {
+			case domain.VariableFromBody:
+				pre, err = jsonpath.Get(f.responseDetail.HTTP.Response, item.JsonPath)
+				if err != nil {
+					return
+				}
+			case domain.VariableFromHeader:
+				pre = domain.FindKeyValue(f.responseDetail.HTTP.ResponseHeaders, item.JsonPath)
+			case domain.VariableFromCookies:
+				pre = domain.FindKeyValue(f.responseDetail.HTTP.Cookies, item.SourceKey)
+			}
+
+			if result, ok := pre.(string); ok {
+				f.previewValue = result
+			} else {
+				f.previewTitle = fmt.Sprintf("%v", pre)
+			}
+
+			f.previewTitle = item.TargetEnvVariable
+		}
+	}
 }

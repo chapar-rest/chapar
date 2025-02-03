@@ -70,3 +70,12 @@ func TextToKeyValue(txt string) []KeyValue {
 
 	return values
 }
+
+func FindKeyValue(values []KeyValue, key string) string {
+	for _, v := range values {
+		if v.Key == key {
+			return v.Value
+		}
+	}
+	return ""
+}

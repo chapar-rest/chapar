@@ -61,6 +61,11 @@ type Request struct {
 	CollectionID   string `yaml:"-"`
 }
 
+type ResponseDetail struct {
+	HTTP *HTTPResponseDetail
+	GRPC *GRPCResponseDetail
+}
+
 type RequestMeta struct {
 	ID   string `yaml:"id"`
 	Name string `yaml:"name"`

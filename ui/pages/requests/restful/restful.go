@@ -137,6 +137,7 @@ func (r *Restful) SetHTTPResponse(detail domain.HTTPResponseDetail) {
 		return
 	}
 
+	r.Request.Variables.SetResponseDetail(&domain.ResponseDetail{HTTP: &detail})
 	r.Response.SetResponse(detail.Response)
 	r.Response.SetHeaders(detail.RequestHeaders, detail.ResponseHeaders)
 	r.Response.SetCookies(detail.Cookies)
