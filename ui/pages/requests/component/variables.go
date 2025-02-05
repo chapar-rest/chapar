@@ -76,6 +76,11 @@ func NewVariables(theme *chapartheme.Theme, requestType string, items ...*Variab
 	}
 
 	f.addButton.OnClick = func() {
+		v := NewVariable()
+		if f.requestType == domain.RequestTypeGRPC {
+			v.OnStatusCode = 0
+		}
+
 		f.addItem(NewVariable())
 		if f.onChanged != nil {
 			f.onChanged(f.GetValues())
@@ -137,7 +142,7 @@ func (f *Variables) addItem(item *Variable) {
 			f.theme,
 			widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
 			widgets.NewDropDownOption("Meta").WithIdentifier("metadata").WithValue("metadata"),
-			widgets.NewDropDownOption("Trailers").WithIdentifier("trailers").WithValue("trailers"),
+			widgets.NewDropDownOption("Trailers").WithIdentifier(domain.VariableFromTrailers.String()).WithValue(domain.VariableFromTrailers.String()),
 		)
 	}
 

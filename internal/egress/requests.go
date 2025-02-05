@@ -153,7 +153,9 @@ func (s *Service) handleHTTPVariables(variables []domain.Variable, response *res
 			for _, c := range response.Cookies {
 				if c.Name == v.SourceKey {
 					env.SetKey(v.TargetEnvVariable, c.Value)
-					return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
+					if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -198,14 +200,18 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 			for _, item := range response.ResponseMetadata {
 				if item.Key == v.SourceKey {
 					env.SetKey(v.TargetEnvVariable, item.Value)
-					return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
+					if err := s.environments.UpdateEnvironment(env, state.SourceGRPCService, false); err != nil {
+						return err
+					}
 				}
 			}
 		case domain.VariableFromTrailers:
 			for _, item := range response.Trailers {
 				if item.Key == v.SourceKey {
 					env.SetKey(v.TargetEnvVariable, item.Value)
-					return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
+					if err := s.environments.UpdateEnvironment(env, state.SourceGRPCService, false); err != nil {
+						return err
+					}
 				}
 			}
 		}

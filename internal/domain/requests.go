@@ -276,7 +276,7 @@ const (
 	VariableFromBody     VariableFrom = "body"
 	VariableFromHeader   VariableFrom = "header"
 	VariableFromCookies  VariableFrom = "cookies"
-	VariableFromMetaData VariableFrom = "metaData"
+	VariableFromMetaData VariableFrom = "metadata"
 	VariableFromTrailers VariableFrom = "trailers"
 )
 
