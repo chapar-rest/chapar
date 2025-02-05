@@ -3,6 +3,8 @@ package egress
 import (
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
@@ -115,13 +117,13 @@ func (s *Service) handleHTTPVariables(variables []domain.Variable, response *res
 		return nil
 	}
 
-	for _, v := range variables {
+	fn := func(v domain.Variable) error {
 		if !v.Enable {
-			continue
+			return nil
 		}
 
 		if v.OnStatusCode != response.StatusCode {
-			continue
+			return nil
 		}
 
 		switch v.From {
@@ -132,7 +134,7 @@ func (s *Service) handleHTTPVariables(variables []domain.Variable, response *res
 			}
 
 			if data == nil {
-				continue
+				return nil
 			}
 
 			if result, ok := data.(string); ok {
@@ -159,9 +161,18 @@ func (s *Service) handleHTTPVariables(variables []domain.Variable, response *res
 				}
 			}
 		}
+
+		return nil
 	}
 
-	return nil
+	errG := errgroup.Group{}
+	for _, v := range variables {
+		errG.Go(func() error {
+			return fn(v)
+		})
+	}
+
+	return errG.Wait()
 }
 
 func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grpc.Response, env *domain.Environment) error {
@@ -169,13 +180,13 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 		return nil
 	}
 
-	for _, v := range variables {
+	fn := func(v domain.Variable) error {
 		if !v.Enable {
-			continue
+			return nil
 		}
 
 		if v.OnStatusCode != response.StatueCode {
-			continue
+			return nil
 		}
 
 		switch v.From {
@@ -186,7 +197,7 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 			}
 
 			if data == nil {
-				continue
+				return nil
 			}
 
 			if result, ok := data.(string); ok {
@@ -215,9 +226,18 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 				}
 			}
 		}
+
+		return nil
 	}
 
-	return nil
+	errG := errgroup.Group{}
+	for _, v := range variables {
+		errG.Go(func() error {
+			return fn(v)
+		})
+	}
+
+	return errG.Wait()
 }
 
 func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Response, env *domain.Environment) error {
