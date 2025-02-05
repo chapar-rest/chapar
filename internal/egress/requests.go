@@ -167,6 +167,7 @@ func (s *Service) handleHTTPVariables(variables []domain.Variable, response *res
 
 	errG := errgroup.Group{}
 	for _, v := range variables {
+		v := v
 		errG.Go(func() error {
 			return fn(v)
 		})
@@ -232,6 +233,7 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 
 	errG := errgroup.Group{}
 	for _, v := range variables {
+		v := v
 		errG.Go(func() error {
 			return fn(v)
 		})
