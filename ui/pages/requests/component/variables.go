@@ -20,6 +20,10 @@ import (
 type Variables struct {
 	theme *chapartheme.Theme
 
+	// TODO define request type as enum
+	// it ca nbe either http or grpc
+	requestType string
+
 	Items     []*Variable
 	addButton *widgets.IconButton
 	list      *widget.List
@@ -52,9 +56,10 @@ type Variable struct {
 	deleteButton widget.Clickable
 }
 
-func NewVariables(theme *chapartheme.Theme, items ...*Variable) *Variables {
+func NewVariables(theme *chapartheme.Theme, requestType string, items ...*Variable) *Variables {
 	f := &Variables{
-		theme: theme,
+		theme:       theme,
+		requestType: requestType,
 		addButton: &widgets.IconButton{
 			Icon:      widgets.PlusIcon,
 			Size:      unit.Dp(20),
@@ -121,12 +126,22 @@ func (f *Variables) SetValues(values []domain.Variable) {
 }
 
 func (f *Variables) addItem(item *Variable) {
-	item.fromDropDown = widgets.NewDropDownWithoutBorder(
-		f.theme,
-		widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
-		widgets.NewDropDownOption("Header").WithIdentifier("header").WithValue("header"),
-		widgets.NewDropDownOption("Cookie").WithIdentifier("cookie").WithValue("cookie"),
-	)
+	if f.requestType == domain.RequestTypeHTTP {
+		item.fromDropDown = widgets.NewDropDownWithoutBorder(
+			f.theme,
+			widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
+			widgets.NewDropDownOption("Header").WithIdentifier("header").WithValue("header"),
+			widgets.NewDropDownOption("Cookie").WithIdentifier("cookie").WithValue("cookie"),
+		)
+	} else if f.requestType == domain.RequestTypeGRPC {
+		item.fromDropDown = widgets.NewDropDownWithoutBorder(
+			f.theme,
+			widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
+			widgets.NewDropDownOption("Meta").WithIdentifier("metadata").WithValue("metadata"),
+			widgets.NewDropDownOption("Trailers").WithIdentifier("trailers").WithValue("trailers"),
+		)
+	}
+
 	item.fromDropDown.SetSelectedByValue(item.From.String())
 	item.fromDropDown.MinWidth = unit.Dp(60)
 	item.fromDropDown.MaxWidth = unit.Dp(80)
@@ -420,35 +435,84 @@ func (f *Variables) update(gtx layout.Context, item *Variable) {
 			return
 		}
 
-		// its either the http or grpc response available
-		if f.responseDetail.HTTP != nil {
-			if f.responseDetail.HTTP.StatusCode != item.OnStatusCode {
-				return
-			}
-
-			var (
-				pre interface{}
-				err error
-			)
-			switch item.From {
-			case domain.VariableFromBody:
-				pre, err = jsonpath.Get(f.responseDetail.HTTP.Response, item.JsonPath)
-				if err != nil {
-					return
-				}
-			case domain.VariableFromHeader:
-				pre = domain.FindKeyValue(f.responseDetail.HTTP.ResponseHeaders, item.JsonPath)
-			case domain.VariableFromCookies:
-				pre = domain.FindKeyValue(f.responseDetail.HTTP.Cookies, item.SourceKey)
-			}
-
-			if result, ok := pre.(string); ok {
-				f.previewValue = result
-			} else {
-				f.previewTitle = fmt.Sprintf("%v", pre)
-			}
-
+		if f.previewTitle != item.TargetEnvVariable {
 			f.previewTitle = item.TargetEnvVariable
+			f.previewValue = ""
+		}
+
+		// its either the http or grpc response available
+		if f.requestType == domain.RequestTypeHTTP {
+			f.handleHttpPreview(item)
+		} else if f.requestType == domain.RequestTypeGRPC {
+			f.handleGrpcPreview(item)
 		}
 	}
+}
+
+func (f *Variables) handleGrpcPreview(item *Variable) {
+	if f.responseDetail.GRPC == nil {
+		return
+	}
+
+	if f.responseDetail.GRPC.StatusCode != item.OnStatusCode {
+		return
+	}
+
+	var (
+		pre interface{}
+		err error
+	)
+	switch item.From {
+	case domain.VariableFromBody:
+		pre, err = jsonpath.Get(f.responseDetail.GRPC.Response, item.JsonPath)
+		if err != nil {
+			return
+		}
+	case domain.VariableFromMetaData:
+		pre = domain.FindKeyValue(f.responseDetail.GRPC.ResponseMetadata, item.SourceKey)
+	case domain.VariableFromTrailers:
+		pre = domain.FindKeyValue(f.responseDetail.GRPC.Trailers, item.SourceKey)
+	}
+
+	if result, ok := pre.(string); ok {
+		f.previewValue = result
+	} else {
+		f.previewTitle = fmt.Sprintf("%v", pre)
+	}
+
+	f.previewTitle = item.TargetEnvVariable
+}
+
+func (f *Variables) handleHttpPreview(item *Variable) {
+	if f.responseDetail.HTTP == nil {
+		return
+	}
+
+	if f.responseDetail.HTTP.StatusCode != item.OnStatusCode {
+		return
+	}
+
+	var (
+		pre interface{}
+		err error
+	)
+	switch item.From {
+	case domain.VariableFromBody:
+		pre, err = jsonpath.Get(f.responseDetail.HTTP.Response, item.JsonPath)
+		if err != nil {
+			return
+		}
+	case domain.VariableFromHeader:
+		pre = domain.FindKeyValue(f.responseDetail.HTTP.ResponseHeaders, item.SourceKey)
+	case domain.VariableFromCookies:
+		pre = domain.FindKeyValue(f.responseDetail.HTTP.Cookies, item.SourceKey)
+	}
+
+	if result, ok := pre.(string); ok {
+		f.previewValue = result
+	} else {
+		f.previewTitle = fmt.Sprintf("%v", pre)
+	}
+
+	f.previewTitle = item.TargetEnvVariable
 }

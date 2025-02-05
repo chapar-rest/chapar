@@ -22,6 +22,7 @@ type Request struct {
 	Metadata   *widgets.KeyValue
 	Auth       *component.Auth
 	Settings   *widgets.Settings
+	Variables  *component.Variables
 
 	PreRequest  *component.PrePostRequest
 	PostRequest *component.PrePostRequest
@@ -51,6 +52,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			{Title: "Body"},
 			{Title: "Auth"},
 			{Title: "Meta Data"},
+			{Title: "Variables"},
 			{Title: "Settings"},
 			{Title: "Pre Request"},
 			{Title: "Post Request"},
@@ -83,6 +85,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
 		}, postRequestDropDown, theme),
+		Variables: component.NewVariables(theme, domain.RequestTypeGRPC),
 	}
 
 	if req.Spec.GRPC.PreRequest != (domain.PreRequest{}) {
@@ -95,6 +98,10 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 		if req.Spec.GRPC.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {
 			r.PostRequest.SetPostRequestSetValues(req.Spec.GRPC.PostRequest.PostRequestSet)
 		}
+	}
+
+	if req.Spec.GRPC.Variables != nil {
+		r.Variables.SetValues(req.Spec.GRPC.Variables)
 	}
 
 	return r
@@ -141,6 +148,8 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 					return r.PreRequest.Layout(gtx, theme)
 				case "Post Request":
 					return r.PostRequest.Layout(gtx, theme)
+				case "Variables":
+					return r.Variables.Layout(gtx, "Variables", "", theme)
 				default:
 					return layout.Dimensions{}
 				}

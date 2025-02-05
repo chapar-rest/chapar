@@ -16,6 +16,7 @@ type GRPCRequestSpec struct {
 	Settings          Settings      `yaml:"settings"`
 	Body              string        `yaml:"body"`
 	Services          []GRPCService `yaml:"services"`
+	Variables         []Variable    `yaml:"variables"`
 
 	PreRequest  PreRequest  `yaml:"preRequest"`
 	PostRequest PostRequest `yaml:"postRequest"`
@@ -146,6 +147,10 @@ func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
 	}
 
 	if !ComparePostRequest(a.PostRequest, b.PostRequest) {
+		return false
+	}
+
+	if !CompareVariables(a.Variables, b.Variables) {
 		return false
 	}
 

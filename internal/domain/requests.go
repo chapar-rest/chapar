@@ -273,9 +273,11 @@ func (v VariableFrom) String() string {
 }
 
 const (
-	VariableFromBody    VariableFrom = "body"
-	VariableFromHeader  VariableFrom = "header"
-	VariableFromCookies VariableFrom = "cookies"
+	VariableFromBody     VariableFrom = "body"
+	VariableFromHeader   VariableFrom = "header"
+	VariableFromCookies  VariableFrom = "cookies"
+	VariableFromMetaData VariableFrom = "metaData"
+	VariableFromTrailers VariableFrom = "trailers"
 )
 
 type Variable struct {
@@ -477,6 +479,14 @@ func ComparePostRequestSet(a, b PostRequestSet) bool {
 	if a.Target != b.Target || a.From != b.From || a.FromKey != b.FromKey || a.StatusCode != b.StatusCode {
 		return false
 	}
+	return true
+}
+
+func CompareVariable(a, b Variable) bool {
+	if a.ID != b.ID || a.TargetEnvVariable != b.TargetEnvVariable || a.From != b.From || a.SourceKey != b.SourceKey || a.OnStatusCode != b.OnStatusCode || a.JsonPath != b.JsonPath || a.Enable != b.Enable {
+		return false
+	}
+
 	return true
 }
 

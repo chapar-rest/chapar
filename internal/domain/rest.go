@@ -200,6 +200,10 @@ func CompareHTTPRequests(a, b *HTTPRequest) bool {
 		return false
 	}
 
+	if !CompareVariables(a.Variables, b.Variables) {
+		return false
+	}
+
 	return true
 }
 
@@ -258,6 +262,20 @@ func CompareHTTPResponses(a, b HTTPResponse) bool {
 
 	if !CompareKeyValues(a.Cookies, b.Cookies) {
 		return false
+	}
+
+	return true
+}
+
+func CompareVariables(a, b []Variable) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, v := range a {
+		if !CompareVariable(v, b[i]) {
+			return false
+		}
 	}
 
 	return true

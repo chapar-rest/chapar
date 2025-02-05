@@ -64,7 +64,7 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 		Params:    NewParams(nil, nil),
 		Headers:   NewHeaders(nil),
 		Auth:      component.NewAuth(req.Spec.HTTP.Request.Auth, theme),
-		Variables: component.NewVariables(theme),
+		Variables: component.NewVariables(theme, domain.RequestTypeHTTP),
 	}
 
 	if req.Spec != (domain.RequestSpec{}) && req.Spec.HTTP != nil && req.Spec.HTTP.Request != nil {
@@ -84,6 +84,10 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 
 		if req.Spec.HTTP.Request.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {
 			r.PostRequest.SetPostRequestSetValues(req.Spec.HTTP.Request.PostRequest.PostRequestSet)
+		}
+
+		if req.Spec.HTTP.Request.Variables != nil {
+			r.Variables.SetValues(req.Spec.HTTP.Request.Variables)
 		}
 	}
 

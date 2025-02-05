@@ -86,6 +86,12 @@ func (s *Service) postRequest(req *domain.Request, res any, env *domain.Environm
 	if req.MetaData.Type == domain.RequestTypeHTTP {
 		postReq := req.Spec.GetHTTP().GetPostRequest()
 		if response, ok := res.(*rest.Response); ok {
+			// handle variables
+			// TODO handling variables does not seem to be good fit here in post request
+			if err := s.handleHTTPVariables(req.Spec.GetHTTP().Request.Variables, response, env); err != nil {
+				return err
+			}
+
 			return s.handleHTTPPostRequest(postReq, response, env)
 		} else {
 			return fmt.Errorf("response is not of type *rest.Response")
@@ -94,10 +100,118 @@ func (s *Service) postRequest(req *domain.Request, res any, env *domain.Environm
 
 	postReq := req.Spec.GetGRPC().GetPostRequest()
 	if response, ok := res.(*grpc.Response); ok {
+		if err := s.handleGRPcVariables(req.Spec.GetGRPC().Variables, response, env); err != nil {
+			return err
+		}
+
 		return s.handleGRPCPostRequest(postReq, response, env)
 	}
 
 	return fmt.Errorf("response is not of type *grpc.Response")
+}
+
+func (s *Service) handleHTTPVariables(variables []domain.Variable, response *rest.Response, env *domain.Environment) error {
+	if variables == nil || response == nil || env == nil {
+		return nil
+	}
+
+	for _, v := range variables {
+		if !v.Enable {
+			continue
+		}
+
+		if v.OnStatusCode != response.StatusCode {
+			continue
+		}
+
+		switch v.From {
+		case domain.VariableFromBody:
+			data, err := jsonpath.Get(response.JSON, v.JsonPath)
+			if err != nil {
+				return err
+			}
+
+			if data == nil {
+				continue
+			}
+
+			if result, ok := data.(string); ok {
+				env.SetKey(v.TargetEnvVariable, result)
+				if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
+					return err
+				}
+			}
+
+		case domain.VariableFromHeader:
+			if result, ok := response.ResponseHeaders[v.SourceKey]; ok {
+				env.SetKey(v.TargetEnvVariable, result)
+				if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
+					return err
+				}
+			}
+		case domain.VariableFromCookies:
+			for _, c := range response.Cookies {
+				if c.Name == v.SourceKey {
+					env.SetKey(v.TargetEnvVariable, c.Value)
+					return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grpc.Response, env *domain.Environment) error {
+	if variables == nil || response == nil || env == nil {
+		return nil
+	}
+
+	for _, v := range variables {
+		if !v.Enable {
+			continue
+		}
+
+		if v.OnStatusCode != response.StatueCode {
+			continue
+		}
+
+		switch v.From {
+		case domain.VariableFromBody:
+			data, err := jsonpath.Get(response.Body, v.JsonPath)
+			if err != nil {
+				return err
+			}
+
+			if data == nil {
+				continue
+			}
+
+			if result, ok := data.(string); ok {
+				env.SetKey(v.TargetEnvVariable, result)
+				if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
+					return err
+				}
+			}
+
+		case domain.VariableFromMetaData:
+			for _, item := range response.ResponseMetadata {
+				if item.Key == v.SourceKey {
+					env.SetKey(v.TargetEnvVariable, item.Value)
+					return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
+				}
+			}
+		case domain.VariableFromTrailers:
+			for _, item := range response.Trailers {
+				if item.Key == v.SourceKey {
+					env.SetKey(v.TargetEnvVariable, item.Value)
+					return s.environments.UpdateEnvironment(env, state.SourceGRPCService, false)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Response, env *domain.Environment) error {

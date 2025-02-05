@@ -239,6 +239,11 @@ func (r *Restful) setupHooks() {
 		r.Req.Spec.HTTP.Request.Body = body
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
+
+	r.Request.Variables.SetOnChanged(func(items []domain.Variable) {
+		r.Req.Spec.HTTP.Request.Variables = items
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
 }
 
 func (r *Restful) SetOnRequestTabChange(f func(id, tab string)) {
