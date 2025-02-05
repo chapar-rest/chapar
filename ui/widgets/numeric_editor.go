@@ -26,9 +26,7 @@ func (n *NumericEditor) Layout(gtx layout.Context, theme *chapartheme.Theme) lay
 			break
 		}
 
-		switch event.(type) {
-		// on change event
-		case widget.ChangeEvent:
+		if _, ok := event.(widget.ChangeEvent); ok {
 			if n.Text() != "" {
 				if _, err := strconv.Atoi(n.Text()); err != nil {
 					n.SetText(n.Text()[:len(n.Text())-1])

@@ -28,8 +28,7 @@ type Variables struct {
 	addButton *widgets.IconButton
 	list      *widget.List
 
-	onSelectFile func(id string)
-	onChanged    func(values []domain.Variable)
+	onChanged func(values []domain.Variable)
 
 	previewTitle string
 	previewValue string
