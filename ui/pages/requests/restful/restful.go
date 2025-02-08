@@ -137,6 +137,7 @@ func (r *Restful) SetHTTPResponse(detail domain.HTTPResponseDetail) {
 		return
 	}
 
+	r.Request.Variables.SetResponseDetail(&domain.ResponseDetail{HTTP: &detail})
 	r.Response.SetResponse(detail.Response)
 	r.Response.SetHeaders(detail.RequestHeaders, detail.ResponseHeaders)
 	r.Response.SetCookies(detail.Cookies)
@@ -236,6 +237,11 @@ func (r *Restful) setupHooks() {
 
 	r.Request.Body.SetOnChange(func(body domain.Body) {
 		r.Req.Spec.HTTP.Request.Body = body
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	r.Request.Variables.SetOnChanged(func(items []domain.Variable) {
+		r.Req.Spec.HTTP.Request.Variables = items
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 }

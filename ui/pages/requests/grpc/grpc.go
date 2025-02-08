@@ -124,6 +124,11 @@ func (r *Grpc) setupHooks() {
 		r.Req.Spec.GRPC.ServerInfo.ServerReflection = r.Request.ServerInfo.definitionFrom.Value == "reflection"
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
+
+	r.Request.Variables.SetOnChanged(func(items []domain.Variable) {
+		r.Req.Spec.GRPC.Variables = items
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
 }
 
 func (r *Grpc) SetOnRequestTabChange(f func(id, tab string)) {
@@ -240,6 +245,7 @@ func (r *Grpc) SetRequestBody(body string) {
 }
 
 func (r *Grpc) SetResponse(detail domain.GRPCResponseDetail) {
+	r.Request.Variables.SetResponseDetail(&domain.ResponseDetail{GRPC: &detail})
 	r.Response.SetResponse(detail.Response)
 	r.Response.SetMetadata(detail.RequestMetadata, detail.ResponseMetadata)
 	r.Response.SetTrailers(detail.Trailers)

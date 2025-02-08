@@ -17,17 +17,17 @@ type Request struct {
 	PreRequest  *component.PrePostRequest
 	PostRequest *component.PrePostRequest
 
-	Body    *Body
-	Params  *Params
-	Headers *Headers
-	Auth    *component.Auth
+	Body      *Body
+	Params    *Params
+	Headers   *Headers
+	Variables *component.Variables
+	Auth      *component.Auth
 
 	currentTab  string
 	OnTabChange func(title string)
 }
 
 func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapartheme.Theme) *Request {
-
 	postRequestDropDown := widgets.NewDropDown(
 		theme,
 		widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
@@ -41,6 +41,7 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 			{Title: "Body"},
 			{Title: "Auth"},
 			{Title: "Headers"},
+			{Title: "Variables"},
 			{Title: "Pre Request"},
 			{Title: "Post Request"},
 		}, nil),
@@ -59,10 +60,11 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
 		}, postRequestDropDown, theme),
 
-		Body:    NewBody(req.Spec.HTTP.Request.Body, theme, explorer),
-		Params:  NewParams(nil, nil),
-		Headers: NewHeaders(nil),
-		Auth:    component.NewAuth(req.Spec.HTTP.Request.Auth, theme),
+		Body:      NewBody(req.Spec.HTTP.Request.Body, theme, explorer),
+		Params:    NewParams(nil, nil),
+		Headers:   NewHeaders(nil),
+		Auth:      component.NewAuth(req.Spec.HTTP.Request.Auth, theme),
+		Variables: component.NewVariables(theme, domain.RequestTypeHTTP),
 	}
 
 	if req.Spec != (domain.RequestSpec{}) && req.Spec.HTTP != nil && req.Spec.HTTP.Request != nil {
@@ -82,6 +84,10 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 
 		if req.Spec.HTTP.Request.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {
 			r.PostRequest.SetPostRequestSetValues(req.Spec.HTTP.Request.PostRequest.PostRequestSet)
+		}
+
+		if req.Spec.HTTP.Request.Variables != nil {
+			r.Variables.SetValues(req.Spec.HTTP.Request.Variables)
 		}
 	}
 
@@ -117,6 +123,8 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 					return r.Headers.Layout(gtx, theme)
 				case "Auth":
 					return r.Auth.Layout(gtx, theme)
+				case "Variables":
+					return r.Variables.Layout(gtx, "Variables", "", theme)
 				case "Body":
 					return r.Body.Layout(gtx, theme)
 				default:

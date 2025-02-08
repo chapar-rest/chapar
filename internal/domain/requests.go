@@ -61,6 +61,11 @@ type Request struct {
 	CollectionID   string `yaml:"-"`
 }
 
+type ResponseDetail struct {
+	HTTP *HTTPResponseDetail
+	GRPC *GRPCResponseDetail
+}
+
 type RequestMeta struct {
 	ID   string `yaml:"id"`
 	Name string `yaml:"name"`
@@ -261,6 +266,30 @@ type SShTunnel struct {
 	Flags []string `yaml:"flags"`
 }
 
+type VariableFrom string
+
+func (v VariableFrom) String() string {
+	return string(v)
+}
+
+const (
+	VariableFromBody     VariableFrom = "body"
+	VariableFromHeader   VariableFrom = "header"
+	VariableFromCookies  VariableFrom = "cookies"
+	VariableFromMetaData VariableFrom = "metadata"
+	VariableFromTrailers VariableFrom = "trailers"
+)
+
+type Variable struct {
+	ID                string       `yaml:"id"`                // Unique identifier
+	TargetEnvVariable string       `yaml:"TargetEnvVariable"` // The environment variable to set
+	From              VariableFrom `yaml:"from"`              // Source: "body", "header", "cookie"
+	SourceKey         string       `yaml:"sourceKey"`         // For "header" or "cookie", specify the key name
+	OnStatusCode      int          `yaml:"onStatusCode"`      // Trigger on a specific status code
+	JsonPath          string       `yaml:"jsonPath"`          // JSONPath for extracting value (for "body")
+	Enable            bool         `yaml:"enable"`            // Enable or disable the variable
+}
+
 func (r *Request) Clone() *Request {
 	clone := *r
 	clone.MetaData.ID = uuid.NewString()
@@ -450,6 +479,14 @@ func ComparePostRequestSet(a, b PostRequestSet) bool {
 	if a.Target != b.Target || a.From != b.From || a.FromKey != b.FromKey || a.StatusCode != b.StatusCode {
 		return false
 	}
+	return true
+}
+
+func CompareVariable(a, b Variable) bool {
+	if a.ID != b.ID || a.TargetEnvVariable != b.TargetEnvVariable || a.From != b.From || a.SourceKey != b.SourceKey || a.OnStatusCode != b.OnStatusCode || a.JsonPath != b.JsonPath || a.Enable != b.Enable {
+		return false
+	}
+
 	return true
 }
 

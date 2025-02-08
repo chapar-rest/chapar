@@ -15,6 +15,7 @@ require (
 	github.com/jhump/protoreflect v1.16.0
 	github.com/oligo/gioview v0.8.1
 	golang.org/x/exp/shiny v0.0.0-20240707233637-46b078467d37
+	golang.org/x/sync v0.7.0
 	golang.org/x/text v0.16.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.1
@@ -33,7 +34,6 @@ require (
 	golang.org/x/exp v0.0.0-20240707233637-46b078467d37 // indirect
 	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 )
