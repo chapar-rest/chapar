@@ -207,6 +207,7 @@ func (f *Variables) itemLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: unit.Dp(1), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Dp(unit.Dp(100))
+				gtx.Constraints.Max.X = gtx.Dp(unit.Dp(100))
 				editor := material.Editor(theme.Material(), item.targetEnvEditor, "Target Key")
 				editor.SelectionColor = theme.TextSelectionColor
 				return editor.Layout(gtx)
