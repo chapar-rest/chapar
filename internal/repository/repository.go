@@ -14,15 +14,12 @@ type Repository interface {
 	GetCollectionsDir() (string, error)
 	UpdateCollection(collection *domain.Collection) error
 	DeleteCollection(collection *domain.Collection) error
-	GetNewCollectionDir(name string) (*FilePath, error)
-	GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (*FilePath, error)
 
 	LoadEnvironments() ([]*domain.Environment, error)
 	GetEnvironment(filepath string) (*domain.Environment, error)
 	GetEnvironmentDir() (string, error)
 	UpdateEnvironment(env *domain.Environment) error
 	DeleteEnvironment(env *domain.Environment) error
-	GetNewEnvironmentFilePath(name string) (*FilePath, error)
 
 	ReadPreferencesData() (*domain.Preferences, error)
 	UpdatePreferences(pref *domain.Preferences) error
@@ -32,25 +29,29 @@ type Repository interface {
 	GetRequestsDir() (string, error)
 	UpdateRequest(request *domain.Request) error
 	DeleteRequest(request *domain.Request) error
-	GetNewRequestFilePath(name string) (*FilePath, error)
 
 	LoadWorkspaces() ([]*domain.Workspace, error)
 	GetWorkspace(filepath string) (*domain.Workspace, error)
 	GetWorkspacesDir() (string, error)
 	UpdateWorkspace(workspace *domain.Workspace) error
 	DeleteWorkspace(workspace *domain.Workspace) error
-	GetNewWorkspaceDir(name string) (*FilePath, error)
 
 	GetProtoFilesDir() (string, error)
 	LoadProtoFiles() ([]*domain.ProtoFile, error)
 	DeleteProtoFile(protoFile *domain.ProtoFile) error
 	UpdateProtoFile(protoFile *domain.ProtoFile) error
-	GetNewProtoFilePath(name string) (*FilePath, error)
+	CreateProtoFile(protoFile *domain.ProtoFile) error
 
 	SetActiveWorkspace(workspace *domain.Workspace) error
 
 	GetConfig() (*domain.Config, error)
 	UpdateConfig(config *domain.Config) error
+
+	CreateRequest(request *domain.Request) error
+	CreateRequestInCollection(collection *domain.Collection, request *domain.Request) error
+	CreateCollection(collection *domain.Collection) error
+	CreateEnvironment(env *domain.Environment) error
+	CreateWorkspace(workspace *domain.Workspace) error
 }
 
 type FilePath struct {

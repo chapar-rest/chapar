@@ -801,3 +801,182 @@ func userConfigDir() (string, error) {
 
 	return dir, nil
 }
+
+func (fs *Filesystem) CreateRequest(request *domain.Request) error {
+	// Get requests directory
+	requestsDir, err := fs.GetRequestsDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	request.MetaData.Name = fs.generateUniqueName(request.MetaData.Name)
+
+	// Generate file path internally
+	filePath := filepath.Join(requestsDir, request.MetaData.Name+".yaml")
+	request.FilePath = filePath
+
+	return fs.UpdateRequest(request)
+}
+
+func (fs *Filesystem) CreateRequestInCollection(collection *domain.Collection, request *domain.Request) error {
+	// Generate unique name if needed
+	request.MetaData.Name = fs.generateUniqueName(request.MetaData.Name)
+	request.CollectionID = collection.MetaData.ID
+	request.CollectionName = collection.MetaData.Name
+
+	// Ensure the collection directory exists
+	collectionDir := filepath.Dir(collection.FilePath)
+	if err := makeDir(collectionDir); err != nil {
+		return fmt.Errorf("failed to create collection directory: %w", err)
+	}
+
+	// Ensure the requests directory exists
+	requestsDir := filepath.Join(collectionDir, "requests")
+	if err := makeDir(requestsDir); err != nil {
+		return fmt.Errorf("failed to create requests directory: %w", err)
+	}
+
+	// Generate file path internally
+	filePath := filepath.Join(requestsDir, request.MetaData.Name+".yaml")
+	request.FilePath = filePath
+
+	return fs.UpdateRequest(request)
+}
+
+func (fs *Filesystem) CreateCollection(collection *domain.Collection) error {
+	// Get collections directory
+	collectionDir, err := fs.GetCollectionsDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	collection.MetaData.Name = fs.generateUniqueName(collection.MetaData.Name)
+
+	// Generate directory path internally
+	dirPath := filepath.Join(collectionDir, collection.MetaData.Name)
+	collection.FilePath = dirPath
+
+	// Create the collection directory
+	if err := makeDir(dirPath); err != nil {
+		return fmt.Errorf("failed to create collection directory: %w", err)
+	}
+
+	// Create the requests subdirectory
+	requestsDir := filepath.Join(dirPath, "requests")
+	if err := makeDir(requestsDir); err != nil {
+		return fmt.Errorf("failed to create requests directory: %w", err)
+	}
+
+	return fs.UpdateCollection(collection)
+}
+
+func (fs *Filesystem) CreateEnvironment(env *domain.Environment) error {
+	// Get environments directory
+	envDir, err := fs.GetEnvironmentDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	env.MetaData.Name = fs.generateUniqueName(env.MetaData.Name)
+
+	// Generate file path internally
+	filePath := filepath.Join(envDir, env.MetaData.Name+".yaml")
+	env.FilePath = filePath
+
+	return fs.UpdateEnvironment(env)
+}
+
+// Helper function to generate unique names
+func (fs *Filesystem) generateUniqueName(name string) string {
+	// Start with the original name
+	newName := name
+	counter := 1
+
+	// Keep trying new names until we find one that doesn't exist
+	for {
+		// Check if this name exists in various locations
+		exists, err := fs.nameExists(newName)
+		if err != nil || !exists {
+			break
+		}
+
+		// If it exists, try the next number
+		newName = fmt.Sprintf("%s%d", name, counter)
+		counter++
+	}
+
+	return newName
+}
+
+// Helper function to check if a name exists across different types
+func (fs *Filesystem) nameExists(name string) (bool, error) {
+	// Get all directories we need to check
+	requestsDir, err := fs.GetRequestsDir()
+	if err != nil {
+		return false, err
+	}
+
+	collectionsDir, err := fs.GetCollectionsDir()
+	if err != nil {
+		return false, err
+	}
+
+	environmentsDir, err := fs.GetEnvironmentDir()
+	if err != nil {
+		return false, err
+	}
+
+	// Check in requests directory
+	if fileExists(filepath.Join(requestsDir, name+".yaml")) {
+		return true, nil
+	}
+
+	// Check in collections directory
+	if dirExist(filepath.Join(collectionsDir, name)) {
+		return true, nil
+	}
+
+	// Check in environments directory
+	if fileExists(filepath.Join(environmentsDir, name+".yaml")) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (fs *Filesystem) CreateProtoFile(protoFile *domain.ProtoFile) error {
+	// Get proto files directory
+	protoDir, err := fs.GetProtoFilesDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	protoFile.MetaData.Name = fs.generateUniqueName(protoFile.MetaData.Name)
+
+	// Generate file path internally
+	filePath := filepath.Join(protoDir, protoFile.MetaData.Name+".yaml")
+	protoFile.FilePath = filePath
+
+	return fs.UpdateProtoFile(protoFile)
+}
+
+func (fs *Filesystem) CreateWorkspace(workspace *domain.Workspace) error {
+	// Get workspaces directory
+	workspaceDir, err := fs.GetWorkspacesDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	workspace.MetaData.Name = fs.generateUniqueName(workspace.MetaData.Name)
+
+	// Generate directory path internally
+	dirPath := filepath.Join(workspaceDir, workspace.MetaData.Name)
+	workspace.FilePath = dirPath
+
+	return fs.UpdateWorkspace(workspace)
+}

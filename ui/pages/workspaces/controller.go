@@ -42,17 +42,14 @@ func (c *Controller) LoadData() error {
 
 func (c *Controller) onNew() {
 	ws := domain.NewWorkspace("New Workspace")
-	filePath, err := c.repo.GetNewWorkspaceDir(ws.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new workspace path, %w", err))
+
+	// Let the repository handle the creation details
+	if err := c.repo.CreateWorkspace(ws); err != nil {
+		c.view.showError(fmt.Errorf("failed to create workspace: %w", err))
 		return
 	}
 
-	ws.FilePath = filePath.Path
-	ws.MetaData.Name = filePath.NewName
-
 	c.state.AddWorkspace(ws, state.SourceController)
-	c.saveWorkspaceToDisc(ws.MetaData.ID)
 	c.view.AddItem(ws)
 }
 

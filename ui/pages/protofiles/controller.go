@@ -61,18 +61,17 @@ func (c *Controller) addPath(path string) {
 	// get last part of the path as the name
 	fileName := filepath.Base(path)
 	proto := domain.NewProtoFile(fileName)
-	filePath, err := c.repo.GetNewProtoFilePath(fileName)
-	if err != nil {
-		c.showError("Failed to get new path", err.Error())
+
+	proto.Spec.IsImportPath = true
+	proto.Spec.Path = path
+
+	// Let the repository handle the creation details
+	if err := c.repo.CreateProtoFile(proto); err != nil {
+		c.showError("Failed to create proto file", err.Error())
 		return
 	}
 
-	proto.FilePath = filePath.Path
-	proto.MetaData.Name = filePath.NewName
-	proto.Spec.IsImportPath = true
-	proto.Spec.Path = path
 	c.state.AddProtoFile(proto)
-	c.saveProtoFileToDisc(proto.MetaData.ID)
 	c.view.AddItem(proto)
 }
 
@@ -90,11 +89,6 @@ func (c *Controller) onAdd() {
 		fileName := filepath.Base(result.FilePath)
 		fileDir := filepath.Dir(result.FilePath)
 		proto := domain.NewProtoFile(fileName)
-		filePath, err := c.repo.GetNewProtoFilePath(proto.MetaData.Name)
-		if err != nil {
-			c.showError("Failed to get new proto file path", err.Error())
-			return
-		}
 
 		pInfo, err := c.getProtoInfo(fileDir, fileName)
 		if err != nil {
@@ -102,14 +96,17 @@ func (c *Controller) onAdd() {
 			return
 		}
 
-		proto.FilePath = filePath.Path
-		proto.MetaData.Name = filePath.NewName
 		proto.Spec.Path = result.FilePath
 		proto.Spec.Package = pInfo.Package
 		proto.Spec.Services = pInfo.Services
 
+		// Let the repository handle the creation details
+		if err := c.repo.CreateProtoFile(proto); err != nil {
+			c.showError("Failed to create proto file", err.Error())
+			return
+		}
+
 		c.state.AddProtoFile(proto)
-		c.saveProtoFileToDisc(proto.MetaData.ID)
 		c.view.AddItem(proto)
 	}, "proto")
 }

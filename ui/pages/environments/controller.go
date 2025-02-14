@@ -47,18 +47,14 @@ func NewController(view *View, repo repository.Repository, envState *state.Envir
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
 
-	filePath, err := c.repo.GetNewEnvironmentFilePath(env.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new environment file path %w", err))
+	// Let the repository handle the creation details
+	if err := c.repo.CreateEnvironment(env); err != nil {
+		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
 		return
 	}
 
-	env.FilePath = filePath.Path
-	env.MetaData.Name = filePath.NewName
-
 	c.state.AddEnvironment(env, state.SourceController)
 	c.view.AddTreeViewNode(env)
-	c.saveEnvironmentToDisc(env.MetaData.ID)
 }
 
 func (c *Controller) onImportEnvironment() {
@@ -267,10 +263,15 @@ func (c *Controller) duplicateEnvironment(id string) {
 
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name += " (copy)"
-	newEnv.FilePath = repository.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
+
+	// Let the repository handle the creation details
+	if err := c.repo.CreateEnvironment(newEnv); err != nil {
+		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
+		return
+	}
+
 	c.state.AddEnvironment(newEnv, state.SourceController)
 	c.view.AddTreeViewNode(newEnv)
-	c.saveEnvironmentToDisc(newEnv.MetaData.ID)
 }
 
 func (c *Controller) deleteEnvironment(id string) {
