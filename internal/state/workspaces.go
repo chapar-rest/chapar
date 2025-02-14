@@ -112,7 +112,7 @@ func (m *Workspaces) GetWorkspaces() []*domain.Workspace {
 	return m.workspaces.Values()
 }
 
-func (m *Workspaces) LoadWorkspacesFromDisk() ([]*domain.Workspace, error) {
+func (m *Workspaces) LoadWorkspaces() ([]*domain.Workspace, error) {
 	ws, err := m.repository.LoadWorkspaces()
 	if err != nil {
 		return nil, err

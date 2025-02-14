@@ -72,12 +72,12 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 }
 
 func (c *Controller) LoadData() error {
-	collections, err := c.model.LoadCollectionsFromDisk()
+	collections, err := c.model.LoadCollections()
 	if err != nil {
 		return err
 	}
 
-	requests, err := c.model.LoadRequestsFromDisk()
+	requests, err := c.model.LoadRequests()
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func (c *Controller) onTitleChanged(id string, title, containerType string) {
 func (c *Controller) onSave(id string) {
 	tabType := c.view.GetTabType(id)
 	if tabType == TypeRequest {
-		c.saveRequestToDisc(id)
+		c.saveRequest(id)
 	}
 }
 
@@ -458,7 +458,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	}
 
 	// set tab dirty if the in memory data is different from the file
-	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	reqFromFile, err := c.model.GetPersistedRequest(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
@@ -602,7 +602,7 @@ func (c *Controller) onRequestTabClose(id string) {
 		return
 	}
 
-	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	reqFromFile, err := c.model.GetPersistedRequest(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return
@@ -624,11 +624,11 @@ func (c *Controller) onRequestTabClose(id string) {
 			}
 
 			if selectedOption == "Yes" {
-				c.saveRequestToDisc(id)
+				c.saveRequest(id)
 			}
 
 			c.view.CloseTab(id)
-			c.model.ReloadRequestFromDisc(id)
+			c.model.ReloadRequest(id)
 			c.view.SetTreeViewNodePrefix(id, reqFromFile)
 		},
 		[]widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
@@ -739,25 +739,13 @@ func (c *Controller) onNewCollection() {
 	c.view.SwitchToTab(col.MetaData.ID)
 }
 
-func (c *Controller) saveRequestToDisc(id string) {
+func (c *Controller) saveRequest(id string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
 		return
 	}
 	if err := c.model.UpdateRequest(req, false); err != nil {
 		c.view.showError(fmt.Errorf("failed to update request, %w", err))
-		return
-	}
-	c.view.SetTabDirty(id, false)
-}
-
-func (c *Controller) saveCollectionToDisc(id string) {
-	col := c.model.GetCollection(id)
-	if col == nil {
-		return
-	}
-	if err := c.model.UpdateCollection(col, false); err != nil {
-		c.view.showError(fmt.Errorf("failed to update collection, %w", err))
 		return
 	}
 	c.view.SetTabDirty(id, false)
@@ -922,8 +910,7 @@ func (c *Controller) duplicateCollection(id string) {
 }
 
 func (c *Controller) duplicateRequest(id string) {
-	// read request from file to make sure we have the latest persisted data
-	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	reqFromFile, err := c.model.GetPersistedRequest(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return

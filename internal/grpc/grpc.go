@@ -485,7 +485,7 @@ func (s *Service) GetServices(id, activeEnvironmentID string) ([]domain.GRPCServ
 
 		return s.parseRegistryFiles(protoRegistryFiles)
 	} else if len(req.Spec.GRPC.ServerInfo.ProtoFiles) > 0 {
-		protoFiles, err := s.protoFiles.LoadProtoFilesFromDisk()
+		protoFiles, err := s.protoFiles.LoadProtoFiles()
 		if err != nil {
 			return nil, err
 		}

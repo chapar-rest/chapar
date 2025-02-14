@@ -39,7 +39,7 @@ func NewController(view *View, state *state.ProtoFiles, repo repository.Reposito
 }
 
 func (c *Controller) LoadData() error {
-	data, err := c.state.LoadProtoFilesFromDisk()
+	data, err := c.state.LoadProtoFiles()
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ type info struct {
 }
 
 func (c *Controller) getProtoInfo(path, filename string) (*info, error) {
-	protoFiles, err := c.state.LoadProtoFilesFromDisk()
+	protoFiles, err := c.state.LoadProtoFiles()
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (c *Controller) onDeleteSelected(ids []string) {
 	}
 }
 
-func (c *Controller) saveProtoFileToDisc(id string) {
+func (c *Controller) saveProtoFile(id string) {
 	ws := c.state.GetProtoFile(id)
 	if ws == nil {
 		c.showError("Failed to get proto-file", "failed to get proto-file")

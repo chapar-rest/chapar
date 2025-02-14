@@ -136,7 +136,7 @@ func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
 }
 
 func (c *Controller) LoadData() error {
-	data, err := c.state.LoadEnvironmentsFromDisk()
+	data, err := c.state.LoadEnvironments()
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 	}
 
 	// set tab dirty if the in memory data is different from the file
-	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetPersistedEnvironment(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get environment from file %w", err))
 		return
@@ -183,7 +183,7 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 }
 
 func (c *Controller) onSave(id string) {
-	c.saveEnvironmentToDisc(id)
+	c.saveEnvironment(id)
 }
 
 func (c *Controller) onTabClose(id string) {
@@ -196,7 +196,7 @@ func (c *Controller) onTabClose(id string) {
 		return
 	}
 
-	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetPersistedEnvironment(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return
@@ -218,16 +218,16 @@ func (c *Controller) onTabClose(id string) {
 			}
 
 			if selectedOption == "Yes" {
-				c.saveEnvironmentToDisc(id)
+				c.saveEnvironment(id)
 			}
 
 			c.view.CloseTab(id)
-			c.state.ReloadEnvironmentFromDisc(id, state.SourceController)
+			c.state.ReloadEnvironment(id, state.SourceController)
 		}, []widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
 }
 
-func (c *Controller) saveEnvironmentToDisc(id string) {
+func (c *Controller) saveEnvironment(id string) {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
 		c.view.showError(fmt.Errorf("failed to get environment, %s", id))
@@ -253,7 +253,7 @@ func (c *Controller) onTreeViewMenuClicked(id string, action string) {
 
 func (c *Controller) duplicateEnvironment(id string) {
 	// read environment from file to make sure we have the latest persisted data
-	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetPersistedEnvironment(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return

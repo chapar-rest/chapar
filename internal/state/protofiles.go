@@ -82,7 +82,7 @@ func (m *ProtoFiles) GetProtoFiles() []*domain.ProtoFile {
 	return m.protoFiles.Values()
 }
 
-func (m *ProtoFiles) LoadProtoFilesFromDisk() ([]*domain.ProtoFile, error) {
+func (m *ProtoFiles) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 	protos, err := m.repository.LoadProtoFiles()
 	if err != nil {
 		return nil, err

@@ -852,23 +852,14 @@ func (fs *Filesystem) CreateRequest(request *domain.Request) error {
 func (fs *Filesystem) CreateRequestInCollection(collection *domain.Collection, request *domain.Request) error {
 	// Generate unique name if needed
 	request.MetaData.Name = fs.generateUniqueName(request.MetaData.Name)
+
+	// Set collection metadata
 	request.CollectionID = collection.MetaData.ID
 	request.CollectionName = collection.MetaData.Name
 
-	// Ensure the collection directory exists
-	collectionDir := filepath.Dir(collection.FilePath)
-	if err := makeDir(collectionDir); err != nil {
-		return fmt.Errorf("failed to create collection directory: %w", err)
-	}
-
-	// Ensure the requests directory exists
-	requestsDir := filepath.Join(collectionDir, "requests")
-	if err := makeDir(requestsDir); err != nil {
-		return fmt.Errorf("failed to create requests directory: %w", err)
-	}
-
 	// Generate file path internally
-	filePath := filepath.Join(requestsDir, request.MetaData.Name+".yaml")
+	collectionDir := filepath.Dir(collection.FilePath)
+	filePath := filepath.Join(collectionDir, request.MetaData.Name+".yaml")
 	request.FilePath = filePath
 
 	return fs.UpdateRequest(request)
@@ -891,12 +882,6 @@ func (fs *Filesystem) CreateCollection(collection *domain.Collection) error {
 	// Create the collection directory
 	if err := makeDir(dirPath); err != nil {
 		return fmt.Errorf("failed to create collection directory: %w", err)
-	}
-
-	// Create the requests subdirectory
-	requestsDir := filepath.Join(dirPath, "requests")
-	if err := makeDir(requestsDir); err != nil {
-		return fmt.Errorf("failed to create requests directory: %w", err)
 	}
 
 	return fs.UpdateCollection(collection)
@@ -1045,12 +1030,6 @@ func (fs *Filesystem) createCollection(collection *domain.Collection) error {
 	// Create the collection directory
 	if err := makeDir(dirPath); err != nil {
 		return fmt.Errorf("failed to create collection directory: %w", err)
-	}
-
-	// Create the requests subdirectory
-	requestsDir := filepath.Join(dirPath, "requests")
-	if err := makeDir(requestsDir); err != nil {
-		return fmt.Errorf("failed to create requests directory: %w", err)
 	}
 
 	return fs.UpdateCollection(collection)

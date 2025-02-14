@@ -31,7 +31,7 @@ func NewController(view *View, state *state.Workspaces, repo repository.Reposito
 }
 
 func (c *Controller) LoadData() error {
-	data, err := c.state.LoadWorkspacesFromDisk()
+	data, err := c.state.LoadWorkspaces()
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (c *Controller) onUpdate(w *domain.Workspace) {
 	}
 }
 
-func (c *Controller) saveWorkspaceToDisc(id string) {
+func (c *Controller) saveWorkspace(id string) {
 	ws := c.state.GetWorkspace(id)
 	if ws == nil {
 		c.view.showError(fmt.Errorf("failed to get workspace, %s", id))
