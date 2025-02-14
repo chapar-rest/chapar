@@ -59,7 +59,7 @@ func (m *Environments) RemoveEnvironment(environment *domain.Environment, source
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteEnvironment(environment); err != nil {
+		if err := m.repository.Delete(environment); err != nil {
 			return err
 		}
 	}
@@ -80,7 +80,7 @@ func (m *Environments) UpdateEnvironment(env *domain.Environment, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.repository.UpdateEnvironment(env); err != nil {
+		if err := m.repository.Update(env); err != nil {
 			return err
 		}
 	}

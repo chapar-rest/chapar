@@ -686,7 +686,7 @@ func (c *Controller) onNewRequest(requestType string) {
 	}
 
 	// Let the repository handle the creation details
-	if err := c.repo.CreateRequest(req); err != nil {
+	if err := c.repo.Create(req); err != nil {
 		c.view.showError(fmt.Errorf("failed to create request: %w", err))
 		return
 	}
@@ -727,7 +727,7 @@ func (c *Controller) onImport() {
 func (c *Controller) onNewCollection() {
 	col := domain.NewCollection("New Collection")
 
-	if err := c.repo.CreateCollection(col); err != nil {
+	if err := c.repo.Create(col); err != nil {
 		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
 		return
 	}
@@ -890,7 +890,7 @@ func (c *Controller) duplicateCollection(id string) {
 	colClone.MetaData.Name += " (copy)"
 
 	// Let the repository handle the collection creation
-	if err := c.repo.CreateCollection(colClone); err != nil {
+	if err := c.repo.Create(colClone); err != nil {
 		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
 		return
 	}
@@ -931,14 +931,19 @@ func (c *Controller) duplicateRequest(id string) {
 
 	newReq := reqFromFile.Clone()
 	newReq.MetaData.Name += " (copy)"
-	newReq.FilePath = repository.AddSuffixBeforeExt(newReq.FilePath, "-copy")
+
+	// Let the repository handle the creation details
+	if err := c.repo.Create(newReq); err != nil {
+		c.view.showError(fmt.Errorf("failed to create request: %w", err))
+		return
+	}
+
 	c.model.AddRequest(newReq)
 	if reqFromFile.CollectionID == "" {
 		c.view.AddRequestTreeViewNode(newReq)
 	} else {
 		c.view.AddChildTreeViewNode(reqFromFile.CollectionID, newReq)
 	}
-	c.saveRequestToDisc(newReq.MetaData.ID)
 }
 
 func (c *Controller) deleteRequest(id string) {

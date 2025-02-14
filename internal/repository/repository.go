@@ -2,56 +2,46 @@ package repository
 
 import (
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
 
+// Repository defines the main storage interface
 type Repository interface {
+	// Generic CRUD operations
+	Create(entity interface{}) error
+	Update(entity interface{}) error
+	Delete(entity interface{}) error
+
+	// Collection operations
 	LoadCollections() ([]*domain.Collection, error)
-	GetCollectionsDir() (string, error)
-	UpdateCollection(collection *domain.Collection) error
-	DeleteCollection(collection *domain.Collection) error
+	CreateRequestInCollection(collection *domain.Collection, request *domain.Request) error
 
+	// Environment operations
 	LoadEnvironments() ([]*domain.Environment, error)
-	GetEnvironment(filepath string) (*domain.Environment, error)
-	GetEnvironmentDir() (string, error)
-	UpdateEnvironment(env *domain.Environment) error
-	DeleteEnvironment(env *domain.Environment) error
+	GetEnvironment(id string) (*domain.Environment, error)
 
-	ReadPreferencesData() (*domain.Preferences, error)
-	UpdatePreferences(pref *domain.Preferences) error
-
+	// Request operations
 	LoadRequests() ([]*domain.Request, error)
-	GetRequest(filepath string) (*domain.Request, error)
-	GetRequestsDir() (string, error)
-	UpdateRequest(request *domain.Request) error
-	DeleteRequest(request *domain.Request) error
+	GetRequest(id string) (*domain.Request, error)
 
+	// Workspace operations
 	LoadWorkspaces() ([]*domain.Workspace, error)
-	GetWorkspace(filepath string) (*domain.Workspace, error)
-	GetWorkspacesDir() (string, error)
-	UpdateWorkspace(workspace *domain.Workspace) error
-	DeleteWorkspace(workspace *domain.Workspace) error
-
-	GetProtoFilesDir() (string, error)
-	LoadProtoFiles() ([]*domain.ProtoFile, error)
-	DeleteProtoFile(protoFile *domain.ProtoFile) error
-	UpdateProtoFile(protoFile *domain.ProtoFile) error
-	CreateProtoFile(protoFile *domain.ProtoFile) error
-
+	GetWorkspace(id string) (*domain.Workspace, error)
 	SetActiveWorkspace(workspace *domain.Workspace) error
 
+	// ProtoFile operations
+	LoadProtoFiles() ([]*domain.ProtoFile, error)
+
+	// Configuration
 	GetConfig() (*domain.Config, error)
 	UpdateConfig(config *domain.Config) error
 
-	CreateRequest(request *domain.Request) error
-	CreateRequestInCollection(collection *domain.Collection, request *domain.Request) error
-	CreateCollection(collection *domain.Collection) error
-	CreateEnvironment(env *domain.Environment) error
-	CreateWorkspace(workspace *domain.Workspace) error
+	// Preferences
+	ReadPreferences() (*domain.Preferences, error)
+	UpdatePreferences(pref *domain.Preferences) error
 }
 
 type FilePath struct {
@@ -82,19 +72,4 @@ func SaveToYaml[T any](filename string, data *T) error {
 		return err
 	}
 	return nil
-}
-
-// AddSuffixBeforeExt to add a suffix before the file extension
-func AddSuffixBeforeExt(filePath, suffix string) string {
-	dir, file := filepath.Split(filePath)
-	extension := filepath.Ext(file)
-	baseName := file[:len(file)-len(extension)]
-	newBaseName := baseName + suffix + extension
-	return filepath.Join(dir, newBaseName)
-}
-
-func GetFileNameWithoutExt(filePath string) string {
-	_, file := filepath.Split(filePath)
-	extension := filepath.Ext(file)
-	return file[:len(file)-len(extension)]
 }

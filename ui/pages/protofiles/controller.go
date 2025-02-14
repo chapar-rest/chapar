@@ -66,7 +66,7 @@ func (c *Controller) addPath(path string) {
 	proto.Spec.Path = path
 
 	// Let the repository handle the creation details
-	if err := c.repo.CreateProtoFile(proto); err != nil {
+	if err := c.repo.Create(proto); err != nil {
 		c.showError("Failed to create proto file", err.Error())
 		return
 	}
@@ -101,7 +101,7 @@ func (c *Controller) onAdd() {
 		proto.Spec.Services = pInfo.Services
 
 		// Let the repository handle the creation details
-		if err := c.repo.CreateProtoFile(proto); err != nil {
+		if err := c.repo.Create(proto); err != nil {
 			c.showError("Failed to create proto file", err.Error())
 			return
 		}

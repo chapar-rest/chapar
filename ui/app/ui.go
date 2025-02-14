@@ -1,10 +1,8 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"image"
-	"os"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -78,7 +76,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 
 	u.repo = repo
 
-	preferences, err := u.ReadPreferencesData()
+	preferences, err := u.repo.ReadPreferences()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read preferences, %w", err)
 	}
@@ -156,7 +154,7 @@ func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
 }
 
 func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
-	preferences, err := u.repo.ReadPreferencesData()
+	preferences, err := u.repo.ReadPreferences()
 	if err != nil {
 		return fmt.Errorf("failed to read preferences, %w", err)
 	}
@@ -185,7 +183,7 @@ func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
 func (u *UI) onThemeChange(isDark bool) error {
 	u.Theme.Switch(isDark)
 
-	preferences, err := u.ReadPreferencesData()
+	preferences, err := u.repo.ReadPreferences()
 	if err != nil {
 		return fmt.Errorf("failed to read preferences, %w", err)
 	}
@@ -197,25 +195,8 @@ func (u *UI) onThemeChange(isDark bool) error {
 	return nil
 }
 
-func (u *UI) ReadPreferencesData() (*domain.Preferences, error) {
-	// TODO repo should return a default preferences if it does not exist
-	preferences, err := u.repo.ReadPreferencesData()
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			preferences = domain.NewPreferences()
-			if err := u.repo.UpdatePreferences(preferences); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-
-	return preferences, nil
-}
-
 func (u *UI) load() error {
-	preferences, err := u.ReadPreferencesData()
+	preferences, err := u.repo.ReadPreferences()
 	if err != nil {
 		return err
 	}

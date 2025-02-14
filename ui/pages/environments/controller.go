@@ -46,9 +46,7 @@ func NewController(view *View, repo repository.Repository, envState *state.Envir
 
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
-
-	// Let the repository handle the creation details
-	if err := c.repo.CreateEnvironment(env); err != nil {
+	if err := c.repo.Create(env); err != nil {
 		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
 		return
 	}
@@ -264,8 +262,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name += " (copy)"
 
-	// Let the repository handle the creation details
-	if err := c.repo.CreateEnvironment(newEnv); err != nil {
+	if err := c.repo.Create(newEnv); err != nil {
 		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
 		return
 	}

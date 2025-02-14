@@ -58,7 +58,7 @@ func (m *Workspaces) RemoveWorkspace(workspace *domain.Workspace, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteWorkspace(workspace); err != nil {
+		if err := m.repository.Delete(workspace); err != nil {
 			return err
 		}
 	}
@@ -79,7 +79,7 @@ func (m *Workspaces) UpdateWorkspace(workspace *domain.Workspace, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.repository.UpdateWorkspace(workspace); err != nil {
+		if err := m.repository.Update(workspace); err != nil {
 			return err
 		}
 	}

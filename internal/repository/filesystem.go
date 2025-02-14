@@ -559,14 +559,27 @@ func (f *Filesystem) DeleteEnvironment(env *domain.Environment) error {
 	return os.Remove(env.FilePath)
 }
 
-func (f *Filesystem) ReadPreferencesData() (*domain.Preferences, error) {
+func (fs *Filesystem) ReadPreferences() (*domain.Preferences, error) {
 	dir, err := GetConfigDir()
 	if err != nil {
 		return nil, err
 	}
-	pdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
+	pdir := filepath.Join(dir, fs.ActiveWorkspace.MetaData.Name, preferencesDir)
 	filePath := filepath.Join(pdir, "preferences.yaml")
-	return LoadFromYaml[domain.Preferences](filePath)
+
+	preferences, err := LoadFromYaml[domain.Preferences](filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Return default preferences if file doesn't exist
+			preferences = domain.NewPreferences()
+			if err := fs.UpdatePreferences(preferences); err != nil {
+				return nil, err
+			}
+			return preferences, nil
+		}
+		return nil, err
+	}
+	return preferences, nil
 }
 
 func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
@@ -692,7 +705,7 @@ func getNewFilePath(dir, name string) *FilePath {
 
 	return &FilePath{
 		Path:    fName,
-		NewName: GetFileNameWithoutExt(fName),
+		NewName: getFileNameWithoutExt(fName),
 	}
 }
 
@@ -800,6 +813,23 @@ func userConfigDir() (string, error) {
 	}
 
 	return dir, nil
+}
+
+func (fs *Filesystem) Create(entity interface{}) error {
+	switch e := entity.(type) {
+	case *domain.Request:
+		return fs.createRequest(e)
+	case *domain.Collection:
+		return fs.createCollection(e)
+	case *domain.Environment:
+		return fs.createEnvironment(e)
+	case *domain.Workspace:
+		return fs.createWorkspace(e)
+	case *domain.ProtoFile:
+		return fs.createProtoFile(e)
+	default:
+		return fmt.Errorf("unsupported entity type: %T", entity)
+	}
 }
 
 func (fs *Filesystem) CreateRequest(request *domain.Request) error {
@@ -947,7 +977,7 @@ func (fs *Filesystem) nameExists(name string) (bool, error) {
 	return false, nil
 }
 
-func (fs *Filesystem) CreateProtoFile(protoFile *domain.ProtoFile) error {
+func (fs *Filesystem) createProtoFile(protoFile *domain.ProtoFile) error {
 	// Get proto files directory
 	protoDir, err := fs.GetProtoFilesDir()
 	if err != nil {
@@ -979,4 +1009,131 @@ func (fs *Filesystem) CreateWorkspace(workspace *domain.Workspace) error {
 	workspace.FilePath = dirPath
 
 	return fs.UpdateWorkspace(workspace)
+}
+
+func (fs *Filesystem) createRequest(request *domain.Request) error {
+	// Get requests directory
+	requestsDir, err := fs.GetRequestsDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	request.MetaData.Name = fs.generateUniqueName(request.MetaData.Name)
+
+	// Generate file path internally
+	filePath := filepath.Join(requestsDir, request.MetaData.Name+".yaml")
+	request.FilePath = filePath
+
+	return fs.UpdateRequest(request)
+}
+
+func (fs *Filesystem) createCollection(collection *domain.Collection) error {
+	// Get collections directory
+	collectionDir, err := fs.GetCollectionsDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	collection.MetaData.Name = fs.generateUniqueName(collection.MetaData.Name)
+
+	// Generate directory path internally
+	dirPath := filepath.Join(collectionDir, collection.MetaData.Name)
+	collection.FilePath = dirPath
+
+	// Create the collection directory
+	if err := makeDir(dirPath); err != nil {
+		return fmt.Errorf("failed to create collection directory: %w", err)
+	}
+
+	// Create the requests subdirectory
+	requestsDir := filepath.Join(dirPath, "requests")
+	if err := makeDir(requestsDir); err != nil {
+		return fmt.Errorf("failed to create requests directory: %w", err)
+	}
+
+	return fs.UpdateCollection(collection)
+}
+
+func (fs *Filesystem) createEnvironment(env *domain.Environment) error {
+	// Get environments directory
+	envDir, err := fs.GetEnvironmentDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	env.MetaData.Name = fs.generateUniqueName(env.MetaData.Name)
+
+	// Generate file path internally
+	filePath := filepath.Join(envDir, env.MetaData.Name+".yaml")
+	env.FilePath = filePath
+
+	return fs.UpdateEnvironment(env)
+}
+
+func (fs *Filesystem) createWorkspace(workspace *domain.Workspace) error {
+	// Get workspaces directory
+	workspaceDir, err := fs.GetWorkspacesDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate unique name if needed
+	workspace.MetaData.Name = fs.generateUniqueName(workspace.MetaData.Name)
+
+	// Generate directory path internally
+	dirPath := filepath.Join(workspaceDir, workspace.MetaData.Name)
+	workspace.FilePath = dirPath
+
+	return fs.UpdateWorkspace(workspace)
+}
+
+func (fs *Filesystem) Delete(entity interface{}) error {
+	switch e := entity.(type) {
+	case *domain.Request:
+		return fs.DeleteRequest(e)
+	case *domain.Collection:
+		return fs.DeleteCollection(e)
+	case *domain.Environment:
+		return fs.DeleteEnvironment(e)
+	case *domain.Workspace:
+		return fs.DeleteWorkspace(e)
+	case *domain.ProtoFile:
+		return fs.DeleteProtoFile(e)
+	default:
+		return fmt.Errorf("unsupported entity type: %T", entity)
+	}
+}
+
+func addSuffixBeforeExt(filePath, suffix string) string {
+	dir, file := filepath.Split(filePath)
+	extension := filepath.Ext(file)
+	baseName := file[:len(file)-len(extension)]
+	newBaseName := baseName + suffix + extension
+	return filepath.Join(dir, newBaseName)
+}
+
+func getFileNameWithoutExt(filePath string) string {
+	_, file := filepath.Split(filePath)
+	extension := filepath.Ext(file)
+	return file[:len(file)-len(extension)]
+}
+
+func (fs *Filesystem) Update(entity interface{}) error {
+	switch e := entity.(type) {
+	case *domain.Request:
+		return fs.UpdateRequest(e)
+	case *domain.Collection:
+		return fs.UpdateCollection(e)
+	case *domain.Environment:
+		return fs.UpdateEnvironment(e)
+	case *domain.Workspace:
+		return fs.UpdateWorkspace(e)
+	case *domain.ProtoFile:
+		return fs.UpdateProtoFile(e)
+	default:
+		return fmt.Errorf("unsupported entity type: %T", entity)
+	}
 }

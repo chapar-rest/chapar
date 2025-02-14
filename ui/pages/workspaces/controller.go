@@ -42,9 +42,7 @@ func (c *Controller) LoadData() error {
 
 func (c *Controller) onNew() {
 	ws := domain.NewWorkspace("New Workspace")
-
-	// Let the repository handle the creation details
-	if err := c.repo.CreateWorkspace(ws); err != nil {
+	if err := c.repo.Create(ws); err != nil {
 		c.view.showError(fmt.Errorf("failed to create workspace: %w", err))
 		return
 	}

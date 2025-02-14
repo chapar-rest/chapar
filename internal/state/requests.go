@@ -63,7 +63,7 @@ func (m *Requests) RemoveRequest(request *domain.Request, stateOnly bool) error 
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteRequest(request); err != nil {
+		if err := m.repository.Delete(request); err != nil {
 			return err
 		}
 	}
@@ -84,7 +84,7 @@ func (m *Requests) RemoveCollection(collection *domain.Collection, stateOnly boo
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteCollection(collection); err != nil {
+		if err := m.repository.Delete(collection); err != nil {
 			return err
 		}
 	}
@@ -114,7 +114,7 @@ func (m *Requests) UpdateRequest(request *domain.Request, stateOnly bool) error 
 	}
 
 	if !stateOnly {
-		if err := m.repository.UpdateRequest(request); err != nil {
+		if err := m.repository.Update(request); err != nil {
 			return err
 		}
 	}
@@ -133,7 +133,7 @@ func (m *Requests) UpdateCollection(collection *domain.Collection, stateOnly boo
 	oldCollectionFilePath := collection.FilePath
 
 	if !stateOnly {
-		if err := m.repository.UpdateCollection(collection); err != nil {
+		if err := m.repository.Update(collection); err != nil {
 			return err
 		}
 	}
