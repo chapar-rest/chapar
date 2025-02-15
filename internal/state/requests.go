@@ -170,7 +170,7 @@ func (m *Requests) GetPersistedRequest(id string) (*domain.Request, error) {
 		return nil, ErrNotFound
 	}
 
-	freshReq, err := m.repository.GetRequest(req.FilePath)
+	freshReq, err := m.repository.GetRequest(req.MetaData.ID)
 	if err != nil {
 		return nil, err
 	}

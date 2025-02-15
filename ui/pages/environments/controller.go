@@ -66,7 +66,7 @@ func (c *Controller) onImportEnvironment() {
 			return
 		}
 
-		if err := importer.ImportPostmanEnvironment(result.Data); err != nil {
+		if err := importer.ImportPostmanEnvironment(result.Data, c.repo); err != nil {
 			c.view.showError(fmt.Errorf("failed to import postman environment %w", err))
 			return
 		}

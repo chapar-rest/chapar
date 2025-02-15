@@ -115,7 +115,7 @@ func (m *Environments) GetPersistedEnvironment(id string) (*domain.Environment, 
 		return nil, ErrNotFound
 	}
 
-	return m.repository.GetEnvironment(env.FilePath)
+	return m.repository.GetEnvironment(env.MetaData.ID)
 }
 
 func (m *Environments) ReloadEnvironment(id string, source Source) {

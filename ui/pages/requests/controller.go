@@ -604,7 +604,7 @@ func (c *Controller) onRequestTabClose(id string) {
 
 	reqFromFile, err := c.model.GetPersistedRequest(id)
 	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
+		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
 	}
 
@@ -711,7 +711,7 @@ func (c *Controller) onImport() {
 			return
 		}
 
-		if err := importer.ImportPostmanCollection(result.Data); err != nil {
+		if err := importer.ImportPostmanCollection(result.Data, c.repo); err != nil {
 			c.view.showError(fmt.Errorf("failed to import postman collection, %w", err))
 			return
 		}

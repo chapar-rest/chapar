@@ -3,12 +3,10 @@ package domain
 import "github.com/google/uuid"
 
 type ProtoFile struct {
-	ApiVersion string   `yaml:"apiVersion"`
-	Kind       string   `yaml:"kind"`
-	MetaData   MetaData `yaml:"metadata"`
-	FilePath   string   `yaml:"-"`
-
-	Spec ProtoFileSpec `yaml:"spec"`
+	ApiVersion string        `yaml:"apiVersion"`
+	Kind       string        `yaml:"kind"`
+	MetaData   MetaData      `yaml:"metadata"`
+	Spec       ProtoFileSpec `yaml:"spec"`
 }
 
 type ProtoFileSpec struct {
@@ -27,7 +25,9 @@ func NewProtoFile(name string) *ProtoFile {
 			ID:   uuid.NewString(),
 			Name: name,
 		},
-		FilePath: "",
+		Spec: ProtoFileSpec{
+			Path: "",
+		},
 	}
 }
 

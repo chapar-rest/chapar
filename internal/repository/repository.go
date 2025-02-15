@@ -10,37 +10,46 @@ import (
 
 // Repository defines the main storage interface
 type Repository interface {
-	// Generic CRUD operations
+	// Create operations for entities
 	Create(entity interface{}) error
+	// Update operations for entities
 	Update(entity interface{}) error
+	// Delete operations for entities
 	Delete(entity interface{}) error
 
-	// Collection operations
+	// LoadCollections loads all collections
 	LoadCollections() ([]*domain.Collection, error)
+	// CreateRequestInCollection creates a request in a collection
 	CreateRequestInCollection(collection *domain.Collection, request *domain.Request) error
 
-	// Environment operations
+	// LoadEnvironments loads all environments
 	LoadEnvironments() ([]*domain.Environment, error)
+	// GetEnvironment gets an environment by id
 	GetEnvironment(id string) (*domain.Environment, error)
 
-	// Request operations
+	// LoadRequests loads all requests
 	LoadRequests() ([]*domain.Request, error)
+	// GetRequest gets a request by id
 	GetRequest(id string) (*domain.Request, error)
 
-	// Workspace operations
+	// LoadWorkspaces loads all workspaces
 	LoadWorkspaces() ([]*domain.Workspace, error)
+	// GetWorkspace gets a workspace by id
 	GetWorkspace(id string) (*domain.Workspace, error)
+	// SetActiveWorkspace sets the active workspace
 	SetActiveWorkspace(workspace *domain.Workspace) error
 
-	// ProtoFile operations
+	// LoadProtoFiles loads all proto files
 	LoadProtoFiles() ([]*domain.ProtoFile, error)
 
-	// Configuration
+	// GetConfig gets the config
 	GetConfig() (*domain.Config, error)
+	// UpdateConfig updates the config
 	UpdateConfig(config *domain.Config) error
 
-	// Preferences
+	// ReadPreferences reads the preferences
 	ReadPreferences() (*domain.Preferences, error)
+	// UpdatePreferences updates the preferences
 	UpdatePreferences(pref *domain.Preferences) error
 }
 

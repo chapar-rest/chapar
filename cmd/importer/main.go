@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/chapar-rest/chapar/internal/importer"
+	"github.com/chapar-rest/chapar/internal/repository"
 )
 
 var (
@@ -16,13 +17,19 @@ var (
 func main() {
 	flag.Parse()
 
+	repo, err := repository.NewFilesystem()
+	if err != nil {
+		fmt.Printf("Error creating repository: %v\n", err)
+		os.Exit(1)
+	}
+
 	if *fileType == "collection" {
-		if err := importer.ImportPostmanCollectionFromFile(*filePath); err != nil {
+		if err := importer.ImportPostmanCollectionFromFile(*filePath, repo); err != nil {
 			fmt.Printf("Error importing Postman collection: %v\n", err)
 			os.Exit(1)
 		}
 	} else if *fileType == "environment" {
-		if err := importer.ImportPostmanEnvironmentFromFile(*filePath); err != nil {
+		if err := importer.ImportPostmanEnvironmentFromFile(*filePath, repo); err != nil {
 			fmt.Printf("Error importing Postman environment	: %v\n", err)
 		}
 	}

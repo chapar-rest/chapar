@@ -55,7 +55,6 @@ type Request struct {
 	Kind       string      `yaml:"kind"`
 	MetaData   RequestMeta `yaml:"metadata"`
 	Spec       RequestSpec `yaml:"spec"`
-	FilePath   string      `yaml:"-"`
 
 	CollectionName string `yaml:"-"`
 	CollectionID   string `yaml:"-"`
