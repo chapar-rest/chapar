@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	configDir = "chapar"
+	DefaultConfigDir = "chapar"
 
 	environmentsDir = "envs"
 	protoFilesDir   = "protofiles"
@@ -25,6 +25,8 @@ const (
 var _ Repository = &Filesystem{}
 
 type Filesystem struct {
+	configDir        string
+	baseDir          string
 	ActiveWorkspace  *domain.Workspace
 	requestPaths     map[string]string
 	collectionPaths  map[string]string
@@ -33,20 +35,23 @@ type Filesystem struct {
 	workspacePaths   map[string]string
 }
 
-func NewFilesystem() (*Filesystem, error) {
+func NewFilesystem(configDir string, baseDir string) (*Filesystem, error) {
 	fs := &Filesystem{
+		configDir:        configDir,
+		baseDir:          baseDir,
 		requestPaths:     make(map[string]string),
 		collectionPaths:  make(map[string]string),
 		environmentPaths: make(map[string]string),
 		protoFilePaths:   make(map[string]string),
 		workspacePaths:   make(map[string]string),
 	}
+
 	config, err := fs.GetConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	cDir, err := GetConfigDir()
+	cDir, err := fs.getConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +80,7 @@ func NewFilesystem() (*Filesystem, error) {
 }
 
 func (f *Filesystem) getEntityDirectoryInWorkspace(entityType string) (string, error) {
-	dir, err := CreateConfigDir()
+	dir, err := f.CreateConfigDir()
 	if err != nil {
 		return "", err
 	}
@@ -169,7 +174,7 @@ func (f *Filesystem) SetActiveWorkspace(workspace *domain.Workspace) error {
 }
 
 func (f *Filesystem) GetConfig() (*domain.Config, error) {
-	dir, err := GetConfigDir()
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +195,7 @@ func (f *Filesystem) GetConfig() (*domain.Config, error) {
 }
 
 func (f *Filesystem) UpdateConfig(config *domain.Config) error {
-	dir, err := GetConfigDir()
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return err
 	}
@@ -258,7 +263,7 @@ func (f *Filesystem) GetWorkspace(dirPath string) (*domain.Workspace, error) {
 }
 
 func (f *Filesystem) getWorkspacesDir() (string, error) {
-	dir, err := CreateConfigDir()
+	dir, err := f.CreateConfigDir()
 	if err != nil {
 		return "", err
 	}
@@ -517,7 +522,7 @@ func (f *Filesystem) getNewEnvironmentFilePath(name string) (*FilePath, error) {
 }
 
 func (f *Filesystem) ReadPreferences() (*domain.Preferences, error) {
-	dir, err := GetConfigDir()
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +545,7 @@ func (f *Filesystem) ReadPreferences() (*domain.Preferences, error) {
 }
 
 func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
-	dir, err := GetConfigDir()
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return err
 	}
@@ -686,18 +691,23 @@ func dirExist(dirname string) bool {
 	return info.IsDir()
 }
 
-func GetConfigDir() (string, error) {
+func (f *Filesystem) getConfigDir() (string, error) {
+	if f.baseDir != "" {
+		path := filepath.Join(f.baseDir, f.configDir)
+		return path, makeDir(path)
+	}
+
 	dir, err := userConfigDir()
 	if err != nil {
 		return "", err
 	}
 
-	path := filepath.Join(dir, configDir)
+	path := filepath.Join(dir, f.configDir)
 	return path, makeDir(path)
 }
 
-func CreateConfigDir() (string, error) {
-	dir, err := GetConfigDir()
+func (f *Filesystem) CreateConfigDir() (string, error) {
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return "", err
 	}
@@ -920,6 +930,11 @@ func (f *Filesystem) createWorkspace(workspace *domain.Workspace) error {
 	// Generate directory path internally
 	dirPath := filepath.Join(workspaceDir, workspace.MetaData.Name)
 	f.workspacePaths[workspace.MetaData.ID] = filepath.Join(dirPath, "_workspace.yaml")
+
+	// Create the workspace directory
+	if err := makeDir(dirPath); err != nil {
+		return fmt.Errorf("failed to create collection directory: %w", err)
+	}
 
 	return f.updateWorkspace(workspace)
 }

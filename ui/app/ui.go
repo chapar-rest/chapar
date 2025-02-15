@@ -67,7 +67,8 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		return nil, err
 	}
 
-	repo, err := repository.NewFilesystem()
+	// create file storage in user's home directory
+	repo, err := repository.NewFilesystem(repository.DefaultConfigDir, "" /* baseDir */)
 	if err != nil {
 		return nil, err
 	}
