@@ -78,16 +78,3 @@ func (c *Controller) onUpdate(w *domain.Workspace) {
 		return
 	}
 }
-
-func (c *Controller) saveWorkspace(id string) {
-	ws := c.state.GetWorkspace(id)
-	if ws == nil {
-		c.view.showError(fmt.Errorf("failed to get workspace, %s", id))
-		return
-	}
-
-	if err := c.state.UpdateWorkspace(ws, state.SourceController, false); err != nil {
-		c.view.showError(fmt.Errorf("failed to update workspace, %w", err))
-		return
-	}
-}

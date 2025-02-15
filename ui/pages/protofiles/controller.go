@@ -171,16 +171,3 @@ func (c *Controller) onDeleteSelected(ids []string) {
 		c.view.RemoveItem(pr)
 	}
 }
-
-func (c *Controller) saveProtoFile(id string) {
-	ws := c.state.GetProtoFile(id)
-	if ws == nil {
-		c.showError("Failed to get proto-file", "failed to get proto-file")
-		return
-	}
-
-	if err := c.state.UpdateProtoFile(ws, false); err != nil {
-		c.showError("Failed to update proto-file", err.Error())
-		return
-	}
-}

@@ -109,7 +109,7 @@ func convertItemToRequest(item RequestItem) *domain.Request {
 }
 
 func ImportPostmanCollection(data []byte, repo repository.Repository) error {
-	replaceVariables(data)
+	data = replaceVariables(data)
 
 	var collection PostmanCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
@@ -205,7 +205,7 @@ func findInApiKey(arr []ApiKey, filter func(apiKey ApiKey) bool) (int, bool) {
 }
 
 func ImportPostmanEnvironment(data []byte, repo repository.Repository) error {
-	replaceVariables(data)
+	data = replaceVariables(data)
 
 	var env PostmanEnvironment
 	if err := json.Unmarshal(data, &env); err != nil {
