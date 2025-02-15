@@ -17,7 +17,7 @@ var (
 func main() {
 	flag.Parse()
 
-	repo, err := repository.NewFilesystem()
+	repo, err := repository.NewFilesystem(repository.DefaultConfigDir, "")
 	if err != nil {
 		fmt.Printf("Error creating repository: %v\n", err)
 		os.Exit(1)
