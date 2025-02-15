@@ -275,13 +275,7 @@ func (f *Filesystem) getWorkspacesDir() (string, error) {
 func (f *Filesystem) updateWorkspace(workspace *domain.Workspace) error {
 	filePath, exists := f.workspacePaths[workspace.MetaData.ID]
 	if !exists {
-		// if directory is not exist, create it
-		dirPath := filepath.Join(workspace.MetaData.Name)
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
-			return err
-		}
-		filePath = filepath.Join(dirPath, "_workspace.yaml")
-		f.workspacePaths[workspace.MetaData.ID] = filePath
+		return fmt.Errorf("workspace path not found for %s", workspace.MetaData.ID)
 	}
 
 	if err := SaveToYaml(filePath, workspace); err != nil {
