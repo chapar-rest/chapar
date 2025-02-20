@@ -31,7 +31,7 @@ func NewController(view *View, state *state.Workspaces, repo repository.Reposito
 }
 
 func (c *Controller) LoadData() error {
-	data, err := c.state.LoadWorkspacesFromDisk()
+	data, err := c.state.LoadWorkspaces()
 	if err != nil {
 		return err
 	}
@@ -42,17 +42,12 @@ func (c *Controller) LoadData() error {
 
 func (c *Controller) onNew() {
 	ws := domain.NewWorkspace("New Workspace")
-	filePath, err := c.repo.GetNewWorkspaceDir(ws.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new workspace path, %w", err))
+	if err := c.repo.Create(ws); err != nil {
+		c.view.showError(fmt.Errorf("failed to create workspace: %w", err))
 		return
 	}
 
-	ws.FilePath = filePath.Path
-	ws.MetaData.Name = filePath.NewName
-
 	c.state.AddWorkspace(ws, state.SourceController)
-	c.saveWorkspaceToDisc(ws.MetaData.ID)
 	c.view.AddItem(ws)
 }
 
@@ -79,19 +74,6 @@ func (c *Controller) onUpdate(w *domain.Workspace) {
 	}
 
 	if err := c.state.UpdateWorkspace(w, state.SourceController, false); err != nil {
-		c.view.showError(fmt.Errorf("failed to update workspace, %w", err))
-		return
-	}
-}
-
-func (c *Controller) saveWorkspaceToDisc(id string) {
-	ws := c.state.GetWorkspace(id)
-	if ws == nil {
-		c.view.showError(fmt.Errorf("failed to get workspace, %s", id))
-		return
-	}
-
-	if err := c.state.UpdateWorkspace(ws, state.SourceController, false); err != nil {
 		c.view.showError(fmt.Errorf("failed to update workspace, %w", err))
 		return
 	}

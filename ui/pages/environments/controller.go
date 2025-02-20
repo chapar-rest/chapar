@@ -46,19 +46,13 @@ func NewController(view *View, repo repository.Repository, envState *state.Envir
 
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
-
-	filePath, err := c.repo.GetNewEnvironmentFilePath(env.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new environment file path %w", err))
+	if err := c.repo.Create(env); err != nil {
+		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
 		return
 	}
 
-	env.FilePath = filePath.Path
-	env.MetaData.Name = filePath.NewName
-
 	c.state.AddEnvironment(env, state.SourceController)
 	c.view.AddTreeViewNode(env)
-	c.saveEnvironmentToDisc(env.MetaData.ID)
 }
 
 func (c *Controller) onImportEnvironment() {
@@ -72,7 +66,7 @@ func (c *Controller) onImportEnvironment() {
 			return
 		}
 
-		if err := importer.ImportPostmanEnvironment(result.Data); err != nil {
+		if err := importer.ImportPostmanEnvironment(result.Data, c.repo); err != nil {
 			c.view.showError(fmt.Errorf("failed to import postman environment %w", err))
 			return
 		}
@@ -142,7 +136,7 @@ func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
 }
 
 func (c *Controller) LoadData() error {
-	data, err := c.state.LoadEnvironmentsFromDisk()
+	data, err := c.state.LoadEnvironments()
 	if err != nil {
 		return err
 	}
@@ -179,7 +173,7 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 	}
 
 	// set tab dirty if the in memory data is different from the file
-	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetPersistedEnvironment(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get environment from file %w", err))
 		return
@@ -189,7 +183,7 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 }
 
 func (c *Controller) onSave(id string) {
-	c.saveEnvironmentToDisc(id)
+	c.saveEnvironment(id)
 }
 
 func (c *Controller) onTabClose(id string) {
@@ -202,7 +196,7 @@ func (c *Controller) onTabClose(id string) {
 		return
 	}
 
-	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetPersistedEnvironment(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return
@@ -224,16 +218,16 @@ func (c *Controller) onTabClose(id string) {
 			}
 
 			if selectedOption == "Yes" {
-				c.saveEnvironmentToDisc(id)
+				c.saveEnvironment(id)
 			}
 
 			c.view.CloseTab(id)
-			c.state.ReloadEnvironmentFromDisc(id, state.SourceController)
+			c.state.ReloadEnvironment(id, state.SourceController)
 		}, []widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
 	)
 }
 
-func (c *Controller) saveEnvironmentToDisc(id string) {
+func (c *Controller) saveEnvironment(id string) {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
 		c.view.showError(fmt.Errorf("failed to get environment, %s", id))
@@ -259,7 +253,7 @@ func (c *Controller) onTreeViewMenuClicked(id string, action string) {
 
 func (c *Controller) duplicateEnvironment(id string) {
 	// read environment from file to make sure we have the latest persisted data
-	envFromFile, err := c.state.GetEnvironmentFromDisc(id)
+	envFromFile, err := c.state.GetPersistedEnvironment(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
 		return
@@ -267,10 +261,14 @@ func (c *Controller) duplicateEnvironment(id string) {
 
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name += " (copy)"
-	newEnv.FilePath = repository.AddSuffixBeforeExt(newEnv.FilePath, "-copy")
+
+	if err := c.repo.Create(newEnv); err != nil {
+		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
+		return
+	}
+
 	c.state.AddEnvironment(newEnv, state.SourceController)
 	c.view.AddTreeViewNode(newEnv)
-	c.saveEnvironmentToDisc(newEnv.MetaData.ID)
 }
 
 func (c *Controller) deleteEnvironment(id string) {

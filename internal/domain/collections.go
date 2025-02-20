@@ -7,8 +7,6 @@ type Collection struct {
 	Kind       string   `yaml:"kind"`
 	MetaData   MetaData `yaml:"metadata"`
 	Spec       ColSpec  `yaml:"spec"`
-
-	FilePath string `yaml:"-"`
 }
 
 type ColSpec struct {
@@ -26,7 +24,6 @@ func (c *Collection) Clone() *Collection {
 		Spec: ColSpec{
 			Requests: make([]*Request, len(c.Spec.Requests)),
 		},
-		FilePath: c.FilePath,
 	}
 
 	copy(clone.Spec.Requests, c.Spec.Requests)
@@ -44,7 +41,6 @@ func NewCollection(name string) *Collection {
 		Spec: ColSpec{
 			Requests: make([]*Request, 0),
 		},
-		FilePath: "",
 	}
 }
 

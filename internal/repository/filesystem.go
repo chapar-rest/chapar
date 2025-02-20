@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"gopkg.in/yaml.v2"
 
@@ -14,7 +13,7 @@ import (
 )
 
 const (
-	configDir = "chapar"
+	DefaultConfigDir = "chapar"
 
 	environmentsDir = "envs"
 	protoFilesDir   = "protofiles"
@@ -26,17 +25,33 @@ const (
 var _ Repository = &Filesystem{}
 
 type Filesystem struct {
-	ActiveWorkspace *domain.Workspace
+	configDir        string
+	baseDir          string
+	ActiveWorkspace  *domain.Workspace
+	requestPaths     map[string]string
+	collectionPaths  map[string]string
+	environmentPaths map[string]string
+	protoFilePaths   map[string]string
+	workspacePaths   map[string]string
 }
 
-func NewFilesystem() (*Filesystem, error) {
-	fs := &Filesystem{}
+func NewFilesystem(configDir string, baseDir string) (*Filesystem, error) {
+	fs := &Filesystem{
+		configDir:        configDir,
+		baseDir:          baseDir,
+		requestPaths:     make(map[string]string),
+		collectionPaths:  make(map[string]string),
+		environmentPaths: make(map[string]string),
+		protoFilePaths:   make(map[string]string),
+		workspacePaths:   make(map[string]string),
+	}
+
 	config, err := fs.GetConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	cDir, err := GetConfigDir()
+	cDir, err := fs.getConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +67,9 @@ func NewFilesystem() (*Filesystem, error) {
 	// if there is no active workspace, create default workspace
 	if fs.ActiveWorkspace == nil {
 		ws := domain.NewDefaultWorkspace()
-		ws.FilePath = filepath.Join(cDir, "default")
-		if err := fs.UpdateWorkspace(ws); err != nil {
+		defaultPath := filepath.Join(cDir, "default")
+		fs.workspacePaths[ws.MetaData.ID] = defaultPath
+		if err := fs.updateWorkspace(ws); err != nil {
 			return nil, err
 		}
 
@@ -63,22 +79,22 @@ func NewFilesystem() (*Filesystem, error) {
 	return fs, nil
 }
 
-func (f *Filesystem) GetProtoFilesDir() (string, error) {
-	dir, err := CreateConfigDir()
+func (f *Filesystem) getEntityDirectoryInWorkspace(entityType string) (string, error) {
+	dir, err := f.CreateConfigDir()
 	if err != nil {
 		return "", err
 	}
 
-	protoDir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, protoFilesDir)
-	if err := makeDir(protoDir); err != nil {
+	p := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, entityType)
+	if err := makeDir(p); err != nil {
 		return "", err
 	}
 
-	return protoDir, nil
+	return p, nil
 }
 
 func (f *Filesystem) LoadProtoFiles() ([]*domain.ProtoFile, error) {
-	dir, err := f.GetProtoFilesDir()
+	dir, err := f.getEntityDirectoryInWorkspace(protoFilesDir)
 	if err != nil {
 		return nil, err
 	}
@@ -100,45 +116,42 @@ func (f *Filesystem) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 		if err != nil {
 			return nil, err
 		}
-		protoFile.FilePath = filePath
+		f.protoFilePaths[protoFile.MetaData.ID] = filePath
 		out = append(out, protoFile)
 	}
 
 	return out, err
 }
 
-func (f *Filesystem) DeleteProtoFile(protoFile *domain.ProtoFile) error {
-	return os.Remove(protoFile.FilePath)
-}
-
-func (f *Filesystem) UpdateProtoFile(protoFile *domain.ProtoFile) error {
-	if protoFile.FilePath == "" {
+func (f *Filesystem) updateProtoFile(protoFile *domain.ProtoFile) error {
+	filePath, exists := f.protoFilePaths[protoFile.MetaData.ID]
+	if !exists {
 		// this is a new protoFile
-		fileName, err := f.GetNewProtoFilePath(protoFile.MetaData.Name)
+		fileName, err := f.getNewProtoFilePath(protoFile.MetaData.Name)
 		if err != nil {
 			return err
 		}
-
-		protoFile.FilePath = fileName.Path
+		filePath = fileName.Path
+		f.protoFilePaths[protoFile.MetaData.ID] = filePath
 	}
 
-	if err := SaveToYaml(protoFile.FilePath, protoFile); err != nil {
+	if err := SaveToYaml(filePath, protoFile); err != nil {
 		return err
 	}
 
 	// rename the file to the new name
-	if protoFile.MetaData.Name != filepath.Base(protoFile.FilePath) {
-		newFilePath := filepath.Join(filepath.Dir(protoFile.FilePath), protoFile.MetaData.Name+".yaml")
-		if err := os.Rename(protoFile.FilePath, newFilePath); err != nil {
+	if protoFile.MetaData.Name != filepath.Base(filePath) {
+		newFilePath := filepath.Join(filepath.Dir(filePath), protoFile.MetaData.Name+".yaml")
+		if err := os.Rename(filePath, newFilePath); err != nil {
 			return err
 		}
-		protoFile.FilePath = newFilePath
+		f.protoFilePaths[protoFile.MetaData.ID] = newFilePath
 	}
 	return nil
 }
 
-func (f *Filesystem) GetNewProtoFilePath(name string) (*FilePath, error) {
-	dir, err := f.GetProtoFilesDir()
+func (f *Filesystem) getNewProtoFilePath(name string) (*FilePath, error) {
+	dir, err := f.getEntityDirectoryInWorkspace(protoFilesDir)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +174,7 @@ func (f *Filesystem) SetActiveWorkspace(workspace *domain.Workspace) error {
 }
 
 func (f *Filesystem) GetConfig() (*domain.Config, error) {
-	dir, err := GetConfigDir()
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +195,7 @@ func (f *Filesystem) GetConfig() (*domain.Config, error) {
 }
 
 func (f *Filesystem) UpdateConfig(config *domain.Config) error {
-	dir, err := GetConfigDir()
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return err
 	}
@@ -192,7 +205,7 @@ func (f *Filesystem) UpdateConfig(config *domain.Config) error {
 }
 
 func (f *Filesystem) LoadWorkspaces() ([]*domain.Workspace, error) {
-	wdir, err := f.GetWorkspacesDir()
+	wdir, err := f.getWorkspacesDir()
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +245,7 @@ func (f *Filesystem) GetWorkspace(dirPath string) (*domain.Workspace, error) {
 	// if workspace file does not exist, create it
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		ws := domain.NewWorkspace(filepath.Base(dirPath))
-		ws.FilePath = filePath
+		f.workspacePaths[ws.MetaData.ID] = filePath
 		if err := SaveToYaml(filePath, ws); err != nil {
 			return nil, err
 		}
@@ -245,12 +258,12 @@ func (f *Filesystem) GetWorkspace(dirPath string) (*domain.Workspace, error) {
 		return nil, err
 	}
 
-	ws.FilePath = filePath
+	f.workspacePaths[ws.MetaData.ID] = filePath
 	return ws, nil
 }
 
-func (f *Filesystem) GetWorkspacesDir() (string, error) {
-	dir, err := CreateConfigDir()
+func (f *Filesystem) getWorkspacesDir() (string, error) {
+	dir, err := f.CreateConfigDir()
 	if err != nil {
 		return "", err
 	}
@@ -259,43 +272,33 @@ func (f *Filesystem) GetWorkspacesDir() (string, error) {
 	return dir, nil
 }
 
-func (f *Filesystem) UpdateWorkspace(workspace *domain.Workspace) error {
-	if !strings.HasSuffix(workspace.FilePath, "_workspace.yaml") {
-		// if directory is not exist, create it
-		if _, err := os.Stat(workspace.FilePath); os.IsNotExist(err) {
-			if err := os.MkdirAll(workspace.FilePath, 0755); err != nil {
-				return err
-			}
-		}
-
-		workspace.FilePath = filepath.Join(workspace.FilePath, "_workspace.yaml")
+func (f *Filesystem) updateWorkspace(workspace *domain.Workspace) error {
+	filePath, exists := f.workspacePaths[workspace.MetaData.ID]
+	if !exists {
+		return fmt.Errorf("workspace path not found for %s", workspace.MetaData.ID)
 	}
 
-	if err := SaveToYaml(workspace.FilePath, workspace); err != nil {
+	if err := SaveToYaml(filePath, workspace); err != nil {
 		return err
 	}
 
 	// Get the directory name
-	dirName := filepath.Dir(workspace.FilePath)
-	// Change the directory name to the collection name
+	dirName := filepath.Dir(filePath)
+	// Change the directory name to the workspace name
 	if workspace.MetaData.Name != filepath.Base(dirName) {
 		// replace last part of the path with the new name
 		newDirName := filepath.Join(filepath.Dir(dirName), workspace.MetaData.Name)
 		if err := os.Rename(dirName, newDirName); err != nil {
 			return err
 		}
-		workspace.FilePath = filepath.Join(newDirName, "_workspace.yaml")
+		f.workspacePaths[workspace.MetaData.ID] = filepath.Join(newDirName, "_workspace.yaml")
 	}
 
 	return nil
 }
 
-func (f *Filesystem) DeleteWorkspace(workspace *domain.Workspace) error {
-	return os.RemoveAll(filepath.Dir(workspace.FilePath))
-}
-
 func (f *Filesystem) GetNewWorkspaceDir(name string) (*FilePath, error) {
-	wDir, err := f.GetWorkspacesDir()
+	wDir, err := f.getWorkspacesDir()
 	if err != nil {
 		return nil, err
 	}
@@ -321,12 +324,15 @@ func (f *Filesystem) GetNewWorkspaceDir(name string) (*FilePath, error) {
 }
 
 func (f *Filesystem) GetCollectionRequestNewFilePath(collection *domain.Collection, name string) (*FilePath, error) {
-	dir := filepath.Dir(collection.FilePath)
-	return getNewFilePath(dir, name), nil
+	dir, exists := f.collectionPaths[collection.MetaData.ID]
+	if !exists {
+		return nil, fmt.Errorf("collection path not found")
+	}
+	return getNewFilePath(filepath.Dir(dir), name), nil
 }
 
 func (f *Filesystem) LoadCollections() ([]*domain.Collection, error) {
-	dir, err := f.GetCollectionsDir()
+	dir, err := f.getEntityDirectoryInWorkspace(collectionsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +376,7 @@ func (f *Filesystem) loadCollection(collectionPath string) (*domain.Collection, 
 		return nil, fmt.Errorf("failed to unmarshal collection %s, %w", collectionMetadata, err)
 	}
 
-	collection.FilePath = collectionMetadataPath
+	f.collectionPaths[collection.MetaData.ID] = collectionMetadataPath
 	collection.Spec.Requests = make([]*domain.Request, 0)
 
 	// Load requests in the collection
@@ -392,46 +398,31 @@ func (f *Filesystem) loadCollection(collectionPath string) (*domain.Collection, 
 
 		// set request default values
 		req.SetDefaultValues()
-
-		req.FilePath = requestPath
+		f.requestPaths[req.MetaData.ID] = requestPath
 		req.CollectionName = collection.MetaData.Name
 		collection.Spec.Requests = append(collection.Spec.Requests, req)
 	}
 	return collection, nil
 }
 
-func (f *Filesystem) GetCollectionsDir() (string, error) {
-	dir, err := CreateConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	cdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, collectionsDir)
-	if err := makeDir(cdir); err != nil {
-		return "", err
-	}
-
-	return cdir, nil
-}
-
-func (f *Filesystem) UpdateCollection(collection *domain.Collection) error {
-	if !strings.HasSuffix(collection.FilePath, "_collection.yaml") {
+func (f *Filesystem) updateCollection(collection *domain.Collection) error {
+	filePath, exists := f.collectionPaths[collection.MetaData.ID]
+	if !exists {
 		// if directory is not exist, create it
-		if _, err := os.Stat(collection.FilePath); os.IsNotExist(err) {
-			if err := os.MkdirAll(collection.FilePath, 0755); err != nil {
-				return err
-			}
+		dirPath := filepath.Join(collection.MetaData.Name, "_collection.yaml")
+		if err := os.MkdirAll(filepath.Dir(dirPath), 0755); err != nil {
+			return err
 		}
-
-		collection.FilePath = filepath.Join(collection.FilePath, "_collection.yaml")
+		filePath = dirPath
+		f.collectionPaths[collection.MetaData.ID] = filePath
 	}
 
-	if err := SaveToYaml(collection.FilePath, collection); err != nil {
+	if err := SaveToYaml(filePath, collection); err != nil {
 		return err
 	}
 
 	// Get the directory name
-	dirName := filepath.Dir(collection.FilePath)
+	dirName := filepath.Dir(filePath)
 	// Change the directory name to the collection name
 	if collection.MetaData.Name != filepath.Base(dirName) {
 		// replace last part of the path with the new name
@@ -439,44 +430,14 @@ func (f *Filesystem) UpdateCollection(collection *domain.Collection) error {
 		if err := os.Rename(dirName, newDirName); err != nil {
 			return err
 		}
-		collection.FilePath = filepath.Join(newDirName, "_collection.yaml")
+		f.collectionPaths[collection.MetaData.ID] = filepath.Join(newDirName, "_collection.yaml")
 	}
 
 	return nil
 }
 
-func (f *Filesystem) DeleteCollection(collection *domain.Collection) error {
-	return os.RemoveAll(filepath.Dir(collection.FilePath))
-}
-
-func (f *Filesystem) GetNewCollectionDir(name string) (*FilePath, error) {
-	collectionDir, err := f.GetCollectionsDir()
-	if err != nil {
-		return nil, err
-	}
-
-	dir := filepath.Join(collectionDir, name)
-	if !dirExist(dir) {
-		return &FilePath{
-			Path:    dir,
-			NewName: name,
-		}, nil
-	}
-
-	// If the file exists, append a number to the filename.
-	for i := 1; ; i++ {
-		newDirName := fmt.Sprintf("%s%d", dir, i)
-		if !dirExist(newDirName) {
-			return &FilePath{
-				Path:    newDirName,
-				NewName: fmt.Sprintf("%s%d", name, i),
-			}, nil
-		}
-	}
-}
-
 func (f *Filesystem) LoadEnvironments() ([]*domain.Environment, error) {
-	dir, err := f.GetEnvironmentDir()
+	dir, err := f.getEntityDirectoryInWorkspace(environmentsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -493,61 +454,60 @@ func (f *Filesystem) LoadEnvironments() ([]*domain.Environment, error) {
 		}
 
 		filePath := filepath.Join(dir, file.Name())
-
 		env, err := LoadFromYaml[domain.Environment](filePath)
 		if err != nil {
 			return nil, err
 		}
-		env.FilePath = filePath
+		f.environmentPaths[env.MetaData.ID] = filePath
 		out = append(out, env)
 	}
 
 	return out, nil
 }
 
-func (f *Filesystem) GetEnvironment(filepath string) (*domain.Environment, error) {
-	env, err := LoadFromYaml[domain.Environment](filepath)
+func (f *Filesystem) GetEnvironment(id string) (*domain.Environment, error) {
+	filePath, exists := f.environmentPaths[id]
+	if !exists {
+		return nil, fmt.Errorf("environment path not found")
+	}
+
+	env, err := LoadFromYaml[domain.Environment](filePath)
 	if err != nil {
 		return nil, err
 	}
-
-	env.FilePath = filepath
 	return env, nil
 }
 
-func (f *Filesystem) GetEnvironmentDir() (string, error) {
-	dir, err := CreateConfigDir()
-	if err != nil {
-		return "", err
+func (f *Filesystem) updateEnvironment(env *domain.Environment) error {
+	filePath, exists := f.environmentPaths[env.MetaData.ID]
+	if !exists {
+		// This is a new environment
+		fileName, err := f.getNewEnvironmentFilePath(env.MetaData.Name)
+		if err != nil {
+			return err
+		}
+		filePath = fileName.Path
+		f.environmentPaths[env.MetaData.ID] = filePath
 	}
 
-	envDir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, environmentsDir)
-	if err := makeDir(envDir); err != nil {
-		return "", err
-	}
-
-	return envDir, nil
-}
-
-func (f *Filesystem) UpdateEnvironment(env *domain.Environment) error {
-	if err := SaveToYaml(env.FilePath, env); err != nil {
+	if err := SaveToYaml(filePath, env); err != nil {
 		return err
 	}
 
 	// rename the file to the new name
-	if env.MetaData.Name != filepath.Base(env.FilePath) {
-		newFilePath := filepath.Join(filepath.Dir(env.FilePath), env.MetaData.Name+".yaml")
-		if err := os.Rename(env.FilePath, newFilePath); err != nil {
+	if env.MetaData.Name != filepath.Base(filePath) {
+		newFilePath := filepath.Join(filepath.Dir(filePath), env.MetaData.Name+".yaml")
+		if err := os.Rename(filePath, newFilePath); err != nil {
 			return err
 		}
-		env.FilePath = newFilePath
+		f.environmentPaths[env.MetaData.ID] = newFilePath
 	}
 
 	return nil
 }
 
-func (f *Filesystem) GetNewEnvironmentFilePath(name string) (*FilePath, error) {
-	dir, err := f.GetEnvironmentDir()
+func (f *Filesystem) getNewEnvironmentFilePath(name string) (*FilePath, error) {
+	dir, err := f.getEntityDirectoryInWorkspace(environmentsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -555,22 +515,31 @@ func (f *Filesystem) GetNewEnvironmentFilePath(name string) (*FilePath, error) {
 	return getNewFilePath(dir, name), nil
 }
 
-func (f *Filesystem) DeleteEnvironment(env *domain.Environment) error {
-	return os.Remove(env.FilePath)
-}
-
-func (f *Filesystem) ReadPreferencesData() (*domain.Preferences, error) {
-	dir, err := GetConfigDir()
+func (f *Filesystem) ReadPreferences() (*domain.Preferences, error) {
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return nil, err
 	}
 	pdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
 	filePath := filepath.Join(pdir, "preferences.yaml")
-	return LoadFromYaml[domain.Preferences](filePath)
+
+	preferences, err := LoadFromYaml[domain.Preferences](filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Return default preferences if file doesn't exist
+			preferences = domain.NewPreferences()
+			if err := f.UpdatePreferences(preferences); err != nil {
+				return nil, err
+			}
+			return preferences, nil
+		}
+		return nil, err
+	}
+	return preferences, nil
 }
 
 func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
-	dir, err := GetConfigDir()
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return err
 	}
@@ -585,7 +554,7 @@ func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
 }
 
 func (f *Filesystem) LoadRequests() ([]*domain.Request, error) {
-	dir, err := f.GetRequestsDir()
+	dir, err := f.getEntityDirectoryInWorkspace(requestsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -619,71 +588,57 @@ func (f *Filesystem) loadRequest(filePath string) (*domain.Request, error) {
 	}
 
 	req.SetDefaultValues()
-
-	req.FilePath = filePath
+	f.requestPaths[req.MetaData.ID] = filePath
 	return req, nil
 }
 
-func (f *Filesystem) GetRequest(filepath string) (*domain.Request, error) {
-	req, err := LoadFromYaml[domain.Request](filepath)
+func (f *Filesystem) GetRequest(id string) (*domain.Request, error) {
+	filePath, exists := f.requestPaths[id]
+	if !exists {
+		return nil, fmt.Errorf("request file path not found")
+	}
+
+	req, err := LoadFromYaml[domain.Request](filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	req.FilePath = filepath
 	return req, nil
 }
 
-func (f *Filesystem) GetRequestsDir() (string, error) {
-	dir, err := CreateConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	rdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, requestsDir)
-	if err := makeDir(rdir); err != nil {
-		return "", err
-	}
-
-	return rdir, nil
-}
-
-func (f *Filesystem) UpdateRequest(request *domain.Request) error {
-	if request.FilePath == "" {
-		// this is a new request
-		fileName, err := f.GetNewRequestFilePath(request.MetaData.Name)
+func (f *Filesystem) updateRequest(request *domain.Request) error {
+	filePath, exists := f.requestPaths[request.MetaData.ID]
+	if !exists {
+		// This is a new request
+		fileName, err := f.getNewRequestFilePath(request.MetaData.Name)
 		if err != nil {
 			return err
 		}
-
-		request.FilePath = fileName.Path
+		filePath = fileName.Path
+		f.requestPaths[request.MetaData.ID] = filePath
 	}
 
-	if err := SaveToYaml(request.FilePath, request); err != nil {
+	if err := SaveToYaml(filePath, request); err != nil {
 		return err
 	}
 
 	// rename the file to the new name
-	if request.MetaData.Name != filepath.Base(request.FilePath) {
-		newFilePath := filepath.Join(filepath.Dir(request.FilePath), request.MetaData.Name+".yaml")
-		if err := os.Rename(request.FilePath, newFilePath); err != nil {
+	if request.MetaData.Name != filepath.Base(filePath) {
+		newFilePath := filepath.Join(filepath.Dir(filePath), request.MetaData.Name+".yaml")
+		if err := os.Rename(filePath, newFilePath); err != nil {
 			return err
 		}
-		request.FilePath = newFilePath
+		f.requestPaths[request.MetaData.ID] = newFilePath
 	}
 	return nil
 }
 
-func (f *Filesystem) GetNewRequestFilePath(name string) (*FilePath, error) {
-	dir, err := f.GetRequestsDir()
+func (f *Filesystem) getNewRequestFilePath(name string) (*FilePath, error) {
+	dir, err := f.getEntityDirectoryInWorkspace(requestsDir)
 	if err != nil {
 		return nil, err
 	}
 	return getNewFilePath(dir, name), nil
-}
-
-func (f *Filesystem) DeleteRequest(request *domain.Request) error {
-	return os.Remove(request.FilePath)
 }
 
 func getNewFilePath(dir, name string) *FilePath {
@@ -692,7 +647,7 @@ func getNewFilePath(dir, name string) *FilePath {
 
 	return &FilePath{
 		Path:    fName,
-		NewName: GetFileNameWithoutExt(fName),
+		NewName: getFileNameWithoutExt(fName),
 	}
 }
 
@@ -730,18 +685,23 @@ func dirExist(dirname string) bool {
 	return info.IsDir()
 }
 
-func GetConfigDir() (string, error) {
+func (f *Filesystem) getConfigDir() (string, error) {
+	if f.baseDir != "" {
+		path := filepath.Join(f.baseDir, f.configDir)
+		return path, makeDir(path)
+	}
+
 	dir, err := userConfigDir()
 	if err != nil {
 		return "", err
 	}
 
-	path := filepath.Join(dir, configDir)
+	path := filepath.Join(dir, f.configDir)
 	return path, makeDir(path)
 }
 
-func CreateConfigDir() (string, error) {
-	dir, err := GetConfigDir()
+func (f *Filesystem) CreateConfigDir() (string, error) {
+	dir, err := f.getConfigDir()
 	if err != nil {
 		return "", err
 	}
@@ -800,4 +760,227 @@ func userConfigDir() (string, error) {
 	}
 
 	return dir, nil
+}
+
+func (f *Filesystem) Create(entity interface{}) error {
+	switch e := entity.(type) {
+	case *domain.Request:
+		return f.createRequest(e)
+	case *domain.Collection:
+		return f.createCollection(e)
+	case *domain.Environment:
+		return f.createEnvironment(e)
+	case *domain.Workspace:
+		return f.createWorkspace(e)
+	case *domain.ProtoFile:
+		return f.createProtoFile(e)
+	default:
+		return fmt.Errorf("unsupported entity type: %T", entity)
+	}
+}
+
+func (f *Filesystem) CreateRequestInCollection(collection *domain.Collection, request *domain.Request) error {
+	// Generate unique name if needed
+	request.MetaData.Name = f.generateUniqueName(request.MetaData.Name)
+
+	// Set collection metadata
+	request.CollectionID = collection.MetaData.ID
+	request.CollectionName = collection.MetaData.Name
+
+	// Get collection directory path
+	collectionDir := filepath.Dir(f.collectionPaths[collection.MetaData.ID])
+	filePath := filepath.Join(collectionDir, request.MetaData.Name+".yaml")
+	f.requestPaths[request.MetaData.ID] = filePath
+
+	return f.updateRequest(request)
+}
+
+// Helper function to generate unique names
+func (f *Filesystem) generateUniqueName(name string) string {
+	// Start with the original name
+	newName := name
+	counter := 1
+
+	// Keep trying new names until we find one that doesn't exist
+	for {
+		// Check if this name exists in various locations
+		exists, err := f.nameExists(newName)
+		if err != nil || !exists {
+			break
+		}
+
+		// If it exists, try the next number
+		newName = fmt.Sprintf("%s%d", name, counter)
+		counter++
+	}
+
+	return newName
+}
+
+// Helper function to check if a name exists across different types
+func (f *Filesystem) nameExists(name string) (bool, error) {
+	// Get all directories we need to check
+	reqDir, err := f.getEntityDirectoryInWorkspace(requestsDir)
+	if err != nil {
+		return false, err
+	}
+
+	cDir, err := f.getEntityDirectoryInWorkspace(collectionsDir)
+	if err != nil {
+		return false, err
+	}
+
+	envDir, err := f.getEntityDirectoryInWorkspace(environmentsDir)
+	if err != nil {
+		return false, err
+	}
+
+	// Check in requests directory
+	if fileExists(filepath.Join(reqDir, name+".yaml")) {
+		return true, nil
+	}
+
+	// Check in collections directory
+	if dirExist(filepath.Join(cDir, name)) {
+		return true, nil
+	}
+
+	// Check in environments directory
+	if fileExists(filepath.Join(envDir, name+".yaml")) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (f *Filesystem) createProtoFile(protoFile *domain.ProtoFile) error {
+	// Get proto files directory
+	protoDir, err := f.getEntityDirectoryInWorkspace(protoFilesDir)
+	if err != nil {
+		return err
+	}
+
+	// Generate file path internally
+	filePath := filepath.Join(protoDir, protoFile.MetaData.Name+".yaml")
+	f.protoFilePaths[protoFile.MetaData.ID] = filePath
+
+	return f.updateProtoFile(protoFile)
+}
+
+func (f *Filesystem) createRequest(request *domain.Request) error {
+	// Get requests directory
+	reqDir, err := f.getEntityDirectoryInWorkspace(requestsDir)
+	if err != nil {
+		return err
+	}
+
+	// Generate file path internally
+	filePath := filepath.Join(reqDir, request.MetaData.Name+".yaml")
+	f.requestPaths[request.MetaData.ID] = filePath
+
+	return f.updateRequest(request)
+}
+
+func (f *Filesystem) createCollection(collection *domain.Collection) error {
+	// Get collections directory
+	collectionDir, err := f.getEntityDirectoryInWorkspace(collectionsDir)
+	if err != nil {
+		return err
+	}
+
+	// Generate directory path internally
+	dirPath := filepath.Join(collectionDir, collection.MetaData.Name)
+	f.collectionPaths[collection.MetaData.ID] = filepath.Join(dirPath, "_collection.yaml")
+
+	// Create the collection directory
+	if err := makeDir(dirPath); err != nil {
+		return fmt.Errorf("failed to create collection directory: %w", err)
+	}
+
+	return f.updateCollection(collection)
+}
+
+func (f *Filesystem) createEnvironment(env *domain.Environment) error {
+	// Get environments directory
+	envDir, err := f.getEntityDirectoryInWorkspace(environmentsDir)
+	if err != nil {
+		return err
+	}
+
+	// Generate file path internally
+	filePath := filepath.Join(envDir, env.MetaData.Name+".yaml")
+	f.environmentPaths[env.MetaData.ID] = filePath
+
+	return f.updateEnvironment(env)
+}
+
+func (f *Filesystem) createWorkspace(workspace *domain.Workspace) error {
+	// Get workspaces directory
+	workspaceDir, err := f.getWorkspacesDir()
+	if err != nil {
+		return err
+	}
+
+	// Generate directory path internally
+	dirPath := filepath.Join(workspaceDir, workspace.MetaData.Name)
+	f.workspacePaths[workspace.MetaData.ID] = filepath.Join(dirPath, "_workspace.yaml")
+
+	// Create the workspace directory
+	if err := makeDir(dirPath); err != nil {
+		return fmt.Errorf("failed to create collection directory: %w", err)
+	}
+
+	return f.updateWorkspace(workspace)
+}
+
+func (f *Filesystem) Delete(entity interface{}) error {
+	deleteFn := func(mp map[string]string, id string) error {
+		filePath, exists := mp[id]
+		if !exists {
+			return fmt.Errorf("collection path not found")
+		}
+		err := os.RemoveAll(filepath.Dir(filePath))
+		if err == nil {
+			delete(mp, id)
+		}
+		return err
+	}
+
+	switch e := entity.(type) {
+	case *domain.Request:
+		return deleteFn(f.requestPaths, e.MetaData.ID)
+	case *domain.Collection:
+		return deleteFn(f.collectionPaths, e.MetaData.ID)
+	case *domain.Environment:
+		return deleteFn(f.environmentPaths, e.MetaData.ID)
+	case *domain.Workspace:
+		return deleteFn(f.workspacePaths, e.MetaData.ID)
+	case *domain.ProtoFile:
+		return deleteFn(f.protoFilePaths, e.MetaData.ID)
+	default:
+		return fmt.Errorf("unsupported entity type: %T", entity)
+	}
+}
+
+func getFileNameWithoutExt(filePath string) string {
+	_, file := filepath.Split(filePath)
+	extension := filepath.Ext(file)
+	return file[:len(file)-len(extension)]
+}
+
+func (f *Filesystem) Update(entity interface{}) error {
+	switch e := entity.(type) {
+	case *domain.Request:
+		return f.updateRequest(e)
+	case *domain.Collection:
+		return f.updateCollection(e)
+	case *domain.Environment:
+		return f.updateEnvironment(e)
+	case *domain.Workspace:
+		return f.updateWorkspace(e)
+	case *domain.ProtoFile:
+		return f.updateProtoFile(e)
+	default:
+		return fmt.Errorf("unsupported entity type: %T", entity)
+	}
 }

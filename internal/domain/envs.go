@@ -11,7 +11,6 @@ type Environment struct {
 	Kind       string   `yaml:"kind"`
 	MetaData   MetaData `yaml:"metadata"`
 	Spec       EnvSpec  `yaml:"spec"`
-	FilePath   string   `yaml:"-"`
 }
 
 type EnvSpec struct {
@@ -46,7 +45,6 @@ func NewEnvironment(name string) *Environment {
 		Spec: EnvSpec{
 			Values: make([]KeyValue, 0),
 		},
-		FilePath: "",
 	}
 }
 
@@ -71,8 +69,7 @@ func (e *Environment) Clone() *Environment {
 			ID:   uuid.NewString(),
 			Name: e.MetaData.Name,
 		},
-		Spec:     e.Spec.Clone(),
-		FilePath: e.FilePath,
+		Spec: e.Spec.Clone(),
 	}
 
 	return clone

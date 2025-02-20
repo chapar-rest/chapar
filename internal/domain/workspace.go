@@ -10,7 +10,6 @@ type Workspace struct {
 	ApiVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
 	MetaData   MetaData `yaml:"metadata"`
-	FilePath   string   `yaml:"-"`
 }
 
 func NewWorkspace(name string) *Workspace {
@@ -21,7 +20,6 @@ func NewWorkspace(name string) *Workspace {
 			ID:   uuid.NewString(),
 			Name: name,
 		},
-		FilePath: "",
 	}
 }
 
@@ -33,6 +31,5 @@ func NewDefaultWorkspace() *Workspace {
 			ID:   "default",
 			Name: DefaultWorkspaceName,
 		},
-		FilePath: "",
 	}
 }

@@ -72,12 +72,12 @@ func NewController(view *View, repo repository.Repository, model *state.Requests
 }
 
 func (c *Controller) LoadData() error {
-	collections, err := c.model.LoadCollectionsFromDisk()
+	collections, err := c.model.LoadCollections()
 	if err != nil {
 		return err
 	}
 
-	requests, err := c.model.LoadRequestsFromDisk()
+	requests, err := c.model.LoadRequests()
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func (c *Controller) onTitleChanged(id string, title, containerType string) {
 func (c *Controller) onSave(id string) {
 	tabType := c.view.GetTabType(id)
 	if tabType == TypeRequest {
-		c.saveRequestToDisc(id)
+		c.saveRequest(id)
 	}
 }
 
@@ -458,7 +458,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	}
 
 	// set tab dirty if the in memory data is different from the file
-	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	reqFromFile, err := c.model.GetPersistedRequest(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
@@ -602,9 +602,9 @@ func (c *Controller) onRequestTabClose(id string) {
 		return
 	}
 
-	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	reqFromFile, err := c.model.GetPersistedRequest(id)
 	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get environment from file, %w", err))
+		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
 	}
 
@@ -624,11 +624,11 @@ func (c *Controller) onRequestTabClose(id string) {
 			}
 
 			if selectedOption == "Yes" {
-				c.saveRequestToDisc(id)
+				c.saveRequest(id)
 			}
 
 			c.view.CloseTab(id)
-			c.model.ReloadRequestFromDisc(id)
+			c.model.ReloadRequest(id)
 			c.view.SetTreeViewNodePrefix(id, reqFromFile)
 		},
 		[]widgets.Option{{Text: "Yes"}, {Text: "No"}, {Text: "Cancel"}}...,
@@ -685,18 +685,14 @@ func (c *Controller) onNewRequest(requestType string) {
 		req = domain.NewGRPCRequest("New Request")
 	}
 
-	newFilePath, err := c.repo.GetNewRequestFilePath(req.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new file path, %w", err))
+	// Let the repository handle the creation details
+	if err := c.repo.Create(req); err != nil {
+		c.view.showError(fmt.Errorf("failed to create request: %w", err))
 		return
 	}
 
-	req.FilePath = newFilePath.Path
-	req.MetaData.Name = newFilePath.NewName
-
 	c.model.AddRequest(req)
 	c.view.AddRequestTreeViewNode(req)
-	c.saveRequestToDisc(req.MetaData.ID)
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
 	clone, _ := domain.Clone[domain.Request](req)
 	clone.MetaData.ID = req.MetaData.ID
@@ -715,7 +711,7 @@ func (c *Controller) onImport() {
 			return
 		}
 
-		if err := importer.ImportPostmanCollection(result.Data); err != nil {
+		if err := importer.ImportPostmanCollection(result.Data, c.repo); err != nil {
 			c.view.showError(fmt.Errorf("failed to import postman collection, %w", err))
 			return
 		}
@@ -731,42 +727,25 @@ func (c *Controller) onImport() {
 func (c *Controller) onNewCollection() {
 	col := domain.NewCollection("New Collection")
 
-	dirPath, err := c.repo.GetNewCollectionDir(col.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new collection dir, %w", err))
+	if err := c.repo.Create(col); err != nil {
+		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
 		return
 	}
 
-	col.FilePath = dirPath.Path
-	col.MetaData.Name = dirPath.NewName
-
 	c.model.AddCollection(col)
 	c.view.AddCollectionTreeViewNode(col)
-	c.saveCollectionToDisc(col.MetaData.ID)
 	c.view.OpenTab(col.MetaData.ID, col.MetaData.Name, TypeCollection)
 	c.view.OpenCollectionContainer(col)
 	c.view.SwitchToTab(col.MetaData.ID)
 }
 
-func (c *Controller) saveRequestToDisc(id string) {
+func (c *Controller) saveRequest(id string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
 		return
 	}
 	if err := c.model.UpdateRequest(req, false); err != nil {
 		c.view.showError(fmt.Errorf("failed to update request, %w", err))
-		return
-	}
-	c.view.SetTabDirty(id, false)
-}
-
-func (c *Controller) saveCollectionToDisc(id string) {
-	col := c.model.GetCollection(id)
-	if col == nil {
-		return
-	}
-	if err := c.model.UpdateCollection(col, false); err != nil {
-		c.view.showError(fmt.Errorf("failed to update collection, %w", err))
 		return
 	}
 	c.view.SetTabDirty(id, false)
@@ -834,20 +813,14 @@ func (c *Controller) addRequestToCollection(id string, requestType string) {
 		return
 	}
 
-	newFilePath, err := c.repo.GetCollectionRequestNewFilePath(col, req.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new file path, err %w", err))
+	// Let the repository handle the creation details
+	if err := c.repo.CreateRequestInCollection(col, req); err != nil {
+		c.view.showError(fmt.Errorf("failed to create request: %w", err))
 		return
 	}
 
-	req.FilePath = newFilePath.Path
-	req.MetaData.Name = newFilePath.NewName
-	req.CollectionID = col.MetaData.ID
-	req.CollectionName = col.MetaData.Name
-
 	c.model.AddRequest(req)
 	c.view.AddChildTreeViewNode(col.MetaData.ID, req)
-	c.saveRequestToDisc(req.MetaData.ID)
 	c.model.AddRequestToCollection(col, req)
 	c.view.ExpandTreeViewNode(col.MetaData.ID)
 	clone, _ := domain.Clone[domain.Request](req)
@@ -900,46 +873,44 @@ func (c *Controller) duplicateCollection(id string) {
 		return
 	}
 
+	// Create a clone of the collection with "(copy)" suffix
 	colClone := col.Clone()
 	colClone.MetaData.Name += " (copy)"
 
-	dirPath, err := c.repo.GetNewCollectionDir(colClone.MetaData.Name)
-	if err != nil {
-		c.view.showError(fmt.Errorf("failed to get new collection dir, %w", err))
+	// Let the repository handle the collection creation
+	if err := c.repo.Create(colClone); err != nil {
+		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
 		return
 	}
 
-	colClone.FilePath = dirPath.Path
-	colClone.MetaData.Name = dirPath.NewName
 	c.model.AddCollection(colClone)
 	c.view.AddCollectionTreeViewNode(colClone)
+
+	// Store the requests temporarily and clear them from the collection
 	requests := colClone.Spec.Requests
 	colClone.Spec.Requests = nil
-	c.saveCollectionToDisc(colClone.MetaData.ID)
-	colClone.Spec.Requests = requests
 
+	// Duplicate each request in the collection
 	for _, req := range requests {
 		reqClone := req.Clone()
+		reqClone.MetaData.Name += " (copy)"
 
-		newFilePath, err := c.repo.GetCollectionRequestNewFilePath(colClone, reqClone.MetaData.Name)
-		if err != nil {
-			c.view.showError(fmt.Errorf("failed to get new file path, err %w", err))
-			return
+		// Let the repository handle the request creation in the collection
+		if err := c.repo.CreateRequestInCollection(colClone, reqClone); err != nil {
+			c.view.showError(fmt.Errorf("failed to create request: %w", err))
+			continue
 		}
 
-		reqClone.FilePath = newFilePath.Path
-		reqClone.MetaData.Name = newFilePath.NewName
-		reqClone.CollectionID = colClone.MetaData.ID
-		reqClone.CollectionName = colClone.MetaData.Name
 		c.model.AddRequest(reqClone)
 		c.view.AddChildTreeViewNode(colClone.MetaData.ID, reqClone)
-		c.saveRequestToDisc(reqClone.MetaData.ID)
 	}
+
+	// Restore the requests array
+	colClone.Spec.Requests = requests
 }
 
 func (c *Controller) duplicateRequest(id string) {
-	// read request from file to make sure we have the latest persisted data
-	reqFromFile, err := c.model.GetRequestFromDisc(id)
+	reqFromFile, err := c.model.GetPersistedRequest(id)
 	if err != nil {
 		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
@@ -947,14 +918,19 @@ func (c *Controller) duplicateRequest(id string) {
 
 	newReq := reqFromFile.Clone()
 	newReq.MetaData.Name += " (copy)"
-	newReq.FilePath = repository.AddSuffixBeforeExt(newReq.FilePath, "-copy")
+
+	// Let the repository handle the creation details
+	if err := c.repo.Create(newReq); err != nil {
+		c.view.showError(fmt.Errorf("failed to create request: %w", err))
+		return
+	}
+
 	c.model.AddRequest(newReq)
 	if reqFromFile.CollectionID == "" {
 		c.view.AddRequestTreeViewNode(newReq)
 	} else {
 		c.view.AddChildTreeViewNode(reqFromFile.CollectionID, newReq)
 	}
-	c.saveRequestToDisc(newReq.MetaData.ID)
 }
 
 func (c *Controller) deleteRequest(id string) {

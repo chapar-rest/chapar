@@ -59,7 +59,7 @@ func (m *Environments) RemoveEnvironment(environment *domain.Environment, source
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteEnvironment(environment); err != nil {
+		if err := m.repository.Delete(environment); err != nil {
 			return err
 		}
 	}
@@ -80,7 +80,7 @@ func (m *Environments) UpdateEnvironment(env *domain.Environment, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.repository.UpdateEnvironment(env); err != nil {
+		if err := m.repository.Update(env); err != nil {
 			return err
 		}
 	}
@@ -109,23 +109,23 @@ func (m *Environments) GetActiveEnvironment() *domain.Environment {
 	return m.activeEnvironment
 }
 
-func (m *Environments) GetEnvironmentFromDisc(id string) (*domain.Environment, error) {
+func (m *Environments) GetPersistedEnvironment(id string) (*domain.Environment, error) {
 	env, ok := m.environments.Get(id)
 	if !ok {
 		return nil, ErrNotFound
 	}
 
-	return m.repository.GetEnvironment(env.FilePath)
+	return m.repository.GetEnvironment(env.MetaData.ID)
 }
 
-func (m *Environments) ReloadEnvironmentFromDisc(id string, source Source) {
+func (m *Environments) ReloadEnvironment(id string, source Source) {
 	_, ok := m.environments.Get(id)
 	if !ok {
 		// log error and handle it
 		return
 	}
 
-	env, err := m.GetEnvironmentFromDisc(id)
+	env, err := m.GetPersistedEnvironment(id)
 	if err != nil {
 		return
 	}
@@ -138,7 +138,7 @@ func (m *Environments) GetEnvironments() []*domain.Environment {
 	return m.environments.Values()
 }
 
-func (m *Environments) LoadEnvironmentsFromDisk() ([]*domain.Environment, error) {
+func (m *Environments) LoadEnvironments() ([]*domain.Environment, error) {
 	envs, err := m.repository.LoadEnvironments()
 	if err != nil {
 		return nil, err

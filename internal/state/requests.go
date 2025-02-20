@@ -1,9 +1,6 @@
 package state
 
 import (
-	"path"
-	"path/filepath"
-
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/safemap"
@@ -63,7 +60,7 @@ func (m *Requests) RemoveRequest(request *domain.Request, stateOnly bool) error 
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteRequest(request); err != nil {
+		if err := m.repository.Delete(request); err != nil {
 			return err
 		}
 	}
@@ -84,7 +81,7 @@ func (m *Requests) RemoveCollection(collection *domain.Collection, stateOnly boo
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteCollection(collection); err != nil {
+		if err := m.repository.Delete(collection); err != nil {
 			return err
 		}
 	}
@@ -114,7 +111,7 @@ func (m *Requests) UpdateRequest(request *domain.Request, stateOnly bool) error 
 	}
 
 	if !stateOnly {
-		if err := m.repository.UpdateRequest(request); err != nil {
+		if err := m.repository.Update(request); err != nil {
 			return err
 		}
 	}
@@ -130,10 +127,8 @@ func (m *Requests) UpdateCollection(collection *domain.Collection, stateOnly boo
 		return ErrNotFound
 	}
 
-	oldCollectionFilePath := collection.FilePath
-
 	if !stateOnly {
-		if err := m.repository.UpdateCollection(collection); err != nil {
+		if err := m.repository.Update(collection); err != nil {
 			return err
 		}
 	}
@@ -142,11 +137,6 @@ func (m *Requests) UpdateCollection(collection *domain.Collection, stateOnly boo
 	for _, req := range collection.Spec.Requests {
 		req.CollectionName = collection.MetaData.Name
 		req.CollectionID = collection.MetaData.ID
-
-		if oldCollectionFilePath != collection.FilePath {
-			req.FilePath = fixRequestFilePath(req, collection)
-		}
-
 		m.requests.Set(req.MetaData.ID, req)
 	}
 
@@ -154,12 +144,6 @@ func (m *Requests) UpdateCollection(collection *domain.Collection, stateOnly boo
 	m.notifyCollectionChange(collection, ActionUpdate)
 
 	return nil
-}
-
-func fixRequestFilePath(request *domain.Request, collection *domain.Collection) string {
-	collectionDir, _ := path.Split(collection.FilePath)
-	requestFileName := path.Base(request.FilePath)
-	return filepath.Join(collectionDir, requestFileName)
 }
 
 func (m *Requests) GetRequests() []*domain.Request {
@@ -180,33 +164,32 @@ func (m *Requests) GetCollections() []*domain.Collection {
 	return m.collections.Values()
 }
 
-func (m *Requests) GetRequestFromDisc(id string) (*domain.Request, error) {
+func (m *Requests) GetPersistedRequest(id string) (*domain.Request, error) {
 	req, ok := m.requests.Get(id)
 	if !ok {
 		return nil, ErrNotFound
 	}
 
-	freshReq, err := m.repository.GetRequest(req.FilePath)
+	freshReq, err := m.repository.GetRequest(req.MetaData.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// update the file path in case if its a collection request
-	freshReq.FilePath = req.FilePath
+	// update metadata from state
 	freshReq.CollectionID = req.CollectionID
 	freshReq.CollectionName = req.CollectionName
 
 	return freshReq, nil
 }
 
-func (m *Requests) ReloadRequestFromDisc(id string) {
+func (m *Requests) ReloadRequest(id string) {
 	_, ok := m.requests.Get(id)
 	if !ok {
 		// log error and handle it
 		return
 	}
 
-	env, err := m.GetRequestFromDisc(id)
+	env, err := m.GetPersistedRequest(id)
 	if err != nil {
 		return
 	}
@@ -215,7 +198,7 @@ func (m *Requests) ReloadRequestFromDisc(id string) {
 	m.notifyRequestChange(env, ActionUpdate)
 }
 
-func (m *Requests) LoadRequestsFromDisk() ([]*domain.Request, error) {
+func (m *Requests) LoadRequests() ([]*domain.Request, error) {
 	reqs, err := m.repository.LoadRequests()
 	if err != nil {
 		return nil, err
@@ -228,7 +211,7 @@ func (m *Requests) LoadRequestsFromDisk() ([]*domain.Request, error) {
 	return reqs, nil
 }
 
-func (m *Requests) LoadCollectionsFromDisk() ([]*domain.Collection, error) {
+func (m *Requests) LoadCollections() ([]*domain.Collection, error) {
 	cols, err := m.repository.LoadCollections()
 	if err != nil {
 		return nil, err

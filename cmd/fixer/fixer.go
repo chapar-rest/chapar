@@ -21,7 +21,7 @@ func main() {
 }
 
 func fixRequestTypes() {
-	filesystem, err := repository.NewFilesystem()
+	filesystem, err := repository.NewFilesystem(repository.DefaultConfigDir, "")
 	if err != nil {
 		fmt.Printf("Error creating filesystem: %v\n", err)
 		os.Exit(1)
@@ -56,7 +56,7 @@ func fixRequestTypes() {
 
 			fmt.Println("Updating request", req.MetaData.Name, "type to", req.MetaData.Type)
 
-			if err := filesystem.UpdateRequest(req); err != nil {
+			if err := filesystem.Update(req); err != nil {
 				fmt.Printf("Error updating request: %v\n", err)
 				os.Exit(1)
 			}

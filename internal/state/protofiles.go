@@ -50,7 +50,7 @@ func (m *ProtoFiles) UpdateProtoFile(proto *domain.ProtoFile, stateOnly bool) er
 	}
 
 	if !stateOnly {
-		if err := m.repository.UpdateProtoFile(proto); err != nil {
+		if err := m.repository.Update(proto); err != nil {
 			return err
 		}
 	}
@@ -67,7 +67,7 @@ func (m *ProtoFiles) RemoveProtoFile(request *domain.ProtoFile, stateOnly bool) 
 	}
 
 	if !stateOnly {
-		if err := m.repository.DeleteProtoFile(request); err != nil {
+		if err := m.repository.Delete(request); err != nil {
 			return err
 		}
 	}
@@ -82,7 +82,7 @@ func (m *ProtoFiles) GetProtoFiles() []*domain.ProtoFile {
 	return m.protoFiles.Values()
 }
 
-func (m *ProtoFiles) LoadProtoFilesFromDisk() ([]*domain.ProtoFile, error) {
+func (m *ProtoFiles) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 	protos, err := m.repository.LoadProtoFiles()
 	if err != nil {
 		return nil, err
