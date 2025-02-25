@@ -47,6 +47,8 @@ github.com/jhump/protoreflect v1.16.0 h1:54fZg+49widqXYQ0b+usAFHbMkBGR4PpXrsHc8+
 github.com/jhump/protoreflect v1.16.0/go.mod h1:oYPd7nPvcBw/5wlDfm/AVmU9zH9BgqGCI469pGxfj/8=
 github.com/oligo/gioview v0.8.1 h1:IPG7CU3g+bVhp3QaOEqssHJ3bZUT3Sbjp+93jcRChhs=
 github.com/oligo/gioview v0.8.1/go.mod h1:aCAAlRa9GZFtrBoA5nJMYBjiHRixlnVIOSP2Ct63oSk=
+github.com/oligo/gvcode v0.0.2 h1:JOM6jcrVhR5TQ9A02cXf3G5jHFTzMUEaUdWBOjE4qCM=
+github.com/oligo/gvcode v0.0.2/go.mod h1:FbEzms1rI1zSHa7EEkupx9FtGnuNa+pqdXuaRbr0YxE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=

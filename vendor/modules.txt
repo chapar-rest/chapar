@@ -125,6 +125,11 @@ github.com/jhump/protoreflect/internal
 github.com/oligo/gioview/editor
 github.com/oligo/gioview/misc
 github.com/oligo/gioview/theme
+# github.com/oligo/gvcode v0.0.2
+## explicit; go 1.23
+github.com/oligo/gvcode
+github.com/oligo/gvcode/buffer
+github.com/oligo/gvcode/widget
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
@@ -135,7 +140,6 @@ github.com/shopspring/decimal
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
-github.com/stretchr/testify/require
 # golang.org/x/exp v0.0.0-20240707233637-46b078467d37
 ## explicit; go 1.20
 golang.org/x/exp/constraints
