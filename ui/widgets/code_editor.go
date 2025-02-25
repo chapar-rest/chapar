@@ -235,9 +235,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	)
 }
 
-func (c *CodeEditor) editorStyle(gtx layout.Context, hint string) layout.Dimensions {
-	// editorDims := editor.NewEditor(c.editor, c.editorConf, hint).Layout(gtx)
-
+func (c *CodeEditor) editorStyle(gtx layout.Context, _ string) layout.Dimensions {
 	es := wgvcode.NewEditor(c.theme.Material(), c.editor)
 	editorDims := es.Layout(gtx)
 
