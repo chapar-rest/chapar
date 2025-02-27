@@ -16,7 +16,6 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-	"github.com/chapar-rest/chapar/ui/fonts"
 
 	"github.com/oligo/gvcode"
 	wgvcode "github.com/oligo/gvcode/widget"
@@ -67,27 +66,34 @@ type CodeEditor struct {
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
-	editorFont := fonts.MustGetCodeEditorFont()
+	// 	editorFont := fonts.MustGetCodeEditorFont()
 
 	c := &CodeEditor{
-		theme: theme,
+		theme:  theme,
 		editor: &gvcode.Editor{
-			Font:                  editorFont.Font,
-			TextSize:              unit.Sp(12),
-			LineHeightScale:       1,
-			WrapLine:              true,
-			ReadOnly:              false,
-			SoftTab:               true,
-			TabWidth:              4,
-			LineNumberGutter:      1,
-			TextMaterial:          rgbToOp(theme.TextColor),
-			SelectMaterial:        rgbToOp(theme.TextSelectionColor),
-			TextHighlightMaterial: rgbToOp(theme.TextSelectionColor),
+			//Font:                  editorFont.Font,
+			//TextSize:              unit.Sp(12),
+			//LineHeightScale:       1,
+			//WrapLine:              true,
+			//ReadOnly:              false,
+			//SoftTab:               true,
+			//TabWidth:              4,
+			//LineNumberGutter: 1,
+			// TextMaterial:     rgbToOp(theme.TextColor),
+			// SelectMaterial:        rgbToOp(theme.TextSelectionColor),
+			// TextHighlightMaterial: rgbToOp(theme.TextSelectionColor),
 		},
 		code: code,
-		font: fonts.MustGetCodeEditorFont(),
+		font: font.FontFace{
+			Font: font.Font{Typeface: "sourceSansPro"},
+		},
 		lang: lang,
 	}
+
+	// c.editor.WithOptions(gvcode.WithShaperParams(c.font.Font, unit.Sp(12), text.Start, unit.Sp(16), 1))
+	// c.editor.WithOptions(gvcode.WithTabWidth(4))
+	// c.editor.WithOptions(gvcode.WithSoftTab(true))
+	c.editor.WithOptions(gvcode.WrapLine(true))
 
 	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)
 
@@ -129,7 +135,7 @@ func (c *CodeEditor) SetOnBeautify(f func()) {
 }
 
 func (c *CodeEditor) SetReadOnly(readOnly bool) {
-	c.editor.ReadOnly = readOnly
+	c.editor.WithOptions(gvcode.ReadOnlyMode(readOnly))
 }
 
 func (c *CodeEditor) SetOnLoadExample(f func()) {
@@ -158,10 +164,12 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 		c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 	}
 
-	if !c.editor.ReadOnly {
+	if !c.editor.ReadOnly() {
 		if ev, ok := c.editor.Update(gtx); ok {
 			if _, ok := ev.(gvcode.ChangeEvent); ok {
-				c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+				st := c.stylingText(c.editor.Text())
+				c.styles = st
+				c.editor.UpdateTextStyles(st)
 				if c.onChange != nil {
 					c.onChange(c.editor.Text())
 					c.code = c.editor.Text()
@@ -237,6 +245,8 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 
 func (c *CodeEditor) editorStyle(gtx layout.Context, _ string) layout.Dimensions {
 	es := wgvcode.NewEditor(c.theme.Material(), c.editor)
+	es.Font.Typeface = "sourceSansPro"
+	es.SelectionColor = c.theme.TextSelectionColor
 	editorDims := es.Layout(gtx)
 
 	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -274,8 +284,8 @@ func (c *CodeEditor) stylingText(text string) []*gvcode.TextStyle {
 				Start: offset,
 				End:   offset + len([]rune(token.Value)),
 			},
-			Color:      rgbToOp(c.theme.Fg),
-			Background: rgbToOp(c.theme.Bg),
+			Color: rgbToOp(c.theme.Fg),
+			// Background: rgbToOp(c.theme.Bg),
 		}
 
 		if entry.Colour.IsSet() {

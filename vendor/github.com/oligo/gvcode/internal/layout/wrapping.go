@@ -1,4 +1,4 @@
-package gvcode
+package layout
 
 import (
 	"iter"
@@ -121,7 +121,7 @@ type lineWrapper struct {
 	tabStopInterval fixed.Int26_6
 
 	runeOff     int
-	currentLine line
+	currentLine Line
 	glyphBuf    glyphReader
 }
 
@@ -130,27 +130,27 @@ func (w *lineWrapper) setup(nextGlyph func() (text.Glyph, bool), paragraph []run
 	w.maxWidth = maxWidth
 	w.tabStopInterval = spaceGlyph.Advance.Mul(fixed.I(tabWidth))
 	w.spaceGlyph = spaceGlyph
-	w.currentLine = line{}
+	w.currentLine = Line{}
 	w.glyphBuf.nextGlyph = nextGlyph
 	w.glyphBuf.reset()
 	w.runeOff = 0
 }
 
-func (w *lineWrapper) WrapParagraph(glyphsIter iter.Seq[text.Glyph], paragraph []rune, maxWidth int, tabWidth int, spaceGlyph *text.Glyph) []*line {
+func (w *lineWrapper) WrapParagraph(glyphsIter iter.Seq[text.Glyph], paragraph []rune, maxWidth int, tabWidth int, spaceGlyph *text.Glyph) []*Line {
 	nextGlyph, stop := iter.Pull(glyphsIter)
 	defer stop()
 	w.setup(nextGlyph, paragraph, maxWidth, tabWidth, spaceGlyph)
 
-	lines := make([]*line, 0)
+	lines := make([]*Line, 0)
 
 	for {
 		l := w.wrapNextLine(paragraph)
-		if len(l.glyphs) == 0 {
+		if len(l.Glyphs) == 0 {
 			break
 		}
 
 		lines = append(lines, &l)
-		w.currentLine = line{}
+		w.currentLine = Line{}
 	}
 
 	return lines
@@ -158,7 +158,7 @@ func (w *lineWrapper) WrapParagraph(glyphsIter iter.Seq[text.Glyph], paragraph [
 
 // wrapNextLine breaking lines by looking at the break opportunities defined in https://unicode.org/reports/tr14 first.
 // If no break opportunities can be found, it'll try to break at the grapheme cluster bounderies.
-func (w *lineWrapper) wrapNextLine(paragraph []rune) line {
+func (w *lineWrapper) wrapNextLine(paragraph []rune) Line {
 	// Handle the remaining glyphs from the previous iteration.
 	// The case that a single word exceeds the line width is already handled in
 	// the previous iteration, so we are safe to add it to the current line here.
@@ -185,7 +185,7 @@ func (w *lineWrapper) wrapNextLine(paragraph []rune) line {
 		}
 
 		// check if the line will exceeds the maxWidth if we put the glyph in the current line.
-		if w.currentLine.width+w.glyphBuf.advance() > fixed.I(w.maxWidth) {
+		if w.currentLine.Width+w.glyphBuf.advance() > fixed.I(w.maxWidth) {
 			break
 		}
 
@@ -193,7 +193,7 @@ func (w *lineWrapper) wrapNextLine(paragraph []rune) line {
 		w.glyphBuf.reset()
 	}
 
-	if len(w.currentLine.glyphs) > 0 {
+	if len(w.currentLine.Glyphs) > 0 {
 		return w.currentLine
 	}
 
@@ -211,7 +211,7 @@ func (w *lineWrapper) wrapNextLine(paragraph []rune) line {
 		}
 
 		// check if the line will exceeds the maxWidth if we put the glyph in the current line.
-		if w.currentLine.width+w.glyphBuf.advance() > fixed.I(w.maxWidth) {
+		if w.currentLine.Width+w.glyphBuf.advance() > fixed.I(w.maxWidth) {
 			break
 		}
 
@@ -219,7 +219,7 @@ func (w *lineWrapper) wrapNextLine(paragraph []rune) line {
 
 	}
 
-	if len(w.currentLine.glyphs) > 0 {
+	if len(w.currentLine.Glyphs) > 0 {
 		return w.currentLine
 	}
 
@@ -250,7 +250,7 @@ func (w *lineWrapper) readToNextBreak(breakAtIdx breakOption, paragraph []rune) 
 			isTab := paragraph[w.runeOff-1] == '\t'
 			if isTab {
 				// the rune is a tab, expand it before line wrapping.
-				w.expandTabGlyph(w.currentLine.width+w.glyphBuf.advance()-gl.Advance, gl)
+				w.expandTabGlyph(w.currentLine.Width+w.glyphBuf.advance()-gl.Advance, gl)
 			}
 		}
 

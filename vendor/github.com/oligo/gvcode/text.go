@@ -11,7 +11,8 @@ import (
 	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
-	"github.com/oligo/gvcode/buffer"
+	"github.com/oligo/gvcode/internal/buffer"
+	lt "github.com/oligo/gvcode/internal/layout"
 	"golang.org/x/exp/slices"
 	"golang.org/x/image/math/fixed"
 )
@@ -34,6 +35,10 @@ type TextStyle struct {
 	Background op.CallOp
 }
 
+// Region describes the position and baseline of an area of interest within
+// shaped text.
+type Region = lt.Region
+
 type caretPos struct {
 	// xoff is the offset to the current position when moving between lines.
 	xoff fixed.Int26_6
@@ -51,6 +56,11 @@ type caretPos struct {
 // It provides methods for configuring a viewport onto the shaped text which can
 // be scrolled, and for configuring and drawing text selection boxes.
 type textView struct {
+	// Font set the font used to draw the text.
+	Font font.Font
+	// TextSize set the size of both the main text and line number.
+	TextSize unit.Sp
+	// Alignment controls the alignment of text within the editor.
 	Alignment text.Alignment
 	// LineHeight controls the distance between the baselines of lines of text.
 	// If zero, the font size will be used.
@@ -58,10 +68,23 @@ type textView struct {
 	// LineHeightScale applies a scaling factor to the LineHeight. If zero, a default
 	// value 1.2 will be used.
 	LineHeightScale float32
-	CaretWidth      unit.Dp
-	// TabWidth set how many spaces to represent a tab character .
+
+	// CaretWidth set the visual width of a caret.
+	CaretWidth unit.Dp
+
+	// SoftTab controls the behaviour when user try to insert a Tab character.
+	// If set to true, the editor will insert the amount of space characters specified by
+	// TabWidth, else the editor insert a \t character.
+	SoftTab bool
+
+	// TabWidth set how many spaces to represent a tab character. In the case of
+	// soft tab, this determines the number of space characters to insert into the editor.
+	// While for hard tab, this controls the maximum width of the 'tab' glyph to expand to.
 	TabWidth int
+
+	// WrapLine configures whether the displayed text will be broken into lines or not.
 	WrapLine bool
+
 	// WordSeperators configures a set of characters that will be used as word separators
 	// when doing word related operations, like navigating or deleting by word.
 	WordSeperators string
@@ -77,7 +100,7 @@ type textView struct {
 	lineHeight fixed.Int26_6
 	// scrolled offset relative to the start of dims.
 	scrollOff image.Point
-	layouter  textLayout
+	layouter  lt.TextLayout
 
 	// The layout is valid or not. Invalid layout requires a re-layout.
 	valid bool
@@ -90,7 +113,7 @@ type textView struct {
 // must be done before invoking any other methods on Text.
 func (e *textView) SetSource(source buffer.TextSource) {
 	e.src = source
-	e.layouter = newTextLayout(e.src)
+	e.layouter = lt.NewTextLayout(e.src)
 	e.invalidate()
 }
 
@@ -118,37 +141,37 @@ func (e *textView) makeValid() {
 	e.valid = true
 }
 
-func (e *textView) closestToRune(runeIdx int) combinedPos {
+func (e *textView) closestToRune(runeIdx int) lt.CombinedPos {
 	e.makeValid()
-	pos, _ := e.layouter.closestToRune(runeIdx)
+	pos, _ := e.layouter.ClosestToRune(runeIdx)
 	return pos
 }
 
-func (e *textView) closestToLineCol(line, col int) combinedPos {
+func (e *textView) closestToLineCol(line, col int) lt.CombinedPos {
 	e.makeValid()
-	return e.layouter.closestToLineCol(screenPos{line: line, col: col})
+	return e.layouter.ClosestToLineCol(lt.ScreenPos{Line: line, Col: col})
 }
 
-func (e *textView) closestToXY(x fixed.Int26_6, y int) combinedPos {
+func (e *textView) closestToXY(x fixed.Int26_6, y int) lt.CombinedPos {
 	e.makeValid()
-	return e.layouter.closestToXY(x, y)
+	return e.layouter.ClosestToXY(x, y)
 }
 
-func (e *textView) closestToXYGraphemes(x fixed.Int26_6, y int) combinedPos {
+func (e *textView) closestToXYGraphemes(x fixed.Int26_6, y int) lt.CombinedPos {
 	// Find the closest existing rune position to the provided coordinates.
 	pos := e.closestToXY(x, y)
 	// Resolve cluster boundaries on either side of the rune position.
-	firstOption := e.moveByGraphemes(pos.runes, 0)
+	firstOption := e.moveByGraphemes(pos.Runes, 0)
 	distance := 1
-	if firstOption > pos.runes {
+	if firstOption > pos.Runes {
 		distance = -1
 	}
 	secondOption := e.moveByGraphemes(firstOption, distance)
 	// Choose the closest grapheme cluster boundary to the desired point.
 	first := e.closestToRune(firstOption)
-	firstDist := absFixed(first.x - x)
+	firstDist := absFixed(first.X - x)
 	second := e.closestToRune(secondOption)
-	secondDist := absFixed(second.x - x)
+	secondDist := absFixed(second.X - x)
 	if firstDist > secondDist {
 		return second
 	} else {
@@ -160,32 +183,28 @@ func (e *textView) closestToXYGraphemes(x fixed.Int26_6, y int) combinedPos {
 // that the resulting position is aligned to a grapheme cluster.
 func (e *textView) MoveLines(distance int, selAct selectionAction) {
 	caretStart := e.closestToRune(e.caret.start)
-	x := caretStart.x + e.caret.xoff
+	x := caretStart.X + e.caret.xoff
 	// Seek to line.
-	pos := e.closestToLineCol(caretStart.lineCol.line+distance, 0)
-	pos = e.closestToXYGraphemes(x, pos.y)
-	e.caret.start = pos.runes
-	e.caret.xoff = x - pos.x
+	pos := e.closestToLineCol(caretStart.LineCol.Line+distance, 0)
+	pos = e.closestToXYGraphemes(x, pos.Y)
+	e.caret.start = pos.Runes
+	e.caret.xoff = x - pos.X
 	e.updateSelection(selAct)
 }
 
 // Layout the text, reshaping it as necessary.
-func (e *textView) Layout(gtx layout.Context, lt *text.Shaper, font font.Font, size unit.Sp, wrapLine bool) {
+func (e *textView) Layout(gtx layout.Context, lt *text.Shaper) {
 	e.params.DisableSpaceTrim = true
 
 	if e.params.Locale != gtx.Locale {
 		e.params.Locale = gtx.Locale
 		e.invalidate()
 	}
-	textSize := fixed.I(gtx.Sp(size))
-	if e.params.Font != font || e.params.PxPerEm != textSize {
+	textSize := fixed.I(gtx.Sp(e.TextSize))
+	if e.params.Font != e.Font || e.params.PxPerEm != textSize {
 		e.invalidate()
-		e.params.Font = font
+		e.params.Font = e.Font
 		e.params.PxPerEm = textSize
-	}
-	if e.WrapLine != wrapLine {
-		e.WrapLine = wrapLine
-		e.invalidate()
 	}
 
 	maxWidth := gtx.Constraints.Max.X
@@ -255,13 +274,13 @@ func (tv *textView) calcLineHeight() fixed.Int26_6 {
 // rune offset, clamped to the size of the text.
 func (e *textView) ByteOffset(runeOffset int) int64 {
 	pos := e.closestToRune(runeOffset)
-	return int64(e.src.RuneOffset(pos.runes))
+	return int64(e.src.RuneOffset(pos.Runes))
 }
 
 // Len is the length of the editor contents, in runes.
 func (e *textView) Len() int {
 	e.makeValid()
-	return e.closestToRune(math.MaxInt).runes
+	return e.closestToRune(math.MaxInt).Runes
 }
 
 func (e *textView) ScrollBounds() image.Rectangle {
@@ -300,21 +319,21 @@ func (e *textView) scrollAbs(x, y int) {
 func (e *textView) MoveCoord(pos image.Point) {
 	x := fixed.I(pos.X + e.scrollOff.X)
 	y := pos.Y + e.scrollOff.Y
-	e.caret.start = e.closestToXYGraphemes(x, y).runes
+	e.caret.start = e.closestToXYGraphemes(x, y).Runes
 	e.caret.xoff = 0
 }
 
 // CaretPos returns the line & column numbers of the caret.
 func (e *textView) CaretPos() (line, col int) {
 	pos := e.closestToRune(e.caret.start)
-	return pos.lineCol.line, pos.lineCol.col
+	return pos.LineCol.Line, pos.LineCol.Col
 }
 
 // CaretCoords returns the coordinates of the caret, relative to the
 // editor itself.
 func (e *textView) CaretCoords() f32.Point {
 	pos := e.closestToRune(e.caret.start)
-	return f32.Pt(float32(pos.x)/64-float32(e.scrollOff.X), float32(pos.y-e.scrollOff.Y))
+	return f32.Pt(float32(pos.X)/64-float32(e.scrollOff.X), float32(pos.Y-e.scrollOff.Y))
 }
 
 // invalidate mark the layout as invalid.
@@ -340,17 +359,17 @@ func (e *textView) Replace(start, end int, s string) int {
 	}
 	startPos := e.closestToRune(start)
 	endPos := e.closestToRune(end)
-	startOff := startPos.runes
+	startOff := startPos.Runes
 	sc := utf8.RuneCountInString(s)
-	newEnd := startPos.runes + sc
+	newEnd := startPos.Runes + sc
 
-	e.src.Replace(startOff, endPos.runes, s)
+	e.src.Replace(startOff, endPos.Runes, s)
 	adjust := func(pos int) int {
 		switch {
-		case newEnd < pos && pos <= endPos.runes:
+		case newEnd < pos && pos <= endPos.Runes:
 			pos = newEnd
-		case endPos.runes < pos:
-			diff := newEnd - endPos.runes
+		case endPos.Runes < pos:
+			diff := newEnd - endPos.Runes
 			pos = pos + diff
 		}
 		return pos
@@ -365,25 +384,25 @@ func (e *textView) Replace(start, end int, s string) int {
 // the final position is aligned to a grapheme cluster boundary.
 func (e *textView) MovePages(pages int, selAct selectionAction) {
 	caret := e.closestToRune(e.caret.start)
-	x := caret.x + e.caret.xoff
-	y := caret.y + pages*e.viewSize.Y
+	x := caret.X + e.caret.xoff
+	y := caret.Y + pages*e.viewSize.Y
 	pos := e.closestToXYGraphemes(x, y)
-	e.caret.start = pos.runes
-	e.caret.xoff = x - pos.x
+	e.caret.start = pos.Runes
+	e.caret.xoff = x - pos.X
 	e.updateSelection(selAct)
 }
 
 // moveByGraphemes returns the rune index resulting from moving the
 // specified number of grapheme clusters from startRuneidx.
 func (e *textView) moveByGraphemes(startRuneidx, graphemes int) int {
-	if len(e.layouter.graphemes) == 0 {
+	if len(e.layouter.Graphemes) == 0 {
 		return startRuneidx
 	}
-	startGraphemeIdx, _ := slices.BinarySearch(e.layouter.graphemes, startRuneidx)
+	startGraphemeIdx, _ := slices.BinarySearch(e.layouter.Graphemes, startRuneidx)
 	startGraphemeIdx = max(startGraphemeIdx+graphemes, 0)
-	startGraphemeIdx = min(startGraphemeIdx, len(e.layouter.graphemes)-1)
-	startRuneIdx := e.layouter.graphemes[startGraphemeIdx]
-	return e.closestToRune(startRuneIdx).runes
+	startGraphemeIdx = min(startGraphemeIdx, len(e.layouter.Graphemes)-1)
+	startRuneIdx := e.layouter.Graphemes[startGraphemeIdx]
+	return e.closestToRune(startRuneIdx).Runes
 }
 
 // clampCursorToGraphemes ensures that the final start/end positions of
@@ -407,8 +426,8 @@ func (e *textView) MoveCaret(startDelta, endDelta int) {
 func (e *textView) MoveTextStart(selAct selectionAction) {
 	caret := e.closestToRune(e.caret.end)
 	e.caret.start = 0
-	e.caret.end = caret.runes
-	e.caret.xoff = -caret.x
+	e.caret.end = caret.Runes
+	e.caret.xoff = -caret.X
 	e.updateSelection(selAct)
 	e.clampCursorToGraphemes()
 }
@@ -416,8 +435,8 @@ func (e *textView) MoveTextStart(selAct selectionAction) {
 // MoveTextEnd moves the caret to the end of the text.
 func (e *textView) MoveTextEnd(selAct selectionAction) {
 	caret := e.closestToRune(math.MaxInt)
-	e.caret.start = caret.runes
-	e.caret.xoff = fixed.I(e.params.MaxWidth) - caret.x
+	e.caret.start = caret.Runes
+	e.caret.xoff = fixed.I(e.params.MaxWidth) - caret.X
 	e.updateSelection(selAct)
 	e.clampCursorToGraphemes()
 }
@@ -426,9 +445,9 @@ func (e *textView) MoveTextEnd(selAct selectionAction) {
 // cursor position is on a grapheme cluster boundary.
 func (e *textView) MoveLineStart(selAct selectionAction) {
 	caret := e.closestToRune(e.caret.start)
-	caret = e.closestToLineCol(caret.lineCol.line, 0)
-	e.caret.start = caret.runes
-	e.caret.xoff = -caret.x
+	caret = e.closestToLineCol(caret.LineCol.Line, 0)
+	e.caret.start = caret.Runes
+	e.caret.xoff = -caret.X
 	e.updateSelection(selAct)
 	e.clampCursorToGraphemes()
 }
@@ -437,20 +456,18 @@ func (e *textView) MoveLineStart(selAct selectionAction) {
 // cursor position is on a grapheme cluster boundary.
 func (e *textView) MoveLineEnd(selAct selectionAction) {
 	caret := e.closestToRune(e.caret.start)
-	caret = e.closestToLineCol(caret.lineCol.line, math.MaxInt)
-	e.caret.start = caret.runes
-	e.caret.xoff = fixed.I(e.params.MaxWidth) - caret.x
+	caret = e.closestToLineCol(caret.LineCol.Line, math.MaxInt)
+	e.caret.start = caret.Runes
+	e.caret.xoff = fixed.I(e.params.MaxWidth) - caret.X
 	e.updateSelection(selAct)
 	e.clampCursorToGraphemes()
 }
 
-
-
 func (e *textView) ScrollToCaret() {
 	caret := e.closestToRune(e.caret.start)
 
-	miny := caret.y - caret.ascent.Ceil()
-	maxy := caret.y + caret.descent.Ceil()
+	miny := caret.Y - caret.Ascent.Ceil()
+	maxy := caret.Y + caret.Descent.Ceil()
 	var dist int
 	if d := miny - e.scrollOff.Y; d < 0 {
 		dist = d
@@ -476,8 +493,8 @@ func (e *textView) Selection() (start, end int) {
 // the two ends are clamped to the nearest grapheme cluster boundary. start
 // and end are in runes, and represent offsets into the editor text.
 func (e *textView) SetCaret(start, end int) {
-	e.caret.start = e.closestToRune(start).runes
-	e.caret.end = e.closestToRune(end).runes
+	e.caret.start = e.closestToRune(start).Runes
+	e.caret.end = e.closestToRune(end).Runes
 	e.clampCursorToGraphemes()
 }
 
@@ -541,7 +558,7 @@ func (e *textView) Regions(start, end int, regions []Region) []Region {
 		Min: e.scrollOff,
 		Max: e.viewSize.Add(e.scrollOff),
 	}
-	return e.layouter.locate(viewport, start, end, regions)
+	return e.layouter.Locate(viewport, start, end, regions)
 }
 
 func absFixed(i fixed.Int26_6) fixed.Int26_6 {

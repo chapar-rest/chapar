@@ -1,4 +1,4 @@
-package gvcode
+package layout
 
 import (
 	"bufio"
@@ -12,43 +12,42 @@ import (
 	"gioui.org/layout"
 	"gioui.org/text"
 	"github.com/go-text/typesetting/segmenter"
-	"github.com/oligo/gvcode/buffer"
+	"github.com/oligo/gvcode/internal/buffer"
 	"golang.org/x/image/math/fixed"
 )
 
-type textLayout struct {
+type TextLayout struct {
 	src        buffer.TextSource
 	reader     *bufio.Reader
 	params     text.Parameters
 	spaceGlyph text.Glyph
 	wrapper    lineWrapper
+	seg        segmenter.Segmenter
 
-	// positions contain all possible caret positions, sorted by rune index.
-	positions []combinedPos
-	// screenLines contains metadata about the size and position of each line of
+	// Positions contain all possible caret positions, sorted by rune index.
+	Positions []CombinedPos
+	// lines contain metadata about the size and position of each line of
 	// text on the screen.
-	lines []*line
-	// lineRanges contain all line pixel coordinates in the document coordinates.
-	lineRanges []lineRange
-	// graphemes tracks the indices of grapheme cluster boundaries within text source.
-	graphemes []int
-	seg       segmenter.Segmenter
-
+	Lines []*Line
+	// Paragraphs contain size and position of each paragraph of text on the screen.
+	Paragraphs []Paragraph
+	// Graphemes tracks the indices of grapheme cluster boundaries within text source.
+	Graphemes []int
 	// bounds is the logical bounding box of the text.
 	bounds image.Rectangle
 	// baseline tracks the location of the first line's baseline.
 	baseline int
 }
 
-func newTextLayout(src buffer.TextSource) textLayout {
-	return textLayout{
+func NewTextLayout(src buffer.TextSource) TextLayout {
+	return TextLayout{
 		src:    src,
 		reader: bufio.NewReader(src),
 	}
 }
 
 // Calculate line height. Maybe there's a better way?
-func (tl *textLayout) calcLineHeight(params *text.Parameters) fixed.Int26_6 {
+func (tl *TextLayout) calcLineHeight(params *text.Parameters) fixed.Int26_6 {
 	lineHeight := params.LineHeight
 	// align with how text.Shaper handles default value of params.LineHeight.
 	if lineHeight == 0 {
@@ -64,17 +63,18 @@ func (tl *textLayout) calcLineHeight(params *text.Parameters) fixed.Int26_6 {
 }
 
 // reset prepares the index for reuse.
-func (tl *textLayout) reset() {
+func (tl *TextLayout) reset() {
 	tl.src.Seek(0, io.SeekStart)
 	tl.reader.Reset(tl.src)
-	tl.positions = tl.positions[:0]
-	tl.lines = tl.lines[:0]
-	tl.lineRanges = tl.lineRanges[:0]
-	tl.graphemes = tl.graphemes[:0]
+	tl.Positions = tl.Positions[:0]
+	tl.Lines = tl.Lines[:0]
+	tl.Paragraphs = tl.Paragraphs[:0]
+	tl.Graphemes = tl.Graphemes[:0]
 	tl.bounds = image.Rectangle{}
+	tl.baseline = 0
 }
 
-func (tl *textLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWidth int, wrapLine bool) layout.Dimensions {
+func (tl *TextLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWidth int, wrapLine bool) layout.Dimensions {
 	tl.reset()
 	tl.params = *params
 	paragraphCount := tl.src.Lines()
@@ -107,18 +107,18 @@ func (tl *textLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWi
 			tl.layoutNextParagraph(shaper, "", true, tabWidth, wrapLine)
 		}
 
-		tl.calculateXOffsets(tl.lines)
-		tl.calculateYOffsets(tl.lines)
+		tl.calculateXOffsets(tl.Lines)
+		tl.calculateYOffsets(tl.Lines)
 
 		// build position index
-		for idx, line := range tl.lines {
+		for idx, line := range tl.Lines {
 			tl.indexGlyphs(idx, line)
 			tl.updateBounds(line)
 			// log.Printf("line[%d]: %s", idx, line)
 
 		}
 
-		tl.trackLines(tl.lines)
+		tl.trackLines(tl.Lines)
 	}
 
 	dims := layout.Dimensions{Size: tl.bounds.Size()}
@@ -126,7 +126,7 @@ func (tl *textLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWi
 	return dims
 }
 
-func (tl *textLayout) layoutNextParagraph(shaper *text.Shaper, paragraph string, isLastParagrah bool, tabWidth int, wrapLine bool) {
+func (tl *TextLayout) layoutNextParagraph(shaper *text.Shaper, paragraph string, isLastParagrah bool, tabWidth int, wrapLine bool) {
 	params := tl.params
 	maxWidth := params.MaxWidth
 	params.MaxWidth = 1e6
@@ -140,19 +140,19 @@ func (tl *textLayout) layoutNextParagraph(shaper *text.Shaper, paragraph string,
 		lines = lines[:len(lines)-1]
 	}
 
-	tl.lines = append(tl.lines, lines...)
+	tl.Lines = append(tl.Lines, lines...)
 }
 
-func (tl *textLayout) wrapParagraph(glyphs glyphIter, paragraph []rune, maxWidth int, tabWidth int, spaceGlyph *text.Glyph) []*line {
+func (tl *TextLayout) wrapParagraph(glyphs glyphIter, paragraph []rune, maxWidth int, tabWidth int, spaceGlyph *text.Glyph) []*Line {
 	return tl.wrapper.WrapParagraph(glyphs.All(), paragraph, maxWidth, tabWidth, spaceGlyph)
 }
 
-func (tl *textLayout) fakeLayout() {
+func (tl *TextLayout) fakeLayout() {
 	// Make a fake glyph for every rune in the reader.
 	b := bufio.NewReader(tl.src)
 	for _, _, err := b.ReadRune(); err != io.EOF; _, _, err = b.ReadRune() {
 		g := text.Glyph{Runes: 1, Flags: text.FlagClusterBreak}
-		line := line{}
+		line := Line{}
 		line.append(g)
 		tl.indexGlyphs(0, &line)
 	}
@@ -161,14 +161,14 @@ func (tl *textLayout) fakeLayout() {
 	graphemeReader.SetSource(tl.src)
 
 	for g := graphemeReader.Graphemes(); len(g) > 0; g = graphemeReader.Graphemes() {
-		if len(tl.graphemes) > 0 && g[0] == tl.graphemes[len(tl.graphemes)-1] {
+		if len(tl.Graphemes) > 0 && g[0] == tl.Graphemes[len(tl.Graphemes)-1] {
 			g = g[1:]
 		}
-		tl.graphemes = append(tl.graphemes, g...)
+		tl.Graphemes = append(tl.Graphemes, g...)
 	}
 }
 
-func (tl *textLayout) calculateYOffsets(lines []*line) {
+func (tl *TextLayout) calculateYOffsets(lines []*Line) {
 	if len(lines) <= 0 {
 		return
 	}
@@ -176,7 +176,7 @@ func (tl *textLayout) calculateYOffsets(lines []*line) {
 	lineHeight := tl.calcLineHeight(&tl.params)
 	// Ceil the first value to ensure that we don't baseline it too close to the top of the
 	// viewport and cut off the top pixel.
-	currentY := lines[0].ascent.Ceil()
+	currentY := lines[0].Ascent.Ceil()
 	for i := range lines {
 		if i > 0 {
 			currentY += lineHeight.Round()
@@ -185,16 +185,16 @@ func (tl *textLayout) calculateYOffsets(lines []*line) {
 	}
 }
 
-func (tl *textLayout) calculateXOffsets(lines []*line) {
+func (tl *TextLayout) calculateXOffsets(lines []*Line) {
 	runeOff := 0
 	for _, line := range lines {
-		alignOff := tl.params.Alignment.Align(tl.params.Locale.Direction, line.width, tl.params.MaxWidth)
+		alignOff := tl.params.Alignment.Align(tl.params.Locale.Direction, line.Width, tl.params.MaxWidth)
 		line.recompute(alignOff, runeOff)
-		runeOff += line.runes
+		runeOff += line.Runes
 	}
 }
 
-func (tl *textLayout) shapeRune(shaper *text.Shaper, params text.Parameters, r rune) (text.Glyph, error) {
+func (tl *TextLayout) shapeRune(shaper *text.Shaper, params text.Parameters, r rune) (text.Glyph, error) {
 	shaper.LayoutString(params, string(r))
 	glyph, ok := shaper.NextGlyph()
 	if !ok {
@@ -204,13 +204,13 @@ func (tl *textLayout) shapeRune(shaper *text.Shaper, params text.Parameters, r r
 	return glyph, nil
 }
 
-func (tl *textLayout) indexGraphemeClusters(paragraph []rune, runeOffset int) {
+func (tl *TextLayout) indexGraphemeClusters(paragraph []rune, runeOffset int) {
 	tl.seg.Init(paragraph)
 	iter := tl.seg.GraphemeIterator()
-	if len(tl.graphemes) == 0 {
+	if len(tl.Graphemes) == 0 {
 		if iter.Next() {
 			grapheme := iter.Grapheme()
-			tl.graphemes = append(tl.graphemes,
+			tl.Graphemes = append(tl.Graphemes,
 				runeOffset+grapheme.Offset,
 				runeOffset+grapheme.Offset+len(grapheme.Text),
 			)
@@ -219,15 +219,15 @@ func (tl *textLayout) indexGraphemeClusters(paragraph []rune, runeOffset int) {
 
 	for iter.Next() {
 		grapheme := iter.Grapheme()
-		tl.graphemes = append(tl.graphemes, runeOffset+grapheme.Offset+len(grapheme.Text))
+		tl.Graphemes = append(tl.Graphemes, runeOffset+grapheme.Offset+len(grapheme.Text))
 	}
 
 }
 
-func (tl *textLayout) updateBounds(line *line) {
+func (tl *TextLayout) updateBounds(line *Line) {
 	logicalBounds := line.bounds()
 	if tl.bounds == (image.Rectangle{}) {
-		tl.baseline = int(line.yOff)
+		tl.baseline = int(line.YOff)
 		tl.bounds = logicalBounds
 	} else {
 		tl.bounds.Min.X = min(tl.bounds.Min.X, logicalBounds.Min.X)
@@ -237,60 +237,52 @@ func (tl *textLayout) updateBounds(line *line) {
 	}
 }
 
-func (tl *textLayout) trackLines(lines []*line) {
+func (tl *TextLayout) trackLines(lines []*Line) {
 	if len(lines) <= 0 {
-		tl.lineRanges = append(tl.lineRanges, lineRange{})
+		tl.Paragraphs = append(tl.Paragraphs, Paragraph{})
 		return
 	}
 
-	rng := lineRange{}
-	var lastGlyph *text.Glyph
+	rng := Paragraph{}
 	for _, l := range lines {
-		if rng == (lineRange{}) {
-			rng.start(l.glyphs[0])
-			lastGlyph = l.glyphs[len(l.glyphs)-1]
-			rng.end(lastGlyph)
-		} else {
-			lastGlyph = l.glyphs[len(l.glyphs)-1]
-			rng.end(lastGlyph)
-		}
+		hasBreak := rng.Add(l)
 
-		if lastGlyph.Flags&text.FlagParagraphBreak != 0 {
-			tl.lineRanges = append(tl.lineRanges, rng)
-			rng = lineRange{}
+		if hasBreak {
+			tl.Paragraphs = append(tl.Paragraphs, rng)
+			rng = Paragraph{}
 		}
 	}
 
-	if rng != (lineRange{}) {
-		tl.lineRanges = append(tl.lineRanges, rng)
+	if rng != (Paragraph{}) {
+		tl.Paragraphs = append(tl.Paragraphs, rng)
 	}
 }
 
-func (tl *textLayout) insertPosition(pos combinedPos) {
-	lastIdx := len(tl.positions) - 1
+func (tl *TextLayout) insertPosition(pos CombinedPos) {
+	lastIdx := len(tl.Positions) - 1
 	if lastIdx >= 0 {
-		lastPos := tl.positions[lastIdx]
-		if lastPos.runes == pos.runes && (lastPos.y != pos.y || (lastPos.x == pos.x)) {
+		lastPos := tl.Positions[lastIdx]
+		if lastPos.Runes == pos.Runes && (lastPos.Y != pos.Y || (lastPos.X == pos.X)) {
 			// If we insert a consecutive position with the same logical position,
 			// overwrite the previous position with the new one.
-			tl.positions[lastIdx] = pos
+			tl.Positions[lastIdx] = pos
 			return
 		}
 	}
-	tl.positions = append(tl.positions, pos)
+	tl.Positions = append(tl.Positions, pos)
 }
 
 // Glyph indexes the provided glyph, generating text cursor positions for it.
-func (tl *textLayout) indexGlyphs(idx int, line *line) {
-	pos := combinedPos{}
-	pos.runes = line.runeOff
-	pos.lineCol.line = idx
+func (tl *TextLayout) indexGlyphs(idx int, line *Line) {
+	pos := CombinedPos{}
+	pos.Runes = line.RuneOff
+	pos.LineCol.Line = idx
 
 	midCluster := false
 	clusterAdvance := fixed.I(0)
 	var direction text.Flags
 
-	for _, gl := range line.glyphs {
+	for _, gl := range line.Glyphs {
 		// needsNewLine := gl.Flags&text.FlagLineBreak != 0
 		needsNewRun := gl.Flags&text.FlagRunBreak != 0
 		breaksParagraph := gl.Flags&text.FlagParagraphBreak != 0
@@ -301,15 +293,15 @@ func (tl *textLayout) indexGlyphs(idx int, line *line) {
 
 		// Get the text direction.
 		direction = gl.Flags & text.FlagTowardOrigin
-		pos.towardOrigin = direction == text.FlagTowardOrigin
+		pos.TowardOrigin = direction == text.FlagTowardOrigin
 		if !midCluster {
 			// Create the text position prior to the glyph.
-			pos.x = gl.X
-			pos.y = int(gl.Y)
-			pos.ascent = gl.Ascent
-			pos.descent = gl.Descent
-			if pos.towardOrigin {
-				pos.x += gl.Advance
+			pos.X = gl.X
+			pos.Y = int(gl.Y)
+			pos.Ascent = gl.Ascent
+			pos.Descent = gl.Descent
+			if pos.TowardOrigin {
+				pos.X += gl.Advance
 			}
 			tl.insertPosition(pos)
 		}
@@ -322,7 +314,7 @@ func (tl *textLayout) indexGlyphs(idx int, line *line) {
 			// cluster state, increment by their runes, and move on to the
 			// next glyph.
 			clusterAdvance = 0
-			pos.runes += int(gl.Runes)
+			pos.Runes += int(gl.Runes)
 		}
 
 		// Always track the cumulative advance added by the glyph, even if it
@@ -330,9 +322,9 @@ func (tl *textLayout) indexGlyphs(idx int, line *line) {
 		clusterAdvance += gl.Advance
 		if insertPositionsWithin {
 			// Construct the text positions _within_ gl.
-			pos.y = int(gl.Y)
-			pos.ascent = gl.Ascent
-			pos.descent = gl.Descent
+			pos.Y = int(gl.Y)
+			pos.Ascent = gl.Ascent
+			pos.Descent = gl.Descent
 			width := clusterAdvance
 			positionCount := int(gl.Runes)
 			runesPerPosition := 1
@@ -343,23 +335,23 @@ func (tl *textLayout) indexGlyphs(idx int, line *line) {
 			}
 			perRune := width / fixed.Int26_6(positionCount)
 			adjust := fixed.Int26_6(0)
-			if pos.towardOrigin {
+			if pos.TowardOrigin {
 				// If RTL, subtract increments from the width of the cluster
 				// instead of adding.
 				adjust = width
 				perRune = -perRune
 			}
 			for i := 1; i <= positionCount; i++ {
-				pos.x = gl.X + adjust + perRune*fixed.Int26_6(i)
-				pos.runes += runesPerPosition
-				pos.lineCol.col += runesPerPosition
+				pos.X = gl.X + adjust + perRune*fixed.Int26_6(i)
+				pos.Runes += runesPerPosition
+				pos.LineCol.Col += runesPerPosition
 				tl.insertPosition(pos)
 			}
 			clusterAdvance = 0
 		}
 
 		if needsNewRun {
-			pos.runIndex++
+			pos.RunIndex++
 		}
 	}
 
@@ -371,97 +363,97 @@ func (tl *textLayout) indexGlyphs(idx int, line *line) {
 // incrementPosition returns the next position after pos (if any). Pos _must_ be
 // an unmodified position acquired from one of the closest* methods. If eof is
 // true, there was no next position.
-func (tl *textLayout) incrementPosition(pos combinedPos) (next combinedPos, eof bool) {
-	candidate, index := tl.closestToRune(pos.runes)
-	for candidate != pos && index+1 < len(tl.positions) {
+func (tl *TextLayout) incrementPosition(pos CombinedPos) (next CombinedPos, eof bool) {
+	candidate, index := tl.ClosestToRune(pos.Runes)
+	for candidate != pos && index+1 < len(tl.Positions) {
 		index++
-		candidate = tl.positions[index]
+		candidate = tl.Positions[index]
 	}
-	if index+1 < len(tl.positions) {
-		return tl.positions[index+1], false
+	if index+1 < len(tl.Positions) {
+		return tl.Positions[index+1], false
 	}
 	return candidate, true
 }
 
-func (tl *textLayout) closestToRune(runeIdx int) (combinedPos, int) {
-	if len(tl.positions) == 0 {
-		return combinedPos{}, 0
+func (tl *TextLayout) ClosestToRune(runeIdx int) (CombinedPos, int) {
+	if len(tl.Positions) == 0 {
+		return CombinedPos{}, 0
 	}
-	i := sort.Search(len(tl.positions), func(i int) bool {
-		pos := tl.positions[i]
-		return pos.runes >= runeIdx
+	i := sort.Search(len(tl.Positions), func(i int) bool {
+		pos := tl.Positions[i]
+		return pos.Runes >= runeIdx
 	})
 	if i > 0 {
 		i--
 	}
-	closest := tl.positions[i]
+	closest := tl.Positions[i]
 	closestI := i
-	for ; i < len(tl.positions); i++ {
-		if tl.positions[i].runes == runeIdx {
-			return tl.positions[i], i
+	for ; i < len(tl.Positions); i++ {
+		if tl.Positions[i].Runes == runeIdx {
+			return tl.Positions[i], i
 		}
 	}
 	return closest, closestI
 }
 
-func (tl *textLayout) closestToLineCol(lineCol screenPos) combinedPos {
-	if len(tl.positions) == 0 {
-		return combinedPos{}
+func (tl *TextLayout) ClosestToLineCol(lineCol ScreenPos) CombinedPos {
+	if len(tl.Positions) == 0 {
+		return CombinedPos{}
 	}
-	i := sort.Search(len(tl.positions), func(i int) bool {
-		pos := tl.positions[i]
-		return pos.lineCol.line > lineCol.line || (pos.lineCol.line == lineCol.line && pos.lineCol.col >= lineCol.col)
+	i := sort.Search(len(tl.Positions), func(i int) bool {
+		pos := tl.Positions[i]
+		return pos.LineCol.Line > lineCol.Line || (pos.LineCol.Line == lineCol.Line && pos.LineCol.Col >= lineCol.Col)
 	})
 	if i > 0 {
 		i--
 	}
-	prior := tl.positions[i]
-	if i+1 >= len(tl.positions) {
+	prior := tl.Positions[i]
+	if i+1 >= len(tl.Positions) {
 		return prior
 	}
-	next := tl.positions[i+1]
-	if next.lineCol != lineCol {
+	next := tl.Positions[i+1]
+	if next.LineCol != lineCol {
 		return prior
 	}
 	return next
 }
 
-func (tl *textLayout) closestToXY(x fixed.Int26_6, y int) combinedPos {
-	if len(tl.positions) == 0 {
-		return combinedPos{}
+func (tl *TextLayout) ClosestToXY(x fixed.Int26_6, y int) CombinedPos {
+	if len(tl.Positions) == 0 {
+		return CombinedPos{}
 	}
-	i := sort.Search(len(tl.positions), func(i int) bool {
-		pos := tl.positions[i]
-		return pos.y+pos.descent.Round() >= y
+	i := sort.Search(len(tl.Positions), func(i int) bool {
+		pos := tl.Positions[i]
+		return pos.Y+pos.Descent.Round() >= y
 	})
 	// If no position was greater than the provided Y, the text is too
 	// short. Return either the last position or (if there are no
 	// positions) the zero position.
-	if i == len(tl.positions) {
-		return tl.positions[i-1]
+	if i == len(tl.Positions) {
+		return tl.Positions[i-1]
 	}
-	first := tl.positions[i]
+	first := tl.Positions[i]
 	// Find the best X coordinate.
 	closest := i
-	closestDist := dist(first.x, x)
-	line := first.lineCol.line
+	closestDist := dist(first.X, x)
+	line := first.LineCol.Line
 	// NOTE(whereswaldon): there isn't a simple way to accelerate this. Bidi text means that the x coordinates
 	// for positions have no fixed relationship. In the future, we can consider sorting the positions
 	// on a line by their x coordinate and caching that. It'll be a one-time O(nlogn) per line, but
 	// subsequent uses of this function for that line become O(logn). Right now it's always O(n).
-	for i := i + 1; i < len(tl.positions) && tl.positions[i].lineCol.line == line; i++ {
-		candidate := tl.positions[i]
-		distance := dist(candidate.x, x)
+	for i := i + 1; i < len(tl.Positions) && tl.Positions[i].LineCol.Line == line; i++ {
+		candidate := tl.Positions[i]
+		distance := dist(candidate.X, x)
 		// If we are *really* close to the current position candidate, just choose it.
 		if distance.Round() == 0 {
-			return tl.positions[i]
+			return tl.Positions[i]
 		}
 		if distance < closestDist {
 			closestDist = distance
 			closest = i
 		}
 	}
-	return tl.positions[closest]
+	return tl.Positions[closest]
 }
 
 // locate returns highlight regions covering the glyphs that represent the runes in
@@ -469,42 +461,42 @@ func (tl *textLayout) closestToXY(x fixed.Int26_6, y int) combinedPos {
 // return results instead of allocating, provided that there is enough capacity.
 // The returned regions have their Bounds specified relative to the provided
 // viewport.
-func (tl *textLayout) locate(viewport image.Rectangle, startRune, endRune int, rects []Region) []Region {
+func (tl *TextLayout) Locate(viewport image.Rectangle, startRune, endRune int, rects []Region) []Region {
 	if startRune > endRune {
 		startRune, endRune = endRune, startRune
 	}
 	rects = rects[:0]
-	caretStart, _ := tl.closestToRune(startRune)
-	caretEnd, _ := tl.closestToRune(endRune)
+	caretStart, _ := tl.ClosestToRune(startRune)
+	caretEnd, _ := tl.ClosestToRune(endRune)
 
-	for lineIdx := caretStart.lineCol.line; lineIdx < len(tl.lines); lineIdx++ {
-		if lineIdx > caretEnd.lineCol.line {
+	for lineIdx := caretStart.LineCol.Line; lineIdx < len(tl.Lines); lineIdx++ {
+		if lineIdx > caretEnd.LineCol.Line {
 			break
 		}
-		pos := tl.closestToLineCol(screenPos{line: lineIdx})
-		if int(pos.y)+pos.descent.Ceil() < viewport.Min.Y {
+		pos := tl.ClosestToLineCol(ScreenPos{Line: lineIdx})
+		if int(pos.Y)+pos.Descent.Ceil() < viewport.Min.Y {
 			continue
 		}
-		if int(pos.y)-pos.ascent.Ceil() > viewport.Max.Y {
+		if int(pos.Y)-pos.Ascent.Ceil() > viewport.Max.Y {
 			break
 		}
-		line := tl.lines[lineIdx]
-		if lineIdx > caretStart.lineCol.line && lineIdx < caretEnd.lineCol.line {
-			startX := line.xOff
-			endX := startX + line.width
+		line := tl.Lines[lineIdx]
+		if lineIdx > caretStart.LineCol.Line && lineIdx < caretEnd.LineCol.Line {
+			startX := line.XOff
+			endX := startX + line.Width
 			// The entire line is selected.
-			rects = append(rects, makeRegion(line, pos.y, startX, endX))
+			rects = append(rects, makeRegion(line, pos.Y, startX, endX))
 			continue
 		}
 		selectionStart := caretStart
 		selectionEnd := caretEnd
-		if lineIdx != caretStart.lineCol.line {
+		if lineIdx != caretStart.LineCol.Line {
 			// This line does not contain the beginning of the selection.
-			selectionStart = tl.closestToLineCol(screenPos{line: lineIdx})
+			selectionStart = tl.ClosestToLineCol(ScreenPos{Line: lineIdx})
 		}
-		if lineIdx != caretEnd.lineCol.line {
+		if lineIdx != caretEnd.LineCol.Line {
 			// This line does not contain the end of the selection.
-			selectionEnd = tl.closestToLineCol(screenPos{line: lineIdx, col: math.MaxInt})
+			selectionEnd = tl.ClosestToLineCol(ScreenPos{Line: lineIdx, Col: math.MaxInt})
 		}
 
 		var (
@@ -513,36 +505,36 @@ func (tl *textLayout) locate(viewport image.Rectangle, startRune, endRune int, r
 		)
 	lineLoop:
 		for !eof {
-			startX = selectionStart.x
-			if selectionStart.runIndex == selectionEnd.runIndex {
+			startX = selectionStart.X
+			if selectionStart.RunIndex == selectionEnd.RunIndex {
 				// Commit selection.
-				endX = selectionEnd.x
-				rects = append(rects, makeRegion(line, pos.y, startX, endX))
+				endX = selectionEnd.X
+				rects = append(rects, makeRegion(line, pos.Y, startX, endX))
 				break
 			} else {
-				currentDirection := selectionStart.towardOrigin
+				currentDirection := selectionStart.TowardOrigin
 				previous := selectionStart
 			runLoop:
 				for !eof {
 					// Increment the start position until the next logical run.
-					for startRun := selectionStart.runIndex; selectionStart.runIndex == startRun; {
+					for startRun := selectionStart.RunIndex; selectionStart.RunIndex == startRun; {
 						previous = selectionStart
 						selectionStart, eof = tl.incrementPosition(selectionStart)
 						if eof {
-							endX = selectionStart.x
-							rects = append(rects, makeRegion(line, pos.y, startX, endX))
+							endX = selectionStart.X
+							rects = append(rects, makeRegion(line, pos.Y, startX, endX))
 							break runLoop
 						}
 					}
-					if selectionStart.towardOrigin != currentDirection {
-						endX = previous.x
-						rects = append(rects, makeRegion(line, pos.y, startX, endX))
+					if selectionStart.TowardOrigin != currentDirection {
+						endX = previous.X
+						rects = append(rects, makeRegion(line, pos.Y, startX, endX))
 						break
 					}
-					if selectionStart.runIndex == selectionEnd.runIndex {
+					if selectionStart.RunIndex == selectionEnd.RunIndex {
 						// Commit selection.
-						endX = selectionEnd.x
-						rects = append(rects, makeRegion(line, pos.y, startX, endX))
+						endX = selectionEnd.X
+						rects = append(rects, makeRegion(line, pos.Y, startX, endX))
 						break lineLoop
 					}
 				}
@@ -560,4 +552,19 @@ func dist(a, b fixed.Int26_6) fixed.Int26_6 {
 		return a - b
 	}
 	return b - a
+}
+
+func absFixed(i fixed.Int26_6) fixed.Int26_6 {
+	if i < 0 {
+		return -i
+	}
+	return i
+}
+
+func fixedToFloat(i fixed.Int26_6) float32 {
+	return float32(i) / 64.0
+}
+
+func floatToFixed(f float32) fixed.Int26_6 {
+	return fixed.Int26_6(f * 64)
 }

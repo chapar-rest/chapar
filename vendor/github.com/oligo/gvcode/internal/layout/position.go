@@ -1,4 +1,4 @@
-package gvcode
+package layout
 
 import (
 	"bufio"
@@ -10,44 +10,41 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-// screenPos represents a character position in text line and column numbers,
+// ScreenPos represents a character position in text line and column numbers,
 // not pixels.
-type screenPos struct {
+type ScreenPos struct {
 	// col is the column, measured in runes.
-	col  int
-	line int
+	Col  int
+	Line int
 }
 
-// combinedPos is a point in the editor.
-type combinedPos struct {
+// CombinedPos is a point in the editor.
+type CombinedPos struct {
 	// runes is the offset in runes.
-	runes int
-
-	lineCol screenPos
-
+	Runes int
+	LineCol ScreenPos
 	// Pixel coordinates
-	x fixed.Int26_6
-	y int
+	X fixed.Int26_6
+	Y int
+	Ascent, Descent fixed.Int26_6
 
-	ascent, descent fixed.Int26_6
-
-	// runIndex tracks which run this position is within, counted each time
+	// RunIndex tracks which run this position is within, counted each time
 	// we processes an end of run marker.
-	runIndex int
+	RunIndex int
 	// towardOrigin tracks whether this glyph's run is progressing toward the
 	// origin or away from it.
-	towardOrigin bool
+	TowardOrigin bool
 }
 
-func (c combinedPos) String() string {
+func (c CombinedPos) String() string {
 	return fmt.Sprintf("[combinedPos] runes: %d, lineCol: [line: %d, col: %d], x: %d, y: %d, ascent: %d, descent: %d, runIndex: %d",
-		c.runes, c.lineCol.line, c.lineCol.col, c.x.Ceil(), c.y, c.ascent.Ceil(), c.descent.Ceil(), c.runIndex)
+		c.Runes, c.LineCol.Line, c.LineCol.Col, c.X.Ceil(), c.Y, c.Ascent.Ceil(), c.Descent.Ceil(), c.RunIndex)
 }
 
 // makeRegion creates a text-aligned rectangle from start to end. The vertical
 // dimensions of the rectangle are derived from the provided line's ascent and
 // descent, and the y offset of the line's baseline is provided as y.
-func makeRegion(line *line, y int, start, end fixed.Int26_6) Region {
+func makeRegion(line *Line, y int, start, end fixed.Int26_6) Region {
 	if start > end {
 		start, end = end, start
 	}
@@ -55,10 +52,10 @@ func makeRegion(line *line, y int, start, end fixed.Int26_6) Region {
 	dotEnd := image.Pt(end.Round(), y)
 	return Region{
 		Bounds: image.Rectangle{
-			Min: dotStart.Sub(image.Point{Y: line.ascent.Ceil()}),
-			Max: dotEnd.Add(image.Point{Y: line.descent.Floor()}),
+			Min: dotStart.Sub(image.Point{Y: line.Ascent.Ceil()}),
+			Max: dotEnd.Add(image.Point{Y: line.Descent.Floor()}),
 		},
-		Baseline: line.descent.Floor(),
+		Baseline: line.Descent.Floor(),
 	}
 }
 

@@ -115,7 +115,7 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 				Y: int(math.Round(float64(evt.Position.Y))),
 			})
 			gtx.Execute(key.FocusCmd{Tag: e})
-			if !e.ReadOnly {
+			if !e.readOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
 			if e.scroller.State() != gesture.StateFlinging {
@@ -224,7 +224,7 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 		case key.FocusEvent:
 			// Reset IME state.
 			e.ime.imeState = imeState{}
-			if ke.Focus && !e.ReadOnly {
+			if ke.Focus && !e.readOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
 		case key.Event:
@@ -240,7 +240,7 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 		case key.SnippetEvent:
 			e.updateSnippet(gtx, ke.Start, ke.End)
 		case key.EditEvent:
-			if e.ReadOnly {
+			if e.readOnly {
 				break
 			}
 			e.scrollCaret = true
@@ -285,25 +285,20 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 		// Initiate a paste operation, by requesting the clipboard contents; other
 		// half is in Editor.processKey() under clipboard.Event.
 		case "V":
-			if !e.ReadOnly {
+			if !e.readOnly {
 				gtx.Execute(clipboard.ReadCmd{Tag: e})
 			}
 		// Copy or Cut selection -- ignored if nothing selected.
 		case "C", "X":
-			e.scratch = e.text.SelectedText(e.scratch)
-			if text := string(e.scratch); text != "" {
-				gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: io.NopCloser(strings.NewReader(text))})
-				if k.Name == "X" && !e.ReadOnly {
-					if e.Delete(1) != 0 {
-						return ChangeEvent{}, true
-					}
-				}
+			if evt := e.onCopyCut(gtx, k); evt != nil {
+				return evt, true
 			}
+
 		// Select all
 		case "A":
 			e.text.SetCaret(0, e.text.Len())
 		case "Z":
-			if !e.ReadOnly {
+			if !e.readOnly {
 				if k.Modifiers.Contain(key.ModShift) {
 					if ev, ok := e.redo(); ok {
 						return ev, ok
@@ -323,19 +318,19 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 	}
 	switch k.Name {
 	case key.NameReturn, key.NameEnter:
-		if !e.ReadOnly {
+		if !e.readOnly {
 			if e.Insert("\n") != 0 {
 				return ChangeEvent{}, true
 			}
 		}
 	case key.NameTab:
-		if !e.ReadOnly {
+		if !e.readOnly {
 			if e.Insert("\t") != 0 {
 				return ChangeEvent{}, true
 			}
 		}
 	case key.NameDeleteBackward:
-		if !e.ReadOnly {
+		if !e.readOnly {
 			if moveByWord {
 				if e.deleteWord(-1) != 0 {
 					return ChangeEvent{}, true
@@ -347,7 +342,7 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 			}
 		}
 	case key.NameDeleteForward:
-		if !e.ReadOnly {
+		if !e.readOnly {
 			if moveByWord {
 				if e.deleteWord(1) != 0 {
 					return ChangeEvent{}, true
@@ -434,4 +429,34 @@ func (e *Editor) updateSnippet(gtx layout.Context, start, end int) {
 	}
 	e.ime.snippet = newSnip
 	gtx.Execute(key.SnippetCmd{Tag: e, Snippet: newSnip})
+}
+
+func (e *Editor) onCopyCut(gtx layout.Context, k key.Event) EditorEvent {
+	lineOp := false
+	if e.text.SelectionLen() == 0 {
+		lineOp = true
+		e.scratch = e.text.SelectedLine(e.scratch)
+		if len(e.scratch) > 0 && e.scratch[len(e.scratch)-1] != '\n' {
+			e.scratch = append(e.scratch, '\n')
+		}
+	} else {
+		e.scratch = e.text.SelectedText(e.scratch)
+	}
+
+	if text := string(e.scratch); text != "" {
+		gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: io.NopCloser(strings.NewReader(text))})
+		if k.Name == "X" && !e.readOnly {
+			if !lineOp {
+				if e.Delete(1) != 0 {
+					return ChangeEvent{}
+				}
+			} else {
+				if e.DeleteLine() != 0 {
+					return ChangeEvent{}
+				}
+			}
+		}
+	}
+
+	return nil
 }

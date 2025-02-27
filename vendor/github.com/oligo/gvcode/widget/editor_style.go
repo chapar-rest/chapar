@@ -84,12 +84,13 @@ func (e EditorStyle) Layout(gtx layout.Context) layout.Dimensions {
 	paint.ColorOp{Color: e.LineNumberColor}.Add(gtx.Ops)
 	lineNumColor := lineNumColorMacro.Stop()
 
-	e.Editor.Font = e.Font
-	e.Editor.TextSize = e.TextSize
-	e.Editor.LineHeight = e.LineHeight
-	e.Editor.LineHeightScale = e.LineHeightScale
+
+	e.Editor.WithOptions(
+		gvcode.WithShaperParams(e.Font, e.TextSize, text.Start, e.LineHeight, e.LineHeightScale),
+		gvcode.WithTabWidth(e.TabWidth),
+	)
+
 	e.Editor.LineNumberGutter = e.LineNumberGutter
-	e.Editor.TabWidth = e.TabWidth
 	e.Editor.TextMaterial = textColor
 	e.Editor.SelectMaterial = selectionColor
 	e.Editor.LineMaterial = lineColor

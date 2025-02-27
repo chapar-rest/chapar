@@ -11,6 +11,8 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"golang.org/x/image/math/fixed"
+	lt "github.com/oligo/gvcode/internal/layout"
+
 )
 
 // A glyphSpan is a group of adjacent glyphs sharing the same fg and bg.
@@ -78,12 +80,12 @@ func (tp *textPainter) processGlyph(g text.Glyph) (visible bool) {
 	return !above && !below && !left && !right
 }
 
-func (tp *textPainter) paintLine(gtx layout.Context, shaper *text.Shaper, line *line, defaultMaterial op.CallOp) {
-	if len(line.glyphs) <= 0 {
+func (tp *textPainter) paintLine(gtx layout.Context, shaper *text.Shaper, line *lt.Line, defaultMaterial op.CallOp) {
+	if len(line.Glyphs) <= 0 {
 		return
 	}
 
-	lineOff := f32.Point{X: fixedToFloat(line.xOff), Y: float32(line.yOff)}.Sub(layout.FPt(tp.viewport.Min))
+	lineOff := f32.Point{X: fixedToFloat(line.XOff), Y: float32(line.YOff)}.Sub(layout.FPt(tp.viewport.Min))
 	t := op.Affine(f32.Affine2D{}.Offset(lineOff)).Push(gtx.Ops)
 
 	tp.stylingLine(line, defaultMaterial)
@@ -91,7 +93,7 @@ func (tp *textPainter) paintLine(gtx layout.Context, shaper *text.Shaper, line *
 	for _, span := range tp.spans {
 		spanOffset := op.Affine(f32.Affine2D{}.Offset(f32.Point{X: float32(span.offset.Round())})).Push(gtx.Ops)
 
-		glyphs := line.getGlyphs(span.glyphs.Offset, span.glyphs.Count)
+		glyphs := line.GetGlyphs(span.glyphs.Offset, span.glyphs.Count)
 		// draw background
 		if span.bg != (op.CallOp{}) {
 			rect := span.bounds(line)
@@ -118,17 +120,17 @@ func (tp *textPainter) paintLine(gtx layout.Context, shaper *text.Shaper, line *
 
 // stylingLine determines the style for each of the glyphs of the line using TextStyles.
 // Text styles should be sorted by rune range in ascending order.
-func (tp *textPainter) stylingLine(line *line, defaultMaterial op.CallOp) {
+func (tp *textPainter) stylingLine(line *lt.Line, defaultMaterial op.CallOp) {
 	tp.spans = tp.spans[:0]
 
 	idx := sort.Search(len(tp.styles), func(i int) bool {
 		s := tp.styles[i]
-		return s.End > line.runeOff
+		return s.End > line.RuneOff
 	})
 
 	if idx == len(tp.styles) {
 		span := glyphSpan{
-			glyphs: text.Range{Count: len(line.glyphs), Offset: 0},
+			glyphs: text.Range{Count: len(line.Glyphs), Offset: 0},
 			fg:     defaultMaterial,
 			offset: 0,
 		}
@@ -141,10 +143,10 @@ func (tp *textPainter) stylingLine(line *line, defaultMaterial op.CallOp) {
 	span := glyphSpan{}
 
 	var fg, bg op.CallOp
-	runeOff := line.runeOff
+	runeOff := line.RuneOff
 	advance := fixed.I(0)
 
-	for glyphIdx, g := range line.glyphs {
+	for glyphIdx, g := range line.Glyphs {
 		if style != nil && style.Start <= runeOff && style.End > runeOff {
 			fg = style.Color
 			bg = style.Background
@@ -155,6 +157,9 @@ func (tp *textPainter) stylingLine(line *line, defaultMaterial op.CallOp) {
 
 		if span.fg != fg {
 			if span.glyphs.Count > 0 {
+				if span.fg == (op.CallOp{}) {
+					span.fg = defaultMaterial
+				}
 				tp.spans = append(tp.spans, span)
 			}
 			span = glyphSpan{}
@@ -180,20 +185,23 @@ func (tp *textPainter) stylingLine(line *line, defaultMaterial op.CallOp) {
 	}
 
 	if span.glyphs.Count > 0 {
+		if span.fg == (op.CallOp{}) {
+			span.fg = defaultMaterial
+		}
 		tp.spans = append(tp.spans, span)
 	}
 }
 
 // bounds returns the bounding box relative to the dot of the first
 // glyph of the span.
-func (s *glyphSpan) bounds(line *line) image.Rectangle {
+func (s *glyphSpan) bounds(line *lt.Line) image.Rectangle {
 	rect := image.Rectangle{}
 
 	if s.glyphs.Count <= 0 {
 		return rect
 	}
 
-	for _, g := range line.glyphs[s.glyphs.Offset : s.glyphs.Offset+s.glyphs.Count] {
+	for _, g := range line.Glyphs[s.glyphs.Offset : s.glyphs.Offset+s.glyphs.Count] {
 		rect.Min.Y = min(rect.Min.Y, -g.Ascent.Round())
 		rect.Max.Y = max(rect.Max.Y, g.Descent.Round())
 		rect.Max.X += g.Advance.Round()

@@ -38,14 +38,14 @@ func (e *textView) MoveWords(distance int, selAct selectionAction) {
 	// atEnd if caret is at either side of the buffer.
 	caret := e.closestToRune(e.caret.start)
 	atEnd := func() bool {
-		return caret.runes == 0 || caret.runes == e.Len()
+		return caret.Runes == 0 || caret.Runes == e.Len()
 	}
 	// next returns the appropriate rune given the direction.
 	next := func() (r rune) {
 		if direction < 0 {
-			r, _ = e.src.ReadRuneAt(caret.runes - 1)
+			r, _ = e.src.ReadRuneAt(caret.Runes - 1)
 		} else {
-			r, _ = e.src.ReadRuneAt(caret.runes)
+			r, _ = e.src.ReadRuneAt(caret.Runes)
 		}
 		return r
 	}

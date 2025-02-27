@@ -2,10 +2,10 @@ package gvcode
 
 import (
 	"image"
+	"strings"
 	"time"
 
 	"gioui.org/f32"
-	"gioui.org/font"
 	"gioui.org/gesture"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -16,43 +16,13 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/text"
 	"gioui.org/unit"
-	"github.com/oligo/gvcode/buffer"
+	"github.com/oligo/gvcode/internal/buffer"
 )
 
 // Editor implements an editable and scrollable text area.
 type Editor struct {
-	// Font set the font used to draw the text.
-	Font font.Font
-	// TextSize set the size of both the main text and line number.
-	TextSize unit.Sp
-	// Alignment controls the alignment of text within the editor.
-	Alignment text.Alignment
-	// LineHeight determines the gap between baselines of text. If zero, a sensible
-	// default will be used.
-	LineHeight unit.Sp
-	// LineHeightScale is multiplied by LineHeight to determine the final gap
-	// between baselines. If zero, a sensible default will be used.
-	LineHeightScale float32
-	// WrapLine configures whether the displayed text will be broken into lines or not.
-	WrapLine bool
-	// ReadOnly controls whether the contents of the editor can be altered by
-	// user interaction. If set to true, the editor will allow selecting text
-	// and copying it interactively, but not modifying it.
-	ReadOnly bool
-	// InputHint specifies the type of on-screen keyboard to be displayed.
-	InputHint key.InputHint
-
-	// SoftTab controls the behaviour when user try to insert a Tab character.
-	// If set to true, the editor will insert the amount of space characters specified by
-	// TabWidth, else the editor insert a \t character.
-	SoftTab bool
-	// TabWidth set how many spaces to represent a tab character. In the case of
-	// soft tab, this determines the number of space characters to insert into the editor.
-	// While for hard tab, this controls the maximum width of the 'tab' glyph to expand to.
-	TabWidth int
 	// LineNumberGutter specifies the gap between the line number and the main text.
 	LineNumberGutter unit.Dp
-
 	// Color used to paint text
 	TextMaterial op.CallOp
 	// Color used to highlight the selections.
@@ -63,9 +33,11 @@ type Editor struct {
 	LineNumberMaterial op.CallOp
 	// Color used to highlight the text snippets, such as search matches.
 	TextHighlightMaterial op.CallOp
-	// WordSeperators configures a set of characters that will be used as word separators
-	// when doing word related operations, like navigating or deleting by word.
-	WordSeperators string
+
+	// readOnly controls whether the contents of the editor can be altered by
+	// user interaction. If set to true, the editor will allow selecting text
+	// and copying it interactively, but not modifying it.
+	readOnly bool
 
 	// text manages the text buffer and provides shaping and cursor positioning
 	// services.
@@ -144,11 +116,6 @@ func (e *Editor) initBuffer() {
 	}
 
 	e.text.CaretWidth = unit.Dp(1)
-	e.text.TabWidth = e.TabWidth
-	e.text.Alignment = e.Alignment
-	e.text.LineHeight = e.LineHeight
-	e.text.LineHeightScale = e.LineHeightScale
-	e.text.WordSeperators = e.WordSeperators
 }
 
 // Update the state of the editor in response to input events. Update consumes editor
@@ -214,7 +181,7 @@ func (e *Editor) Layout(gtx layout.Context, lt *text.Shaper) layout.Dimensions {
 		}),
 
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			e.text.Layout(gtx, lt, e.Font, e.TextSize, e.WrapLine)
+			e.text.Layout(gtx, lt)
 			return e.layout(gtx)
 		}),
 	)
@@ -225,7 +192,6 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	defer clip.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Push(gtx.Ops).Pop()
 	pointer.CursorText.Add(gtx.Ops)
 	event.Op(gtx.Ops, e)
-	key.InputHintOp{Tag: e, Hint: e.InputHint}.Add(gtx.Ops)
 
 	//e.scroller.Add(gtx.Ops)
 
@@ -274,7 +240,7 @@ func (e *Editor) paintText(gtx layout.Context, material op.CallOp) {
 // of the caret rectangle.
 func (e *Editor) paintCaret(gtx layout.Context, material op.CallOp) {
 	e.initBuffer()
-	if !e.showCaret || e.ReadOnly {
+	if !e.showCaret || e.readOnly {
 		return
 	}
 	e.text.PaintCaret(gtx, material)
@@ -369,8 +335,44 @@ func (e *Editor) Delete(graphemeClusters int) (deletedRunes int) {
 	return end - start
 }
 
+// DeleteLine delete the current line, and place the caret at the
+// start of the next line.
+func (e *Editor) DeleteLine() (deletedRunes int) {
+	e.initBuffer()
+
+	start, end := e.text.CurrentLine()
+	if start == 0 && end == 0 {
+		return 0
+	}
+
+	e.replace(start, end, "")
+	// Reset xoff.
+	e.text.MoveCaret(0, 0)
+	e.SetCaret(start, start)
+
+	e.ClearSelection()
+	return end - start
+}
+
 func (e *Editor) Insert(s string) (insertedRunes int) {
 	e.initBuffer()
+
+	if s == "" {
+		return
+	}
+
+	singleLine := strings.Count(s, "\n") == 1 && s[len(s)-1] == '\n'
+	if singleLine && e.text.SelectionLen() == 0 {
+		// If s is a paragraph of text, insert s between the current line
+		// and the previous line.
+		start, end := e.text.CurrentLine()
+		moves := e.replace(start, start, s)
+		// Reset xoff.
+		e.text.MoveCaret(0, 0)
+		e.SetCaret(end, end)
+		e.scrollCaret = true
+		return moves
+	}
 
 	start, end := e.text.Selection()
 	moves := e.replace(start, end, s)
@@ -596,6 +598,16 @@ func (e *Editor) ScrollByRatio(gtx layout.Context, ratio float32) {
 
 func (e *Editor) UpdateTextStyles(styles []*TextStyle) {
 	e.textStyles = styles
+}
+
+func (e *Editor) ReadOnly() bool {
+	return e.readOnly
+}
+
+// SetDebug enable or disable the debug mode.
+// In debug mode, internal buffer state is printed.
+func SetDebug(enable bool) {
+	buffer.SetDebug(enable)
 }
 
 func abs(n int) int {
