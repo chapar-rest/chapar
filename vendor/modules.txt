@@ -125,7 +125,7 @@ github.com/jhump/protoreflect/internal
 github.com/oligo/gioview/editor
 github.com/oligo/gioview/misc
 github.com/oligo/gioview/theme
-# github.com/oligo/gvcode v0.0.3-0.20250227183646-0d9bbdf3f0d8
+# github.com/oligo/gvcode v0.0.3-0.20250301165326-8108008a5bcb
 ## explicit; go 1.23
 github.com/oligo/gvcode
 github.com/oligo/gvcode/internal/buffer

@@ -6,11 +6,11 @@ gvcode is a Gio based text editor for code editing.
 
 - Uses a PieceTable backed text buffer for efficient text editing.  
 - Optimized undo/redo operations with built-in support in the PieceTable.  
-- Supports tabs and tab stops, with soft tabs coming soon.  
+- Supports both hard and soft tabs, ensuring alignment with tab stops. 
 - Lines can be unwrapped, with horizontal scrolling supported.  
 - Syntax highlighting is available by applying text styles.  
 - Built-in line numbers for better readability.  
-- Expanded shortcut support (Work in Progress).  
+- Expanded shortcuts support (Work in Progress).  
 - Large file rendering(Planned).
 
 ## Why another code editor?

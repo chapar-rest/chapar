@@ -207,7 +207,7 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 		key.Filter{Focus: e, Name: key.NameEnd, Optional: key.ModShortcut | key.ModShift},
 		key.Filter{Focus: e, Name: key.NamePageDown, Optional: key.ModShift},
 		key.Filter{Focus: e, Name: key.NamePageUp, Optional: key.ModShift},
-		key.Filter{Focus: e, Name: key.NameTab},
+		key.Filter{Focus: e, Name: key.NameTab, Optional: key.ModShift},
 		condFilter(!atBeginning, key.Filter{Focus: e, Name: key.NameLeftArrow, Optional: key.ModShortcutAlt | key.ModShift}),
 		condFilter(!atBeginning, key.Filter{Focus: e, Name: key.NameUpArrow, Optional: key.ModShortcutAlt | key.ModShift}),
 		condFilter(!atEnd, key.Filter{Focus: e, Name: key.NameRightArrow, Optional: key.ModShortcutAlt | key.ModShift}),
@@ -254,7 +254,14 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			e.scroller.Stop()
 			content, err := io.ReadAll(ke.Open())
 			if err == nil {
-				if e.Insert(string(content)) != 0 {
+				runes := 0
+				if isSingleLine(string(content)) {
+					runes = e.InsertLine(string(content))
+				} else {
+					runes = e.Insert(string(content))
+				}
+
+				if runes != 0 {
 					return ChangeEvent{}, true
 				}
 			}
@@ -324,10 +331,8 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 			}
 		}
 	case key.NameTab:
-		if !e.readOnly {
-			if e.Insert("\t") != 0 {
-				return ChangeEvent{}, true
-			}
+		if evt := e.onTab(k); evt != nil {
+			return evt, true
 		}
 	case key.NameDeleteBackward:
 		if !e.readOnly {
@@ -435,7 +440,7 @@ func (e *Editor) onCopyCut(gtx layout.Context, k key.Event) EditorEvent {
 	lineOp := false
 	if e.text.SelectionLen() == 0 {
 		lineOp = true
-		e.scratch = e.text.SelectedLine(e.scratch)
+		e.scratch = e.text.SelectedLineText(e.scratch)
 		if len(e.scratch) > 0 && e.scratch[len(e.scratch)-1] != '\n' {
 			e.scratch = append(e.scratch, '\n')
 		}
@@ -459,4 +464,36 @@ func (e *Editor) onCopyCut(gtx layout.Context, k key.Event) EditorEvent {
 	}
 
 	return nil
+}
+
+// onTab handles tab key event. If there is no selection of lines, intert a tab character
+// at position of the cursor, else indent or unindent the selected lines, depending on if
+// the event contains the shift modifier.
+func (e *Editor) onTab(k key.Event) EditorEvent {
+	if e.readOnly {
+		return nil
+	}
+
+	if e.SelectionLen() == 0 || e.text.PartialLineSelected() {
+		if e.Insert("\t") != 0 {
+			return ChangeEvent{}
+		}
+	}
+
+	backword := k.Modifiers.Contain(key.ModShift)
+
+	e.scratch = e.text.SelectedLineText(e.scratch)
+	if len(e.scratch) == 0 {
+		return nil
+	}
+
+	if e.text.AdjustIndentation(e.scratch, backword) > 0 {
+		// Reset xoff.
+		e.text.MoveCaret(0, 0)
+		e.scrollCaret = true
+		return ChangeEvent{}
+	}
+
+	return nil
+
 }

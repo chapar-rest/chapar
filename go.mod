@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
 	github.com/oligo/gioview v0.8.1
-	github.com/oligo/gvcode v0.0.3-0.20250227183646-0d9bbdf3f0d8
+	github.com/oligo/gvcode v0.0.3-0.20250301165326-8108008a5bcb
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp/shiny v0.0.0-20240707233637-46b078467d37
 	golang.org/x/sync v0.7.0

@@ -100,11 +100,12 @@ func (e *textView) PaintRegions(gtx layout.Context, regions []Region, material o
 // Only the start position is checked.
 func (e *textView) caretCurrentLine() (start lt.CombinedPos, end lt.CombinedPos) {
 	caretStart := e.closestToRune(e.caret.start)
-	line := e.paragraphOfCaret(e.caret)
-	if line == (lt.Paragraph{}) {
+	lines := e.selectedParagraphs()
+	if len(lines) == 0 {
 		return caretStart, caretStart
 	}
 
+	line := lines[0]
 	start = e.closestToXY(line.StartX, line.StartY)
 	end = e.closestToXY(line.EndX, line.EndY)
 

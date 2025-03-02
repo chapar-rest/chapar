@@ -3,6 +3,7 @@ package gvcode
 import (
 	"image"
 	"math"
+	"strings"
 	"unicode/utf8"
 
 	"gioui.org/f32"
@@ -352,11 +353,18 @@ func (e *textView) SetText(s string) int {
 }
 
 // Replace the text between start and end with s. Indices are in runes.
-// It returns the number of runes inserted.
+// It returns the number of runes inserted. If it is a single tab character
+// input and the editor is configured to use soft tab, the tab is expanded
+// with spaces, also tab stop is accounted when calculating space number.
 func (e *textView) Replace(start, end int, s string) int {
 	if start > end {
 		start, end = end, start
 	}
+
+	if s == "\t" {
+		s = e.expandTab(start, s)
+	}
+
 	startPos := e.closestToRune(start)
 	endPos := e.closestToRune(end)
 	startOff := startPos.Runes
@@ -366,9 +374,9 @@ func (e *textView) Replace(start, end int, s string) int {
 	e.src.Replace(startOff, endPos.Runes, s)
 	adjust := func(pos int) int {
 		switch {
-		case newEnd < pos && pos <= endPos.Runes:
+		case newEnd < pos && pos < endPos.Runes:
 			pos = newEnd
-		case endPos.Runes < pos:
+		case endPos.Runes <= pos:
 			diff := newEnd - endPos.Runes
 			pos = pos + diff
 		}
@@ -378,6 +386,24 @@ func (e *textView) Replace(start, end int, s string) int {
 	e.caret.end = adjust(e.caret.end)
 	e.invalidate()
 	return sc
+}
+
+// expandTab expands tab character to spaces while respecting tab stops.
+func (e *textView) expandTab(start int, s string) string {
+	if !e.SoftTab {
+		return s
+	}
+
+	p := e.findParagraph(start)
+	if p == (lt.Paragraph{}) {
+		return strings.Repeat(" ", e.TabWidth)
+	}
+
+	advance := start - p.RuneOff
+	nextTabStop := (advance/e.TabWidth + 1) * e.TabWidth
+	spaces := nextTabStop - advance
+
+	return strings.Repeat(" ", spaces)
 }
 
 // MovePages moves the caret position by vertical pages of text, ensuring that
