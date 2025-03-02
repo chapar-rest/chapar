@@ -58,8 +58,20 @@ func NewHeader(w *app.Window, envState *state.Environments, workspacesState *sta
 	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
 
-	h.headerSearch.SetOptions([]*widgets.SearchDropDownOption{
-		widgets.NewSearchDropDownOption("Search"),
+	h.headerSearch.SetSearchResults([]*widgets.SearchResult{
+		{Text: "Environment", Kind: domain.KindEnv},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
+		{Text: "Request", Kind: domain.KindRequest},
 	}...)
 
 	h.envDropDown = widgets.NewDropDown(theme)
