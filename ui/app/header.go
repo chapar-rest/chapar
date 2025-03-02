@@ -23,6 +23,8 @@ type Header struct {
 	// modal is used to show error and messages to the user
 	modal *widgets.MessageModal
 
+	headerSearch *widgets.SearchDropDown
+
 	selectedWorkspace string
 	workspaceDropDown *widgets.DropDown
 
@@ -52,9 +54,13 @@ func NewHeader(w *app.Window, envState *state.Environments, workspacesState *sta
 		selectedEnv:     noEnvironment,
 		envState:        envState,
 		workspacesState: workspacesState,
-	}
+		headerSearch:    widgets.NewSearchDropDown(theme)}
 	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
+
+	h.headerSearch.SetOptions([]*widgets.SearchDropDownOption{
+		widgets.NewSearchDropDownOption("Search"),
+	}...)
 
 	h.envDropDown = widgets.NewDropDown(theme)
 	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
@@ -197,6 +203,10 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 							})
 						}),
 					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 3
+					return h.headerSearch.Layout(gtx, theme)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
