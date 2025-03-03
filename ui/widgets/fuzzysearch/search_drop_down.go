@@ -15,7 +15,6 @@ import (
 
 type SearchDropDown struct {
 	menuContextArea component.ContextArea
-	menu            component.MenuState
 	list            *widget.List
 	theme           *chapartheme.Theme
 

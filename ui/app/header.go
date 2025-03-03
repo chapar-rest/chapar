@@ -210,7 +210,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 3
+					gtx.Constraints.Max.X /= 3
 					return h.headerSearch.Layout(gtx, theme)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

@@ -37,6 +37,8 @@ type UI struct {
 	sideBar *Sidebar
 	header  *Header
 
+	currentPage int
+
 	consolePage *console.Console
 
 	environmentsView *environments.View
@@ -121,6 +123,10 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 
 	u.sideBar = NewSidebar(u.Theme, appVersion)
 
+	u.sideBar.OnSelectedChanged = func(index int) {
+		u.currentPage = index
+	}
+
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
 
 	//
@@ -202,7 +208,21 @@ func (u *UI) searchDataLoader() []fuzzysearch.Item {
 }
 
 func (u *UI) onSelectSearchResult(result *fuzzysearch.SearchResult) {
-
+	switch result.Item.Kind {
+	case domain.KindEnv:
+		u.environmentsController.OpenEnvironment(result.Item.Identifier)
+		u.currentPage = 1
+	case domain.KindRequest:
+		u.requestsController.OpenRequest(result.Item.Identifier)
+		u.currentPage = 0
+	case domain.KindCollection:
+		u.requestsController.OpenCollection(result.Item.Identifier)
+		u.currentPage = 0
+	case domain.KindProtoFile:
+		u.currentPage = 3
+	case domain.KindWorkspace:
+		u.currentPage = 2
+	}
 }
 
 func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
@@ -336,7 +356,7 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 					return u.sideBar.Layout(gtx, u.Theme)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					switch u.sideBar.SelectedIndex() {
+					switch u.currentPage {
 					case 0:
 						return u.requestsView.Layout(gtx, u.Theme)
 					case 1:
