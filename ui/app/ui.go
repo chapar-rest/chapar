@@ -27,6 +27,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
+	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
 )
 
@@ -36,6 +37,8 @@ type UI struct {
 
 	sideBar *Sidebar
 	header  *Header
+
+	modal *widgets.MessageModal
 
 	currentPage int
 
@@ -152,22 +155,29 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	return u, u.load()
 }
 
+func (u *UI) showError(err error) {
+	u.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
+		u.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	u.modal.Show()
+}
+
 func (u *UI) searchDataLoader() []fuzzysearch.Item {
 	envs, err := u.repo.LoadEnvironments()
 	if err != nil {
-		fmt.Println("failed to load environments", err)
+		u.showError(fmt.Errorf("failed to load environments, %w", err))
 		return nil
 	}
 
 	cols, err := u.repo.LoadCollections()
 	if err != nil {
-		fmt.Println("failed to load requests", err)
+		u.showError(fmt.Errorf("failed to load collections, %w", err))
 		return nil
 	}
 
 	protoFiles, err := u.repo.LoadProtoFiles()
 	if err != nil {
-		fmt.Println("failed to load proto files", err)
+		u.showError(fmt.Errorf("failed to load proto files, %w", err))
 		return nil
 	}
 
@@ -346,6 +356,9 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 	background := macro.Stop()
 
 	background.Add(gtx.Ops)
+
+	u.modal.Layout(gtx, u.Theme)
+
 	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return u.header.Layout(gtx, u.Theme)
