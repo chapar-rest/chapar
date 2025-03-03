@@ -11,6 +11,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
 )
 
 type Header struct {
@@ -23,7 +24,7 @@ type Header struct {
 	// modal is used to show error and messages to the user
 	modal *widgets.MessageModal
 
-	headerSearch *widgets.SearchDropDown
+	headerSearch *fuzzysearch.SearchDropDown
 
 	selectedWorkspace string
 	workspaceDropDown *widgets.DropDown
@@ -54,25 +55,9 @@ func NewHeader(w *app.Window, envState *state.Environments, workspacesState *sta
 		selectedEnv:     noEnvironment,
 		envState:        envState,
 		workspacesState: workspacesState,
-		headerSearch:    widgets.NewSearchDropDown(theme)}
+		headerSearch:    fuzzysearch.NewSearchDropDown(theme)}
 	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
-
-	h.headerSearch.SetSearchResults([]*widgets.SearchResult{
-		{Text: "Environment", Kind: domain.KindEnv},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-		{Text: "Request", Kind: domain.KindRequest},
-	}...)
 
 	h.envDropDown = widgets.NewDropDown(theme)
 	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
@@ -127,6 +112,14 @@ func (h *Header) LoadWorkspaces(data []*domain.Workspace) {
 	if selectWsExist {
 		h.SetSelectedWorkspace(h.workspacesState.GetWorkspace(h.selectedWorkspace))
 	}
+}
+
+func (h *Header) SetOnSearchResultSelect(fn func(*fuzzysearch.SearchResult)) {
+	h.headerSearch.OnSelectResult = fn
+}
+
+func (h *Header) SetSearchDataLoader(fn func() []fuzzysearch.Item) {
+	h.headerSearch.SetLoader(fn)
 }
 
 func (h *Header) SetSelectedWorkspace(ws *domain.Workspace) {

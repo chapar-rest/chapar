@@ -27,6 +27,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
+	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
 )
 
 type UI struct {
@@ -115,6 +116,9 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.consolePage = console.New()
 
 	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
+	u.header.SetSearchDataLoader(u.searchDataLoader)
+	u.header.SetOnSearchResultSelect(u.onSelectSearchResult)
+
 	u.sideBar = NewSidebar(u.Theme, appVersion)
 
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
@@ -140,6 +144,65 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.OnThemeSwitched = u.onThemeChange
 
 	return u, u.load()
+}
+
+func (u *UI) searchDataLoader() []fuzzysearch.Item {
+	envs, err := u.repo.LoadEnvironments()
+	if err != nil {
+		fmt.Println("failed to load environments", err)
+		return nil
+	}
+
+	cols, err := u.repo.LoadCollections()
+	if err != nil {
+		fmt.Println("failed to load requests", err)
+		return nil
+	}
+
+	protoFiles, err := u.repo.LoadProtoFiles()
+	if err != nil {
+		fmt.Println("failed to load proto files", err)
+		return nil
+	}
+
+	items := make([]fuzzysearch.Item, 0)
+	for _, env := range envs {
+		items = append(items, fuzzysearch.Item{
+			Identifier: env.MetaData.ID,
+			Kind:       domain.KindEnv,
+			Title:      env.MetaData.Name,
+		})
+	}
+
+	for _, col := range cols {
+		items = append(items, fuzzysearch.Item{
+			Identifier: col.MetaData.ID,
+			Kind:       domain.KindCollection,
+			Title:      col.MetaData.Name,
+		})
+
+		for _, req := range col.Spec.Requests {
+			items = append(items, fuzzysearch.Item{
+				Identifier: req.MetaData.ID,
+				Kind:       domain.KindRequest,
+				Title:      req.MetaData.Name,
+			})
+		}
+	}
+
+	for _, protoFile := range protoFiles {
+		items = append(items, fuzzysearch.Item{
+			Identifier: protoFile.MetaData.ID,
+			Kind:       domain.KindProtoFile,
+			Title:      protoFile.MetaData.Name,
+		})
+	}
+
+	return items
+}
+
+func (u *UI) onSelectSearchResult(result *fuzzysearch.SearchResult) {
+
 }
 
 func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
