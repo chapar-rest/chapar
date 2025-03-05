@@ -181,6 +181,12 @@ func (u *UI) searchDataLoader() []fuzzysearch.Item {
 		return nil
 	}
 
+	reqs, err := u.repo.LoadRequests()
+	if err != nil {
+		u.showError(fmt.Errorf("failed to load requests, %w", err))
+		return nil
+	}
+
 	items := make([]fuzzysearch.Item, 0)
 	for _, env := range envs {
 		items = append(items, fuzzysearch.Item{
@@ -211,6 +217,14 @@ func (u *UI) searchDataLoader() []fuzzysearch.Item {
 			Identifier: protoFile.MetaData.ID,
 			Kind:       domain.KindProtoFile,
 			Title:      protoFile.MetaData.Name,
+		})
+	}
+
+	for _, req := range reqs {
+		items = append(items, fuzzysearch.Item{
+			Identifier: req.MetaData.ID,
+			Kind:       domain.KindRequest,
+			Title:      req.MetaData.Name,
 		})
 	}
 
