@@ -2,7 +2,6 @@ package fuzzysearch
 
 import (
 	"image"
-	"image/color"
 
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -24,9 +23,7 @@ type TextField struct {
 	size image.Point
 
 	onTextChange func(text string)
-	borderColor  color.NRGBA
-
-	OnKeyPress func(k key.Name)
+	OnKeyPress   func(k key.Name)
 }
 
 func NewTextField(text, placeholder string) *TextField {

@@ -59,7 +59,7 @@ func (r *ContextArea) Update(gtx layout.Context) {
 	dismissTag := &r.dims
 
 	r.startedActive = r.active
-	// Summon the contextual widget if the area recieved a secondary click.
+	// Summon the contextual widget if the area received a secondary click.
 	for {
 		ev, ok := gtx.Event(pointer.Filter{
 			Target: r,
@@ -142,7 +142,7 @@ func (r *ContextArea) Layout(gtx layout.Context, w layout.Widget) layout.Dimensi
 	var contextual op.CallOp
 	if r.active || r.startedActive {
 		// Render if the layout started as active to ensure that widgets
-		// within the contextual content get to update their state in reponse
+		// within the contextual content get to update their state in response
 		// to the event that dismissed the contextual widget.
 		contextual = func() op.CallOp {
 			macro := op.Record(gtx.Ops)
