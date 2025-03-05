@@ -29,6 +29,8 @@ type Sidebar struct {
 
 	selectedIndex int
 
+	OnSelectedChanged func(index int)
+
 	appVersion string
 }
 
@@ -97,6 +99,9 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 	for i, c := range s.clickables {
 		for c.Clicked(gtx) {
 			s.selectedIndex = i
+			if s.OnSelectedChanged != nil {
+				s.OnSelectedChanged(i)
+			}
 		}
 	}
 

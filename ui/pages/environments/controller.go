@@ -44,6 +44,10 @@ func NewController(view *View, repo repository.Repository, envState *state.Envir
 	return c
 }
 
+func (c *Controller) OpenEnvironment(id string) {
+	c.openEnvironment(id)
+}
+
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
 	if err := c.repo.Create(env); err != nil {
@@ -120,6 +124,10 @@ func (c *Controller) onTitleChanged(id string, title string) {
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
+	c.openEnvironment(id)
+}
+
+func (c *Controller) openEnvironment(id string) {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
 		return

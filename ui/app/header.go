@@ -11,6 +11,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
 )
 
 type Header struct {
@@ -22,6 +23,8 @@ type Header struct {
 
 	// modal is used to show error and messages to the user
 	modal *widgets.MessageModal
+
+	headerSearch *fuzzysearch.SearchDropDown
 
 	selectedWorkspace string
 	workspaceDropDown *widgets.DropDown
@@ -52,7 +55,7 @@ func NewHeader(w *app.Window, envState *state.Environments, workspacesState *sta
 		selectedEnv:     noEnvironment,
 		envState:        envState,
 		workspacesState: workspacesState,
-	}
+		headerSearch:    fuzzysearch.NewSearchDropDown(theme)}
 	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
 
@@ -109,6 +112,14 @@ func (h *Header) LoadWorkspaces(data []*domain.Workspace) {
 	if selectWsExist {
 		h.SetSelectedWorkspace(h.workspacesState.GetWorkspace(h.selectedWorkspace))
 	}
+}
+
+func (h *Header) SetOnSearchResultSelect(fn func(*fuzzysearch.SearchResult)) {
+	h.headerSearch.OnSelectResult = fn
+}
+
+func (h *Header) SetSearchDataLoader(fn func() []fuzzysearch.Item) {
+	h.headerSearch.SetLoader(fn)
 }
 
 func (h *Header) SetSelectedWorkspace(ws *domain.Workspace) {
@@ -197,6 +208,10 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 							})
 						}),
 					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X /= 3
+					return h.headerSearch.Layout(gtx, theme)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,

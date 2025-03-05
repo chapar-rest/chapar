@@ -27,6 +27,8 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
+	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
 )
 
 type UI struct {
@@ -35,6 +37,10 @@ type UI struct {
 
 	sideBar *Sidebar
 	header  *Header
+
+	modal *widgets.MessageModal
+
+	currentPage int
 
 	consolePage *console.Console
 
@@ -115,7 +121,14 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.consolePage = console.New()
 
 	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
+	u.header.SetSearchDataLoader(u.searchDataLoader)
+	u.header.SetOnSearchResultSelect(u.onSelectSearchResult)
+
 	u.sideBar = NewSidebar(u.Theme, appVersion)
+
+	u.sideBar.OnSelectedChanged = func(index int) {
+		u.currentPage = index
+	}
 
 	u.header.LoadWorkspaces(u.workspacesState.GetWorkspaces())
 
@@ -140,6 +153,100 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.OnThemeSwitched = u.onThemeChange
 
 	return u, u.load()
+}
+
+func (u *UI) showError(err error) {
+	u.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
+		u.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	u.modal.Show()
+}
+
+func (u *UI) searchDataLoader() []fuzzysearch.Item {
+	envs, err := u.repo.LoadEnvironments()
+	if err != nil {
+		u.showError(fmt.Errorf("failed to load environments, %w", err))
+		return nil
+	}
+
+	cols, err := u.repo.LoadCollections()
+	if err != nil {
+		u.showError(fmt.Errorf("failed to load collections, %w", err))
+		return nil
+	}
+
+	protoFiles, err := u.repo.LoadProtoFiles()
+	if err != nil {
+		u.showError(fmt.Errorf("failed to load proto files, %w", err))
+		return nil
+	}
+
+	reqs, err := u.repo.LoadRequests()
+	if err != nil {
+		u.showError(fmt.Errorf("failed to load requests, %w", err))
+		return nil
+	}
+
+	items := make([]fuzzysearch.Item, 0)
+	for _, env := range envs {
+		items = append(items, fuzzysearch.Item{
+			Identifier: env.MetaData.ID,
+			Kind:       domain.KindEnv,
+			Title:      env.MetaData.Name,
+		})
+	}
+
+	for _, col := range cols {
+		items = append(items, fuzzysearch.Item{
+			Identifier: col.MetaData.ID,
+			Kind:       domain.KindCollection,
+			Title:      col.MetaData.Name,
+		})
+
+		for _, req := range col.Spec.Requests {
+			items = append(items, fuzzysearch.Item{
+				Identifier: req.MetaData.ID,
+				Kind:       domain.KindRequest,
+				Title:      req.MetaData.Name,
+			})
+		}
+	}
+
+	for _, protoFile := range protoFiles {
+		items = append(items, fuzzysearch.Item{
+			Identifier: protoFile.MetaData.ID,
+			Kind:       domain.KindProtoFile,
+			Title:      protoFile.MetaData.Name,
+		})
+	}
+
+	for _, req := range reqs {
+		items = append(items, fuzzysearch.Item{
+			Identifier: req.MetaData.ID,
+			Kind:       domain.KindRequest,
+			Title:      req.MetaData.Name,
+		})
+	}
+
+	return items
+}
+
+func (u *UI) onSelectSearchResult(result *fuzzysearch.SearchResult) {
+	switch result.Item.Kind {
+	case domain.KindEnv:
+		u.environmentsController.OpenEnvironment(result.Item.Identifier)
+		u.currentPage = 1
+	case domain.KindRequest:
+		u.requestsController.OpenRequest(result.Item.Identifier)
+		u.currentPage = 0
+	case domain.KindCollection:
+		u.requestsController.OpenCollection(result.Item.Identifier)
+		u.currentPage = 0
+	case domain.KindProtoFile:
+		u.currentPage = 3
+	case domain.KindWorkspace:
+		u.currentPage = 2
+	}
 }
 
 func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
@@ -263,6 +370,9 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 	background := macro.Stop()
 
 	background.Add(gtx.Ops)
+
+	u.modal.Layout(gtx, u.Theme)
+
 	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return u.header.Layout(gtx, u.Theme)
@@ -273,7 +383,7 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 					return u.sideBar.Layout(gtx, u.Theme)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					switch u.sideBar.SelectedIndex() {
+					switch u.currentPage {
 					case 0:
 						return u.requestsView.Layout(gtx, u.Theme)
 					case 1:

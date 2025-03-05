@@ -1,8 +1,7 @@
-package widgets
+package fuzzysearch
 
 import (
 	"image"
-	"image/color"
 
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -11,28 +10,20 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-)
-
-const (
-	IconPositionStart = 0
-	IconPositionEnd   = 1
+	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type TextField struct {
 	textEditor widget.Editor
 	Icon       *widget.Icon
-	iconClick  widget.Clickable
-
-	IconPosition int
 
 	Text        string
 	Placeholder string
 
 	size image.Point
 
-	onIconClick  func()
 	onTextChange func(text string)
-	borderColor  color.NRGBA
+	OnKeyPress   func(k key.Name)
 }
 
 func NewTextField(text, placeholder string) *TextField {
@@ -40,6 +31,7 @@ func NewTextField(text, placeholder string) *TextField {
 		textEditor:  widget.Editor{},
 		Text:        text,
 		Placeholder: placeholder,
+		Icon:        widgets.SearchIcon,
 	}
 
 	t.textEditor.SetText(text)
@@ -55,30 +47,18 @@ func (t *TextField) SetText(text string) {
 	t.textEditor.SetText(text)
 }
 
-func (t *TextField) SetIcon(icon *widget.Icon, position int) {
-	t.Icon = icon
-	t.IconPosition = position
-}
-
-func (t *TextField) SetMinWidth(width int) {
-	t.size.X = width
-}
-
-func (t *TextField) SetBorderColor(color color.NRGBA) {
-	t.borderColor = color
-}
-
 func (t *TextField) SetOnTextChange(f func(text string)) {
 	t.onTextChange = f
 }
 
-func (t *TextField) SetOnIconClick(f func()) {
-	t.onIconClick = f
-}
-
 func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	for {
-		event, ok := gtx.Event(key.FocusFilter{Target: t}, key.Filter{Name: key.NameEscape})
+		event, ok := gtx.Event(
+			key.FocusFilter{Target: t},
+			key.Filter{Focus: &t.textEditor, Name: key.NameEscape},
+			key.Filter{Focus: &t.textEditor, Name: key.NameReturn},
+			key.Filter{Focus: &t.textEditor, Name: key.NameDownArrow},
+		)
 		if !ok {
 			break
 		}
@@ -86,8 +66,17 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		case key.FocusEvent:
 			gtx.Execute(key.FocusCmd{Tag: &t.textEditor})
 		case key.Event:
+			if ev.Name == key.NameReturn {
+				if t.OnKeyPress != nil {
+					t.OnKeyPress(ev.Name)
+				}
+			}
+
 			if ev.Name == key.NameEscape {
 				gtx.Execute(key.FocusCmd{Tag: nil})
+				if t.OnKeyPress != nil {
+					t.OnKeyPress(ev.Name)
+				}
 			}
 		}
 	}
@@ -105,9 +94,6 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 	}
 
 	leftPadding := unit.Dp(8)
-	if t.Icon != nil && t.IconPosition == IconPositionStart {
-		leftPadding = unit.Dp(0)
-	}
 
 	for {
 		event, ok := t.textEditor.Update(gtx)
@@ -134,35 +120,24 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			Right:  4,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			inputLayout := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(theme.Material(), &t.textEditor, t.Placeholder).Layout(gtx)
+				ed := material.Editor(theme.Material(), &t.textEditor, t.Placeholder)
+				ed.SelectionColor = theme.TextSelectionColor
+				return ed.Layout(gtx)
 			})
-			widgets := []layout.FlexChild{inputLayout}
+			items := []layout.FlexChild{inputLayout}
 
 			spacing := layout.SpaceBetween
 			if t.Icon != nil {
 				iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					clk := &widget.Clickable{}
-					if t.onIconClick != nil {
-						clk = &t.iconClick
-						if t.iconClick.Clicked(gtx) {
-							t.onIconClick()
-						}
-					}
-
-					b := Button(theme.Material(), clk, t.Icon, IconPositionStart, "")
+					b := widgets.Button(theme.Material(), &widget.Clickable{}, t.Icon, 0, "")
 					b.Inset = layout.Inset{Left: unit.Dp(8), Right: unit.Dp(2), Top: unit.Dp(2), Bottom: unit.Dp(2)}
 					return b.Layout(gtx, theme)
 				})
 
-				if t.IconPosition == IconPositionEnd {
-					widgets = []layout.FlexChild{inputLayout, iconLayout}
-				} else {
-					widgets = []layout.FlexChild{iconLayout, inputLayout}
-					spacing = layout.SpaceEnd
-				}
+				items = []layout.FlexChild{inputLayout, iconLayout}
 			}
 
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: spacing}.Layout(gtx, widgets...)
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: spacing}.Layout(gtx, items...)
 		})
 	})
 }

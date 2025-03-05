@@ -851,6 +851,14 @@ func (c *Controller) viewRequest(id string) {
 	c.view.OpenRequestContainer(clone)
 }
 
+func (c *Controller) OpenCollection(id string) {
+	c.viewCollection(id)
+}
+
+func (c *Controller) OpenRequest(id string) {
+	c.viewRequest(id)
+}
+
 func (c *Controller) viewCollection(id string) {
 	col := c.model.GetCollection(id)
 	if col == nil {

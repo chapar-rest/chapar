@@ -29,3 +29,21 @@ func OnSaveCommand(gtx layout.Context, receiver any, callback func()) {
 	}
 	area.Pop()
 }
+
+func OnKey(gtx layout.Context, receiver any, filter key.Filter, callback func()) {
+	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+	event.Op(gtx.Ops, receiver)
+	for {
+		keyEvent, ok := gtx.Event(filter)
+		if !ok {
+			break
+		}
+
+		if ev, ok := keyEvent.(key.Event); ok {
+			if ev.Name == filter.Name && ev.Modifiers.Contain(filter.Required) && ev.State == key.Press {
+				callback()
+			}
+		}
+	}
+	area.Pop()
+}
