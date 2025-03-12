@@ -3,6 +3,8 @@ package app
 import (
 	"fmt"
 	"image"
+	"os"
+	"path/filepath"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -18,6 +20,8 @@ import (
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/scripting"
+	"github.com/chapar-rest/chapar/internal/scripting/python"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/explorer"
@@ -60,6 +64,8 @@ type UI struct {
 	protoFilesState   *state.ProtoFiles
 
 	repo repository.Repository
+
+	scriptPluginManager scripting.PluginManager
 }
 
 // New creates a new UI using the Go Fonts.
@@ -88,6 +94,32 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		return nil, fmt.Errorf("failed to read preferences, %w", err)
 	}
 
+	u.scriptPluginManager = scripting.NewPluginManager()
+
+	scriptingVariableStore := scripting.NewStore(repo)
+	pythonScriptingPlugin := python.New(scriptingVariableStore)
+	// Determine application data directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	appDataDir := filepath.Join(homeDir, ".chapar")
+	if err := os.MkdirAll(appDataDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create app data directory: %w", err)
+	}
+
+	// Python plugin configuration
+	pythonConfig := map[string]interface{}{
+		"pythonPath":       "/Users/mohsen/.chapar/.venv/bin/python", // or "python" depending on your system
+		"serverScriptPath": filepath.Join(appDataDir, "scripts", "python_server.py"),
+		"port":             8090,
+	}
+
+	if err := u.scriptPluginManager.RegisterPlugin("python", pythonScriptingPlugin, pythonConfig); err != nil {
+		return nil, fmt.Errorf("failed to register python plugin, %w", err)
+	}
+
 	u.workspacesView = workspaces.NewView()
 	u.workspacesState = state.NewWorkspaces(repo)
 	u.workspacesController = workspaces.NewController(u.workspacesView, u.workspacesState, repo)
@@ -112,7 +144,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState)
 
-	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
+	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService, pythonScriptingPlugin)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
@@ -339,6 +371,10 @@ func (u *UI) load() error {
 func (u *UI) Run() error {
 	// ops are the operations from the UI
 	var ops op.Ops
+
+	defer func() {
+		_ = u.scriptPluginManager.ShutdownAll()
+	}()
 
 	for {
 		switch e := u.window.Event().(type) {
