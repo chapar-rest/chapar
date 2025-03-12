@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gioui.org/font"
+	"gioui.org/io/event"
 	"gioui.org/io/input"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -17,6 +18,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/oligo/gioview/misc"
 
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
@@ -47,6 +49,9 @@ type TreeNode struct {
 	menuContextArea component.ContextArea
 	menu            component.MenuState
 	menuClickables  []*widget.Clickable
+
+	draggable widget.Draggable
+	entered   bool
 
 	menuInit bool
 	isChild  bool
@@ -296,7 +301,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 
 // LayoutTreeNode recursively lays out a tree of widgets described by
 // TreeNodes.
-func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
+func (t *TreeView) layoutTreeNode(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
 	if !node.menuInit {
 		node.menuInit = true
 		node.menuContextArea = component.ContextArea{
@@ -360,6 +365,99 @@ func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *chapartheme.Theme, 
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 		},
 	)
+}
+
+func (tr *TreeNode) droppable() bool {
+	return tr.entered && !tr.draggable.Dragging()
+}
+
+func (t *TreeView) LayoutTreeNode(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
+	for {
+		ke, ok := gtx.Event(pointer.Filter{Target: node, Kinds: pointer.Enter | pointer.Leave})
+		if !ok {
+			break
+		}
+
+		switch event := ke.(type) {
+		case pointer.Event:
+			if event.Kind == pointer.Enter {
+				node.entered = true
+			} else if event.Kind == pointer.Leave {
+				node.entered = false
+			}
+		}
+	}
+
+	macro := op.Record(gtx.Ops)
+	dims := func() layout.Dimensions {
+		if len(node.Children) != 0 {
+			return t.layoutTreeNode(gtx, theme, node)
+		}
+
+		return node.draggable.Layout(gtx,
+			func(gtx layout.Context) layout.Dimensions {
+				return t.layoutTreeNode(gtx, theme, node)
+			},
+			func(gtx layout.Context) layout.Dimensions {
+				return t.layoutDraggingBox(gtx, theme, node)
+			},
+		)
+	}()
+	call := macro.Stop()
+
+	defer pointer.PassOp{}.Push(gtx.Ops).Pop()
+	defer clip.Rect(image.Rectangle{Max: dims.Size}).Push(gtx.Ops).Pop()
+	if node.droppable() {
+		paint.ColorOp{Color: misc.WithAlpha(theme.ContrastFg, 0xb6)}.Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+	}
+
+	if m, ok := node.draggable.Update(gtx); ok {
+		node.draggable.Offer(gtx, m, node)
+	}
+
+	event.Op(gtx.Ops, node)
+	call.Add(gtx.Ops)
+
+	return dims
+}
+
+// Implelments io.ReadCloser for widget.Draggable.
+func (tr *TreeNode) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func (tr *TreeNode) Close() error {
+	return nil
+}
+
+func (t *TreeView) layoutDraggingBox(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
+	if !node.draggable.Dragging() {
+		return layout.Dimensions{}
+	}
+
+	offset := node.draggable.Pos()
+	if offset.Round().X == 0 && offset.Round().Y == 0 {
+		return layout.Dimensions{}
+	}
+
+	macro := op.Record(gtx.Ops)
+	dims := func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: unit.Dp(6), Bottom: unit.Dp(6), Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			lb := material.Label(theme.Material(), theme.TextSize, node.Text)
+			lb.Color = theme.ContrastFg
+			return lb.Layout(gtx)
+		})
+	}(gtx)
+	call := macro.Stop()
+
+	defer clip.UniformRRect(image.Rectangle{Max: dims.Size}, gtx.Dp(unit.Dp(0))).Push(gtx.Ops).Pop()
+	paint.ColorOp{Color: theme.MenuBgColor}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+	defer paint.PushOpacity(gtx.Ops, 1).Pop()
+	call.Add(gtx.Ops)
+
+	return dims
 }
 
 func (t *TreeView) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
