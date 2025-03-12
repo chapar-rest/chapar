@@ -1,6 +1,7 @@
 package egress
 
 import (
+	"context"
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
@@ -9,8 +10,18 @@ import (
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
 )
+
+type ScriptRunner interface {
+	// ExecutePreRequestScript runs a script before the request is sent
+	// and potentially modifies the request data
+	ExecutePreRequestScript(ctx context.Context, script string, requestData *scripting.RequestData) error
+	// ExecutePostResponseScript runs a script after a response is received
+	// and can access both request and response data
+	ExecutePostResponseScript(ctx context.Context, script string, requestData *scripting.RequestData, responseData *scripting.ResponseData) error
+}
 
 type Service struct {
 	requests     *state.Requests
@@ -18,14 +29,17 @@ type Service struct {
 
 	rest *rest.Service
 	grpc *grpc.Service
+
+	scriptRunner ScriptRunner
 }
 
-func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service) *Service {
+func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service, scriptRunner ScriptRunner) *Service {
 	return &Service{
 		requests:     requests,
 		environments: environments,
 		rest:         rest,
 		grpc:         grpc,
+		scriptRunner: scriptRunner,
 	}
 }
 
@@ -247,6 +261,10 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Res
 		return nil
 	}
 
+	if r.Type == domain.PrePostTypePython {
+		return s.handlePythonPostRequest(r, response)
+	}
+
 	if r.Type != domain.PrePostTypeSetEnv {
 		// TODO: implement other types
 		return nil
@@ -267,6 +285,17 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Res
 	}
 
 	return nil
+}
+
+func (s *Service) handlePythonPostRequest(r domain.PostRequest, response *rest.Response) error {
+	reqData := &scripting.RequestData{}
+	respData := &scripting.ResponseData{
+		StatusCode: response.StatusCode,
+		Headers:    response.ResponseHeaders,
+		Body:       response.JSON,
+	}
+
+	return s.scriptRunner.ExecutePostResponseScript(context.Background(), r.Script, reqData, respData)
 }
 
 func (s *Service) handlePostRequestFromBody(r domain.PostRequest, response *rest.Response, env *domain.Environment) error {
