@@ -1,6 +1,8 @@
 package scripting
 
 import (
+	"fmt"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
 )
@@ -38,6 +40,7 @@ func (s *Store) Get(name string) (interface{}, bool) {
 func (s *Store) Set(name string, value interface{}) {
 	env, err := s.getActiveEnvironment()
 	if err != nil {
+		fmt.Println("error getting active environment", err)
 		return
 	}
 
@@ -51,7 +54,9 @@ func (s *Store) Set(name string, value interface{}) {
 	}
 
 	if needUpdate {
-		_ = s.repo.Update(env)
+		if err := s.repo.Update(env); err != nil {
+			fmt.Println("error updating environment", err)
+		}
 	}
 }
 
