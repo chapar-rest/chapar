@@ -284,17 +284,17 @@ def create_chapar_module():
     chapar module - Interface for interacting with the Chapar application
     """
 
-    # Store variables internally
-    variables = {}
-    set_variables = {}
+    # Store environments internally
+    environments = {}
+    set_environments = {}
 
     # Environment variable methods
     def get_env(name):
-        value = variables.get(name)
+        value = environments.get(name)
         return value
 
     def set_env(name, value):
-        set_variables[name] = value
+        set_environments[name] = value
 
     def log(message):
         print(f"CHAPAR_LOG: {message}")
@@ -304,8 +304,8 @@ def create_chapar_module():
     chapar_module.set_env = set_env
     chapar_module.log = log
     chapar_module.onResponse = None
-    chapar_module._variables = variables
-    chapar_module._set_variables = set_variables
+    chapar_module._environments = environments
+    chapar_module._set_environments = set_environments
 
     # Register the module in sys.modules
     sys.modules['chapar'] = chapar_module

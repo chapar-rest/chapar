@@ -356,7 +356,7 @@ func (s *Service) handlePythonPostRequest(script string, response *rest.Response
 
 	result, err := s.scriptRunner.ExecutePostResponseScript(context.Background(), script, params)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	for k, v := range result.SetEnvironments {
