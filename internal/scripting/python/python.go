@@ -72,11 +72,8 @@ func (p *Plugin) startServer() error {
 		return fmt.Errorf("failed to create script directory: %w", err)
 	}
 
-	// Create the Python server script if it doesn't exist
-	if _, err := os.Stat(p.serverScriptPath); os.IsNotExist(err) {
-		if err := p.createServerScript(); err != nil {
-			return fmt.Errorf("failed to create server script: %w", err)
-		}
+	if err := p.createServerScript(); err != nil {
+		return fmt.Errorf("failed to create server script: %w", err)
 	}
 
 	// Start the Python process
@@ -114,7 +111,7 @@ func (p *Plugin) waitForServer() error {
 }
 
 // ExecutePreRequestScript executes a Python script before a request is sent
-func (p *Plugin) ExecutePreRequestScript(ctx context.Context, script string, requestData *scripting.RequestData) error {
+func (p *Plugin) ExecutePreRequestScript(ctx context.Context, script string, params *scripting.ExecParams) (*scripting.ExecResult, error) {
 	type requestBody struct {
 		Script      string                 `json:"script"`
 		RequestData *scripting.RequestData `json:"requestData"`
@@ -124,53 +121,58 @@ func (p *Plugin) ExecutePreRequestScript(ctx context.Context, script string, req
 	// Prepare the request body
 	body := requestBody{
 		Script:      script,
-		RequestData: requestData,
-		Variables:   p.variableStore.GetAll(),
+		RequestData: params.Req,
+		Variables:   params.Env.GetKeyValues(),
 	}
 
 	// Execute the script
 	result, err := p.executeScript("/execute-pre-request", body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// Update the request data with the result
-	if updatedReqData, ok := result["requestData"].(map[string]interface{}); ok {
-		if method, ok := updatedReqData["method"].(string); ok {
-			requestData.Method = method
-		}
-		if url, ok := updatedReqData["url"].(string); ok {
-			requestData.URL = url
-		}
-		if headers, ok := updatedReqData["headers"].(map[string]interface{}); ok {
-			for k, v := range headers {
-				if strVal, ok := v.(string); ok {
-					requestData.Headers[k] = strVal
+	out := &scripting.ExecResult{
+		SetEnvironments: map[string]interface{}{},
+	}
+
+	if params.Req != nil {
+		out.Req = &scripting.RequestData{}
+
+		// Update the request data with the result
+		if updatedReqData, ok := result["requestData"].(map[string]interface{}); ok {
+			if method, ok := updatedReqData["method"].(string); ok {
+				out.Req.Method = method
+			}
+			if url, ok := updatedReqData["url"].(string); ok {
+				out.Req.URL = url
+			}
+			if headers, ok := updatedReqData["headers"].(map[string]interface{}); ok {
+				for k, v := range headers {
+					if strVal, ok := v.(string); ok {
+						out.Req.Headers[k] = strVal
+					}
 				}
 			}
-		}
-		if body, ok := updatedReqData["body"].(string); ok {
-			requestData.Body = body
+			if body, ok := updatedReqData["body"].(string); ok {
+				out.Req.Body = body
+			}
 		}
 	}
 
 	// Update variables in the store
-	if updatedVars, ok := result["variables"].(map[string]interface{}); ok {
-		for k, v := range updatedVars {
-			p.variableStore.Set(k, v)
-		}
+	if updatedVars, ok := result["set_environments"].(map[string]interface{}); ok {
+		out.SetEnvironments = updatedVars
 	}
 
-	return nil
+	return out, nil
 }
 
 // ExecutePostResponseScript executes a Python script after a response is received
 func (p *Plugin) ExecutePostResponseScript(
 	ctx context.Context,
 	script string,
-	requestData *scripting.RequestData,
-	responseData *scripting.ResponseData,
-) error {
+	params *scripting.ExecParams,
+) (*scripting.ExecResult, error) {
 	type requestBody struct {
 		Script       string                  `json:"script"`
 		RequestData  *scripting.RequestData  `json:"requestData"`
@@ -181,29 +183,26 @@ func (p *Plugin) ExecutePostResponseScript(
 	// Prepare the request body
 	body := requestBody{
 		Script:       script,
-		RequestData:  requestData,
-		ResponseData: responseData,
-		Variables:    p.variableStore.GetAll(),
+		RequestData:  params.Req,
+		ResponseData: params.Res,
+		Variables:    params.Env.GetKeyValues(),
 	}
 
 	// Execute the script
 	result, err := p.executeScript("/execute-post-response", body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for k, _ := range result["variables"].(map[string]interface{}) {
-		fmt.Println(k)
+	out := &scripting.ExecResult{
+		SetEnvironments: map[string]interface{}{},
 	}
-
 	// Update variables in the store
-	if updatedVars, ok := result["variables"].(map[string]interface{}); ok {
-		for k, v := range updatedVars {
-			p.variableStore.Set(k, v)
-		}
+	if updatedVars, ok := result["set_environments"].(map[string]interface{}); ok {
+		out.SetEnvironments = updatedVars
 	}
 
-	return nil
+	return out, nil
 }
 
 // executeScript sends a request to the Python server to execute a script
@@ -229,7 +228,7 @@ func (p *Plugin) executeScript(endpoint string, requestBody interface{}) (map[st
 
 	// Check the status code
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Python server returned error: %s", string(respBody))
+		return nil, fmt.Errorf("python server returned error: %s", string(respBody))
 	}
 
 	// Parse the response
@@ -270,153 +269,110 @@ func (p *Plugin) createServerScript() error {
 import types
 import sys
 import json
-import logging
 import argparse
 import traceback
 from flask import Flask, request, jsonify
-
-# Set up detailed logging
-logging.basicConfig(level=logging.DEBUG, 
-                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('chapar_server')
 
 def create_chapar_module():
     """
     Dynamically create the chapar module with full implementation
     """
-    logger.info("Creating chapar module dynamically")
-    
     # Create a new module object
     chapar_module = types.ModuleType('chapar')
     chapar_module.__file__ = '<dynamic>'
     chapar_module.__doc__ = """
     chapar module - Interface for interacting with the Chapar application
     """
-    
+
     # Store variables internally
     variables = {}
-    
+    set_variables = {}
+
     # Environment variable methods
     def get_env(name):
         value = variables.get(name)
-        logger.debug(f"get_env({name}) = {value}")
         return value
-    
+
     def set_env(name, value):
-        logger.debug(f"set_env({name}, {value})")
-        variables[name] = value
-    
+        set_variables[name] = value
+
     def log(message):
-        logger.info(f"User log: {message}")
         print(f"CHAPAR_LOG: {message}")
-    
+
     # Assign methods to the module
     chapar_module.get_env = get_env
     chapar_module.set_env = set_env
     chapar_module.log = log
     chapar_module.onResponse = None
     chapar_module._variables = variables
-    
+    chapar_module._set_variables = set_variables
+
     # Register the module in sys.modules
     sys.modules['chapar'] = chapar_module
-    
-    logger.info("Chapar module created and registered in sys.modules")
     return chapar_module
+
 
 # Create the chapar module
 chapar = create_chapar_module()
-
-# Verify it's in sys.modules
-if 'chapar' in sys.modules:
-    logger.info("Verified: chapar is in sys.modules")
-else:
-    logger.error("ERROR: chapar is NOT in sys.modules!")
-
 app = Flask(__name__)
+
 
 @app.route("/health")
 def health_check():
-    logger.info("Health check requested")
     return jsonify({"status": "ok"})
+
 
 @app.route("/execute-pre-request", methods=["POST"])
 def execute_pre_request():
-    logger.info("Pre-request script execution requested")
     try:
         data = request.json
         script = data.get("script", "")
         request_data = data.get("requestData", {})
-        variables = data.get("variables", {})
-        
-        # Log received data
-        logger.debug(f"Received script:\n{script}")
-        logger.debug(f"Received variables: {variables}")
-        
-        # Update chapar module variables
-        chapar._variables.clear()
-        chapar._variables.update(variables)
-        
-        # Test chapar module directly
-        logger.debug("Testing chapar module:")
-        chapar.set_env("test_key", "test_value")
-        test_val = chapar.get_env("test_key")
-        logger.debug(f"Test get_env result: {test_val}")
-        
+        environments = data.get("environments", {})
+
+        # Update chapar module environments
+        chapar._environments.clear()
+        chapar._set_environments.clear()
+        chapar._environments.update(environments)
+
         # Prepare execution environment
         globals_dict = {
             "__builtins__": __builtins__,
             "chapar": chapar  # Make chapar available in globals
         }
-        
+
         locals_dict = {
             "request": request_data,
             "chapar": chapar,  # Also make it available in locals
             "print": print
         }
-        
-        logger.info("Executing script with chapar in both globals and locals")
-        
-        # Try running a simple test first
-        try:
-            logger.debug("Testing import capability:")
-            exec("import chapar; print('chapar import successful'); chapar.log('test from import')", 
-                 globals_dict.copy(), locals_dict.copy())
-            logger.debug("Import test successful")
-        except Exception as e:
-            logger.error(f"Import test failed: {str(e)}")
-            logger.error(traceback.format_exc())
-        
+
         # Now execute the actual script
         exec(script, globals_dict, locals_dict)
-        
+
         # Return the potentially modified data
         return jsonify({
             "requestData": locals_dict["request"],
-            "variables": chapar._variables
+            "set_environments": chapar._set_environments
         })
     except Exception as e:
-        logger.error(f"Script execution error: {str(e)}")
-        logger.error(traceback.format_exc())
         return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 400
+
 
 @app.route("/execute-post-response", methods=["POST"])
 def execute_post_response():
-    logger.info("Post-response script execution requested")
     try:
         data = request.json
         script = data.get("script", "")
         request_data = data.get("requestData", {})
         response_data = data.get("responseData", {})
-        variables = data.get("variables", {})
-        
-        # Log received data
-        logger.debug(f"Received script:\n{script}")
-        logger.debug(f"Received variables: {variables}")
-        
-        # Update chapar module variables
-        chapar._variables.clear()
-        chapar._variables.update(variables)
-        
+        environments = data.get("environments", {})
+
+        # Update chapar module environments
+        chapar._environments.clear()
+        chapar._set_environments.clear()
+        chapar._environments.update(environments)
+
         # Create response object
         response_obj = type("ResponseObject", (), {
             "status_code": response_data.get("statusCode"),
@@ -424,51 +380,44 @@ def execute_post_response():
             "text": response_data.get("body", ""),
             "json": lambda self=None: json.loads(response_data.get("body", "{}")),
         })()
-        
+
         # Prepare execution environment
         globals_dict = {
             "__builtins__": __builtins__,
             "chapar": chapar  # Make chapar available in globals
         }
-        
+
         locals_dict = {
             "request": request_data,
             "response": response_obj,
             "chapar": chapar,  # Also make it available in locals
             "print": print
         }
-        
+
         # Reset any callbacks
         chapar.onResponse = None
-        
+
         # Execute the script
         exec(script, globals_dict, locals_dict)
-        
+
         # If onResponse was set, call it
         if chapar.onResponse is not None and callable(chapar.onResponse):
-            logger.info("Executing onResponse callback")
             chapar.onResponse(response_obj)
-        
+
         # Return the potentially modified data
         return jsonify({
-            "variables": chapar._variables
+            "environments": chapar._environments,
+            "set_environments": chapar._set_environments,
         })
     except Exception as e:
-        logger.error(f"Script execution error: {str(e)}")
-        logger.error(traceback.format_exc())
         return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 400
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8090)
     args = parser.parse_args()
-    
-    logger.info(f"Starting Python script server on port {args.port}")
-    print(f"Starting Python script server on port {args.port}")
-    print(f"Python version: {sys.version}")
-    print(f"Modules available: {', '.join(sorted(sys.modules.keys()))}")
-    
-    app.run(host="127.0.0.1", port=args.port, debug=True)
+    app.run(host="127.0.0.1", port=args.port, debug=False)
 `
 	return os.WriteFile(p.serverScriptPath, []byte(content), 0755)
 }
