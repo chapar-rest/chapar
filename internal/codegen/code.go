@@ -32,6 +32,10 @@ func (svc *Service) applyVariables(req *domain.HTTPRequestSpec) *domain.HTTPRequ
 	r.RenderParams()
 	variables.ApplyToHTTPRequest(vars, r)
 
+	if r.Method == "" {
+		r.Method = domain.RequestMethodGET
+	}
+
 	if svc.currentEnvironment != nil {
 		variables.ApplyToEnv(vars, &svc.currentEnvironment.Spec)
 		svc.currentEnvironment.ApplyToHTTPRequest(r)
@@ -140,12 +144,9 @@ print(response.text)
 }
 
 func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (string, error) {
-	if requestSpec.Method == "" {
-		requestSpec.Method = domain.RequestMethodGET
-	}
-
-	if requestSpec.Method == domain.RequestMethodHEAD {
-		requestSpec.Method = "--head"
+	spec := requestSpec.Clone()
+	if spec.Method == domain.RequestMethodHEAD {
+		spec.Method = "--head"
 	}
 
 	// Define a Go template to generate the `curl` command
@@ -187,7 +188,7 @@ func (svc *Service) GenerateCurlCommand(requestSpec *domain.HTTPRequestSpec) (st
 {{- end }}
 `
 
-	return svc.generate(curlTemplate, requestSpec)
+	return svc.generate(curlTemplate, spec)
 }
 
 func (svc *Service) GenerateGoRequest(requestSpec *domain.HTTPRequestSpec) (string, error) {
