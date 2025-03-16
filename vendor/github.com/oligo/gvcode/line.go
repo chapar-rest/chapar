@@ -1,8 +1,6 @@
 package gvcode
 
 import (
-	"bufio"
-	"io"
 	"sort"
 	"strings"
 
@@ -10,7 +8,7 @@ import (
 )
 
 // find a paragraph by rune index.
-func (e *textView) findParagraph(runeIdx int) lt.Paragraph {
+func (e *textView) FindParagraph(runeIdx int) lt.Paragraph {
 	idx := sort.Search(len(e.layouter.Paragraphs), func(i int) bool {
 		rng := e.layouter.Paragraphs[i]
 		return rng.RuneOff+rng.Runes > runeIdx
@@ -127,41 +125,36 @@ func (e *textView) PartialLineSelected() bool {
 	}
 }
 
-// AdjustIndentation indent or unindent each of the selected non-empty lines with
-// one tab(soft tab or hard tab).
-func (e *textView) AdjustIndentation(textOflines []byte, unindent bool) int {
+// expandTab tries to expand tab character to spaces while respecting tab stops.
+// If s is a single tab character and the editor is configured to use soft tab,
+// the tab is expanded with spaces, also tab stop is accounted when calculating
+// space number.
+func (e *textView) ExpandTab(start, end int, s string) string {
+	if !e.SoftTab || s != "\t" {
+		return s
+	}
+
+	if start > end {
+		start = end
+	}
+
+	p := e.FindParagraph(start)
+	if p == (lt.Paragraph{}) {
+		return strings.Repeat(" ", e.TabWidth)
+	}
+
+	advance := start - p.RuneOff
+	nextTabStop := (advance/e.TabWidth + 1) * e.TabWidth
+	spaces := nextTabStop - advance
+
+	return strings.Repeat(" ", spaces)
+}
+
+// Indentation returns the text sequence used to indent the lines(paragraphs).
+func (e *textView) Indentation() string {
 	indentation := "\t"
 	if e.SoftTab {
 		indentation = strings.Repeat(" ", e.TabWidth)
 	}
-
-	lineReader := bufio.NewReader(strings.NewReader(string(textOflines)))
-	newLines := strings.Builder{}
-
-	for {
-		line, err := lineReader.ReadBytes('\n')
-		if err == io.EOF && len(line) == 0 {
-			break
-		}
-
-		// empty line with only the trailing line break
-		if len(line) == 1 {
-			newLines.Write(line)
-			continue
-		}
-
-		if unindent {
-			if strings.HasPrefix(string(line), indentation) {
-				newLines.WriteString(strings.TrimPrefix(string(line), indentation))
-			} else {
-				// TODO: trim any leading whitespaces when no indentation found.
-				newLines.Write(line)
-			}
-		} else {
-			newLines.WriteString(indentation + string(line))
-		}
-	}
-
-	start, end := e.SelectedLineRange()
-	return e.Replace(start, end, newLines.String())
+	return indentation
 }

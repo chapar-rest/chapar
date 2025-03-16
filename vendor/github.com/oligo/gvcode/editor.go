@@ -33,6 +33,10 @@ type Editor struct {
 	LineNumberMaterial op.CallOp
 	// Color used to highlight the text snippets, such as search matches.
 	TextHighlightMaterial op.CallOp
+	
+	// hooks
+	onPaste BeforePasteHook
+	onInsert BeforeInsertHook
 
 	// readOnly controls whether the contents of the editor can be altered by
 	// user interaction. If set to true, the editor will allow selecting text

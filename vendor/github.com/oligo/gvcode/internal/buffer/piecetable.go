@@ -377,6 +377,9 @@ func (pt *PieceTable) Erase(startOff, endOff int) bool {
 		return true
 	}
 
+	offset := startOff
+	n := startPiece
+
 	// Delete start in the middle of a piece. Split the piece and keep the left part.
 	if inRuneOff > 0 {
 		leftByteLen := pt.getBuf(startPiece.source).bytesForRange(startPiece.offset, inRuneOff)
@@ -389,11 +392,10 @@ func (pt *PieceTable) Erase(startOff, endOff int) bool {
 			byteLength: leftByteLen,
 		})
 		bytesErased += startPiece.byteLength - leftByteLen
-		startPiece = startPiece.next
+		n = startPiece.next
+		offset += startPiece.length - inRuneOff
 	}
 
-	offset := startOff
-	n := startPiece
 	for ; n != pt.pieces.tail; n = n.next {
 		if offset >= endOff {
 			break

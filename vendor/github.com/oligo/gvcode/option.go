@@ -78,3 +78,21 @@ func WrapLine(enabled bool) EditorOption {
 		}
 	}
 }
+
+// BeforeInsertHook defines a hook to be called before the editor insert characters, usually via keyboard input.
+type BeforeInsertHook func(start, end int, text string) string
+
+// BeforePasteHook defines a hook to be called before pasting text to transform the text.
+type BeforePasteHook func(text string) string
+
+func AddBeforePasteHook(hook BeforePasteHook) EditorOption {
+	return func(ed *Editor) {
+		ed.onPaste = hook
+	}
+}
+
+func AddBeforeInsertHook(hook BeforeInsertHook) EditorOption {
+	return func(ed *Editor) {
+		ed.onInsert = hook
+	}
+}

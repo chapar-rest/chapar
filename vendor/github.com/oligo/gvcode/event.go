@@ -243,28 +243,13 @@ func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 			if e.readOnly {
 				break
 			}
-			e.scrollCaret = true
-			e.scroller.Stop()
-			e.replace(ke.Range.Start, ke.Range.End, ke.Text)
-			// Reset caret xoff.
-			e.text.MoveCaret(0, 0)
+			e.onTextInput(ke)
 		// Complete a paste event, initiated by Shortcut-V in Editor.command().
 		case transfer.DataEvent:
-			e.scrollCaret = true
-			e.scroller.Stop()
-			content, err := io.ReadAll(ke.Open())
-			if err == nil {
-				runes := 0
-				if isSingleLine(string(content)) {
-					runes = e.InsertLine(string(content))
-				} else {
-					runes = e.Insert(string(content))
-				}
-
-				if runes != 0 {
-					return ChangeEvent{}, true
-				}
+			if evt := e.onPasteEvent(ke); evt != nil {
+				return evt, true
 			}
+
 		case key.SelectionEvent:
 			e.scrollCaret = true
 			e.scroller.Stop()
@@ -325,10 +310,8 @@ func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
 	}
 	switch k.Name {
 	case key.NameReturn, key.NameEnter:
-		if !e.readOnly {
-			if e.Insert("\n") != 0 {
-				return ChangeEvent{}, true
-			}
+		if evt := e.onInsertLineBreak(k); evt != nil {
+			return evt, true
 		}
 	case key.NameTab:
 		if evt := e.onTab(k); evt != nil {
@@ -475,7 +458,9 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 	}
 
 	if e.SelectionLen() == 0 || e.text.PartialLineSelected() {
-		if e.Insert("\t") != 0 {
+		// expand soft tab.
+		start, end := e.text.Selection()
+		if e.Insert(e.text.ExpandTab(start, end, "\t")) != 0 {
 			return ChangeEvent{}
 		}
 	}
@@ -487,7 +472,7 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 		return nil
 	}
 
-	if e.text.AdjustIndentation(e.scratch, backword) > 0 {
+	if e.adjustIndentation(e.scratch, backword) > 0 {
 		// Reset xoff.
 		e.text.MoveCaret(0, 0)
 		e.scrollCaret = true
@@ -496,4 +481,66 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 
 	return nil
 
+}
+
+func (e *Editor) onTextInput(ke key.EditEvent) {
+	if e.readOnly {
+		return
+	}
+
+	if e.autoCompleteTextPair(ke) {
+		return
+	}
+
+	e.scrollCaret = true
+	e.scroller.Stop()
+	e.replace(ke.Range.Start, ke.Range.End, ke.Text)
+	// Reset caret xoff.
+	e.text.MoveCaret(0, 0)
+}
+
+func (e *Editor) onPasteEvent(ke transfer.DataEvent) EditorEvent {
+	if e.readOnly {
+		return nil
+	}
+
+	e.scrollCaret = true
+	e.scroller.Stop()
+	content, err := io.ReadAll(ke.Open())
+	if err != nil {
+		return nil
+	}
+
+	text := string(content)
+	if e.onPaste != nil {
+		text = e.onPaste(text)
+	}
+
+	runes := 0
+	if isSingleLine(text) {
+		runes = e.InsertLine(text)
+	} else {
+		runes = e.Insert(text)
+	}
+
+	if runes != 0 {
+		return ChangeEvent{}
+	}
+
+	return nil
+}
+
+func (e *Editor) onInsertLineBreak(key.Event) EditorEvent {
+	if e.readOnly {
+		return nil
+	}
+
+	changed, indents := e.breakAndIndent("\n")
+	e.indentInsideBrackets(indents)
+
+	if changed {
+		return ChangeEvent{}
+	}
+
+	return nil
 }

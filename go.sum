@@ -51,6 +51,8 @@ github.com/oligo/gvcode v0.0.3-0.20250227183646-0d9bbdf3f0d8 h1:CnUz3nyuqnmEp4EO
 github.com/oligo/gvcode v0.0.3-0.20250227183646-0d9bbdf3f0d8/go.mod h1:FbEzms1rI1zSHa7EEkupx9FtGnuNa+pqdXuaRbr0YxE=
 github.com/oligo/gvcode v0.0.3-0.20250301165326-8108008a5bcb h1:CqnT/FFuQ3Q3wto3mbWB2aGwRwwH6IB1Aq9BmgGpIws=
 github.com/oligo/gvcode v0.0.3-0.20250301165326-8108008a5bcb/go.mod h1:FbEzms1rI1zSHa7EEkupx9FtGnuNa+pqdXuaRbr0YxE=
+github.com/oligo/gvcode v0.1.0 h1:YlNQJkgX6+9i19D+64N0Wm/U3t7/RBGhdhZQqnNoJrI=
+github.com/oligo/gvcode v0.1.0/go.mod h1:FbEzms1rI1zSHa7EEkupx9FtGnuNa+pqdXuaRbr0YxE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=

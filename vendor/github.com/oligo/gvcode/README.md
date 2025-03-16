@@ -10,6 +10,10 @@ gvcode is a Gio based text editor for code editing.
 - Lines can be unwrapped, with horizontal scrolling supported.  
 - Syntax highlighting is available by applying text styles.  
 - Built-in line numbers for better readability.  
+- Auto-complete of bracket pairs and quote pairs.
+- Auto-indent new lines.
+- Bracket auto-indent.
+- Increase or descease indents of multi-lines using Tab key and Shift+Tab.
 - Expanded shortcuts support (Work in Progress).  
 - Large file rendering(Planned).
 
