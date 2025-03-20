@@ -56,6 +56,12 @@ func (e *textView) selectedParagraphs() []lt.Paragraph {
 		}
 
 		for i := startIdx + 1; i <= endIdx; i++ {
+			p := e.layouter.Paragraphs[i]
+			if i == endIdx && p.RuneOff == caretEnd {
+				// skip the last empty-selection line as it indicates we are at the end
+				// of the previous line.
+				break
+			}
 			selections = append(selections, e.layouter.Paragraphs[i])
 		}
 	}
@@ -100,6 +106,10 @@ func (e *textView) SelectedLineText(buf []byte) []byte {
 
 // partialLineSelected checks if the current selection is a partial single line.
 func (e *textView) PartialLineSelected() bool {
+	if e.caret.start == e.caret.end {
+		return false
+	}
+
 	paragraphs := e.selectedParagraphs()
 	if len(paragraphs) > 1 {
 		return false

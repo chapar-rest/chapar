@@ -457,7 +457,8 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 		return nil
 	}
 
-	if e.SelectionLen() == 0 || e.text.PartialLineSelected() {
+	backward := k.Modifiers.Contain(key.ModShift)
+	if (!backward && e.SelectionLen() == 0) || e.text.PartialLineSelected() {
 		// expand soft tab.
 		start, end := e.text.Selection()
 		if e.Insert(e.text.ExpandTab(start, end, "\t")) != 0 {
@@ -465,14 +466,7 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 		}
 	}
 
-	backword := k.Modifiers.Contain(key.ModShift)
-
-	e.scratch = e.text.SelectedLineText(e.scratch)
-	if len(e.scratch) == 0 {
-		return nil
-	}
-
-	if e.adjustIndentation(e.scratch, backword) > 0 {
+	if e.indenter.IndentMultiLines(backward) > 0 {
 		// Reset xoff.
 		e.text.MoveCaret(0, 0)
 		e.scrollCaret = true
@@ -483,12 +477,30 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 
 }
 
+func (e *Editor) autoCompleteBracketsAndQuotes(ke key.EditEvent) bool {
+	if ke.Text == "" {
+		return false
+	}
+
+	allPairs := mergeMaps(e.text.BracketPairs, e.text.QuotePairs)
+	closing, ok := allPairs[[]rune(ke.Text)[0]]
+	if !ok {
+		return false
+	}
+
+	e.scrollCaret = true
+	e.scroller.Stop()
+	e.replace(ke.Range.Start, ke.Range.End, ke.Text+string(closing))
+	e.text.MoveCaret(-1, -1)
+	return true
+}
+
 func (e *Editor) onTextInput(ke key.EditEvent) {
 	if e.readOnly {
 		return
 	}
 
-	if e.autoCompleteTextPair(ke) {
+	if e.autoCompleteBracketsAndQuotes(ke) {
 		return
 	}
 
@@ -530,15 +542,12 @@ func (e *Editor) onPasteEvent(ke transfer.DataEvent) EditorEvent {
 	return nil
 }
 
-func (e *Editor) onInsertLineBreak(key.Event) EditorEvent {
+func (e *Editor) onInsertLineBreak(ke key.Event) EditorEvent {
 	if e.readOnly {
 		return nil
 	}
 
-	changed, indents := e.breakAndIndent("\n")
-	e.indentInsideBrackets(indents)
-
-	if changed {
+	if e.indenter.IndentOnBreak("\n") {
 		return ChangeEvent{}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -70,31 +71,18 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 
 	c := &CodeEditor{
 		theme:  theme,
-		editor: &gvcode.Editor{
-			//Font:                  editorFont.Font,
-			//TextSize:              unit.Sp(12),
-			//LineHeightScale:       1,
-			//WrapLine:              true,
-			//ReadOnly:              false,
-			//SoftTab:               true,
-			//TabWidth:              4,
-			//LineNumberGutter: 1,
-			// TextMaterial:     rgbToOp(theme.TextColor),
-			// SelectMaterial:        rgbToOp(theme.TextSelectionColor),
-			// TextHighlightMaterial: rgbToOp(theme.TextSelectionColor),
-		},
-		code: code,
+		editor: &gvcode.Editor{},
+		code:   code,
 		font: font.FontFace{
 			Font: font.Font{Typeface: "sourceSansPro"},
 		},
 		lang: lang,
 	}
 
-	// c.editor.WithOptions(gvcode.WithShaperParams(c.font.Font, unit.Sp(12), text.Start, unit.Sp(16), 1))
-	// c.editor.WithOptions(gvcode.WithTabWidth(4))
-	// c.editor.WithOptions(gvcode.WithSoftTab(true))
+	c.editor.WithOptions(gvcode.WithShaperParams(c.font.Font, unit.Sp(12), text.Start, unit.Sp(16), 1))
+	c.editor.WithOptions(gvcode.WithTabWidth(4))
+	c.editor.WithOptions(gvcode.WithSoftTab(true))
 	c.editor.WithOptions(gvcode.WrapLine(true))
-
 	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)
 
 	c.border = widget.Border{

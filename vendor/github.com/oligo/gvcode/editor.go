@@ -33,10 +33,11 @@ type Editor struct {
 	LineNumberMaterial op.CallOp
 	// Color used to highlight the text snippets, such as search matches.
 	TextHighlightMaterial op.CallOp
-	
+
 	// hooks
-	onPaste BeforePasteHook
+	onPaste  BeforePasteHook
 	onInsert BeforeInsertHook
+	indenter autoIndenter
 
 	// readOnly controls whether the contents of the editor can be altered by
 	// user interaction. If set to true, the editor will allow selecting text
@@ -120,6 +121,7 @@ func (e *Editor) initBuffer() {
 	}
 
 	e.text.CaretWidth = unit.Dp(1)
+	e.indenter.Editor = e
 }
 
 // Update the state of the editor in response to input events. Update consumes editor
@@ -218,6 +220,7 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 		e.paintSelection(gtx, e.SelectMaterial)
 		e.paintLineHighlight(gtx, e.LineMaterial)
 		e.paintTextRanges(gtx, e.TextHighlightMaterial)
+		e.text.highlightMatchingBrackets(gtx, e.SelectMaterial)
 		e.paintText(gtx, e.TextMaterial)
 	}
 	if gtx.Enabled() {
@@ -291,6 +294,12 @@ func (e *Editor) Text() string {
 
 func (e *Editor) SetText(s string) {
 	e.initBuffer()
+
+	indent, _, size := GuessIndentation(s)
+	if indent == Spaces {
+		e.text.SoftTab = true
+	}
+	e.text.TabWidth = size
 
 	e.text.SetText(s)
 	e.ime.start = 0
@@ -625,6 +634,14 @@ func (e *Editor) UpdateTextStyles(styles []*TextStyle) {
 
 func (e *Editor) ReadOnly() bool {
 	return e.readOnly
+}
+
+func (e *Editor) TabStyle() (TabStyle, int) {
+	if e.text.SoftTab {
+		return Spaces, e.text.TabWidth
+	}
+
+	return Tabs, e.text.TabWidth
 }
 
 // SetDebug enable or disable the debug mode.

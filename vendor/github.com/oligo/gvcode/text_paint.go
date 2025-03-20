@@ -96,6 +96,39 @@ func (e *textView) PaintRegions(gtx layout.Context, regions []Region, material o
 	}
 }
 
+func (e *textView) highlightMatchingBrackets(gtx layout.Context, material op.CallOp) {
+	left, right := e.bracketHandler.NearestMatchingBrackets()
+	if left < 0 || right < 0 {
+		// no matching found
+		return
+	}
+	localViewport := image.Rectangle{Max: e.viewSize}
+	docViewport := image.Rectangle{Max: e.viewSize}.Add(e.scrollOff)
+	leftRegion := e.layouter.Locate(docViewport, left, left+1, nil)
+	rightRegion := e.layouter.Locate(docViewport, right, right+1, nil)
+
+	e.regions = e.regions[:0]
+	e.regions = append(e.regions, leftRegion...)
+	e.regions = append(e.regions, rightRegion...)
+
+	defer clip.Rect(localViewport).Push(gtx.Ops).Pop()
+	for _, region := range e.regions {
+		area := clip.Rect(e.adjustPadding(region.Bounds))
+		stack := area.Push(gtx.Ops)
+		material.Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+		stack.Pop()
+
+		stroke := clip.Stroke{
+			Path:  area.Path(),
+			Width: float32(gtx.Dp(unit.Dp(1))),
+		}.Op().Push(gtx.Ops)
+		material.Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+		stroke.Pop()
+	}
+}
+
 // caretCurrentLine returns the current paragraph that the carent is in.
 // Only the start position is checked.
 func (e *textView) caretCurrentLine() (start lt.CombinedPos, end lt.CombinedPos) {

@@ -16,8 +16,19 @@ type breaker struct {
 	wordSegmenter     *segmenter.LineIterator
 	graphemeSegmenter *segmenter.GraphemeIterator
 	runes             int
-	prevBreak         breakOption
-	prevUnread        bool
+	// committed break marks the point before which all break options
+	// are handled.
+	committed breakOption
+	// wordBreak marks the cursor position of the wordSegmenter.
+	wordBreak breakOption
+	// graphemeBreak marks the cursor position of the graphemeSegmenter.
+	graphemeBreak breakOption
+	// prevWordUnread marks the runes between committed and wordBreak as
+	// unread. They should be re-evaluated in the next round.
+	prevWordUnread bool
+	// prevGraphemeUnread marks the runes between committed and graphemeBreak as
+	// unread. They should be re-evaluated in the next round.
+	prevGraphemeUnread bool
 }
 
 // newBreaker returns a breaker initialized to break the text.
@@ -32,18 +43,18 @@ func newBreaker(seg *segmenter.Segmenter, text []rune) *breaker {
 }
 
 func (b *breaker) nextWordBreak() (breakOption, bool) {
-	if b.prevUnread {
-		b.prevUnread = false
-		return b.prevBreak, true
+	if b.prevWordUnread && b.wordBreak > b.committed {
+		b.prevWordUnread = false
+		return b.wordBreak, true
 	}
 
 	var opt breakOption
 	for b.wordSegmenter.Next() {
 		line := b.wordSegmenter.Line()
 		opt = breakOption(line.Offset + len(line.Text))
-		if opt > b.prevBreak {
-			b.prevBreak = opt
-			return b.prevBreak, true
+		if opt > b.wordBreak {
+			b.wordBreak = opt
+			return opt, true
 		}
 	}
 
@@ -51,63 +62,134 @@ func (b *breaker) nextWordBreak() (breakOption, bool) {
 }
 
 func (b *breaker) nextGraphemeBreak() (breakOption, bool) {
-	if b.prevUnread {
-		b.prevUnread = false
-		return b.prevBreak, true
+	if b.prevGraphemeUnread && b.graphemeBreak > b.committed {
+		b.prevGraphemeUnread = false
+		return b.graphemeBreak, true
 	}
 
 	var opt breakOption
 	for b.graphemeSegmenter.Next() {
 		grapheme := b.graphemeSegmenter.Grapheme()
 		opt = breakOption(grapheme.Offset + len(grapheme.Text))
-		if opt > b.prevBreak {
-			b.prevBreak = opt
-			return b.prevBreak, true
+		if opt > b.graphemeBreak {
+			b.graphemeBreak = opt
+			return opt, true
 		}
+
 	}
 
 	return 0, false
 }
 
-func (b *breaker) markPrevUnread() {
-	b.prevUnread = true
+func (b *breaker) markPrevWordUnread() {
+	b.prevWordUnread = true
+}
+
+func (b *breaker) markPrevGraphemeUnread() {
+	b.prevGraphemeUnread = true
+}
+
+func (b *breaker) markCommitted() {
+	if !b.prevWordUnread && b.committed < b.wordBreak {
+		b.committed = b.wordBreak
+		if b.graphemeBreak < b.committed {
+			b.graphemeBreak = b.committed
+		}
+	}
+
+	if !b.prevGraphemeUnread && b.committed < b.graphemeBreak {
+		b.committed = b.graphemeBreak
+		if b.wordBreak < b.committed {
+			b.wordBreak = b.committed
+		}
+	}
+
 }
 
 // glyphReader is a buffered glyph reader to read from the shaped glyphs.
 type glyphReader struct {
 	nextGlyph func() (text.Glyph, bool)
-	buf       []text.Glyph
-	// mark the buffer has overflow the maxWidth of the line.
-	overflow bool
+	// total glyph read from the shaper
+	buf []text.Glyph
+	// runes marks how many runes of glyphs we have alrealy read from the nextGlyph(from the shaper).
+	runes int
+	// offset is the rune offset that marks the first unread glyphs.
+	offset int
+	// glyphOff is the glyph offset that marks the first unread glyphs. It should align the offset.
+	glyphOff int
 }
 
-func (b *glyphReader) next() *text.Glyph {
+// read one glyph until offset is equal to runeOff.
+func (b *glyphReader) next(runeOff int) text.Glyph {
+	// if runeOff<0, bypass this check.
+	if runeOff >= 0 && runeOff <= b.offset {
+		return text.Glyph{}
+	}
+
+	if b.offset < b.runes {
+		g := b.buf[b.glyphOff]
+		b.offset += int(g.Runes) // Runes is only set for glyph cluster break.
+		b.glyphOff++
+		return g
+	}
+
+	// no more unread glyph. read one more from the shaper.
 	gl, ok := b.nextGlyph()
 	if !ok {
-		return nil
+		return text.Glyph{}
 	}
 
 	b.buf = append(b.buf, gl)
-	return &b.buf[len(b.buf)-1]
+	b.runes += int(gl.Runes)
+	b.offset += int(gl.Runes)
+	b.glyphOff++
+	return gl
 }
 
-func (b *glyphReader) get() []text.Glyph {
-	return b.buf
-}
-
-// advance calculates the advance of all glyphs in the buffer.
-func (b *glyphReader) advance() fixed.Int26_6 {
-	width := fixed.I(0)
-	for _, g := range b.buf {
-		width += g.Advance
+func (b *glyphReader) seekTo(runeOff int) {
+	if b.offset == runeOff {
+		return
 	}
 
-	return width
+	if runeOff-b.offset > 0 {
+		for runeOff > b.offset {
+			if b.glyphOff > len(b.buf) {
+				break
+			}
+			if gl := b.buf[b.glyphOff-1]; gl.Runes > 0 {
+				b.offset++
+			}
+			b.glyphOff++
+		}
+	} else {
+		for b.offset > runeOff {
+			if b.glyphOff <= 0 {
+				break
+			}
+			if gl := b.buf[b.glyphOff-1]; gl.Runes > 0 {
+				b.offset--
+			}
+			b.glyphOff--
+		}
+	}
 }
 
 func (b *glyphReader) reset() {
 	b.buf = b.buf[:0]
-	b.overflow = false
+	b.runes = 0
+	b.offset = 0
+	b.glyphOff = 0
+}
+
+// advance calculates the advance of all glyphs.
+func advanceOfGlyphs(glyphs []text.Glyph) fixed.Int26_6 {
+	width := fixed.I(0)
+
+	for _, gl := range glyphs {
+		width += gl.Advance
+	}
+
+	return width
 }
 
 // lineWrapper wraps a paragraph of text to lines using the greedy line breaking
@@ -119,10 +201,9 @@ type lineWrapper struct {
 	maxWidth        int
 	spaceGlyph      *text.Glyph
 	tabStopInterval fixed.Int26_6
-
-	runeOff     int
-	currentLine Line
-	glyphBuf    glyphReader
+	currentLine     Line
+	glyphBuf        glyphReader
+	glyphs          []text.Glyph
 }
 
 func (w *lineWrapper) setup(nextGlyph func() (text.Glyph, bool), paragraph []rune, maxWidth int, tabWidth int, spaceGlyph *text.Glyph) {
@@ -133,9 +214,11 @@ func (w *lineWrapper) setup(nextGlyph func() (text.Glyph, bool), paragraph []run
 	w.currentLine = Line{}
 	w.glyphBuf.nextGlyph = nextGlyph
 	w.glyphBuf.reset()
-	w.runeOff = 0
+	w.glyphs = w.glyphs[:0]
 }
 
+// WrapParagraph wraps a paragraph of text using a policy similar to the WhenNecessary LineBreakPolicy from gotext/typesetting.
+// It is also the default policy used by Gio.
 func (w *lineWrapper) WrapParagraph(glyphsIter iter.Seq[text.Glyph], paragraph []rune, maxWidth int, tabWidth int, spaceGlyph *text.Glyph) []*Line {
 	nextGlyph, stop := iter.Pull(glyphsIter)
 	defer stop()
@@ -159,38 +242,24 @@ func (w *lineWrapper) WrapParagraph(glyphsIter iter.Seq[text.Glyph], paragraph [
 // wrapNextLine breaking lines by looking at the break opportunities defined in https://unicode.org/reports/tr14 first.
 // If no break opportunities can be found, it'll try to break at the grapheme cluster bounderies.
 func (w *lineWrapper) wrapNextLine(paragraph []rune) Line {
-	// Handle the remaining glyphs from the previous iteration.
-	// The case that a single word exceeds the line width is already handled in
-	// the previous iteration, so we are safe to add it to the current line here.
-	if len(w.glyphBuf.buf) > 0 {
-		if !w.glyphBuf.overflow {
-			w.currentLine.append(w.glyphBuf.buf...)
-			w.glyphBuf.reset()
-		}
-	}
-
 	for {
 		// try to break at each word boundaries.
-		breakAtIdx, ok := w.breaker.nextWordBreak()
+		nextBreak, ok := w.breaker.nextWordBreak()
 		if !ok {
 			break
 		}
 
-		wordOk := w.readToNextBreak(breakAtIdx, paragraph)
-		if !wordOk {
-			// A single word already exceeds the maxWidth. We have to break inside the word
-			// to keep it fit the line width, otherwise it will overflow.
-			w.breaker.markPrevUnread()
-			break
-		}
-
+		lastOff := w.glyphBuf.offset
+		glyphs := w.readToNextBreak(nextBreak, paragraph)
 		// check if the line will exceeds the maxWidth if we put the glyph in the current line.
-		if w.currentLine.Width+w.glyphBuf.advance() > fixed.I(w.maxWidth) {
+		if w.currentLine.Width+advanceOfGlyphs(glyphs) > fixed.I(w.maxWidth) {
+			w.breaker.markPrevWordUnread()
+			w.glyphBuf.seekTo(lastOff)
 			break
 		}
 
-		w.currentLine.append(w.glyphBuf.get()...)
-		w.glyphBuf.reset()
+		w.currentLine.append(glyphs...)
+		w.breaker.markCommitted()
 	}
 
 	if len(w.currentLine.Glyphs) > 0 {
@@ -199,38 +268,41 @@ func (w *lineWrapper) wrapNextLine(paragraph []rune) Line {
 
 	for {
 		// try to break at grapheme cluster boundaries.
-		breakAtIdx, ok := w.breaker.nextGraphemeBreak()
+		nextBreak, ok := w.breaker.nextGraphemeBreak()
 		if !ok {
 			break
 		}
 
-		w.glyphBuf.reset()
-		done := w.readToNextBreak(breakAtIdx, paragraph)
-		if done {
-			break
-		}
-
+		lastOff := w.glyphBuf.offset
+		glyphs := w.readToNextBreak(nextBreak, paragraph)
 		// check if the line will exceeds the maxWidth if we put the glyph in the current line.
-		if w.currentLine.Width+w.glyphBuf.advance() > fixed.I(w.maxWidth) {
+		if w.currentLine.Width+advanceOfGlyphs(glyphs) > fixed.I(w.maxWidth) {
+			w.breaker.markPrevGraphemeUnread()
+			w.glyphBuf.seekTo(lastOff)
 			break
 		}
 
-		w.currentLine.append(w.glyphBuf.buf...)
-
+		w.currentLine.append(glyphs...)
+		w.breaker.markCommitted()
 	}
 
 	if len(w.currentLine.Glyphs) > 0 {
 		return w.currentLine
 	}
 
+	// left over glyphs that cannot be treated as break opportunities, usually the fake glyph starts a new paragraph.
+	w.glyphs = w.glyphs[:0]
+
 	for {
-		gl := w.glyphBuf.next()
-		if gl == nil {
+		gl := w.glyphBuf.next(-1)
+		if gl == (text.Glyph{}) {
 			break
 		}
+		w.glyphs = append(w.glyphs, gl)
+	}
 
-		w.currentLine.append(w.glyphBuf.buf...)
-		w.glyphBuf.reset()
+	if len(w.glyphs) > 0 {
+		w.currentLine.append(w.glyphs...)
 	}
 
 	return w.currentLine
@@ -238,30 +310,30 @@ func (w *lineWrapper) wrapNextLine(paragraph []rune) Line {
 
 // readToNextBreak read glyphs from the iterator until it reached to break option.
 // It returns a boolean value indicating whether it has terminated early.
-func (w *lineWrapper) readToNextBreak(breakAtIdx breakOption, paragraph []rune) bool {
-	for int(breakAtIdx) > w.runeOff {
-		gl := w.glyphBuf.next()
-		if gl == nil {
+func (w *lineWrapper) readToNextBreak(breakAtIdx breakOption, paragraph []rune) []text.Glyph {
+	w.glyphs = w.glyphs[:0]
+
+	for {
+		gl := w.glyphBuf.next(int(breakAtIdx))
+		if gl == (text.Glyph{}) {
 			break
 		}
 
+		advance := advanceOfGlyphs(w.glyphs)
+
 		if gl.Flags&text.FlagClusterBreak != 0 {
-			w.runeOff += int(gl.Runes)
-			isTab := paragraph[w.runeOff-1] == '\t'
+			//log.Println("rune: ", string(paragraph[w.glyphBuf.offset-1]), gl.Flags&text.FlagParagraphStart != 0)
+			isTab := paragraph[w.glyphBuf.offset-1] == '\t'
 			if isTab {
 				// the rune is a tab, expand it before line wrapping.
-				w.expandTabGlyph(w.currentLine.Width+w.glyphBuf.advance()-gl.Advance, gl)
+				w.expandTabGlyph(w.currentLine.Width+advance, &gl)
 			}
 		}
 
-		if w.glyphBuf.advance() > fixed.I(w.maxWidth) {
-			// breakAtIdx may still larger than w.runeOff.
-			w.glyphBuf.overflow = true
-			return false
-		}
+		w.glyphs = append(w.glyphs, gl)
 	}
 
-	return true
+	return w.glyphs
 }
 
 // expandTabGlyph expand the tab to the next tab stop.

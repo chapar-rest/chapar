@@ -9,6 +9,19 @@ import (
 // EditorOption defines a function to configure the editor.
 type EditorOption func(*Editor)
 
+var builtinQuotePairs = map[rune]rune{
+	'\'': '\'',
+	'"':  '"',
+	'`':  '`',
+}
+
+// Bracket pairs
+var builtinBracketPairs = map[rune]rune{
+	'(': ')',
+	'{': '}',
+	'[': ']',
+}
+
 // WithOptions applies various options to configure the editor.
 func (e *Editor) WithOptions(opts ...EditorOption) {
 	for _, opt := range opts {
@@ -57,6 +70,24 @@ func WithWordSeperators(seperators string) EditorOption {
 	}
 }
 
+// WithQuotePairs configures a set of quote pairs that can be auto-completed when the left
+// half is entered.
+func WithQuotePairs(quotePairs map[rune]rune) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.text.QuotePairs = quotePairs
+	}
+}
+
+// WithBracketPairs configures a set of bracket pairs that can be auto-completed when the left
+// half is entered.
+func WithBracketPairs(bracketPairs map[rune]rune) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.text.BracketPairs = bracketPairs
+	}
+}
+
 // ReadOnlyMode controls whether the contents of the editor can be altered by
 // user interaction. If set to true, the editor will allow selecting text
 // and copying it interactively, but not modifying it.
@@ -80,6 +111,7 @@ func WrapLine(enabled bool) EditorOption {
 }
 
 // BeforeInsertHook defines a hook to be called before the editor insert characters, usually via keyboard input.
+// cursor position, previous word
 type BeforeInsertHook func(start, end int, text string) string
 
 // BeforePasteHook defines a hook to be called before pasting text to transform the text.
