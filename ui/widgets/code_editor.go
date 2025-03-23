@@ -67,8 +67,6 @@ type CodeEditor struct {
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
-	// 	editorFont := fonts.MustGetCodeEditorFont()
-
 	c := &CodeEditor{
 		theme:  theme,
 		editor: &gvcode.Editor{},
