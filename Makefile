@@ -18,7 +18,7 @@ build_macos: build_macos_app
 	rm -rf ./dist/arm64
 
 .PHONY: build_macos_dmg
-build_macos_dmg: build_macos_app
+build_macos_dmg:
 	@echo "Building Macos DMG..."
 	rm -rf ./dist/chapar-macos-$(TAG_NAME)-amd64.dmg
 	rm -rf ./dist/chapar-macos-$(TAG_NAME)-arm64.dmg
@@ -47,6 +47,86 @@ build_macos_dmg: build_macos_app
 	  --app-drop-link 375 150 \
 	  "./dist/chapar-macos-$(TAG_NAME)-amd64.dmg" \
 	  "./dist/amd64/Chapar.app"
+
+.PHONY: build_macos_signed
+build_macos_signed:
+	@echo "Building and signing macOS app..."
+	@if [ -z "$(APPLE_TEAM_ID)" ]; then \
+		echo "ERROR: APPLE_TEAM_ID environment variable is not set"; \
+		exit 1; \
+	fi
+	@if [ -z "$(IDENTITY)" ]; then \
+		echo "ERROR: IDENTITY environment variable is not set (e.g., 'Developer ID Application: Your Name (TEAMID)')"; \
+		exit 1; \
+	fi
+
+	# Build apps
+	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
+	gogio -ldflags="-X main.serviceVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+
+	# Sign apps with Developer ID
+	codesign --force --options runtime --deep -vvv --sign "$(IDENTITY)" ./dist/amd64/Chapar.app
+	codesign --force --options runtime --deep --sign "$(IDENTITY)" ./dist/arm64/Chapar.app
+
+	# Verify signing
+	codesign -dvv ./dist/amd64/Chapar.app
+	codesign -dvv ./dist/arm64/Chapar.app
+
+	@echo "Apps built and signed. To notarize, run:"
+	@echo "  ditto -c -k --keepParent ./dist/amd64/Chapar.app ./dist/Chapar-amd64.zip"
+	@echo "  xcrun notarytool submit ./dist/Chapar-amd64.zip --apple-id \"\$$APPLE_ID\" --password \"\$$APPLE_APP_SPECIFIC_PASSWORD\" --team-id \"\$$APPLE_TEAM_ID\" --wait"
+	@echo "  xcrun stapler staple ./dist/amd64/Chapar.app"
+
+	@echo "Then create DMG with 'make build_macos_dmg'"
+
+.PHONY: notarize_macos
+notarize_macos:
+	@echo "Notarizing macOS apps..."
+	@if [ -z "$(APPLE_ID)" ] || [ -z "$(APPLE_TEAM_ID)" ] || [ -z "$(APPLE_APP_SPECIFIC_PASSWORD)" ]; then \
+		echo "ERROR: One or more required environment variables are not set:"; \
+		echo "  - APPLE_ID"; \
+		echo "  - APPLE_TEAM_ID"; \
+		echo "  - APPLE_APP_SPECIFIC_PASSWORD"; \
+		exit 1; \
+	fi
+
+	# Create zip archives for notarization
+	ditto -c -k --keepParent ./dist/amd64/Chapar.app ./dist/Chapar-amd64.zip
+	ditto -c -k --keepParent ./dist/arm64/Chapar.app ./dist/Chapar-arm64.zip
+
+	# Submit for notarization
+	xcrun notarytool submit ./dist/Chapar-amd64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait
+	xcrun notarytool submit ./dist/Chapar-arm64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait
+
+	@echo "Notarization complete. Now run 'make build_macos_dmg' to create DMG files."
+
+.PHONY: build_appstore
+build_appstore:
+	@echo "Building for App Store..."
+	@if [ -z "$(APPLE_TEAM_ID)" ]; then \
+		echo "ERROR: APPLE_TEAM_ID environment variable is not set"; \
+		exit 1; \
+	fi
+	@if [ -z "$(TAG_NAME)" ]; then \
+		echo "ERROR: TAG_NAME environment variable is not set"; \
+		exit 1; \
+	fi
+
+	./build/build_appstore.sh $(TAG_NAME)
+
+
+.PHONY: upload_appstore
+upload_appstore:
+	@echo "Uploading to App Store Connect..."
+	@if [ -z "$(APPLE_ID)" ] || [ -z "$(APPLE_APP_SPECIFIC_PASSWORD)" ] || [ -z "$(TAG_NAME)" ]; then \
+		echo "ERROR: One or more required environment variables are not set:"; \
+		echo "  - APPLE_ID"; \
+		echo "  - APPLE_APP_PASSWORD"; \
+		echo "  - VERSION"; \
+		exit 1; \
+	fi
+
+	xcrun altool --upload-app -f ./dist/Chapar-$(TAG_NAME).pkg -t macos -u "$(APPLE_ID)" -p "$(APPLE_APP_SPECIFIC_PASSWORD)" --verbose
 
 
 .PHONY: build_windows
