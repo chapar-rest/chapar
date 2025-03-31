@@ -4,6 +4,9 @@
   <br/>
   <a href="https://img.shields.io/github/v/release/chapar-rest/chapar?include_prereleases" title="Latest Release" rel="nofollow"><img src="https://img.shields.io/github/v/release/chapar-rest/chapar?include_prereleases" alt="Latest Release"></a>
   <a href='https://gophers.slack.com/messages/chapar'><img src='https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=blue' alt='Join us on Slack' /></a>
+  <a href='https://www.youtube.com/channel/UCn7EZpdKM8SWE0JcVS3ZXrQ'>
+  <img alt="YouTube Channel Subscribers" src="https://img.shields.io/youtube/channel/subscribers/UCn7EZpdKM8SWE0JcVS3ZXrQ">
+  </a>
 </div>
 
 # Chapar - Native API Testing Tool
