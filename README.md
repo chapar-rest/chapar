@@ -63,6 +63,24 @@ Chapar is currently in the early beta phase and under active development, with r
 To Get started with Chapar, you can download the latest release from the [releases page](https://github.com/chapar-rest/chapar/releases).
 Their you can find the latest release for your operating system.
 
+#### Install on macOS
+On macOS, you can either download the latest release or install Chapar from Apple's App Store.
+
+<a href="https://apps.apple.com/us/app/chapar-rest/id6673918597?mt=12&itscg=30200&itsct=apps_box_badge&mttnsubad=6673918597" style="display: inline-block;">
+<img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us?releaseDate=1743379200" alt="Download on the App Store" style="width: 150px; height: 50px; vertical-align: middle; object-fit: contain;" />
+</a>
+<br/><br/>
+Note that the App Store version is running in a sandbox environment and if you are already using the downloaded
+or custom build version, you need to copy your data to the sandbox environment. you can do it by running the following command:
+
+```bash
+cp -r $HOME/.config/chapar $HOME/Library/Containers/rest.chapar.app/Data/.config
+```
+or make a symlink to the sandbox environment:
+```bash
+ln -s $HOME/.config/chapar $HOME/Library/Containers/rest.chapar.app/Data/.config
+```
+
 #### Install From AUR
 On Arch-based distros, you can install Chapar from the AUR using your favorite AUR helper:
 ```bash
@@ -76,18 +94,6 @@ To install Chapar from source, clone the repository install the dependencies, an
 git clone https://github.com/chapar-rest/chapar.git
 cd chapar
 go build -o chapar .
-```
-
-### Already using Chapar?
-In case you are already using Chapar, you may need to fix the following issues in the data:
-* The data is stored in the following path: please backup the data before running the fixer script.
-  * Windows: `C:\Users\<username>\AppData\Roaming\chapar`
-  * Linux: `/home/<username>/.config/chapar`
-  * macOS: `/Users/<username>/.config/chapar`
-
-You will need to run fixer script to fix the data:
-```bash
-    go run cmd/fixer/main.go fix-request-types
 ```
 
 ## Dependencies

@@ -27,7 +27,9 @@ jobs:
         run: brew install create-dmg
 
       - name: Build macos disk images
-        run: make build_macos_dmg
+        run: |
+          make build_macos_app
+          make build_macos_dmg
 
       - name: Upload Release Asset
         run: |
