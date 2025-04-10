@@ -1,6 +1,7 @@
 package gvcode
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -63,4 +64,49 @@ func (e *textView) MoveWords(distance int, selAct selectionAction) {
 	}
 	e.updateSelection(selAct)
 	e.clampCursorToGraphemes()
+}
+
+// ReadWord tries to read one word nearby the caret, returning the word if there's one,
+// and the offset of the caret in the word.
+//
+// The word boundary is checked using the same conditions as MoveWords.
+func (e *textView) ReadWord(bySpace bool) (string, int) {
+	caret := e.closestToRune(e.caret.start)
+	buf := make([]rune, 0)
+
+	seperator := func(r rune) bool {
+		if bySpace {
+			return unicode.IsSpace(r)
+		}
+		return e.isWordSeperator(r)
+	}
+
+	scanWord := func(direction int, caretOff int) int {
+		var prev = caretOff
+		for {
+			if caretOff < 0 || caretOff > e.Len() {
+				break
+			}
+
+			r, err := e.src.ReadRuneAt(caretOff)
+			if seperator(r) || err != nil {
+				break
+			}
+
+			if direction < 0 {
+				buf = slices.Insert(buf, 0, r)
+				caretOff--
+			} else {
+				buf = append(buf, r)
+				caretOff++
+			}
+		}
+
+		return prev - caretOff
+	}
+
+	moves := scanWord(-1, caret.Runes-1)
+	scanWord(1, caret.Runes)
+
+	return string(buf), moves
 }

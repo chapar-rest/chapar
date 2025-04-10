@@ -91,7 +91,7 @@ type textView struct {
 	// A set of quote pairs that can be auto-completed when the left  half is entered.
 	QuotePairs map[rune]rune
 	// A set of bracket pairs that can be auto-completed when the left half is entered.
-	BracketPairs   map[rune]rune
+	BracketPairs map[rune]rune
 
 	bracketHandler bracketHandler
 
@@ -334,8 +334,8 @@ func (e *textView) MoveCoord(pos image.Point) {
 
 // CaretPos returns the line & column numbers of the caret.
 func (e *textView) CaretPos() (line, col int) {
-	pos := e.closestToRune(e.caret.start)
-	return pos.LineCol.Line, pos.LineCol.Col
+	line, p := e.FindParagraph(e.caret.start)
+	return line, e.caret.start - p.RuneOff
 }
 
 // CaretCoords returns the coordinates of the caret, relative to the

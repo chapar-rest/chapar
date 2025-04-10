@@ -35,9 +35,9 @@ type Editor struct {
 	TextHighlightMaterial op.CallOp
 
 	// hooks
-	onPaste  BeforePasteHook
-	onInsert BeforeInsertHook
-	indenter autoIndenter
+	onPaste   BeforePasteHook
+	indenter  autoIndenter
+	completor Completion
 
 	// readOnly controls whether the contents of the editor can be altered by
 	// user interaction. If set to true, the editor will allow selecting text
@@ -73,6 +73,8 @@ type Editor struct {
 	showCaret   bool
 	clicker     gesture.Click
 	pending     []EditorEvent
+	// commands is a registry of key commands.
+	commands map[key.Name][]keyCommand
 }
 
 type imeState struct {
@@ -188,7 +190,11 @@ func (e *Editor) Layout(gtx layout.Context, lt *text.Shaper) layout.Dimensions {
 
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			e.text.Layout(gtx, lt)
-			return e.layout(gtx)
+			dims := e.layout(gtx)
+			if e.completor != nil {
+				e.text.PaintOverlay(gtx, e.completor.Offset(), e.completor.Layout)
+			}
+			return dims
 		}),
 	)
 

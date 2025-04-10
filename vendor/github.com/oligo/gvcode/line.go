@@ -7,8 +7,9 @@ import (
 	lt "github.com/oligo/gvcode/internal/layout"
 )
 
-// find a paragraph by rune index.
-func (e *textView) FindParagraph(runeIdx int) lt.Paragraph {
+// find a paragraph by rune index, returning the line number(starting from zero)
+// and the paragraph itself.
+func (e *textView) FindParagraph(runeIdx int) (int, lt.Paragraph) {
 	idx := sort.Search(len(e.layouter.Paragraphs), func(i int) bool {
 		rng := e.layouter.Paragraphs[i]
 		return rng.RuneOff+rng.Runes > runeIdx
@@ -16,10 +17,10 @@ func (e *textView) FindParagraph(runeIdx int) lt.Paragraph {
 
 	// No exsiting paragraph found.
 	if idx == len(e.layouter.Paragraphs) {
-		return lt.Paragraph{}
+		return 0, lt.Paragraph{}
 	}
 
-	return e.layouter.Paragraphs[idx]
+	return idx, e.layouter.Paragraphs[idx]
 }
 
 // selectedParagraphs returns the paragraphs that the carent selection covers.
@@ -148,7 +149,7 @@ func (e *textView) ExpandTab(start, end int, s string) string {
 		start = end
 	}
 
-	p := e.FindParagraph(start)
+	_, p := e.FindParagraph(start)
 	if p == (lt.Paragraph{}) {
 		return strings.Repeat(" ", e.TabWidth)
 	}

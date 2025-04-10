@@ -11,7 +11,6 @@ import (
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
-	"gioui.org/io/system"
 	"gioui.org/io/transfer"
 	"gioui.org/layout"
 )
@@ -145,6 +144,10 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 				e.text.MoveLineEnd(selectionExtend)
 				e.dragging = false
 			}
+
+			if e.completor != nil {
+				e.completor.Cancel()
+			}
 		}
 	case pointer.Event:
 		release := false
@@ -170,209 +173,68 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 	return nil, false
 }
 
-func condFilter(pred bool, f key.Filter) event.Filter {
-	if pred {
-		return f
-	} else {
-		return nil
-	}
-}
-
 func (e *Editor) processKey(gtx layout.Context) (EditorEvent, bool) {
 	if e.text.Changed() {
 		return ChangeEvent{}, true
 	}
-	caret, _ := e.text.Selection()
-	atBeginning := caret == 0
-	atEnd := caret == e.text.Len()
-	if gtx.Locale.Direction.Progression() != system.FromOrigin {
-		atEnd, atBeginning = atBeginning, atEnd
+
+	if evt := e.processEditEvents(gtx); evt != nil {
+		return evt, true
 	}
+
+	if evt := e.processCommands(gtx); evt != nil {
+		return evt, true
+	}
+
+	if e.text.Changed() {
+		return ChangeEvent{}, true
+	}
+
+	return nil, false
+}
+
+func (e *Editor) processEditEvents(gtx layout.Context) EditorEvent {
 	filters := []event.Filter{
 		key.FocusFilter{Target: e},
 		transfer.TargetFilter{Target: e, Type: "application/text"},
-		key.Filter{Focus: e, Name: key.NameEnter, Optional: key.ModShift},
-		key.Filter{Focus: e, Name: key.NameReturn, Optional: key.ModShift},
-
-		key.Filter{Focus: e, Name: "Z", Required: key.ModShortcut, Optional: key.ModShift},
-		key.Filter{Focus: e, Name: "C", Required: key.ModShortcut},
-		key.Filter{Focus: e, Name: "V", Required: key.ModShortcut},
-		key.Filter{Focus: e, Name: "X", Required: key.ModShortcut},
-		key.Filter{Focus: e, Name: "A", Required: key.ModShortcut},
-
-		key.Filter{Focus: e, Name: key.NameDeleteBackward, Optional: key.ModShortcutAlt | key.ModShift},
-		key.Filter{Focus: e, Name: key.NameDeleteForward, Optional: key.ModShortcutAlt | key.ModShift},
-
-		key.Filter{Focus: e, Name: key.NameHome, Optional: key.ModShortcut | key.ModShift},
-		key.Filter{Focus: e, Name: key.NameEnd, Optional: key.ModShortcut | key.ModShift},
-		key.Filter{Focus: e, Name: key.NamePageDown, Optional: key.ModShift},
-		key.Filter{Focus: e, Name: key.NamePageUp, Optional: key.ModShift},
-		key.Filter{Focus: e, Name: key.NameTab, Optional: key.ModShift},
-		condFilter(!atBeginning, key.Filter{Focus: e, Name: key.NameLeftArrow, Optional: key.ModShortcutAlt | key.ModShift}),
-		condFilter(!atBeginning, key.Filter{Focus: e, Name: key.NameUpArrow, Optional: key.ModShortcutAlt | key.ModShift}),
-		condFilter(!atEnd, key.Filter{Focus: e, Name: key.NameRightArrow, Optional: key.ModShortcutAlt | key.ModShift}),
-		condFilter(!atEnd, key.Filter{Focus: e, Name: key.NameDownArrow, Optional: key.ModShortcutAlt | key.ModShift}),
 	}
 
 	for {
-		ke, ok := gtx.Event(filters...)
+		evt, ok := gtx.Event(filters...)
 		if !ok {
 			break
 		}
+
 		e.blinkStart = gtx.Now
-		switch ke := ke.(type) {
+
+		switch ke := evt.(type) {
 		case key.FocusEvent:
 			// Reset IME state.
 			e.ime.imeState = imeState{}
 			if ke.Focus && !e.readOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
-		case key.Event:
-			if !gtx.Focused(e) || ke.State != key.Press {
-				break
-			}
-			e.scrollCaret = true
-			e.scroller.Stop()
-			ev, ok := e.command(gtx, ke)
-			if ok {
-				return ev, ok
-			}
 		case key.SnippetEvent:
 			e.updateSnippet(gtx, ke.Start, ke.End)
 		case key.EditEvent:
-			if e.readOnly {
-				break
-			}
 			e.onTextInput(ke)
-		// Complete a paste event, initiated by Shortcut-V in Editor.command().
-		case transfer.DataEvent:
-			if evt := e.onPasteEvent(ke); evt != nil {
-				return evt, true
-			}
-
 		case key.SelectionEvent:
 			e.scrollCaret = true
 			e.scroller.Stop()
 			e.text.SetCaret(ke.Start, ke.End)
+
+			// Complete a paste event, initiated by Shortcut-V in Editor.command().
+		case transfer.DataEvent:
+			if evt := e.onPasteEvent(ke); evt != nil {
+				return evt
+			}
 		}
 	}
 	if e.text.Changed() {
-		return ChangeEvent{}, true
+		return ChangeEvent{}
 	}
-	return nil, false
-}
 
-func (e *Editor) command(gtx layout.Context, k key.Event) (EditorEvent, bool) {
-	direction := 1
-	if gtx.Locale.Direction.Progression() == system.TowardOrigin {
-		direction = -1
-	}
-	moveByWord := k.Modifiers.Contain(key.ModShortcutAlt)
-	selAct := selectionClear
-	if k.Modifiers.Contain(key.ModShift) {
-		selAct = selectionExtend
-	}
-	if k.Modifiers.Contain(key.ModShortcut) {
-		switch k.Name {
-		// Initiate a paste operation, by requesting the clipboard contents; other
-		// half is in Editor.processKey() under clipboard.Event.
-		case "V":
-			if !e.readOnly {
-				gtx.Execute(clipboard.ReadCmd{Tag: e})
-			}
-		// Copy or Cut selection -- ignored if nothing selected.
-		case "C", "X":
-			if evt := e.onCopyCut(gtx, k); evt != nil {
-				return evt, true
-			}
-
-		// Select all
-		case "A":
-			e.text.SetCaret(0, e.text.Len())
-		case "Z":
-			if !e.readOnly {
-				if k.Modifiers.Contain(key.ModShift) {
-					if ev, ok := e.redo(); ok {
-						return ev, ok
-					}
-				} else {
-					if ev, ok := e.undo(); ok {
-						return ev, ok
-					}
-				}
-			}
-		case key.NameHome:
-			e.text.MoveTextStart(selAct)
-		case key.NameEnd:
-			e.text.MoveTextEnd(selAct)
-		}
-		return nil, false
-	}
-	switch k.Name {
-	case key.NameReturn, key.NameEnter:
-		if evt := e.onInsertLineBreak(k); evt != nil {
-			return evt, true
-		}
-	case key.NameTab:
-		if evt := e.onTab(k); evt != nil {
-			return evt, true
-		}
-	case key.NameDeleteBackward:
-		if !e.readOnly {
-			if moveByWord {
-				if e.deleteWord(-1) != 0 {
-					return ChangeEvent{}, true
-				}
-			} else {
-				if e.Delete(-1) != 0 {
-					return ChangeEvent{}, true
-				}
-			}
-		}
-	case key.NameDeleteForward:
-		if !e.readOnly {
-			if moveByWord {
-				if e.deleteWord(1) != 0 {
-					return ChangeEvent{}, true
-				}
-			} else {
-				if e.Delete(1) != 0 {
-					return ChangeEvent{}, true
-				}
-			}
-		}
-	case key.NameUpArrow:
-		e.text.MoveLines(-1, selAct)
-	case key.NameDownArrow:
-		e.text.MoveLines(+1, selAct)
-	case key.NameLeftArrow:
-		if moveByWord {
-			e.text.MoveWords(-1*direction, selAct)
-		} else {
-			if selAct == selectionClear {
-				e.text.ClearSelection()
-			}
-			e.text.MoveCaret(-1*direction, -1*direction*int(selAct))
-		}
-	case key.NameRightArrow:
-		if moveByWord {
-			e.text.MoveWords(1*direction, selAct)
-		} else {
-			if selAct == selectionClear {
-				e.text.ClearSelection()
-			}
-			e.text.MoveCaret(1*direction, int(selAct)*direction)
-		}
-	case key.NamePageUp:
-		e.text.MovePages(-1, selAct)
-	case key.NamePageDown:
-		e.text.MovePages(+1, selAct)
-	case key.NameHome:
-		e.text.MoveLineStart(selAct)
-	case key.NameEnd:
-		e.text.MoveLineEnd(selAct)
-	}
-	return nil, false
+	return nil
 }
 
 // updateSnippet queues a key.SnippetCmd if the snippet content or position
@@ -509,6 +371,41 @@ func (e *Editor) onTextInput(ke key.EditEvent) {
 	e.replace(ke.Range.Start, ke.Range.End, ke.Text)
 	// Reset caret xoff.
 	e.text.MoveCaret(0, 0)
+	// start to auto-complete, if there is a configured Completion.
+	e.updateCompletor(true)
+}
+
+func (e *Editor) updateCompletor(startNew bool) {
+	if e.completor == nil {
+		return
+	}
+
+	e.completor.OnText(e.currentCompletionCtx(startNew))
+}
+
+func (e *Editor) currentCompletionCtx(startNew bool) CompletionContext {
+	word, wordOff := e.text.ReadWord(true)
+	prefix := []rune(word)[:wordOff]
+	//log.Println("word, prefix and wordOff", word, string(prefix), wordOff)
+	ctx := CompletionContext{
+		Input: string(prefix),
+	}
+	ctx.Position.Line, ctx.Position.Column = e.text.CaretPos()
+	// scroll off will change after we update the position, so we use doc view position instead
+	// of viewport position.
+	ctx.Position.Coords = e.text.CaretCoords().Round().Add(e.text.ScrollOff())
+
+	start, end := e.text.Selection()
+	ctx.Position.Start = start - len(prefix)
+	ctx.Position.End = end
+	ctx.New = startNew
+	return ctx
+}
+
+// GetCompletionContext returns a context from the current caret position.
+// This is usually used in the condition of a key triggered completion.
+func (e *Editor) GetCompletionContext() CompletionContext {
+	return e.currentCompletionCtx(true)
 }
 
 func (e *Editor) onPasteEvent(ke transfer.DataEvent) EditorEvent {

@@ -96,6 +96,32 @@ func (e *textView) PaintRegions(gtx layout.Context, regions []Region, material o
 	}
 }
 
+func (e *textView) PaintOverlay(gtx layout.Context, offset image.Point, overlay layout.Widget) {
+	viewport := image.Rectangle{
+		Min: e.scrollOff,
+		Max: e.viewSize.Add(e.scrollOff),
+	}
+
+	macro := op.Record(gtx.Ops)
+	dims := overlay(gtx)
+	call := macro.Stop()
+
+	if offset.X+dims.Size.X-e.scrollOff.X > gtx.Constraints.Max.X {
+		offset.X = max(offset.X-dims.Size.X, 0)
+	}
+
+	padding := e.adjustDescentPadding()
+	if offset.Y+dims.Size.Y+padding-e.scrollOff.Y > gtx.Constraints.Max.Y {
+		offset.Y = max(offset.Y-dims.Size.Y-int(e.lineHeight.Ceil())+padding, 0)
+	} else {
+		offset.Y += padding
+	}
+
+	defer op.Offset(offset.Sub(e.scrollOff)).Push(gtx.Ops).Pop()
+	defer clip.Rect(viewport.Sub(e.scrollOff)).Push(gtx.Ops).Pop()
+	call.Add(gtx.Ops)
+}
+
 func (e *textView) highlightMatchingBrackets(gtx layout.Context, material op.CallOp) {
 	left, right := e.bracketHandler.NearestMatchingBrackets()
 	if left < 0 || right < 0 {
@@ -234,4 +260,20 @@ func (e *textView) adjustPadding(bounds image.Rectangle) image.Rectangle {
 	bounds.Min.Y -= adjust
 	bounds.Max.Y += leading - adjust
 	return bounds
+}
+
+func (e *textView) adjustDescentPadding() int {
+	caretStart := e.closestToRune(e.caret.start)
+	height := caretStart.Ascent + caretStart.Descent
+
+	if e.lineHeight <= 0 {
+		e.lineHeight = e.calcLineHeight()
+	}
+
+	if e.lineHeight.Ceil() <= height.Ceil() {
+		return 0
+	}
+
+	leading := (e.lineHeight - height).Round()
+	return int(math.Round(float64(float32(leading) / 2.0)))
 }
