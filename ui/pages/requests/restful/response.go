@@ -15,6 +15,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 )
 
 type Response struct {
@@ -27,9 +28,9 @@ type Response struct {
 	duration     time.Duration
 	responseSize int
 
-	responseHeaders *widgets.CodeEditor
-	responseCookies *widgets.CodeEditor
-	jsonViewer      *widgets.CodeEditor
+	responseHeaders *codeeditor.CodeEditor
+	responseCookies *codeeditor.CodeEditor
+	jsonViewer      *codeeditor.CodeEditor
 
 	response string
 	message  string
@@ -58,9 +59,9 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 			{Title: "Headers"},
 			{Title: "Cookies"},
 		}, nil),
-		jsonViewer:      widgets.NewCodeEditor("", widgets.CodeLanguageJSON, theme),
-		responseHeaders: widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
-		responseCookies: widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
+		jsonViewer:      codeeditor.NewCodeEditor("", codeeditor.CodeLanguageJSON, theme),
+		responseHeaders: codeeditor.NewCodeEditor("", codeeditor.CodeLanguageProperties, theme),
+		responseCookies: codeeditor.NewCodeEditor("", codeeditor.CodeLanguageProperties, theme),
 	}
 
 	r.jsonViewer.SetReadOnly(true)

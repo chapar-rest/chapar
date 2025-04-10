@@ -1,8 +1,6 @@
 module github.com/chapar-rest/chapar
 
-go 1.23.1
-
-toolchain go1.23.4
+go 1.23.4
 
 require (
 	gioui.org v0.8.0
@@ -16,8 +14,9 @@ require (
 	github.com/oligo/gioview v0.8.1
 	github.com/oligo/gvcode v0.1.1
 	github.com/stretchr/testify v1.10.0
+	github.com/tidwall/pretty v1.2.1
 	golang.org/x/exp/shiny v0.0.0-20240707233637-46b078467d37
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.12.0
 	golang.org/x/text v0.16.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.1
