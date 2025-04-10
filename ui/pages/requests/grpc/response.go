@@ -14,6 +14,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 )
 
 type Response struct {
@@ -27,9 +28,9 @@ type Response struct {
 	duration     time.Duration
 	responseSize int
 
-	Metadata   *widgets.CodeEditor
-	Trailers   *widgets.CodeEditor
-	jsonViewer *widgets.CodeEditor
+	Metadata   *codeeditor.CodeEditor
+	Trailers   *codeeditor.CodeEditor
+	jsonViewer *codeeditor.CodeEditor
 
 	response string
 	message  string
@@ -58,9 +59,9 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 			{Title: "Metadata"},
 			{Title: "Trailers"},
 		}, nil),
-		jsonViewer: widgets.NewCodeEditor("", widgets.CodeLanguageJSON, theme),
-		Metadata:   widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
-		Trailers:   widgets.NewCodeEditor("", widgets.CodeLanguageProperties, theme),
+		jsonViewer: codeeditor.NewCodeEditor("", codeeditor.CodeLanguageJSON, theme),
+		Metadata:   codeeditor.NewCodeEditor("", codeeditor.CodeLanguageProperties, theme),
+		Trailers:   codeeditor.NewCodeEditor("", codeeditor.CodeLanguageProperties, theme),
 	}
 
 	r.jsonViewer.SetReadOnly(true)

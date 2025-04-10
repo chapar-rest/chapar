@@ -16,12 +16,13 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 )
 
 type CodeModal struct {
 	req *domain.Request
 
-	codeEditor  *widgets.CodeEditor
+	codeEditor  *codeeditor.CodeEditor
 	CopyButton  widget.Clickable
 	CloseButton widget.Clickable
 	dropDown    *widgets.DropDown
@@ -48,7 +49,7 @@ func NewCodeModal(theme *chapartheme.Theme) *CodeModal {
 			widgets.NewDropDownOption("Ruby Net").WithValue("ruby-net"),
 			widgets.NewDropDownOption(".Net").WithValue("dot-net"),
 		),
-		codeEditor:     widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
+		codeEditor:     codeeditor.NewCodeEditor("", codeeditor.CodeLanguagePython, theme),
 		copyButtonText: "Copy",
 	}
 
@@ -64,25 +65,25 @@ func (c *CodeModal) onLangSelected(lang string) {
 	var err error
 	switch lang {
 	case "curl":
-		c.lang = widgets.CodeLanguageShell
+		c.lang = codeeditor.CodeLanguageShell
 		code, err = codegen.DefaultService.GenerateCurlCommand(c.req.Spec.HTTP)
 	case "python":
-		c.lang = widgets.CodeLanguagePython
+		c.lang = codeeditor.CodeLanguagePython
 		code, err = codegen.DefaultService.GeneratePythonRequest(c.req.Spec.HTTP)
 	case "golang":
-		c.lang = widgets.CodeLanguageGolang
+		c.lang = codeeditor.CodeLanguageGolang
 		code, err = codegen.DefaultService.GenerateGoRequest(c.req.Spec.HTTP)
 	case "axios":
-		c.lang = widgets.CodeLanguageJavaScript
+		c.lang = codeeditor.CodeLanguageJavaScript
 		code, err = codegen.DefaultService.GenerateAxiosCommand(c.req.Spec.HTTP)
 	case "node-fetch":
-		c.lang = widgets.CodeLanguageJavaScript
+		c.lang = codeeditor.CodeLanguageJavaScript
 		code, err = codegen.DefaultService.GenerateFetchCommand(c.req.Spec.HTTP)
 	case "java-okhttp":
-		c.lang = widgets.CodeLanguageJava
+		c.lang = codeeditor.CodeLanguageJava
 		code, err = codegen.DefaultService.GenerateJavaOkHttpCommand(c.req.Spec.HTTP)
 	case "ruby-net":
-		c.lang = widgets.CodeLanguageRuby
+		c.lang = codeeditor.CodeLanguageRuby
 		code, err = codegen.DefaultService.GenerateRubyNetHttpCommand(c.req.Spec.HTTP)
 	}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/converter"
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
+	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
@@ -18,7 +19,7 @@ type Request struct {
 	Prompt *widgets.Prompt
 
 	ServerInfo *ServerInfo
-	Body       *widgets.CodeEditor
+	Body       *codeeditor.CodeEditor
 	Metadata   *widgets.KeyValue
 	Auth       *component.Auth
 	Settings   *widgets.Settings
@@ -58,7 +59,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			{Title: "Post Request"},
 		}, nil),
 		ServerInfo: NewServerInfo(explorer, req.Spec.GRPC.ServerInfo),
-		Body:       widgets.NewCodeEditor(req.Spec.GRPC.Body, widgets.CodeLanguageJSON, theme),
+		Body:       codeeditor.NewCodeEditor(req.Spec.GRPC.Body, codeeditor.CodeLanguageJSON, theme),
 		Metadata: widgets.NewKeyValue(
 			converter.WidgetItemsFromKeyValue(req.Spec.GRPC.Metadata)...,
 		),

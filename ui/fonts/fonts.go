@@ -54,7 +54,7 @@ func Prepare() ([]font.FontFace, error) {
 	}
 
 	fontFaces = append(fontFaces,
-		font.FontFace{Font: font.Font{}, Face: sourceSansProRegular},
+		font.FontFace{Font: font.Font{Typeface: "sourceSansPro"}, Face: sourceSansProRegular},
 		font.FontFace{Font: font.Font{Weight: font.SemiBold}, Face: sourceSansProSemiBold},
 		font.FontFace{Font: font.Font{Weight: font.Bold}, Face: sourceSansProBold},
 		font.FontFace{Font: font.Font{Typeface: "MaterialIcons"}, Face: materialIcons},
@@ -72,7 +72,7 @@ func getFont(path string) ([]byte, error) {
 }
 
 func MustGetCodeEditorFont() font.FontFace {
-	data, err := getFont("UbuntuMono-Regular.ttf")
+	data, err := getFont("SourceCodePro-Regular.ttf")
 	if err != nil {
 		panic(err)
 	}

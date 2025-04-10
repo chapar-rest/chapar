@@ -1,4 +1,4 @@
-package widgets
+package codeeditor
 
 import (
 	"image/color"
@@ -15,10 +15,13 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
-	giovieweditor "github.com/oligo/gioview/editor"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/fonts"
+	"github.com/chapar-rest/chapar/ui/widgets"
+
+	"github.com/oligo/gvcode"
+	wgvcode "github.com/oligo/gvcode/widget"
 )
 
 const (
@@ -36,11 +39,15 @@ const (
 )
 
 type CodeEditor struct {
-	editor *giovieweditor.Editor
-	code   string
+	editor *gvcode.Editor
+	// popup  completion.CompletionPopup
+
+	code string
+
+	theme *chapartheme.Theme
 
 	styledCode string
-	styles     []*giovieweditor.TextStyle
+	styles     []*gvcode.TextStyle
 
 	lexer     chroma.Lexer
 	codeStyle *chroma.Style
@@ -56,43 +63,48 @@ type CodeEditor struct {
 	beatufier   widget.Clickable
 	loadExample widget.Clickable
 
-	onBeautify    func()
+	withBeautify bool
+
 	onLoadExample func()
 
-	editorConf      *giovieweditor.EditorConf
 	vScrollbar      widget.Scrollbar
 	vScrollbarStyle material.ScrollbarStyle
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
-	editorFont := fonts.MustGetCodeEditorFont()
-	shaper := text.NewShaper(text.WithCollection([]font.FontFace{editorFont}))
+	fff := fonts.MustGetCodeEditorFont()
 
 	c := &CodeEditor{
-		editor: new(giovieweditor.Editor),
+		theme:  theme,
+		editor: &gvcode.Editor{},
 		code:   code,
-		font:   fonts.MustGetCodeEditorFont(),
+		font:   fff,
 		lang:   lang,
-
-		editorConf: &giovieweditor.EditorConf{
-			Shaper:          shaper,
-			TextColor:       theme.Fg,
-			Bg:              theme.Bg,
-			SelectionColor:  theme.TextSelectionColor,
-			TypeFace:        editorFont.Font.Typeface,
-			TextSize:        unit.Sp(14),
-			LineHeightScale: 1,
-			ShowLineNum:     true,
-			LineNumPadding:  unit.Dp(10),
-			LineHighlightColor: color.NRGBA{
-				R: 0xbb,
-				G: 0xbb,
-				B: 0xbb,
-				A: 0x33,
-			},
-		},
 	}
 
+	// cm := &completion.DefaultCompletion{Editor: c.editor}
+	// // set completion triggers
+	// cm.SetTriggers(gvcode.AutoTrigger{})
+	//
+	// // set popup widget to let user navigate the candidates.
+	// c.popup = *completion.NewCompletionPopup(c.editor, cm)
+	// cm.SetPopup(func(gtx layout.Context, items []gvcode.CompletionCandidate) layout.Dimensions {
+	//	c.popup.TextSize = unit.Sp(12)
+	//	c.popup.Size = image.Point{
+	//		X: gtx.Dp(unit.Dp(400)),
+	//		Y: gtx.Dp(unit.Dp(200)),
+	//	}
+	//
+	//	return c.popup.Layout(gtx, theme.Material(), items)
+	// })
+
+	c.editor.WithOptions(
+		gvcode.WithShaperParams(c.font.Font, unit.Sp(12), text.Start, unit.Sp(16), 1),
+		gvcode.WithTabWidth(4),
+		gvcode.WithSoftTab(true),
+		gvcode.WrapLine(true),
+		// 	gvcode.WithAutoCompletion(cm),
+	)
 	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)
 
 	c.border = widget.Border{
@@ -110,8 +122,7 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 
 	c.codeStyle = style
 
-	c.editor.WrapPolicy = text.WrapGraphemes
-	c.editor.SetText(code, false)
+	c.editor.SetText(code)
 
 	return c
 }
@@ -125,16 +136,16 @@ func getLexer(lang string) chroma.Lexer {
 	return chroma.Coalesce(lexer)
 }
 
+func (c *CodeEditor) WithBeautifier(enabled bool) {
+	c.withBeautify = enabled
+}
+
 func (c *CodeEditor) SetOnChanged(f func(text string)) {
 	c.onChange = f
 }
 
-func (c *CodeEditor) SetOnBeautify(f func()) {
-	c.onBeautify = f
-}
-
 func (c *CodeEditor) SetReadOnly(readOnly bool) {
-	c.editor.ReadOnly = readOnly
+	c.editor.WithOptions(gvcode.ReadOnlyMode(readOnly))
 }
 
 func (c *CodeEditor) SetOnLoadExample(f func()) {
@@ -142,7 +153,7 @@ func (c *CodeEditor) SetOnLoadExample(f func()) {
 }
 
 func (c *CodeEditor) SetCode(code string) {
-	c.editor.SetText(code, false)
+	c.editor.SetText(code)
 	c.code = code
 	c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 }
@@ -163,10 +174,12 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 		c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
 	}
 
-	if !c.editor.ReadOnly {
+	if !c.editor.ReadOnly() {
 		if ev, ok := c.editor.Update(gtx); ok {
-			if _, ok := ev.(giovieweditor.ChangeEvent); ok {
-				c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+			if _, ok := ev.(gvcode.ChangeEvent); ok {
+				st := c.stylingText(c.editor.Text())
+				c.styles = st
+				c.editor.UpdateTextStyles(st)
 				if c.onChange != nil {
 					c.onChange(c.editor.Text())
 					c.code = c.editor.Text()
@@ -179,11 +192,13 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 		c.onLoadExample()
 	}
 
-	if c.beatufier.Clicked(gtx) {
-		c.onBeautify()
-	}
-
 	flexH := layout.Flex{Axis: layout.Horizontal}
+
+	if c.withBeautify {
+		macro := op.Record(gtx.Ops)
+		c.beautyButton(gtx, theme)
+		defer op.Defer(gtx.Ops, macro.Stop())
+	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -196,25 +211,11 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 						return layout.Dimensions{}
 					}
 
-					btn := Button(theme.Material(), &c.loadExample, RefreshIcon, IconPositionStart, "Load Example")
+					btn := widgets.Button(theme.Material(), &c.loadExample, widgets.RefreshIcon, widgets.IconPositionStart, "Load Example")
 					btn.Color = theme.ButtonTextColor
 					btn.Inset = layout.Inset{
 						Top: unit.Dp(4), Bottom: unit.Dp(4),
 						Left: unit.Dp(4), Right: unit.Dp(4),
-					}
-
-					return btn.Layout(gtx, theme)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if c.onBeautify == nil {
-						return layout.Dimensions{}
-					}
-
-					btn := Button(theme.Material(), &c.beatufier, CleanIcon, IconPositionStart, "Beautify")
-					btn.Color = theme.ButtonTextColor
-					btn.Inset = layout.Inset{
-						Top: 4, Bottom: 4,
-						Left: 4, Right: 4,
 					}
 
 					return btn.Layout(gtx, theme)
@@ -240,8 +241,35 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 	)
 }
 
-func (c *CodeEditor) editorStyle(gtx layout.Context, hint string) layout.Dimensions {
-	editorDims := giovieweditor.NewEditor(c.editor, c.editorConf, hint).Layout(gtx)
+func (c *CodeEditor) beautyButton(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if c.beatufier.Clicked(gtx) {
+		c.SetCode(BeautifyCode(c.lang, c.code))
+		if c.onChange != nil {
+			c.onChange(c.editor.Text())
+		}
+	}
+
+	return layout.Inset{Bottom: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.SE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			btn := widgets.Button(theme.Material(), &c.beatufier, widgets.CleanIcon, widgets.IconPositionStart, "Beautify")
+			btn.Color = theme.ButtonTextColor
+			btn.Inset = layout.Inset{
+				Top: 4, Bottom: 4,
+				Left: 4, Right: 4,
+			}
+			return btn.Layout(gtx, theme)
+		})
+	})
+}
+
+func (c *CodeEditor) editorStyle(gtx layout.Context, _ string) layout.Dimensions {
+	es := wgvcode.NewEditor(c.theme.Material(), c.editor)
+	es.Font.Typeface = "Source Code Pro"
+	es.TextSize = unit.Sp(12)
+	es.LineHeightScale = 1.3
+
+	es.SelectionColor = c.theme.TextSelectionColor
+	editorDims := es.Layout(gtx)
 
 	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		viewportStart, viewportEnd := c.editor.ViewPortRatio()
@@ -255,13 +283,13 @@ func (c *CodeEditor) editorStyle(gtx layout.Context, hint string) layout.Dimensi
 	return editorDims
 }
 
-func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
+func (c *CodeEditor) stylingText(text string) []*gvcode.TextStyle {
 	if c.styledCode == text {
 		return c.styles
 	}
 
 	// nolint:prealloc
-	var textStyles []*giovieweditor.TextStyle
+	var textStyles []*gvcode.TextStyle
 
 	offset := 0
 
@@ -273,9 +301,13 @@ func (c *CodeEditor) stylingText(text string) []*giovieweditor.TextStyle {
 	for _, token := range iterator.Tokens() {
 		entry := c.codeStyle.Get(token.Type)
 
-		textStyle := &giovieweditor.TextStyle{
-			Start: offset,
-			End:   offset + len([]rune(token.Value)),
+		textStyle := &gvcode.TextStyle{
+			TextRange: gvcode.TextRange{
+				Start: offset,
+				End:   offset + len([]rune(token.Value)),
+			},
+			Color: rgbToOp(c.theme.Fg),
+			// Background: rgbToOp(c.theme.Bg),
 		}
 
 		if entry.Colour.IsSet() {
@@ -302,5 +334,13 @@ func chromaColorToOp(textColor chroma.Colour) op.CallOp {
 		B: textColor.Blue(),
 		A: 0xff,
 	}}.Add(ops)
+	return m.Stop()
+}
+
+func rgbToOp(color color.NRGBA) op.CallOp {
+	ops := new(op.Ops)
+
+	m := op.Record(ops)
+	paint.ColorOp{Color: color}.Add(ops)
 	return m.Stop()
 }

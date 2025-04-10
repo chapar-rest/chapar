@@ -10,6 +10,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 )
 
 type Body struct {
@@ -19,7 +20,7 @@ type Body struct {
 
 	FormData   *component.FormData
 	urlencoded *widgets.KeyValue
-	script     *widgets.CodeEditor
+	script     *codeeditor.CodeEditor
 	BinaryFile *widgets.FileSelector
 
 	onChange func(body domain.Body)
@@ -40,9 +41,11 @@ func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Expl
 		),
 		FormData:   component.NewFormData(theme),
 		urlencoded: widgets.NewKeyValue(),
-		script:     widgets.NewCodeEditor("", widgets.CodeLanguageJSON, theme),
+		script:     codeeditor.NewCodeEditor("", codeeditor.CodeLanguageJSON, theme),
 		BinaryFile: widgets.NewFileSelector("", explorer),
 	}
+
+	b.script.WithBeautifier(true)
 
 	b.FormData.SetValues(body.FormData.Fields)
 

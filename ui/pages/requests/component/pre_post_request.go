@@ -11,11 +11,12 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 )
 
 type PrePostRequest struct {
 	dropDown *widgets.DropDown
-	script   *widgets.CodeEditor
+	script   *codeeditor.CodeEditor
 
 	actionDropDownItems []Option
 
@@ -61,7 +62,7 @@ type Option struct {
 func NewPrePostRequest(actions []Option, setFormFromDropDown *widgets.DropDown, theme *chapartheme.Theme) *PrePostRequest {
 	p := &PrePostRequest{
 		dropDown:            widgets.NewDropDown(theme),
-		script:              widgets.NewCodeEditor("", widgets.CodeLanguagePython, theme),
+		script:              codeeditor.NewCodeEditor("", codeeditor.CodeLanguagePython, theme),
 		actionDropDownItems: actions,
 		setEnvForm: &SetEnvForm{
 			fromDropDown: setFormFromDropDown,
