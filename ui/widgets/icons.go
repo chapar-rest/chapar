@@ -157,7 +157,7 @@ var RefreshIcon *widget.Icon = func() *widget.Icon {
 }()
 
 var CleanIcon *widget.Icon = func() *widget.Icon {
-	icon, _ := widget.NewIcon(icons.EditorFormatColorText)
+	icon, _ := widget.NewIcon(icons.CommunicationClearAll)
 	return icon
 }()
 
