@@ -9,12 +9,16 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	giox "gioui.org/x/component"
 	"github.com/google/uuid"
+	"github.com/oligo/gioview/menu"
+	gvthem "github.com/oligo/gioview/theme"
 
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
+	"github.com/chapar-rest/chapar/ui/widgets/treeview"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
@@ -55,6 +59,10 @@ type View struct {
 
 	treeViewSearchBox *widgets.TextField
 	treeView          *widgets.TreeView
+
+	navTree      *treeview.NavTree
+	navState     *treeview.EntryNavItem
+	gioviewTheme *gvthem.Theme
 
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
@@ -120,7 +128,18 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 		tipsView: tips.New(),
 		explorer: explorer,
 		notify:   &widgets.Notification{},
+		gioviewTheme: &gvthem.Theme{
+			Theme: theme.Material(),
+		},
 	}
+
+	v.navState, _ = treeview.NewEntryNavItem()
+	v.navTree = treeview.NewNavItem(v.navState, func(item *treeview.NavTree) {
+
+	})
+	v.navState.MenuOptionFunc = v.treeViewMenu
+
+	v.navTree.Indention = unit.Dp(16)
 
 	v.tabHeader.SetMaxTitleWidth(20)
 
@@ -132,6 +151,73 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	})
 
 	return v
+}
+
+func (v *View) treeViewMenu(gtx treeview.C, item *treeview.EntryNavItem) [][]menu.MenuOption {
+	onClicked := func() error {
+		v.onTreeViewNodeClicked(item.Identifier())
+		return nil
+	}
+
+	if item.Kind() == treeview.RequestNode {
+		return [][]menu.MenuOption{
+			{
+				{
+					Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+						return material.Label(th.Theme, unit.Sp(12), MenuView).Layout(gtx)
+					},
+					OnClicked: onClicked,
+				},
+				{
+					Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+						return material.Label(th.Theme, unit.Sp(12), MenuDuplicate).Layout(gtx)
+					},
+					OnClicked: onClicked,
+				},
+				{
+					Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+						return material.Label(th.Theme, unit.Sp(12), MenuDelete).Layout(gtx)
+					},
+					OnClicked: onClicked,
+				},
+			},
+		}
+	}
+
+	return [][]menu.MenuOption{
+		{
+			{
+				Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+					return material.Label(th.Theme, unit.Sp(12), MenuView).Layout(gtx)
+				},
+				OnClicked: onClicked,
+			},
+			{
+				Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+					return material.Label(th.Theme, unit.Sp(12), MenuAddHTTPRequest).Layout(gtx)
+				},
+				OnClicked: onClicked,
+			},
+			{
+				Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+					return material.Label(th.Theme, unit.Sp(12), MenuAddGRPCRequest).Layout(gtx)
+				},
+				OnClicked: onClicked,
+			},
+			{
+				Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+					return material.Label(th.Theme, unit.Sp(12), MenuDuplicate).Layout(gtx)
+				},
+				OnClicked: onClicked,
+			},
+			{
+				Layout: func(gtx menu.C, th *gvthem.Theme) menu.D {
+					return material.Label(th.Theme, unit.Sp(12), MenuDelete).Layout(gtx)
+				},
+				OnClicked: onClicked,
+			},
+		},
+	}
 }
 
 func (v *View) SetOnRequestTabChange(f func(id string, tab string)) {
@@ -760,6 +846,49 @@ func (v *View) HidePrompt(id string) {
 }
 
 func (v *View) PopulateTreeView(requests []*domain.Request, collections []*domain.Collection) {
+	nodes := make([]*treeview.EntryNode, 0)
+	for _, env := range collections {
+		if env.MetaData.ID == "" {
+			env.MetaData.ID = uuid.NewString()
+		}
+
+		node := treeview.NewEntryNode(treeview.Info{
+			Id:     env.MetaData.ID,
+			Title:  env.MetaData.Name,
+			Prefix: "",
+		}, treeview.CollectionNode)
+
+		for _, req := range env.Spec.Requests {
+			childNode := &treeview.EntryNode{
+				Parent: node,
+				Info: treeview.Info{
+					Id:     req.MetaData.ID,
+					Title:  req.MetaData.Name,
+					Prefix: "",
+				},
+			}
+
+			_ = node.AddChild(childNode.Info, treeview.RequestNode)
+		}
+		nodes = append(nodes, node)
+	}
+
+	for _, req := range requests {
+		if req.MetaData.ID == "" {
+			req.MetaData.ID = uuid.NewString()
+		}
+
+		node := treeview.NewEntryNode(treeview.Info{
+			Id:     req.MetaData.ID,
+			Title:  req.MetaData.Name,
+			Prefix: "",
+		}, treeview.RequestNode)
+
+		nodes = append(nodes, node)
+	}
+
+	v.navState.SetChildren(nodes)
+
 	treeViewNodes := make([]*widgets.TreeNode, 0)
 	for _, cl := range collections {
 		parentNode := &widgets.TreeNode{
@@ -948,7 +1077,8 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10), Right: 0}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return v.treeView.Layout(gtx, theme)
+					return v.navTree.Layout(gtx, v.gioviewTheme)
+					// return v.treeView.Layout(gtx, theme)
 				})
 			}),
 		)

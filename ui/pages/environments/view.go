@@ -7,6 +7,7 @@ import (
 	"gioui.org/widget"
 	giox "gioui.org/x/component"
 	"github.com/google/uuid"
+	gvthem "github.com/oligo/gioview/theme"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
@@ -15,6 +16,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/keys"
 	"github.com/chapar-rest/chapar/ui/pages/tips"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/ui/widgets/treeview"
 )
 
 const (
@@ -24,6 +26,10 @@ const (
 
 type View struct {
 	window *app.Window
+
+	navTree      *treeview.NavTree
+	navState     *treeview.EntryNavItem
+	gioviewTheme *gvthem.Theme
 
 	newEnvButton widget.Clickable
 	importButton widget.Clickable
@@ -81,7 +87,15 @@ func NewView(window *app.Window, theme *chapartheme.Theme) *View {
 		containers:    safemap.New[*container](),
 
 		tipsView: tips.New(),
+		gioviewTheme: &gvthem.Theme{
+			Theme: theme.Material(),
+		},
 	}
+
+	v.navState, _ = treeview.NewEntryNavItem()
+	v.navTree = treeview.NewNavItem(v.navState, func(item *treeview.NavTree) {
+
+	})
 
 	v.treeViewSearchBox.SetOnTextChange(func(text string) {
 		if v.treeViewNodes.Len() == 0 {
@@ -100,22 +114,41 @@ func (v *View) showError(err error) {
 }
 
 func (v *View) PopulateTreeView(envs []*domain.Environment) {
-	treeViewNodes := make([]*widgets.TreeNode, 0)
+	nodes := make([]*treeview.EntryNode, 0)
 	for _, env := range envs {
 		if env.MetaData.ID == "" {
 			env.MetaData.ID = uuid.NewString()
 		}
 
-		node := &widgets.TreeNode{
-			Text:        env.MetaData.Name,
-			Identifier:  env.MetaData.ID,
-			MenuOptions: []string{Duplicate, Delete},
+		node := &treeview.EntryNode{
+			Info: treeview.Info{
+				Id:     env.MetaData.ID,
+				Title:  env.MetaData.Name,
+				Prefix: "",
+			},
 		}
 
-		treeViewNodes = append(treeViewNodes, node)
-		v.treeViewNodes.Set(env.MetaData.ID, node)
+		nodes = append(nodes, node)
 	}
-	v.treeView.SetNodes(treeViewNodes)
+
+	v.navState.SetChildren(nodes)
+
+	//treeViewNodes := make([]*widgets.TreeNode, 0)
+	//for _, env := range envs {
+	//	if env.MetaData.ID == "" {
+	//		env.MetaData.ID = uuid.NewString()
+	//	}
+	//
+	//	node := &widgets.TreeNode{
+	//		Text:        env.MetaData.Name,
+	//		Identifier:  env.MetaData.ID,
+	//		MenuOptions: []string{Duplicate, Delete},
+	//	}
+	//
+	//	treeViewNodes = append(treeViewNodes, node)
+	//	v.treeViewNodes.Set(env.MetaData.ID, node)
+	//}
+	//v.treeView.SetNodes(treeViewNodes)
 }
 
 func (v *View) AddTreeViewNode(env *domain.Environment) {
@@ -353,7 +386,9 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return v.treeView.Layout(gtx, theme)
+					//return v.treeView.Layout(gtx, theme)
+
+					return v.navTree.Layout(gtx, v.gioviewTheme)
 				})
 			}),
 		)
