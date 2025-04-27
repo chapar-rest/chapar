@@ -120,7 +120,7 @@ github.com/jhump/protoreflect/desc/protoparse/ast
 github.com/jhump/protoreflect/desc/sourceinfo
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
-# github.com/oligo/gioview v0.8.1
+# github.com/oligo/gioview v0.8.2
 ## explicit; go 1.23.1
 github.com/oligo/gioview/editor
 github.com/oligo/gioview/misc

@@ -402,6 +402,7 @@ func (e *textView) Layout(gtx layout.Context, lt *text.Shaper, font font.Font, s
 		e.params.LineHeightScale = e.LineHeightScale
 		e.invalidate()
 	}
+	e.params.DisableSpaceTrim = true
 
 	e.makeValid()
 
