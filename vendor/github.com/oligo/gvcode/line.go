@@ -10,6 +10,10 @@ import (
 // find a paragraph by rune index, returning the line number(starting from zero)
 // and the paragraph itself.
 func (e *textView) FindParagraph(runeIdx int) (int, lt.Paragraph) {
+	if len(e.layouter.Paragraphs) == 0 {
+		return 0, lt.Paragraph{}
+	}
+
 	idx := sort.Search(len(e.layouter.Paragraphs), func(i int) bool {
 		rng := e.layouter.Paragraphs[i]
 		return rng.RuneOff+rng.Runes > runeIdx
@@ -17,7 +21,7 @@ func (e *textView) FindParagraph(runeIdx int) (int, lt.Paragraph) {
 
 	// No exsiting paragraph found.
 	if idx == len(e.layouter.Paragraphs) {
-		return 0, lt.Paragraph{}
+		return idx - 1, e.layouter.Paragraphs[idx-1]
 	}
 
 	return idx, e.layouter.Paragraphs[idx]
@@ -83,12 +87,12 @@ func (e *textView) SelectedLineRange() (start, end int) {
 	return paragraphs[0].RuneOff, last.RuneOff + last.Runes
 }
 
-// SelectedLine returns the text of the selected lines. An empty selection is treated
+// SelectedLine returns the text of the selected lines and the rune range. An empty selection is treated
 // as a single line selection.
-func (e *textView) SelectedLineText(buf []byte) []byte {
+func (e *textView) SelectedLineText(buf []byte) ([]byte, int, int) {
 	paragraphs := e.selectedParagraphs()
 	if len(paragraphs) == 0 {
-		return buf[:0]
+		return buf[:0], 0, 0
 	}
 
 	start := paragraphs[0].RuneOff
@@ -102,7 +106,7 @@ func (e *textView) SelectedLineText(buf []byte) []byte {
 	}
 	buf = buf[:endOff-startOff]
 	n, _ := e.src.ReadAt(buf, int64(startOff))
-	return buf[:n]
+	return buf[:n], start, end
 }
 
 // partialLineSelected checks if the current selection is a partial single line.
@@ -140,7 +144,7 @@ func (e *textView) PartialLineSelected() bool {
 // If s is a single tab character and the editor is configured to use soft tab,
 // the tab is expanded with spaces, also tab stop is accounted when calculating
 // space number.
-func (e *textView) ExpandTab(start, end int, s string) string {
+func (e *textView) expandTab(start, end int, s string) string {
 	if !e.SoftTab || s != "\t" {
 		return s
 	}

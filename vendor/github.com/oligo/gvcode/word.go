@@ -71,7 +71,7 @@ func (e *textView) MoveWords(distance int, selAct selectionAction) {
 //
 // The word boundary is checked using the same conditions as MoveWords.
 func (e *textView) ReadWord(bySpace bool) (string, int) {
-	caret := e.closestToRune(e.caret.start)
+	caret := e.closestToRune(max(e.caret.start, e.caret.end))
 	buf := make([]rune, 0)
 
 	seperator := func(r rune) bool {

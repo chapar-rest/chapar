@@ -36,7 +36,6 @@ type Editor struct {
 
 	// hooks
 	onPaste   BeforePasteHook
-	indenter  autoIndenter
 	completor Completion
 
 	// readOnly controls whether the contents of the editor can be altered by
@@ -75,6 +74,8 @@ type Editor struct {
 	pending     []EditorEvent
 	// commands is a registry of key commands.
 	commands map[key.Name][]keyCommand
+	// autoInsertions tracks recently inserted closing brackets or quotes.
+	autoInsertions map[int]rune
 }
 
 type imeState struct {
@@ -123,7 +124,6 @@ func (e *Editor) initBuffer() {
 	}
 
 	e.text.CaretWidth = unit.Dp(1)
-	e.indenter.Editor = e
 }
 
 // Update the state of the editor in response to input events. Update consumes editor
@@ -302,9 +302,7 @@ func (e *Editor) SetText(s string) {
 	e.initBuffer()
 
 	indent, _, size := GuessIndentation(s)
-	if indent == Spaces {
-		e.text.SoftTab = true
-	}
+	e.text.SoftTab = indent == Spaces
 	e.text.TabWidth = size
 
 	e.text.SetText(s)
@@ -336,6 +334,11 @@ func (e *Editor) Delete(graphemeClusters int) (deletedRunes int) {
 	e.initBuffer()
 	if graphemeClusters == 0 {
 		return 0
+	}
+
+	if graphemeClusters < 0 {
+		// update selection based on some rules.
+		e.onDeleteBackward()
 	}
 
 	start, end := e.text.Selection()

@@ -88,12 +88,8 @@ type textView struct {
 	// WordSeperators configures a set of characters that will be used as word separators
 	// when doing word related operations, like navigating or deleting by word.
 	WordSeperators string
-	// A set of quote pairs that can be auto-completed when the left  half is entered.
-	QuotePairs map[rune]rune
-	// A set of bracket pairs that can be auto-completed when the left half is entered.
-	BracketPairs map[rune]rune
-
-	bracketHandler bracketHandler
+	// Brackets and quote pairs that can be auto-completed when the left half is entered.
+	BracketsQuotes *bracketsQuotes
 
 	src    buffer.TextSource
 	params text.Parameters
@@ -113,6 +109,8 @@ type textView struct {
 	// caret position in the view.
 	caret   caretPos
 	regions []Region
+	// line buffer for line related operations.
+	lineBuf []byte
 }
 
 // SetSource initializes the underlying data source for the Text. This
@@ -120,9 +118,7 @@ type textView struct {
 func (e *textView) SetSource(source buffer.TextSource) {
 	e.src = source
 	e.layouter = lt.NewTextLayout(e.src)
-	e.bracketHandler.textView = e
-	e.QuotePairs = builtinQuotePairs
-	e.BracketPairs = builtinBracketPairs
+	e.BracketsQuotes = &bracketsQuotes{}
 	e.invalidate()
 }
 
@@ -280,10 +276,15 @@ func (tv *textView) calcLineHeight() fixed.Int26_6 {
 }
 
 // ByteOffset returns the start byte of the rune at the given
-// rune offset, clamped to the size of the text.
+// rune offset.
 func (e *textView) ByteOffset(runeOffset int) int64 {
-	pos := e.closestToRune(runeOffset)
-	return int64(e.src.RuneOffset(pos.Runes))
+	return int64(e.src.RuneOffset(runeOffset))
+}
+
+// ReadRuneAt reads a rune at the rune offset runeOff. It returns an error
+// while reading from the underlying buffer.
+func (e *textView) ReadRuneAt(runeOff int) (rune, error) {
+	return e.src.ReadRuneAt(runeOff)
 }
 
 // Len is the length of the editor contents, in runes.

@@ -129,6 +129,9 @@ func (pt *PieceTable) getBuf(source bufSrc) *textBuffer {
 }
 
 func (pt *PieceTable) recordAction(action action, runeIndex int) {
+	if pt.lastAction != 0 && pt.lastAction != action {
+		pt.lastInsertPiece = nil
+	}
 	pt.lastAction = action
 	pt.lastActionEndIdx = runeIndex
 }
@@ -335,7 +338,10 @@ func (pt *PieceTable) Erase(startOff, endOff int) bool {
 	}
 
 	pt.redoStack.clear()
-	defer func() { pt.changed = true }()
+	defer func() {
+		pt.changed = true
+		pt.recordAction(actionErase, startOff)
+	}()
 
 	startPiece, inRuneOff := pt.pieces.FindPiece(startOff)
 
@@ -436,7 +442,6 @@ func (pt *PieceTable) Erase(startOff, endOff int) bool {
 	pt.seqLength -= endOff - startOff
 	pt.seqBytes -= bytesErased
 
-	//pt.recordAction(actionInsert, runeIndex+textRunes)
 	return true
 }
 

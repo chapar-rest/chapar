@@ -123,7 +123,7 @@ func (e *textView) PaintOverlay(gtx layout.Context, offset image.Point, overlay 
 }
 
 func (e *textView) highlightMatchingBrackets(gtx layout.Context, material op.CallOp) {
-	left, right := e.bracketHandler.NearestMatchingBrackets()
+	left, right := e.NearestMatchingBrackets()
 	if left < 0 || right < 0 {
 		// no matching found
 		return

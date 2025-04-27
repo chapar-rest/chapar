@@ -285,7 +285,7 @@ func (e *Editor) onCopyCut(gtx layout.Context, k key.Event) EditorEvent {
 	lineOp := false
 	if e.text.SelectionLen() == 0 {
 		lineOp = true
-		e.scratch = e.text.SelectedLineText(e.scratch)
+		e.scratch, _, _ = e.text.SelectedLineText(e.scratch)
 		if len(e.scratch) > 0 && e.scratch[len(e.scratch)-1] != '\n' {
 			e.scratch = append(e.scratch, '\n')
 		}
@@ -319,16 +319,7 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 		return nil
 	}
 
-	backward := k.Modifiers.Contain(key.ModShift)
-	if (!backward && e.SelectionLen() == 0) || e.text.PartialLineSelected() {
-		// expand soft tab.
-		start, end := e.text.Selection()
-		if e.Insert(e.text.ExpandTab(start, end, "\t")) != 0 {
-			return ChangeEvent{}
-		}
-	}
-
-	if e.indenter.IndentMultiLines(backward) > 0 {
+	if e.text.IndentLines(k.Modifiers.Contain(key.ModShift)) > 0 {
 		// Reset xoff.
 		e.text.MoveCaret(0, 0)
 		e.scrollCaret = true
@@ -339,36 +330,47 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 
 }
 
-func (e *Editor) autoCompleteBracketsAndQuotes(ke key.EditEvent) bool {
-	if ke.Text == "" {
-		return false
-	}
-
-	allPairs := mergeMaps(e.text.BracketPairs, e.text.QuotePairs)
-	closing, ok := allPairs[[]rune(ke.Text)[0]]
-	if !ok {
-		return false
-	}
-
-	e.scrollCaret = true
-	e.scroller.Stop()
-	e.replace(ke.Range.Start, ke.Range.End, ke.Text+string(closing))
-	e.text.MoveCaret(-1, -1)
-	return true
-}
-
 func (e *Editor) onTextInput(ke key.EditEvent) {
-	if e.readOnly {
+	if e.readOnly || len(ke.Text) <= 0 {
 		return
 	}
 
-	if e.autoCompleteBracketsAndQuotes(ke) {
-		return
+	if e.autoInsertions == nil {
+		e.autoInsertions = make(map[int]rune)
+	}
+
+	// check if the input character is a bracket or a quote.
+	r := []rune(ke.Text)[0]
+	counterpart, isOpening := e.text.BracketsQuotes.GetCounterpart(r)
+
+	if counterpart > 0 && isOpening {
+		// auto-insert the closing part.
+		e.replace(ke.Range.Start, ke.Range.End, ke.Text+string(counterpart))
+		e.text.MoveCaret(-1, -1)
+		start, _ := e.text.Selection()
+		e.autoInsertions[start] = counterpart
+
+	} else if counterpart > 0 {
+		// The input character is a bracket a quote, but it is a closing part.
+		//
+		// check if we can just move the cursor to the next position
+		// if the input is a just inserted closing part.
+		nextRune, err := e.text.ReadRuneAt(ke.Range.Start)
+
+		if err == nil && nextRune == e.autoInsertions[ke.Range.Start] {
+			e.text.MoveCaret(1, 1)
+			delete(e.autoInsertions, ke.Range.Start)
+		} else {
+			e.replace(ke.Range.Start, ke.Range.End, ke.Text)
+		}
+	} else {
+		delete(e.autoInsertions, ke.Range.Start)
+		e.replace(ke.Range.Start, ke.Range.End, ke.Text)
 	}
 
 	e.scrollCaret = true
 	e.scroller.Stop()
-	e.replace(ke.Range.Start, ke.Range.End, ke.Text)
+	// e.replace(ke.Range.Start, ke.Range.End, ke.Text)
 	// Reset caret xoff.
 	e.text.MoveCaret(0, 0)
 	// start to auto-complete, if there is a configured Completion.
@@ -444,9 +446,66 @@ func (e *Editor) onInsertLineBreak(ke key.Event) EditorEvent {
 		return nil
 	}
 
-	if e.indenter.IndentOnBreak("\n") {
-		return ChangeEvent{}
+	e.text.IndentOnBreak("\n")
+	// Reset xoff.
+	e.scrollCaret = true
+	e.scroller.Stop()
+	e.text.MoveCaret(0, 0)
+	return ChangeEvent{}
+}
+
+// onDeleteBackward update the selection when we are deleting the indentation, or
+// an auto inserted bracket/quote pair.
+func (e *Editor) onDeleteBackward() {
+	start, end := e.Selection()
+	if start != end {
+		return
 	}
 
-	return nil
+	prev, err := e.text.ReadRuneAt(start - 1)
+	if err != nil && err != io.EOF {
+		panic("Read rune panic: " + err.Error())
+	}
+
+	space := ' '
+	// When the leading of the line are spaces and tabs, delete up to the
+	// number of tab width spaces before the cursor.
+	if prev == space {
+		// Find the current paragraph.
+		var lineStart int
+		e.scratch, lineStart, _ = e.text.SelectedLineText(e.scratch)
+		leading := []rune(string(e.scratch))[:end-lineStart]
+		hasNonSpaceOrTab := strings.ContainsFunc(string(leading), func(r rune) bool {
+			return r != space && r != '\t'
+		})
+		if hasNonSpaceOrTab {
+			return
+		}
+
+		moves := 0
+		for i := len(leading) - 1; i >= 0; i-- {
+			if leading[i] == space && moves < e.text.TabWidth {
+				moves++
+			} else {
+				break
+			}
+		}
+		if moves > 0 {
+			e.text.MoveCaret(0, -moves)
+		}
+
+	} else {
+		// when there is rencently auto-inserted brackets or quotes,
+		// delete the auto inserted character and the previous character.
+		if inserted, exists := e.autoInsertions[start]; exists {
+			defer delete(e.autoInsertions, start)
+			counterpart, isOpening := e.text.BracketsQuotes.GetCounterpart(inserted)
+			if !isOpening && counterpart > 0 {
+				if prev == counterpart {
+					e.text.MoveCaret(-1, 1)
+				}
+			}
+		}
+	}
+
 }

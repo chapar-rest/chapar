@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
 	github.com/oligo/gioview v0.8.1
-	github.com/oligo/gvcode v0.2.1-0.20250410165334-c3e76c32a80c
+	github.com/oligo/gvcode v0.2.1-0.20250424030509-8138ffc92f73
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/pretty v1.2.1
 	golang.org/x/exp/shiny v0.0.0-20240707233637-46b078467d37

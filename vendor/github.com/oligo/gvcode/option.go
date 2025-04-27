@@ -9,19 +9,6 @@ import (
 // EditorOption defines a function to configure the editor.
 type EditorOption func(*Editor)
 
-var builtinQuotePairs = map[rune]rune{
-	'\'': '\'',
-	'"':  '"',
-	'`':  '`',
-}
-
-// Bracket pairs
-var builtinBracketPairs = map[rune]rune{
-	'(': ')',
-	'{': '}',
-	'[': ']',
-}
-
 // WithOptions applies various options to configure the editor.
 func (e *Editor) WithOptions(opts ...EditorOption) {
 	for _, opt := range opts {
@@ -75,7 +62,7 @@ func WithWordSeperators(seperators string) EditorOption {
 func WithQuotePairs(quotePairs map[rune]rune) EditorOption {
 	return func(e *Editor) {
 		e.initBuffer()
-		e.text.QuotePairs = quotePairs
+		e.text.BracketsQuotes.SetQuotes(quotePairs)
 	}
 }
 
@@ -84,7 +71,7 @@ func WithQuotePairs(quotePairs map[rune]rune) EditorOption {
 func WithBracketPairs(bracketPairs map[rune]rune) EditorOption {
 	return func(e *Editor) {
 		e.initBuffer()
-		e.text.BracketPairs = bracketPairs
+		e.text.BracketsQuotes.SetBrackets(bracketPairs)
 	}
 }
 
