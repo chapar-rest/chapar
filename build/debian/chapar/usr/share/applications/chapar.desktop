@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Chapar
+Exec=/usr/bin/chapar
+Icon=myapp
+Type=Application
+Categories=Utility;

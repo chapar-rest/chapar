@@ -1,0 +1,8 @@
+Package: chapar
+Version: 1.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Mohsen Mirzakhani <tech@chapar.rest>
+Description: Chapar is a simple and easy to use api testing tools aims to help developers to test their api endpoints.
+ Chapar is an upcoming native API testing tool built with GoLang, designed to simplify and expedite the testing process for developers. While still in its early beta phase, Chapar aims to offer a user-friendly experience with support for both HTTP and gRPC protocols with.
