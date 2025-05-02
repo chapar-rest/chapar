@@ -95,6 +95,9 @@ type SettingItem struct {
 	visibleWhen func(values map[string]any) bool
 
 	onChange func()
+
+	minWidth      unit.Dp
+	textAlignment text.Alignment
 }
 
 func NewFileItem(explorer *explorer.Explorer, title, key, description string, value string, extensions ...string) *SettingItem {
@@ -151,6 +154,19 @@ func NewNumberItem(title, key, description string, value int) *SettingItem {
 		visible:     true,
 	}
 	i.editor.SetText(strconv.Itoa(value))
+	return i
+}
+
+func (i *SettingItem) MinWidth(w unit.Dp) *SettingItem {
+	i.minWidth = w
+	return i
+}
+
+func (i *SettingItem) TextAlignment(a text.Alignment) *SettingItem {
+	i.textAlignment = a
+	if i.editor != nil {
+		i.editor.Alignment = a
+	}
 	return i
 }
 
@@ -240,7 +256,12 @@ func (i *SettingItem) switchLayout(gtx layout.Context, theme *chapartheme.Theme)
 }
 
 func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	gtx.Constraints.Min.X = gtx.Dp(50)
+	if i.minWidth > 0 {
+		gtx.Constraints.Min.X = gtx.Dp(i.minWidth)
+	} else {
+		gtx.Constraints.Min.X = gtx.Dp(50)
+	}
+
 	border := widget.Border{
 		Color:        theme.BorderColor,
 		Width:        unit.Dp(1),

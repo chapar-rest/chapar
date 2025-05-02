@@ -31,16 +31,16 @@ type Service struct {
 	rest *rest.Service
 	grpc *grpc.Service
 
-	scriptRunner ScriptRunner
+	scriptPluginManager scripting.PluginManager
 }
 
-func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service, scriptRunner ScriptRunner) *Service {
+func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service, scriptPluginManager scripting.PluginManager) *Service {
 	return &Service{
-		requests:     requests,
-		environments: environments,
-		rest:         rest,
-		grpc:         grpc,
-		scriptRunner: scriptRunner,
+		requests:            requests,
+		environments:        environments,
+		rest:                rest,
+		grpc:                grpc,
+		scriptPluginManager: scriptPluginManager,
 	}
 }
 
@@ -310,7 +310,9 @@ func (s *Service) handlePythonPreRequest(script string, request *domain.Request,
 		}
 	}
 
-	result, err := s.scriptRunner.ExecutePreRequestScript(context.Background(), script, params)
+	runner, _ := s.scriptPluginManager.GetPlugin("python")
+
+	result, err := runner.ExecutePreRequestScript(context.Background(), script, params)
 	if err != nil {
 		return err
 	}
@@ -354,7 +356,9 @@ func (s *Service) handlePythonPostRequest(script string, response *rest.Response
 		},
 	}
 
-	result, err := s.scriptRunner.ExecutePostResponseScript(context.Background(), script, params)
+	runner, _ := s.scriptPluginManager.GetPlugin("python")
+
+	result, err := runner.ExecutePostResponseScript(context.Background(), script, params)
 	if err != nil {
 		return err
 	}

@@ -3,8 +3,6 @@ package app
 import (
 	"fmt"
 	"image"
-	"os"
-	"path/filepath"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -21,7 +19,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/scripting"
-	"github.com/chapar-rest/chapar/internal/scripting/python"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/explorer"
@@ -30,6 +27,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
+	"github.com/chapar-rest/chapar/ui/pages/settings"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
 	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
@@ -52,6 +50,7 @@ type UI struct {
 	requestsView     *requests.View
 	workspacesView   *workspaces.View
 	protoFilesView   *protofiles.View
+	settingsView     *settings.View
 
 	environmentsController *environments.Controller
 	requestsController     *requests.Controller
@@ -94,31 +93,31 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		return nil, fmt.Errorf("failed to read preferences, %w", err)
 	}
 
-	u.scriptPluginManager = scripting.NewPluginManager()
+	u.scriptPluginManager = scripting.NewPluginManager(nil, scripting.NewStore(repo))
+	if err := u.scriptPluginManager.Init(); err != nil {
+		return nil, fmt.Errorf("failed to initialize scripting plugin manager, %w", err)
+	}
 
-	scriptingVariableStore := scripting.NewStore(repo)
-	pythonScriptingPlugin := python.New(scriptingVariableStore)
 	// Determine application data directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user home directory: %w", err)
-	}
+	//homeDir, err := os.UserHomeDir()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get user home directory: %w", err)
+	//}
+	//
+	//appDataDir := filepath.Join(homeDir, ".chapar")
+	//if err := os.MkdirAll(appDataDir, 0755); err != nil {
+	//	return nil, fmt.Errorf("failed to create app data directory: %w", err)
+	//}
+	//
+	//// Create the scripts directory
+	//scriptsDir := filepath.Join(appDataDir, "scripts")
+	//if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+	//	return nil, fmt.Errorf("failed to create scripts directory: %w", err)
+	//}
 
-	appDataDir := filepath.Join(homeDir, ".chapar")
-	if err := os.MkdirAll(appDataDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create app data directory: %w", err)
-	}
-
-	// Python plugin configuration
-	pythonConfig := map[string]interface{}{
-		"pythonPath":       "/Users/mohsen/.chapar/.venv/bin/python", // or "python" depending on your system
-		"serverScriptPath": filepath.Join(appDataDir, "scripts", "python_server.py"),
-		"port":             8090,
-	}
-
-	if err := u.scriptPluginManager.RegisterPlugin("python", pythonScriptingPlugin, pythonConfig); err != nil {
-		return nil, fmt.Errorf("failed to register python plugin, %w", err)
-	}
+	//if err := u.scriptPluginManager.RegisterPlugin("python", pythonScriptingPlugin, pythonRunner); err != nil {
+	//	return nil, fmt.Errorf("failed to register python plugin, %w", err)
+	//}
 
 	u.workspacesView = workspaces.NewView()
 	u.workspacesState = state.NewWorkspaces(repo)
@@ -144,13 +143,14 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState)
 
-	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService, pythonScriptingPlugin)
+	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService, u.scriptPluginManager)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
+	u.settingsView = settings.NewView(w, u.Theme)
 
 	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
 	u.header.SetSearchDataLoader(u.searchDataLoader)
@@ -428,6 +428,8 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 						return u.workspacesView.Layout(gtx, u.Theme)
 					case 3:
 						return u.protoFilesView.Layout(gtx, u.Theme)
+					case 4:
+						return u.settingsView.Layout(gtx, u.Theme)
 						// case 4:
 						//	return u.consolePage.Layout(gtx, u.Theme)
 					}

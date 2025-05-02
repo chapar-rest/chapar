@@ -3,23 +3,32 @@ package scripting
 import (
 	"fmt"
 	"sync"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // DefaultPluginManager provides a standard implementation of the PluginManager interface
 type DefaultPluginManager struct {
 	plugins map[string]ScriptPlugin
 	mu      sync.RWMutex
+
+	pluginScripts []domain.ScriptingPlugin
 }
 
 // NewPluginManager creates a new DefaultPluginManager
-func NewPluginManager() *DefaultPluginManager {
+func NewPluginManager(plugins []domain.ScriptingPlugin, store VariableStore) *DefaultPluginManager {
 	return &DefaultPluginManager{
-		plugins: make(map[string]ScriptPlugin),
+		plugins:       make(map[string]ScriptPlugin),
+		pluginScripts: plugins,
 	}
 }
 
+func (pm *DefaultPluginManager) Init() error {
+	return nil
+}
+
 // RegisterPlugin registers a new plugin with the manager
-func (pm *DefaultPluginManager) RegisterPlugin(name string, plugin ScriptPlugin, config map[string]interface{}) error {
+func (pm *DefaultPluginManager) RegisterPlugin(name string, plugin ScriptPlugin, runner Runner) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -29,7 +38,7 @@ func (pm *DefaultPluginManager) RegisterPlugin(name string, plugin ScriptPlugin,
 	}
 
 	// Initialize the plugin
-	if err := plugin.Initialize(config); err != nil {
+	if err := plugin.Initialize(runner); err != nil {
 		return fmt.Errorf("failed to initialize plugin '%s': %w", name, err)
 	}
 

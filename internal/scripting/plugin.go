@@ -44,10 +44,19 @@ type ExecResult struct {
 	SetEnvironments map[string]interface{}
 }
 
+type Runner struct {
+	BinPath    string
+	ScriptPath string
+	Args       []string
+	Port       int
+
+	Debug bool
+}
+
 // ScriptPlugin defines the interface all language plugins must implement
 type ScriptPlugin interface {
 	// Initialize sets up the plugin with the provided configuration
-	Initialize(config map[string]interface{}) error
+	Initialize(runner Runner) error
 
 	// ExecutePreRequestScript runs a script before the request is sent
 	// and potentially modifies the request data
@@ -82,7 +91,8 @@ type VariableStore interface {
 
 // PluginManager handles the registration and retrieval of plugins
 type PluginManager interface {
-	RegisterPlugin(name string, plugin ScriptPlugin, config map[string]interface{}) error
+	RegisterPlugin(name string, plugin ScriptPlugin, runner Runner) error
+	Init() error
 	GetPlugin(name string) (ScriptPlugin, bool)
 	ListPlugins() []PluginInfo
 	ShutdownAll() error

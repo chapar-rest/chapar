@@ -262,6 +262,10 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if node.MenuOptions == nil {
+						return layout.Dimensions{}
+					}
+
 					iconBtn := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if !node.DiscloserState.Clickable.Hovered() && !node.menuContextArea.Active() {
 							return layout.Dimensions{}

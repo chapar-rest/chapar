@@ -29,6 +29,9 @@ type Plugin struct {
 	serverURL        string
 	client           *http.Client
 	variableStore    scripting.VariableStore
+
+	runnerArgs []string
+	debug      bool
 }
 
 // New creates a new Python plugin instance
@@ -40,29 +43,33 @@ func New(variableStore scripting.VariableStore) *Plugin {
 }
 
 // Initialize starts the Python plugin server process
-func (p *Plugin) Initialize(config map[string]interface{}) error {
-	// Extract configuration
-	pythonPath, ok := config["pythonPath"].(string)
-	if !ok {
-		pythonPath = "python" // Use system default if not specified
-	}
-	p.pythonPath = pythonPath
+func (p *Plugin) Initialize(runner scripting.Runner) error {
+	p.runnerArgs = runner.Args
+	p.debug = runner.Debug
 
-	// Get server script path from config or use default
-	serverScriptPath, ok := config["serverScriptPath"].(string)
-	if !ok {
-		// If not provided, use the default location
-		return errors.New("serverScriptPath is required")
+	p.pythonPath = "python" // default system
+	if runner.BinPath != "" {
+		p.pythonPath = runner.BinPath
 	}
-	p.serverScriptPath = serverScriptPath
 
-	// Get port from config or use default
-	port, ok := config["port"].(int)
-	if !ok {
-		port = 8090 // Default port
+	if runner.ScriptPath == "" {
+		return errors.New("script path is required")
+	} else {
+		// Check if the script path is absolute
+		if !filepath.IsAbs(runner.ScriptPath) {
+			return fmt.Errorf("script path must be absolute: %s", runner.ScriptPath)
+		}
+
+		// Set the Python path
+		p.serverScriptPath = runner.ScriptPath
 	}
-	p.serverPort = port
-	p.serverURL = fmt.Sprintf("http://localhost:%d", port)
+
+	p.serverPort = 8090
+	if runner.Port != 0 {
+		p.serverPort = runner.Port
+	}
+
+	p.serverURL = fmt.Sprintf("http://localhost:%d", p.serverPort)
 
 	// Start the Python server
 	return p.startServer()
@@ -81,20 +88,18 @@ func (p *Plugin) startServer() error {
 	}
 
 	// Start the Python process
-	cmd := exec.Command(
-		p.pythonPath,
-		p.serverScriptPath,
-		"--port", fmt.Sprintf("%d", p.serverPort),
-	)
-	cmd.Stdout = os.Stdout // For debugging
-	cmd.Stderr = os.Stderr // For debugging
+	cmd := exec.Command(p.pythonPath, p.runnerArgs...)
+
+	if p.debug {
+		cmd.Stdout = os.Stdout // For debugging
+		cmd.Stderr = os.Stderr // For debugging
+	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start Python server: %w", err)
 	}
 
 	p.serverProcess = cmd.Process
-
 	// Wait for the server to become available
 	return p.waitForServer()
 }
@@ -104,7 +109,7 @@ func (p *Plugin) waitForServer() error {
 	for i := 0; i < 20; i++ { // Try for up to 10 seconds
 		resp, err := p.client.Get(p.serverURL + "/health")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return nil // Server is up and running
 			}
