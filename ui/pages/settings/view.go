@@ -5,6 +5,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget/material"
 	giox "gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/safemap"
@@ -26,6 +27,7 @@ type View struct {
 	settings *safemap.Map[*widgets.Settings]
 
 	selectedSettingIdentifier string
+	selectedSettingTitle      string
 }
 
 func NewView(window *app.Window, theme *chapartheme.Theme) *View {
@@ -50,6 +52,7 @@ func NewView(window *app.Window, theme *chapartheme.Theme) *View {
 
 	u.treeView.OnNodeClick(func(tr *widgets.TreeNode) {
 		u.selectedSettingIdentifier = tr.Identifier
+		u.selectedSettingTitle = tr.Text
 	})
 
 	return u
@@ -76,6 +79,10 @@ func (v *View) load() {
 
 	v.settings.Set("scripting", widgets.NewSettings([]*widgets.SettingItem{
 		widgets.NewBoolItem("Enable", "enable", "Enable scripting for pre and post request triggers", true),
+		widgets.NewDropDownItem("Language", "language", "Select the scripting language you would like to have for scripting", "python",
+			widgets.NewDropDownOption("Python").WithIdentifier("python").WithValue("python"),
+			widgets.NewDropDownOption("Javascript").WithIdentifier("javascript").WithValue("javascript"),
+		),
 		widgets.NewTextItem("Executable path", "executable", "The absolute path to the executable binary", "").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
 		widgets.NewTextItem("Server script path", "serverScriptPath", "The absolute path to where Chapar can use to create server script", "").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
 		widgets.NewNumberItem("Port", "port", "Http port that server script is listening to", 2397),
@@ -123,6 +130,7 @@ func (v *View) settingDetail(gtx layout.Context, theme *chapartheme.Theme) layou
 
 	if v.selectedSettingIdentifier == "" {
 		v.selectedSettingIdentifier = "general"
+		v.selectedSettingTitle = "General"
 	}
 
 	setting, ok := v.settings.Get(v.selectedSettingIdentifier)
@@ -131,6 +139,17 @@ func (v *View) settingDetail(gtx layout.Context, theme *chapartheme.Theme) layou
 	}
 
 	return layout.UniformInset(unit.Dp(20)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return setting.Layout(gtx, theme)
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.H5(theme.Material(), v.selectedSettingTitle).Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
+			widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return setting.Layout(gtx, theme)
+				})
+			}),
+		)
 	})
 }

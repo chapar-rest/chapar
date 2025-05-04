@@ -131,7 +131,6 @@ func (f *FormData) SetValues(values []domain.FormField) {
 
 func (f *FormData) addField(field *FormDataField) {
 	field.typeDropDown = widgets.NewDropDownWithoutBorder(
-		f.theme,
 		widgets.NewDropDownOption("File").WithIdentifier("file").WithValue("file"),
 		widgets.NewDropDownOption("Text").WithIdentifier("text").WithValue("text"),
 	)

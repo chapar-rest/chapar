@@ -59,9 +59,8 @@ func NewHeader(w *app.Window, envState *state.Environments, workspacesState *sta
 	h.iconDarkMode = widgets.MaterialIcons("dark_mode", theme)
 	h.iconLightMode = widgets.MaterialIcons("light_mode", theme)
 
-	h.envDropDown = widgets.NewDropDown(theme)
+	h.envDropDown = widgets.NewDropDown()
 	h.workspaceDropDown = widgets.NewDropDownWithoutBorder(
-		theme,
 		widgets.NewDropDownOption(domain.DefaultWorkspaceName).WithIdentifier(domain.DefaultWorkspaceName),
 	)
 	h.workspaceDropDown.SetSelectedByIdentifier(domain.DefaultWorkspaceName)

@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	ItemTypeText    = "text"
-	ItemTypeFile    = "file"
-	ItemTypeBool    = "bool"
-	ItemTypeLNumber = "number"
+	ItemTypeText     = "text"
+	ItemTypeFile     = "file"
+	ItemTypeBool     = "bool"
+	ItemTypeLNumber  = "number"
+	ItemTypeDropDown = "dropdown"
 )
 
 type Settings struct {
@@ -64,6 +65,8 @@ func (s *Settings) getValues() map[string]any {
 			values[i.Key] = v
 		case ItemTypeFile:
 			values[i.Key] = i.FileSelector.GetFilePath()
+		case ItemTypeDropDown:
+			values[i.Key] = i.dropDown.GetSelected().GetValue()
 		default:
 			values[i.Key] = i.editor.Text()
 		}
@@ -88,6 +91,8 @@ type SettingItem struct {
 
 	boolState *widget.Bool
 	editor    *widget.Editor
+
+	dropDown *DropDown
 
 	FileSelector *FileSelector
 
@@ -157,6 +162,22 @@ func NewNumberItem(title, key, description string, value int) *SettingItem {
 	return i
 }
 
+func NewDropDownItem(title, key, description, value string, options ...*DropDownOption) *SettingItem {
+	i := &SettingItem{
+		Title:       title,
+		Key:         key,
+		Description: description,
+		Type:        ItemTypeDropDown,
+		Value:       value,
+		dropDown:    NewDropDown(options...),
+		visible:     true,
+	}
+
+	i.dropDown.SetSelectedByValue(value)
+	i.dropDown.MaxWidth = unit.Dp(150)
+	return i
+}
+
 func (i *SettingItem) MinWidth(w unit.Dp) *SettingItem {
 	i.minWidth = w
 	return i
@@ -211,6 +232,8 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 						return i.editorLayout(gtx, theme)
 					case ItemTypeFile:
 						return i.fileLayout(gtx, theme)
+					case ItemTypeDropDown:
+						return i.dropDownLayout(gtx, theme)
 					default:
 						return layout.Dimensions{}
 					}
@@ -279,6 +302,10 @@ func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme)
 			return editor.Layout(gtx)
 		})
 	})
+}
+
+func (i *SettingItem) dropDownLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	return i.dropDown.Layout(gtx, theme)
 }
 
 func (s *Settings) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

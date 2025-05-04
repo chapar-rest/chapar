@@ -29,7 +29,6 @@ type Request struct {
 
 func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapartheme.Theme) *Request {
 	postRequestDropDown := widgets.NewDropDown(
-		theme,
 		widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
 		widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
 		widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),
