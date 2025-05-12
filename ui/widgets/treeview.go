@@ -255,7 +255,6 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							lb := material.Label(theme.Material(), unit.Sp(13), node.Text)
-							lb.Font.Weight = font.SemiBold
 							lb.MaxLines = 1
 							return lb.Layout(gtx)
 						}),
