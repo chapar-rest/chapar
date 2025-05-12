@@ -53,7 +53,7 @@ func NewSidebar(theme *chapartheme.Theme, appVersion string) *Sidebar {
 			// {Icon: widgets.TunnelIcon, Text: "Tunnels"},
 			// {Icon: widgets.ConsoleIcon, Text: "Console"},
 			// {Icon: widgets.LogsIcon, Text: "Logs"},
-			// {Icon: widgets.SettingsIcon, Text: "Settings"},
+			{Icon: widgets.SettingsIcon, Text: "Settings"},
 		},
 		list: &widget.List{
 			List: layout.List{

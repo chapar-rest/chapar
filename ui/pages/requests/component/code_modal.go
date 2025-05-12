@@ -39,7 +39,6 @@ type CodeModal struct {
 func NewCodeModal(theme *chapartheme.Theme) *CodeModal {
 	c := &CodeModal{
 		dropDown: widgets.NewDropDown(
-			theme,
 			widgets.NewDropDownOption("Curl").WithValue("curl"),
 			widgets.NewDropDownOption("Python").WithValue("python"),
 			widgets.NewDropDownOption("Golang").WithValue("golang"),

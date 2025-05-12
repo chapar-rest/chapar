@@ -29,7 +29,7 @@ func NewAddressBar(theme *chapartheme.Theme, address, lastSelectedMethod string,
 	a := &AddressBar{
 		theme:              theme,
 		serverAddress:      widgets.NewPatternEditor(),
-		methodDropDown:     widgets.NewDropDownWithoutBorder(theme),
+		methodDropDown:     widgets.NewDropDownWithoutBorder(),
 		lastSelectedMethod: lastSelectedMethod,
 	}
 

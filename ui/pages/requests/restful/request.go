@@ -29,7 +29,6 @@ type Request struct {
 
 func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapartheme.Theme) *Request {
 	postRequestDropDown := widgets.NewDropDown(
-		theme,
 		widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
 		widgets.NewDropDownOption("From Header").WithValue(domain.PostRequestSetFromResponseHeader),
 		widgets.NewDropDownOption("From Cookie").WithValue(domain.PostRequestSetFromResponseCookie),
@@ -48,7 +47,7 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 		PreRequest: component.NewPrePostRequest([]component.Option{
 			{Title: "None", Value: domain.PrePostTypeNone},
 			{Title: "Trigger request", Value: domain.PrePostTypeTriggerRequest, Type: component.TypeTriggerRequest, Hint: "Trigger another request"},
-			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your pre request python script here"},
+			{Title: "Python", Value: domain.PrePostTypePython, Type: component.TypeScript, Hint: "Write your pre request python script here"},
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Write your pre request shell script here"},
 			//	{Title: "Kubectl tunnel", Value: domain.PostRequestTypeK8sTunnel, Type: component.TypeScript, Hint: "Run kubectl port-forward command"},
 			//	{Title: "SSH tunnel", Value: domain.PostRequestTypeSSHTunnel, Type: component.TypeScript, Hint: "Run ssh command"},
@@ -56,7 +55,7 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 		PostRequest: component.NewPrePostRequest([]component.Option{
 			{Title: "None", Value: domain.PrePostTypeNone},
 			{Title: "Set Environment Variable", Value: domain.PrePostTypeSetEnv, Type: component.TypeSetEnv, Hint: "Set environment variable"},
-			//	{Title: "Python", Value: domain.PostRequestTypePythonScript, Type: component.TypeScript, Hint: "Write your post request python script here"},
+			{Title: "Python", Value: domain.PrePostTypePython, Type: component.TypeScript, Hint: "Write your post request python script here"},
 			//	{Title: "Shell Script", Value: domain.PostRequestTypeShellScript, Type: component.TypeScript, Hint: "Write your post request shell script here"},
 		}, postRequestDropDown, theme),
 
@@ -74,12 +73,12 @@ func NewRequest(req *domain.Request, explorer *explorer.Explorer, theme *chapart
 
 		if req.Spec.HTTP.Request.PreRequest != (domain.PreRequest{}) {
 			r.PreRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PreRequest.Type)
-			//	r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
+			r.PreRequest.SetCode(req.Spec.HTTP.Request.PreRequest.Script)
 		}
 
 		if req.Spec.HTTP.Request.PostRequest != (domain.PostRequest{}) {
 			r.PostRequest.SetSelectedDropDown(req.Spec.HTTP.Request.PostRequest.Type)
-			//	r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
+			r.PostRequest.SetCode(req.Spec.HTTP.Request.PostRequest.Script)
 		}
 
 		if req.Spec.HTTP.Request.PostRequest.PostRequestSet != (domain.PostRequestSet{}) {

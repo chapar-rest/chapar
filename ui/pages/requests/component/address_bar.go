@@ -29,7 +29,7 @@ type AddressBar struct {
 func NewAddressBar(theme *chapartheme.Theme, address, method string) *AddressBar {
 	a := &AddressBar{
 		url:                widgets.NewPatternEditor(),
-		methodDropDown:     widgets.NewDropDownWithoutBorder(theme),
+		methodDropDown:     widgets.NewDropDownWithoutBorder(),
 		lastSelectedMethod: method,
 	}
 

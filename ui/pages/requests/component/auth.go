@@ -25,7 +25,6 @@ func NewAuth(auth domain.Auth, theme *chapartheme.Theme) *Auth {
 	a := &Auth{
 		auth: auth,
 		DropDown: widgets.NewDropDown(
-			theme,
 			widgets.NewDropDownOption("None").WithValue(domain.AuthTypeNone),
 			widgets.NewDropDownOption("Basic").WithValue(domain.AuthTypeBasic),
 			widgets.NewDropDownOption("Token").WithValue(domain.AuthTypeToken),

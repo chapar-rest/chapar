@@ -132,14 +132,12 @@ func (f *Variables) SetValues(values []domain.Variable) {
 func (f *Variables) addItem(item *Variable) {
 	if f.requestType == domain.RequestTypeHTTP {
 		item.fromDropDown = widgets.NewDropDownWithoutBorder(
-			f.theme,
 			widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
 			widgets.NewDropDownOption("Header").WithIdentifier("header").WithValue("header"),
 			widgets.NewDropDownOption("Cookie").WithIdentifier("cookie").WithValue("cookie"),
 		)
 	} else if f.requestType == domain.RequestTypeGRPC {
 		item.fromDropDown = widgets.NewDropDownWithoutBorder(
-			f.theme,
 			widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
 			widgets.NewDropDownOption("Meta").WithIdentifier("metadata").WithValue("metadata"),
 			widgets.NewDropDownOption("Trailers").WithIdentifier(domain.VariableFromTrailers.String()).WithValue(domain.VariableFromTrailers.String()),

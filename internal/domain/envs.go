@@ -216,3 +216,13 @@ func (e *Environment) ApplyToHTTPRequest(req *HTTPRequestSpec) {
 		}
 	}
 }
+
+func (e *Environment) GetKeyValues() map[string]interface{} {
+	values := make(map[string]interface{})
+
+	for _, kv := range e.Spec.Values {
+		values[kv.Key] = kv.Value
+	}
+
+	return values
+}
