@@ -264,7 +264,7 @@ func (c *CodeEditor) beautyButton(gtx layout.Context, theme *chapartheme.Theme) 
 
 func (c *CodeEditor) editorStyle(gtx layout.Context, _ string) layout.Dimensions {
 	es := wgvcode.NewEditor(c.theme.Material(), c.editor)
-	es.Font.Typeface = "Source Code Pro"
+	es.Font.Typeface = "JetBrains Mono"
 	es.TextSize = unit.Sp(12)
 	es.LineHeightScale = 1.3
 
