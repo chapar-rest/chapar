@@ -66,9 +66,16 @@ func (v *View) load() {
 	})
 
 	v.settings.Set("general", widgets.NewSettings([]*widgets.SettingItem{
-		widgets.NewBoolItem("Plain Text", "insecure", "Insecure connection", true),
-		widgets.NewTextItem("Overwrite server name for certificate verification", "nameOverride", "The value used to validate the common name in the server certificate.", ""),
-		widgets.NewNumberItem("Timeout", "timeoutMilliseconds", "Timeout for the request in milliseconds", 10),
+		widgets.NewHeaderItem("Request"),
+		widgets.NewDropDownItem("HTTP request version", "http_request_version", "Select the HTTP version to use for sending the request.", "http/1.1",
+			widgets.NewDropDownOption("HTTP/1.1").WithIdentifier("http/1.1").WithValue("http/1.1"),
+			widgets.NewDropDownOption("HTTP/2").WithIdentifier("http/2").WithValue("http/2"),
+		),
+		widgets.NewNumberItem("Request timeout", "request_timeout", "Set how long a request need to wait for the response before timeout, zero means never", 0),
+		widgets.NewNumberItem("Response Size", "response_size", "Maximum size of the response to download. zero mean unlimited", 0),
+		widgets.NewHeaderItem("Headers"),
+		widgets.NewBoolItem("Send no-cache header", "no_cache_header", "Add and send no-cache header in http requests", false),
+		widgets.NewBoolItem("Send Chapar agent header", "chapar_agent_header", "Add and send Chapar agent header in http requests", true),
 	}))
 
 	// Scripting settings
@@ -88,6 +95,25 @@ func (v *View) load() {
 		widgets.NewNumberItem("Port", "port", "Http port that server script is listening to", 2397),
 	}))
 
+	v.treeView.AddNode(&widgets.TreeNode{
+		Text:       "Editor",
+		Identifier: "editor",
+	})
+
+	v.settings.Set("editor", widgets.NewSettings([]*widgets.SettingItem{
+		widgets.NewHeaderItem("Font"),
+		widgets.NewTextItem("Font", "font", "The font to use for the editor", "JetBrains Mono").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
+		widgets.NewNumberItem("Font size", "font_size", "The font size to use for the editor", 14),
+		widgets.NewHeaderItem("Editing"),
+		widgets.NewBoolItem("Show line numbers", "show_line_numbers", "Show line numbers in the editor", true),
+		widgets.NewDropDownItem("Indentation", "indentation", "Select the indentation type to use for the editor", "spaces",
+			widgets.NewDropDownOption("Spaces").WithIdentifier("spaces").WithValue("spaces"),
+			widgets.NewDropDownOption("Tabs").WithIdentifier("tabs").WithValue("tabs"),
+		),
+		widgets.NewNumberItem("Tab size", "tab_size", "The size of the tab to use for the editor", 4),
+		widgets.NewBoolItem("Auto close brackets", "auto_close_brackets", "Automatically close brackets in the editor", true),
+		widgets.NewBoolItem("Auto close quotes", "auto_close_quotes", "Automatically close quotes in the editor", true),
+	}))
 }
 
 func (v *View) showError(err error) {

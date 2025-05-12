@@ -13,7 +13,7 @@ type GRPCRequestSpec struct {
 	Metadata          []KeyValue    `yaml:"metadata"`
 	Auth              Auth          `yaml:"auth"`
 	ServerInfo        ServerInfo    `yaml:"serverInfo"`
-	Settings          Settings      `yaml:"settings"`
+	Settings          GRPCSettings  `yaml:"settings"`
 	Body              string        `yaml:"body"`
 	Services          []GRPCService `yaml:"services"`
 	Variables         []Variable    `yaml:"variables"`
@@ -34,7 +34,7 @@ type ServerInfo struct {
 	ProtoFiles       []string `yaml:"protoFiles"`
 }
 
-type Settings struct {
+type GRPCSettings struct {
 	Insecure            bool   `yaml:"insecure"`
 	TimeoutMilliseconds int    `yaml:"timeoutMilliseconds"`
 	NameOverride        string `yaml:"nameOverride"`
@@ -97,7 +97,7 @@ func NewGRPCRequest(name string) *Request {
 				ServerInfo: ServerInfo{
 					Address: "localhost:8090",
 				},
-				Settings: Settings{
+				Settings: GRPCSettings{
 					Insecure: true,
 				},
 			},
@@ -163,7 +163,7 @@ func (r *Request) SetDefaultValuesForGRPC() {
 	}
 }
 
-func CompareSettings(a, b Settings) bool {
+func CompareSettings(a, b GRPCSettings) bool {
 	if a.Insecure != b.Insecure ||
 		a.TimeoutMilliseconds != b.TimeoutMilliseconds ||
 		a.NameOverride != b.NameOverride ||

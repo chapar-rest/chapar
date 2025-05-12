@@ -3,6 +3,7 @@ package widgets
 import (
 	"strconv"
 
+	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"
@@ -20,6 +21,7 @@ const (
 	ItemTypeBool     = "bool"
 	ItemTypeLNumber  = "number"
 	ItemTypeDropDown = "dropdown"
+	ItemTypeHeader   = "header"
 )
 
 type Settings struct {
@@ -67,8 +69,8 @@ func (s *Settings) getValues() map[string]any {
 			values[i.Key] = i.FileSelector.GetFilePath()
 		case ItemTypeDropDown:
 			values[i.Key] = i.dropDown.GetSelected().GetValue()
-		default:
-			values[i.Key] = i.editor.Text()
+		case ItemTypeHeader:
+			// do nothing
 		}
 	}
 	return values
@@ -178,6 +180,16 @@ func NewDropDownItem(title, key, description, value string, options ...*DropDown
 	return i
 }
 
+func NewHeaderItem(title string) *SettingItem {
+	i := &SettingItem{
+		Title:   title,
+		Type:    ItemTypeHeader,
+		visible: true,
+	}
+
+	return i
+}
+
 func (i *SettingItem) MinWidth(w unit.Dp) *SettingItem {
 	i.minWidth = w
 	return i
@@ -202,6 +214,9 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 	}
 
 	inset := layout.Inset{Top: unit.Dp(5), Bottom: unit.Dp(15)}
+	if i.Type == ItemTypeHeader {
+		inset = layout.Inset{Top: unit.Dp(5), Bottom: 0}
+	}
 
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
@@ -211,7 +226,11 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 				}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Bottom: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Label(theme.Material(), unit.Sp(14), i.Title).Layout(gtx)
+							l := material.Label(theme.Material(), unit.Sp(14), i.Title)
+							if i.Type == ItemTypeHeader {
+								l.Font.Weight = font.Bold
+							}
+							return l.Layout(gtx)
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {

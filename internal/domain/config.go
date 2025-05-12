@@ -8,11 +8,17 @@ type Config struct {
 }
 
 type ConfigSpec struct {
-	ActiveWorkspace *ActiveWorkspace `yaml:"activeWorkspace"`
-	Scripting       Scripting        `yaml:"scripting"`
+	ActiveWorkspace   *ActiveWorkspace   `yaml:"activeWorkspace"`
+	ActiveEnvironment *ActiveEnvironment `yaml:"activeEnvironment"`
+	Scripting         Scripting          `yaml:"scripting"`
 }
 
 type ActiveWorkspace struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type ActiveEnvironment struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
