@@ -137,8 +137,8 @@ func (r *Grpc) SetOnRequestTabChange(f func(id, tab string)) {
 	}
 }
 
-func convertSettingsToItems(values map[string]any) domain.Settings {
-	out := domain.Settings{
+func convertSettingsToItems(values map[string]any) domain.GRPCSettings {
+	out := domain.GRPCSettings{
 		Insecure:            false,
 		TimeoutMilliseconds: 1000,
 		NameOverride:        "",

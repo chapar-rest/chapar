@@ -33,6 +33,8 @@ type TreeView struct {
 
 	onNodeDoubleClick func(tr *TreeNode)
 	onNodeClick       func(tr *TreeNode)
+
+	selectedOnClick bool
 }
 
 type TreeNode struct {
@@ -48,9 +50,10 @@ type TreeNode struct {
 	menu            component.MenuState
 	menuClickables  []*widget.Clickable
 
-	menuInit bool
-	isChild  bool
-	expanded bool
+	menuInit   bool
+	isChild    bool
+	expanded   bool
+	IsSelected bool
 
 	Meta *safemap.Map[string]
 }
@@ -72,6 +75,9 @@ func NewTreeView(nodes []*TreeNode) *TreeView {
 		},
 		nodes: nodes,
 	}
+}
+func (t *TreeView) SetSelectedOnClick(i bool) {
+	t.selectedOnClick = i
 }
 
 func (t *TreeView) OnNodeDoubleClick(fn func(tr *TreeNode)) {
@@ -175,7 +181,7 @@ func (t *TreeView) clickableWrap(gtx layout.Context, theme *chapartheme.Theme, n
 				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
 				if gtx.Source == (input.Source{}) {
 					background = Disabled(theme.Palette.Bg)
-				} else if node.DiscloserState.Clickable.Hovered() || gtx.Focused(node.DiscloserState.Clickable) || node.menuContextArea.Active() {
+				} else if node.DiscloserState.Clickable.Hovered() || gtx.Focused(node.DiscloserState.Clickable) || node.menuContextArea.Active() || node.IsSelected {
 					background = Hovered(theme.Palette.Bg)
 				}
 
@@ -201,6 +207,16 @@ func (t *TreeView) controlLayout(gtx layout.Context, theme *chapartheme.Theme, n
 	})
 }
 
+func (t *TreeView) setNodeSelected(node *TreeNode) {
+	for _, n := range t.nodes {
+		if n != node {
+			n.IsSelected = false
+		} else {
+			n.IsSelected = true
+		}
+	}
+}
+
 func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node *TreeNode) layout.Dimensions {
 	leftPadding := 4
 	if len(node.Children) == 0 {
@@ -216,6 +232,9 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		case 1:
 			if t.onNodeClick != nil {
 				go t.onNodeClick(node)
+				if t.selectedOnClick {
+					t.setNodeSelected(node)
+				}
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		case 2:
@@ -261,6 +280,10 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if node.MenuOptions == nil {
+						return layout.Dimensions{}
+					}
+
 					iconBtn := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if !node.DiscloserState.Clickable.Hovered() && !node.menuContextArea.Active() {
 							return layout.Dimensions{}

@@ -18,7 +18,6 @@ type DropDown struct {
 	menuContextArea component.ContextArea
 	menu            component.MenuState
 	list            *widget.List
-	theme           *chapartheme.Theme
 
 	MinWidth unit.Dp
 	MaxWidth unit.Dp
@@ -145,7 +144,7 @@ func (c *DropDown) SetSelectedByValue(value string) {
 	}
 }
 
-func NewDropDown(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown {
+func NewDropDown(options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		menuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
@@ -159,14 +158,13 @@ func NewDropDown(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown
 		options:      options,
 		borderWidth:  unit.Dp(1),
 		cornerRadius: unit.Dp(4),
-		theme:        theme,
 		menuInit:     true,
 	}
 
 	return c
 }
 
-func NewDropDownWithoutBorder(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown {
+func NewDropDownWithoutBorder(options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		menuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
@@ -178,7 +176,6 @@ func NewDropDownWithoutBorder(theme *chapartheme.Theme, options ...*DropDownOpti
 			},
 		},
 		options:  options,
-		theme:    theme,
 		menuInit: true,
 	}
 

@@ -42,7 +42,7 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
 		Breadcrumb: component.NewBreadcrumb(req.MetaData.ID, req.CollectionName, req.Spec.HTTP.Method, req.MetaData.Name),
-		AddressBar: component.NewAddressBar(theme, req.Spec.HTTP.URL, req.Spec.HTTP.Method),
+		AddressBar: component.NewAddressBar(req.Spec.HTTP.URL, req.Spec.HTTP.Method),
 		Actions:    component.NewActions(true),
 		split: widgets.SplitView{
 			Resize: giox.Resize{

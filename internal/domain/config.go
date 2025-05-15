@@ -8,7 +8,8 @@ type Config struct {
 }
 
 type ConfigSpec struct {
-	ActiveWorkspace *ActiveWorkspace `yaml:"activeWorkspace"`
+	ActiveWorkspace     *ActiveWorkspace     `yaml:"activeWorkspace"`
+	SelectedEnvironment *SelectedEnvironment `yaml:"selectedEnvironment"`
 }
 
 type ActiveWorkspace struct {

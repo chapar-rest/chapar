@@ -26,6 +26,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
+	"github.com/chapar-rest/chapar/ui/pages/settings"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
 	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
@@ -48,6 +49,7 @@ type UI struct {
 	requestsView     *requests.View
 	workspacesView   *workspaces.View
 	protoFilesView   *protofiles.View
+	settingsView     *settings.View
 
 	environmentsController *environments.Controller
 	requestsController     *requests.Controller
@@ -119,6 +121,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
+	u.settingsView = settings.NewView(w, u.Theme)
 
 	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
 	u.header.SetSearchDataLoader(u.searchDataLoader)
@@ -392,6 +395,8 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 						return u.workspacesView.Layout(gtx, u.Theme)
 					case 3:
 						return u.protoFilesView.Layout(gtx, u.Theme)
+					case 4:
+						return u.settingsView.Layout(gtx, u.Theme)
 						// case 4:
 						//	return u.consolePage.Layout(gtx, u.Theme)
 					}
