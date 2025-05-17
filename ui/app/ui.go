@@ -16,6 +16,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -82,14 +83,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	}
 
 	explorerController := explorer.NewExplorer(w)
-
 	u.repo = repo
-
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read preferences, %w", err)
-	}
-
 	u.workspacesView = workspaces.NewView()
 	u.workspacesState = state.NewWorkspaces(repo)
 	u.workspacesController = workspaces.NewController(u.workspacesView, u.workspacesState, repo)
@@ -118,7 +112,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
-	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
+	u.Theme = chapartheme.New(theme, prefs.GetAppState().Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 	u.settingsView = settings.NewView(w, u.Theme)
@@ -265,21 +259,20 @@ func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
 }
 
 func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return fmt.Errorf("failed to read preferences, %w", err)
-	}
-
+	appState := prefs.GetAppState()
 	if env != nil {
-		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
-		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
+		if appState.Spec.SelectedEnvironment == nil {
+			appState.Spec.SelectedEnvironment = &domain.SelectedEnvironment{}
+		}
+
+		appState.Spec.SelectedEnvironment.ID = env.MetaData.ID
+		appState.Spec.SelectedEnvironment.Name = env.MetaData.Name
 	} else {
-		preferences.Spec.SelectedEnvironment.ID = ""
-		preferences.Spec.SelectedEnvironment.Name = ""
+		appState.Spec.SelectedEnvironment = nil
 	}
 
-	if err := u.repo.UpdatePreferences(preferences); err != nil {
-		return fmt.Errorf("failed to update preferences, %w", err)
+	if err := prefs.UpdateAppState(appState); err != nil {
+		return fmt.Errorf("failed to update app state, %w", err)
 	}
 
 	if env != nil {
@@ -294,31 +287,24 @@ func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
 func (u *UI) onThemeChange(isDark bool) error {
 	u.Theme.Switch(isDark)
 
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return fmt.Errorf("failed to read preferences, %w", err)
-	}
-
-	preferences.Spec.DarkMode = isDark
-	if err := u.repo.UpdatePreferences(preferences); err != nil {
-		return fmt.Errorf("failed to update preferences, %w", err)
+	appState := prefs.GetAppState()
+	appState.Spec.DarkMode = isDark
+	if err := prefs.UpdateAppState(appState); err != nil {
+		return fmt.Errorf("failed to update app state, %w", err)
 	}
 	return nil
 }
 
 func (u *UI) load() error {
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return err
-	}
+	appState := prefs.GetAppState()
 
 	config, err := u.repo.GetConfig()
 	if err != nil {
 		return err
 	}
 
-	u.header.SetTheme(preferences.Spec.DarkMode)
-	u.Theme.Switch(preferences.Spec.DarkMode)
+	u.header.SetTheme(appState.Spec.DarkMode)
+	u.Theme.Switch(appState.Spec.DarkMode)
 
 	if err := u.environmentsController.LoadData(); err != nil {
 		return err
@@ -326,14 +312,18 @@ func (u *UI) load() error {
 
 	u.header.LoadEnvs(u.environmentsState.GetEnvironments())
 
-	if selectedEnv := u.environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironment.ID); selectedEnv != nil {
-		u.environmentsState.SetActiveEnvironment(selectedEnv)
-		u.header.SetSelectedEnvironment(u.environmentsState.GetActiveEnvironment())
+	if appState.Spec.SelectedEnvironment != nil {
+		if selectedEnv := u.environmentsState.GetEnvironment(appState.Spec.SelectedEnvironment.ID); selectedEnv != nil {
+			u.environmentsState.SetActiveEnvironment(selectedEnv)
+			u.header.SetSelectedEnvironment(u.environmentsState.GetActiveEnvironment())
+		}
 	}
 
-	if selectedWs := u.workspacesState.GetWorkspace(config.Spec.ActiveWorkspace.ID); selectedWs != nil {
-		u.workspacesState.SetActiveWorkspace(selectedWs)
-		u.header.SetSelectedWorkspace(u.workspacesState.GetActiveWorkspace())
+	if appState.Spec.ActiveWorkspace != nil {
+		if selectedWs := u.workspacesState.GetWorkspace(config.Spec.ActiveWorkspace.ID); selectedWs != nil {
+			u.workspacesState.SetActiveWorkspace(selectedWs)
+			u.header.SetSelectedWorkspace(u.workspacesState.GetActiveWorkspace())
+		}
 	}
 
 	return u.requestsController.LoadData()

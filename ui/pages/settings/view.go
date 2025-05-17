@@ -74,8 +74,8 @@ func (v *View) load() {
 			widgets.NewDropDownOption("HTTP/1.1").WithIdentifier("http/1.1").WithValue("http/1.1"),
 			widgets.NewDropDownOption("HTTP/2").WithIdentifier("http/2").WithValue("http/2"),
 		),
-		widgets.NewNumberItem("Request timeout", "requestTimeout", "Set how long a request need to wait for the response before timeout, zero means never", 0),
-		widgets.NewNumberItem("Response Size", "responseSize", "Maximum size of the response to download. zero mean unlimited", 0),
+		widgets.NewNumberItem("Request timeout Seconds", "requestTimeoutSec", "Set how long a request need to wait for the response before timeout, zero means never", 0),
+		widgets.NewNumberItem("Response Size MB", "responseSizeMb", "Maximum size of the response to download. zero mean unlimited", 0),
 		widgets.NewHeaderItem("Headers"),
 		widgets.NewBoolItem("Send no-cache header", "SendNoCacheHeader", "Add and send no-cache header in http requests", false),
 		widgets.NewBoolItem("Send Chapar agent header", "SendChaparAgentHeader", "Add and send Chapar agent header in http requests", true),
@@ -105,7 +105,7 @@ func (v *View) load() {
 
 	v.settings.Set("editor", widgets.NewSettings([]*widgets.SettingItem{
 		widgets.NewHeaderItem("Font"),
-		widgets.NewTextItem("Font", "font", "The font to use for the editor", "JetBrains Mono").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
+		widgets.NewTextItem("Font Family", "fontFamily", "The font to use for the editor", "JetBrains Mono").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
 		widgets.NewNumberItem("Font size", "fontSize", "The font size to use for the editor", 14),
 		widgets.NewHeaderItem("Editing"),
 		widgets.NewBoolItem("Show line numbers", "showLineNumbers", "Show line numbers in the editor", true),
@@ -113,9 +113,18 @@ func (v *View) load() {
 			widgets.NewDropDownOption("Spaces").WithIdentifier("spaces").WithValue("spaces"),
 			widgets.NewDropDownOption("Tabs").WithIdentifier("tabs").WithValue("tabs"),
 		),
-		widgets.NewNumberItem("Tab size", "tabSize", "The size of the tab to use for the editor", 4),
+		widgets.NewNumberItem("Tab width", "tabWidth", "The width of the tab to use for the editor", 4),
 		widgets.NewBoolItem("Auto close brackets", "autoCloseBrackets", "Automatically close brackets in the editor", true),
 		widgets.NewBoolItem("Auto close quotes", "autoCloseQuotes", "Automatically close quotes in the editor", true),
+	}))
+
+	v.treeView.AddNode(&widgets.TreeNode{
+		Text:       "Data",
+		Identifier: "data",
+	})
+
+	v.settings.Set("data", widgets.NewSettings([]*widgets.SettingItem{
+		widgets.NewTextItem("Workspace path", "workspacePath", "The absolute path to the workspace folder", "").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
 	}))
 }
 
