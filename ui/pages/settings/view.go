@@ -87,14 +87,24 @@ func (v *View) load() {
 		Identifier: "scripting",
 	})
 
+	dockerVisibility := func(values map[string]any) bool {
+		return values["useDocker"].(bool)
+	}
+
+	localEngineVisibility := func(values map[string]any) bool {
+		return !values["useDocker"].(bool)
+	}
+
 	v.settings.Set("scripting", widgets.NewSettings([]*widgets.SettingItem{
 		widgets.NewBoolItem("Enable", "enable", "Enable scripting for pre and post request triggers", true),
 		widgets.NewDropDownItem("Language", "language", "Select the scripting language you would like to have for scripting", "python",
 			widgets.NewDropDownOption("Python").WithIdentifier("python").WithValue("python"),
 			widgets.NewDropDownOption("Javascript").WithIdentifier("javascript").WithValue("javascript"),
 		),
-		widgets.NewTextItem("Executable path", "executable", "The absolute path to the executable binary", "").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
-		widgets.NewTextItem("Server script path", "serverScriptPath", "The absolute path to where Chapar can use to create server script", "").MinWidth(unit.Dp(400)).TextAlignment(text.Start),
+		widgets.NewBoolItem("Use Docker", "useDocker", "Use docker to run the scripting engine", true),
+		widgets.NewTextItem("Docker image", "dockerImage", "The docker image to use for the scripting engine", "chapar/python-executor:latest").MinWidth(unit.Dp(400)).TextAlignment(text.Start).SetVisibleWhen(dockerVisibility),
+		widgets.NewTextItem("Executable path", "executable", "The absolute path to the executable binary", "").MinWidth(unit.Dp(400)).TextAlignment(text.Start).SetVisibleWhen(localEngineVisibility),
+		widgets.NewTextItem("Server script path", "serverScriptPath", "The absolute path to where Chapar can use to create server script", "").MinWidth(unit.Dp(400)).TextAlignment(text.Start).SetVisibleWhen(localEngineVisibility),
 		widgets.NewNumberItem("Port", "port", "Http port that server script is listening to", 2397),
 	}))
 

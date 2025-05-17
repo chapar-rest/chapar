@@ -42,8 +42,12 @@ type EditorConfig struct {
 }
 
 type ScriptingConfig struct {
-	Enabled          bool   `yaml:"enabled"`
-	Language         string `yaml:"language"` // python or javascript
+	Enabled   bool   `yaml:"enabled"`
+	Language  string `yaml:"language"` // python or javascript
+	UseDocker bool   `yaml:"useDocker"`
+	// DockerImage is the docker image to use for the scripting engine
+	DockerImage string `yaml:"dockerImage"`
+
 	ExecutablePath   string `yaml:"executablePath"`
 	ServerScriptPath string `yaml:"serverScriptPath"`
 	Port             int    `yaml:"port"`
@@ -64,6 +68,61 @@ type AppStateSpec struct {
 	ActiveWorkspace     *ActiveWorkspace     `yaml:"activeWorkspace"`
 	SelectedEnvironment *SelectedEnvironment `yaml:"selectedEnvironment"`
 	DarkMode            bool                 `yaml:"darkMode"`
+}
+
+// getDefaultGlobalConfig returns a default global config
+func NewGlobalConfig() *GlobalConfig {
+	return &GlobalConfig{
+		ApiVersion: ApiVersion,
+		Kind:       "GlobalConfig",
+		MetaData: MetaData{
+			Name: "global-config",
+		},
+		Spec: GlobalConfigSpec{
+			General: GeneralConfig{
+				HTTPVersion:           "HTTP/1.1",
+				RequestTimeoutSec:     30,
+				ResponseSizeMb:        10,
+				SendNoCacheHeader:     true,
+				SendChaparAgentHeader: true,
+			},
+			Editor: EditorConfig{
+				FontFamily:        "JetBrains Mono",
+				FontSize:          12,
+				Indentation:       IndentationSpaces,
+				TabWidth:          4,
+				ShowLineNumbers:   true,
+				AutoCloseBrackets: true,
+				AutoCloseQuotes:   true,
+			},
+			Scripting: ScriptingConfig{
+				Enabled:  false,
+				Language: "javascript",
+				Port:     9090,
+			},
+			Data: DataConfig{
+				WorkspacePath: "",
+			},
+		},
+	}
+}
+
+// getDefaultAppState returns a default app state
+func getDefaultAppState() *AppState {
+	return &AppState{
+		ApiVersion: ApiVersion,
+		Kind:       "AppState",
+		MetaData: MetaData{
+			Name: "app-state",
+		},
+		Spec: AppStateSpec{
+			ActiveWorkspace: &ActiveWorkspace{
+				ID:   "default",
+				Name: "Default Workspace",
+			},
+			SelectedEnvironment: &SelectedEnvironment{},
+		},
+	}
 }
 
 type Config struct {

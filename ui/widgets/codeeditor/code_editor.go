@@ -40,9 +40,7 @@ const (
 
 type CodeEditor struct {
 	editor *gvcode.Editor
-	// popup  completion.CompletionPopup
-
-	code string
+	code   string
 
 	theme *chapartheme.Theme
 
@@ -82,28 +80,11 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 		lang:   lang,
 	}
 
-	// cm := &completion.DefaultCompletion{Editor: c.editor}
-	// // set completion triggers
-	// cm.SetTriggers(gvcode.AutoTrigger{})
-	//
-	// // set popup widget to let user navigate the candidates.
-	// c.popup = *completion.NewCompletionPopup(c.editor, cm)
-	// cm.SetPopup(func(gtx layout.Context, items []gvcode.CompletionCandidate) layout.Dimensions {
-	//	c.popup.TextSize = unit.Sp(12)
-	//	c.popup.Size = image.Point{
-	//		X: gtx.Dp(unit.Dp(400)),
-	//		Y: gtx.Dp(unit.Dp(200)),
-	//	}
-	//
-	//	return c.popup.Layout(gtx, theme.Material(), items)
-	// })
-
 	c.editor.WithOptions(
 		gvcode.WithShaperParams(c.font.Font, unit.Sp(12), text.Start, unit.Sp(16), 1),
 		gvcode.WithTabWidth(4),
 		gvcode.WithSoftTab(true),
 		gvcode.WrapLine(true),
-		// 	gvcode.WithAutoCompletion(cm),
 	)
 	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)
 

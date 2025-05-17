@@ -13,7 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/http2"
+
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/internal/variables"
 )
@@ -148,8 +151,34 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	// - handle redirects
 	// - handle status code
 
+	globalConfig := prefs.GetGlobalConfig()
+
 	// send request
 	start := time.Now()
+
+	client := &http.Client{
+		Timeout: time.Duration(globalConfig.Spec.General.RequestTimeoutSec) * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:           10,
+			MaxResponseHeaderBytes: int64(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
+		},
+	}
+
+	if globalConfig.Spec.General.HTTPVersion == "http/2" {
+		client.Transport = &http2.Transport{
+			AllowHTTP:        true,
+			MaxReadFrameSize: uint32(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
+		}
+	}
+
+	if globalConfig.Spec.General.SendNoCacheHeader {
+		httpReq.Header.Add("Cache-Control", "no-cache")
+	}
+
+	if globalConfig.Spec.General.SendChaparAgentHeader {
+		httpReq.Header.Add("User-Agent", "Chapar/0.3.3")
+	}
+
 	res, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return nil, err
