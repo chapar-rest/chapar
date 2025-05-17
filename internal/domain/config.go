@@ -41,6 +41,16 @@ type EditorConfig struct {
 	AutoCloseQuotes   bool   `yaml:"autoCloseQuotes"`
 }
 
+func (e EditorConfig) Changed(other EditorConfig) bool {
+	return e.FontFamily != other.FontFamily ||
+		e.FontSize != other.FontSize ||
+		e.Indentation != other.Indentation ||
+		e.TabWidth != other.TabWidth ||
+		e.ShowLineNumbers != other.ShowLineNumbers ||
+		e.AutoCloseBrackets != other.AutoCloseBrackets ||
+		e.AutoCloseQuotes != other.AutoCloseQuotes
+}
+
 type ScriptingConfig struct {
 	Enabled   bool   `yaml:"enabled"`
 	Language  string `yaml:"language"` // python or javascript

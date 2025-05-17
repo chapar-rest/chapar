@@ -17,10 +17,18 @@ var (
 	once     sync.Once
 )
 
+type (
+	GlobalConfigChangeListener func(config *domain.GlobalConfig)
+	AppStateChangeListener     func(config *domain.AppState)
+)
+
 // Manager handles loading, saving, and migrating preferences and config
 type Manager struct {
 	globalConfig *domain.GlobalConfig
 	appState     *domain.AppState
+
+	globalConfigChangeListeners []GlobalConfigChangeListener
+	appStateChangeListeners     []AppStateChangeListener
 }
 
 // GetInstance returns the singleton instance of the Manager
@@ -35,6 +43,26 @@ func GetInstance() *Manager {
 		}
 	})
 	return instance
+}
+
+func (m *Manager) AddGlobalConfigChangeListener(listener GlobalConfigChangeListener) {
+	m.globalConfigChangeListeners = append(m.globalConfigChangeListeners, listener)
+}
+
+func (m *Manager) AddAppStateChangeListener(listener AppStateChangeListener) {
+	m.appStateChangeListeners = append(m.appStateChangeListeners, listener)
+}
+
+func (m *Manager) notifyGlobalConfigChange(config *domain.GlobalConfig) {
+	for _, listener := range m.globalConfigChangeListeners {
+		listener(config)
+	}
+}
+
+func (m *Manager) notifyAppStateChange(config *domain.AppState) {
+	for _, listener := range m.appStateChangeListeners {
+		listener(config)
+	}
 }
 
 // Load loads both globalConfig and appState from disk,
@@ -99,7 +127,12 @@ func UpdateGlobalConfig(config domain.GlobalConfig) error {
 // UpdateGlobalConfig updates the global config
 func (m *Manager) UpdateGlobalConfig(config domain.GlobalConfig) error {
 	m.globalConfig = &config
-	return m.saveGlobalConfig()
+	if err := m.saveGlobalConfig(); err != nil {
+		return fmt.Errorf("failed to save global config: %w", err)
+	}
+
+	m.notifyGlobalConfigChange(&config)
+	return nil
 }
 
 func GetAppState() domain.AppState {
@@ -118,7 +151,12 @@ func UpdateAppState(config domain.AppState) error {
 // UpdateAppState updates the app state
 func (m *Manager) UpdateAppState(state domain.AppState) error {
 	m.appState = &state
-	return m.saveAppState()
+	if err := m.saveAppState(); err != nil {
+		return fmt.Errorf("failed to save app state: %w", err)
+	}
+
+	m.notifyAppStateChange(&state)
+	return nil
 }
 
 // Private helper methods
@@ -293,18 +331,20 @@ func getDefaultGlobalConfig() *domain.GlobalConfig {
 				SendChaparAgentHeader: true,
 			},
 			Editor: domain.EditorConfig{
-				FontFamily:        "Menlo, Monaco, 'Courier New', monospace",
+				FontFamily:        "JetBrains Mono",
 				FontSize:          12,
 				Indentation:       domain.IndentationSpaces,
-				TabWidth:          2,
+				TabWidth:          4,
 				ShowLineNumbers:   true,
 				AutoCloseBrackets: true,
 				AutoCloseQuotes:   true,
 			},
 			Scripting: domain.ScriptingConfig{
-				Enabled:  false,
-				Language: "javascript",
-				Port:     9090,
+				Enabled:     true,
+				Language:    "python",
+				Port:        2397,
+				UseDocker:   true,
+				DockerImage: "chapar/python-executor:latest",
 			},
 			Data: domain.DataConfig{
 				WorkspacePath: "",

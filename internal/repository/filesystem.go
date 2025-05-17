@@ -86,7 +86,7 @@ func (f *Filesystem) getEntityDirectoryInWorkspace(entityType string) (string, e
 	}
 
 	p := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, entityType)
-	if err := makeDir(p); err != nil {
+	if err := MakeDir(p); err != nil {
 		return "", err
 	}
 
@@ -545,7 +545,7 @@ func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
 	}
 
 	pdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
-	if err := makeDir(pdir); err != nil {
+	if err := MakeDir(pdir); err != nil {
 		return err
 	}
 
@@ -688,16 +688,16 @@ func dirExist(dirname string) bool {
 func (f *Filesystem) getConfigDir() (string, error) {
 	if f.baseDir != "" {
 		path := filepath.Join(f.baseDir, f.configDir)
-		return path, makeDir(path)
+		return path, MakeDir(path)
 	}
 
-	dir, err := userConfigDir()
+	dir, err := UserConfigDir()
 	if err != nil {
 		return "", err
 	}
 
 	path := filepath.Join(dir, f.configDir)
-	return path, makeDir(path)
+	return path, MakeDir(path)
 }
 
 func (f *Filesystem) CreateConfigDir() (string, error) {
@@ -706,14 +706,14 @@ func (f *Filesystem) CreateConfigDir() (string, error) {
 		return "", err
 	}
 
-	if err := makeDir(dir); err != nil {
+	if err := MakeDir(dir); err != nil {
 		return "", err
 	}
 
 	return dir, nil
 }
 
-func makeDir(dir string) error {
+func MakeDir(dir string) error {
 	dir = filepath.FromSlash(dir)
 	fnMakeDir := func() error { return os.MkdirAll(dir, os.ModePerm) }
 	info, err := os.Stat(dir)
@@ -731,7 +731,7 @@ func makeDir(dir string) error {
 	}
 }
 
-func userConfigDir() (string, error) {
+func UserConfigDir() (string, error) {
 	var dir string
 
 	switch runtime.GOOS {
@@ -893,7 +893,7 @@ func (f *Filesystem) createCollection(collection *domain.Collection) error {
 	f.collectionPaths[collection.MetaData.ID] = filepath.Join(dirPath, "_collection.yaml")
 
 	// Create the collection directory
-	if err := makeDir(dirPath); err != nil {
+	if err := MakeDir(dirPath); err != nil {
 		return fmt.Errorf("failed to create collection directory: %w", err)
 	}
 
@@ -926,7 +926,7 @@ func (f *Filesystem) createWorkspace(workspace *domain.Workspace) error {
 	f.workspacePaths[workspace.MetaData.ID] = filepath.Join(dirPath, "_workspace.yaml")
 
 	// Create the workspace directory
-	if err := makeDir(dirPath); err != nil {
+	if err := MakeDir(dirPath); err != nil {
 		return fmt.Errorf("failed to create collection directory: %w", err)
 	}
 
