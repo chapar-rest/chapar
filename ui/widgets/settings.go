@@ -76,6 +76,23 @@ func (s *Settings) getValues() map[string]any {
 	return values
 }
 
+func (s *Settings) SetValues(values map[string]any) {
+	for _, i := range s.Items {
+		if v, ok := values[i.Key]; ok {
+			switch i.Type {
+			case ItemTypeBool:
+				i.boolState.Value = v.(bool)
+			case ItemTypeLNumber:
+				i.editor.SetText(strconv.Itoa(v.(int)))
+			case ItemTypeFile:
+				i.FileSelector.SetFileName(v.(string))
+			case ItemTypeDropDown:
+				i.dropDown.SetSelectedByValue(v.(string))
+			}
+		}
+	}
+}
+
 func (s *Settings) onChanged() {
 	if s.onChange == nil {
 		return

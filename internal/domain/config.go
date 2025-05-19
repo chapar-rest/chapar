@@ -36,7 +36,6 @@ type EditorConfig struct {
 	FontSize          int    `yaml:"FontSize"`
 	Indentation       string `yaml:"indentation"` // spaces or tabs
 	TabWidth          int    `yaml:"tabWidth"`
-	ShowLineNumbers   bool   `yaml:"showLineNumbers"`
 	AutoCloseBrackets bool   `yaml:"autoCloseBrackets"`
 	AutoCloseQuotes   bool   `yaml:"autoCloseQuotes"`
 }
@@ -46,7 +45,6 @@ func (e EditorConfig) Changed(other EditorConfig) bool {
 		e.FontSize != other.FontSize ||
 		e.Indentation != other.Indentation ||
 		e.TabWidth != other.TabWidth ||
-		e.ShowLineNumbers != other.ShowLineNumbers ||
 		e.AutoCloseBrackets != other.AutoCloseBrackets ||
 		e.AutoCloseQuotes != other.AutoCloseQuotes
 }
@@ -80,8 +78,8 @@ type AppStateSpec struct {
 	DarkMode            bool                 `yaml:"darkMode"`
 }
 
-// getDefaultGlobalConfig returns a default global config
-func NewGlobalConfig() *GlobalConfig {
+// GetDefaultGlobalConfig returns a default global config
+func GetDefaultGlobalConfig() *GlobalConfig {
 	return &GlobalConfig{
 		ApiVersion: ApiVersion,
 		Kind:       "GlobalConfig",
@@ -101,14 +99,15 @@ func NewGlobalConfig() *GlobalConfig {
 				FontSize:          12,
 				Indentation:       IndentationSpaces,
 				TabWidth:          4,
-				ShowLineNumbers:   true,
 				AutoCloseBrackets: true,
 				AutoCloseQuotes:   true,
 			},
 			Scripting: ScriptingConfig{
-				Enabled:  false,
-				Language: "javascript",
-				Port:     9090,
+				Enabled:     false,
+				UseDocker:   true,
+				DockerImage: "chapar/python-executor:latest",
+				Language:    "python",
+				Port:        2397,
 			},
 			Data: DataConfig{
 				WorkspacePath: "",
@@ -117,8 +116,40 @@ func NewGlobalConfig() *GlobalConfig {
 	}
 }
 
-// getDefaultAppState returns a default app state
-func getDefaultAppState() *AppState {
+func (g *GlobalConfig) ValuesMap() map[string]any {
+	return map[string]any{
+		"general": map[string]any{
+			"httpVersion":           g.Spec.General.HTTPVersion,
+			"timeoutSec":            g.Spec.General.RequestTimeoutSec,
+			"responseSizeMb":        g.Spec.General.ResponseSizeMb,
+			"sendNoCacheHeader":     g.Spec.General.SendNoCacheHeader,
+			"sendChaparAgentHeader": g.Spec.General.SendChaparAgentHeader,
+		},
+		"editor": map[string]any{
+			"fontFamily":        g.Spec.Editor.FontFamily,
+			"fontSize":          g.Spec.Editor.FontSize,
+			"indentation":       g.Spec.Editor.Indentation,
+			"tabWidth":          g.Spec.Editor.TabWidth,
+			"autoCloseBrackets": g.Spec.Editor.AutoCloseBrackets,
+			"autoCloseQuotes":   g.Spec.Editor.AutoCloseQuotes,
+		},
+		"scripting": map[string]any{
+			"enabled":          g.Spec.Scripting.Enabled,
+			"language":         g.Spec.Scripting.Language,
+			"useDocker":        g.Spec.Scripting.UseDocker,
+			"dockerImage":      g.Spec.Scripting.DockerImage,
+			"executablePath":   g.Spec.Scripting.ExecutablePath,
+			"serverScriptPath": g.Spec.Scripting.ServerScriptPath,
+			"port":             g.Spec.Scripting.Port,
+		},
+		"data": map[string]any{
+			"workspacePath": g.Spec.Data.WorkspacePath,
+		},
+	}
+}
+
+// GetDefaultAppState returns a default app state
+func GetDefaultAppState() *AppState {
 	return &AppState{
 		ApiVersion: ApiVersion,
 		Kind:       "AppState",

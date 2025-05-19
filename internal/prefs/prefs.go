@@ -38,8 +38,8 @@ func GetInstance() *Manager {
 		err := instance.Load()
 		if err != nil {
 			// Initialize with defaults if loading fails
-			instance.globalConfig = getDefaultGlobalConfig()
-			instance.appState = getDefaultAppState()
+			instance.globalConfig = domain.GetDefaultGlobalConfig()
+			instance.appState = domain.GetDefaultAppState()
 		}
 	})
 	return instance
@@ -227,8 +227,6 @@ func (m *Manager) saveGlobalConfig() error {
 		return err
 	}
 
-	fmt.Println("Saving global config...")
-
 	if runtime.GOOS == "js" {
 		// TODO: Implement browser storage saving
 		return fmt.Errorf("browser storage not implemented")
@@ -277,8 +275,8 @@ func (m *Manager) migrateFromOldFormat() error {
 	oldConfig, err := storageClient.GetConfig()
 
 	// Create default new formats
-	m.globalConfig = getDefaultGlobalConfig()
-	m.appState = getDefaultAppState()
+	m.globalConfig = domain.GetDefaultGlobalConfig()
+	m.appState = domain.GetDefaultAppState()
 
 	if err == nil && oldConfig != nil {
 		// Migrate data from old config to new structures
@@ -312,61 +310,4 @@ func (m *Manager) migrateFromOldFormat() error {
 	}
 
 	return nil
-}
-
-// getDefaultGlobalConfig returns a default global config
-func getDefaultGlobalConfig() *domain.GlobalConfig {
-	return &domain.GlobalConfig{
-		ApiVersion: "v1",
-		Kind:       "GlobalConfig",
-		MetaData: domain.MetaData{
-			Name: "global-config",
-		},
-		Spec: domain.GlobalConfigSpec{
-			General: domain.GeneralConfig{
-				HTTPVersion:           "HTTP/1.1",
-				RequestTimeoutSec:     30,
-				ResponseSizeMb:        10,
-				SendNoCacheHeader:     true,
-				SendChaparAgentHeader: true,
-			},
-			Editor: domain.EditorConfig{
-				FontFamily:        "JetBrains Mono",
-				FontSize:          12,
-				Indentation:       domain.IndentationSpaces,
-				TabWidth:          4,
-				ShowLineNumbers:   true,
-				AutoCloseBrackets: true,
-				AutoCloseQuotes:   true,
-			},
-			Scripting: domain.ScriptingConfig{
-				Enabled:     true,
-				Language:    "python",
-				Port:        2397,
-				UseDocker:   true,
-				DockerImage: "chapar/python-executor:latest",
-			},
-			Data: domain.DataConfig{
-				WorkspacePath: "",
-			},
-		},
-	}
-}
-
-// getDefaultAppState returns a default app state
-func getDefaultAppState() *domain.AppState {
-	return &domain.AppState{
-		ApiVersion: "v1",
-		Kind:       "AppState",
-		MetaData: domain.MetaData{
-			Name: "app-state",
-		},
-		Spec: domain.AppStateSpec{
-			ActiveWorkspace: &domain.ActiveWorkspace{
-				ID:   "default",
-				Name: "Default Workspace",
-			},
-			SelectedEnvironment: nil,
-		},
-	}
 }

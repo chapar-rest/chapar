@@ -56,6 +56,7 @@ type UI struct {
 	requestsController     *requests.Controller
 	workspacesController   *workspaces.Controller
 	protoFilesController   *protofiles.Controller
+	settingsController     *settings.Controller
 
 	environmentsState *state.Environments
 	requestsState     *state.Requests
@@ -116,6 +117,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 	u.settingsView = settings.NewView(w, u.Theme)
+	u.settingsController = settings.NewController(u.settingsView)
 
 	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
 	u.header.SetSearchDataLoader(u.searchDataLoader)
