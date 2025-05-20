@@ -33,6 +33,7 @@ type DropDown struct {
 	borderWidth  unit.Dp
 	cornerRadius unit.Dp
 
+	changed       bool
 	onValueChange func(value string)
 }
 
@@ -248,6 +249,12 @@ func (c *DropDown) SetSize(size image.Point) {
 	c.size = size
 }
 
+func (c *DropDown) Changed() bool {
+	out := c.changed
+	c.changed = false
+	return out
+}
+
 // Layout the DropDown.
 func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	c.isOpen = c.menuContextArea.Active()
@@ -264,6 +271,7 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 	}
 
 	if c.selectedOptionIndex != c.lastSelectedIndex {
+		c.changed = true
 		if c.onValueChange != nil {
 			go c.onValueChange(c.options[c.selectedOptionIndex].Value)
 		}

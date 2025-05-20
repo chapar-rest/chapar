@@ -341,6 +341,10 @@ func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme)
 }
 
 func (i *SettingItem) dropDownLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if i.dropDown.Changed() {
+		i.onChange()
+	}
+
 	return i.dropDown.Layout(gtx, theme)
 }
 

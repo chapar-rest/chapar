@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 // GlobalConfig hold the global configuration for the application.
 // it will eventually replace the Config struct
@@ -18,12 +22,27 @@ type GlobalConfigSpec struct {
 	Data      DataConfig      `yaml:"data"`
 }
 
+func (g *GlobalConfig) Changed(other *GlobalConfig) bool {
+	return g.Spec.General.Changed(other.Spec.General) ||
+		g.Spec.Editor.Changed(other.Spec.Editor) ||
+		g.Spec.Scripting.Changed(other.Spec.Scripting) ||
+		g.Spec.Data.Changed(other.Spec.Data)
+}
+
 type GeneralConfig struct {
 	HTTPVersion           string `yaml:"httpVersion"`
 	RequestTimeoutSec     int    `yaml:"timeoutSec"`
 	ResponseSizeMb        int    `yaml:"responseSizeMb"`
 	SendNoCacheHeader     bool   `yaml:"sendNoCacheHeader"`
 	SendChaparAgentHeader bool   `yaml:"sendChaparAgentHeader"`
+}
+
+func (g GeneralConfig) Changed(other GeneralConfig) bool {
+	return g.HTTPVersion != other.HTTPVersion ||
+		g.RequestTimeoutSec != other.RequestTimeoutSec ||
+		g.ResponseSizeMb != other.ResponseSizeMb ||
+		g.SendNoCacheHeader != other.SendNoCacheHeader ||
+		g.SendChaparAgentHeader != other.SendChaparAgentHeader
 }
 
 const (
@@ -61,8 +80,22 @@ type ScriptingConfig struct {
 	Port             int    `yaml:"port"`
 }
 
+func (s ScriptingConfig) Changed(other ScriptingConfig) bool {
+	return s.Enabled != other.Enabled ||
+		s.Language != other.Language ||
+		s.UseDocker != other.UseDocker ||
+		s.DockerImage != other.DockerImage ||
+		s.ExecutablePath != other.ExecutablePath ||
+		s.ServerScriptPath != other.ServerScriptPath ||
+		s.Port != other.Port
+}
+
 type DataConfig struct {
 	WorkspacePath string `yaml:"workspacePath"`
+}
+
+func (d DataConfig) Changed(other DataConfig) bool {
+	return d.WorkspacePath != other.WorkspacePath
 }
 
 type AppState struct {
@@ -88,7 +121,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 		},
 		Spec: GlobalConfigSpec{
 			General: GeneralConfig{
-				HTTPVersion:           "HTTP/1.1",
+				HTTPVersion:           "http/1.1",
 				RequestTimeoutSec:     30,
 				ResponseSizeMb:        10,
 				SendNoCacheHeader:     true,
@@ -146,6 +179,47 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"workspacePath": g.Spec.Data.WorkspacePath,
 		},
 	}
+}
+
+func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalConfig {
+	if values == nil {
+		fmt.Println("values is nil")
+		return initial
+	}
+
+	g := initial
+
+	g.Spec.General.HTTPVersion = getOrDefault(values, "httpVersion", g.Spec.General.HTTPVersion).(string)
+	g.Spec.General.RequestTimeoutSec = getOrDefault(values, "timeoutSec", g.Spec.General.RequestTimeoutSec).(int)
+	g.Spec.General.ResponseSizeMb = getOrDefault(values, "responseSizeMb", g.Spec.General.ResponseSizeMb).(int)
+	g.Spec.General.SendNoCacheHeader = getOrDefault(values, "sendNoCacheHeader", g.Spec.General.SendNoCacheHeader).(bool)
+	g.Spec.General.SendChaparAgentHeader = getOrDefault(values, "sendChaparAgentHeader", g.Spec.General.SendChaparAgentHeader).(bool)
+
+	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
+	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)
+	g.Spec.Editor.Indentation = getOrDefault(values, "indentation", g.Spec.Editor.Indentation).(string)
+	g.Spec.Editor.TabWidth = getOrDefault(values, "tabWidth", g.Spec.Editor.TabWidth).(int)
+	g.Spec.Editor.AutoCloseBrackets = getOrDefault(values, "autoCloseBrackets", g.Spec.Editor.AutoCloseBrackets).(bool)
+	g.Spec.Editor.AutoCloseQuotes = getOrDefault(values, "autoCloseQuotes", g.Spec.Editor.AutoCloseQuotes).(bool)
+
+	g.Spec.Scripting.Enabled = getOrDefault(values, "enabled", g.Spec.Scripting.Enabled).(bool)
+	g.Spec.Scripting.Language = getOrDefault(values, "language", g.Spec.Scripting.Language).(string)
+	g.Spec.Scripting.UseDocker = getOrDefault(values, "useDocker", g.Spec.Scripting.UseDocker).(bool)
+	g.Spec.Scripting.DockerImage = getOrDefault(values, "dockerImage", g.Spec.Scripting.DockerImage).(string)
+	g.Spec.Scripting.ExecutablePath = getOrDefault(values, "executablePath", g.Spec.Scripting.ExecutablePath).(string)
+	g.Spec.Scripting.ServerScriptPath = getOrDefault(values, "serverScriptPath", g.Spec.Scripting.ServerScriptPath).(string)
+	g.Spec.Scripting.Port = getOrDefault(values, "port", g.Spec.Scripting.Port).(int)
+
+	g.Spec.Data.WorkspacePath = getOrDefault(values, "workspacePath", g.Spec.Data.WorkspacePath).(string)
+
+	return g
+}
+
+func getOrDefault(m map[string]any, key string, defaultValue any) any {
+	if v, ok := m[key]; ok {
+		return v
+	}
+	return defaultValue
 }
 
 // GetDefaultAppState returns a default app state

@@ -1,6 +1,9 @@
 package settings
 
-import "fmt"
+import (
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/prefs"
+)
 
 type Controller struct {
 	view *View
@@ -16,7 +19,13 @@ func NewController(view *View) *Controller {
 }
 
 func (c *Controller) OnChange(values map[string]any) {
-	c.view.IsDataChanged = true
-	fmt.Println("Settings changed:", values)
-
+	// load data from the settings
+	globalSettings := prefs.GetGlobalConfig()
+	// input values
+	inputSettings := domain.GlobalConfigFromValues(globalSettings, values)
+	if globalSettings.Changed(&inputSettings) {
+		c.view.IsDataChanged = true
+	} else {
+		c.view.IsDataChanged = false
+	}
 }

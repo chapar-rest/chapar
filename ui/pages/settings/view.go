@@ -33,6 +33,7 @@ type View struct {
 
 	SaveButton        widget.Clickable
 	CancelButton      widget.Clickable
+	ApplyButton       widget.Clickable
 	LoadDefaultButton widget.Clickable
 	IsDataChanged     bool
 
@@ -86,15 +87,15 @@ func (v *View) Load() {
 	// General settings
 	generalSettings := widgets.NewSettings([]*widgets.SettingItem{
 		widgets.NewHeaderItem("Request"),
-		widgets.NewDropDownItem("HTTP request version", "httpRequestVersion", "Select the HTTP version to use for sending the request.", globalSettings.General.HTTPVersion,
+		widgets.NewDropDownItem("HTTP request version", "httpVersion", "Select the HTTP version to use for sending the request.", globalSettings.General.HTTPVersion,
 			widgets.NewDropDownOption("HTTP/1.1").WithIdentifier("http/1.1").WithValue("http/1.1"),
 			widgets.NewDropDownOption("HTTP/2").WithIdentifier("http/2").WithValue("http/2"),
 		),
 		widgets.NewNumberItem("Request timeout Seconds", "requestTimeoutSec", "Set how long a request need to wait for the response before timeout, zero means never", globalSettings.General.RequestTimeoutSec),
 		widgets.NewNumberItem("Response Size MB", "responseSizeMb", "Maximum size of the response to download. zero mean unlimited", globalSettings.General.ResponseSizeMb),
 		widgets.NewHeaderItem("Headers"),
-		widgets.NewBoolItem("Send no-cache header", "SendNoCacheHeader", "Add and send no-cache header in http requests", globalSettings.General.SendNoCacheHeader),
-		widgets.NewBoolItem("Send Chapar agent header", "SendChaparAgentHeader", "Add and send Chapar agent header in http requests", globalSettings.General.SendChaparAgentHeader),
+		widgets.NewBoolItem("Send no-cache header", "sendNoCacheHeader", "Add and send no-cache header in http requests", globalSettings.General.SendNoCacheHeader),
+		widgets.NewBoolItem("Send Chapar agent header", "sendChaparAgentHeader", "Add and send Chapar agent header in http requests", globalSettings.General.SendChaparAgentHeader),
 	})
 	generalSettings.SetOnChange(v.onChange)
 	v.settings.Set("general", generalSettings)
@@ -267,29 +268,19 @@ func (v *View) layoutActions(gtx layout.Context, theme *chapartheme.Theme) layou
 	return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				b := &button{
-					Clickable:     &v.LoadDefaultButton,
-					Text:          "Load Defaults",
-					IsDataChanged: v.IsDataChanged,
-					Icon:          widgets.RefreshIcon,
-				}
-				return b.Layout(gtx, theme)
+				btn := widgets.Button(theme.Material(), &v.LoadDefaultButton, nil, widgets.IconPositionStart, "Load Defaults")
+				return btn.Layout(gtx, theme)
+			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				btn := widgets.Button(theme.Material(), &v.CancelButton, nil, widgets.IconPositionStart, "Cancel")
+				return btn.Layout(gtx, theme)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				b := &button{
-					Clickable:     &v.CancelButton,
-					Text:          "Cancel",
-					IsDataChanged: v.IsDataChanged,
-					Icon:          widgets.CloseIcon,
-				}
-				return b.Layout(gtx, theme)
-			}),
-			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				b := &button{
-					Clickable:     &v.SaveButton,
-					Text:          "Save",
+					Clickable:     &v.ApplyButton,
+					Text:          "Apply",
 					IsDataChanged: v.IsDataChanged,
 					Icon:          widgets.SaveIcon,
 				}
