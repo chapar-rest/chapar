@@ -7,6 +7,8 @@ import (
 
 type Controller struct {
 	view *View
+
+	oldViewChanged bool
 }
 
 func NewController(view *View) *Controller {
@@ -25,7 +27,13 @@ func (c *Controller) OnChange(values map[string]any) {
 	inputSettings := domain.GlobalConfigFromValues(globalSettings, values)
 	if globalSettings.Changed(&inputSettings) {
 		c.view.IsDataChanged = true
+		c.oldViewChanged = true
+		c.view.Refresh()
 	} else {
 		c.view.IsDataChanged = false
+		if c.oldViewChanged {
+			c.view.Refresh()
+		}
+		c.oldViewChanged = false
 	}
 }

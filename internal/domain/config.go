@@ -190,7 +190,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g := initial
 
 	g.Spec.General.HTTPVersion = getOrDefault(values, "httpVersion", g.Spec.General.HTTPVersion).(string)
-	g.Spec.General.RequestTimeoutSec = getOrDefault(values, "timeoutSec", g.Spec.General.RequestTimeoutSec).(int)
+	g.Spec.General.RequestTimeoutSec = getOrDefault(values, "requestTimeoutSec", g.Spec.General.RequestTimeoutSec).(int)
 	g.Spec.General.ResponseSizeMb = getOrDefault(values, "responseSizeMb", g.Spec.General.ResponseSizeMb).(int)
 	g.Spec.General.SendNoCacheHeader = getOrDefault(values, "sendNoCacheHeader", g.Spec.General.SendNoCacheHeader).(bool)
 	g.Spec.General.SendChaparAgentHeader = getOrDefault(values, "sendChaparAgentHeader", g.Spec.General.SendChaparAgentHeader).(bool)

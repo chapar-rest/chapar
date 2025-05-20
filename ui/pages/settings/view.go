@@ -33,7 +33,6 @@ type View struct {
 
 	SaveButton        widget.Clickable
 	CancelButton      widget.Clickable
-	ApplyButton       widget.Clickable
 	LoadDefaultButton widget.Clickable
 	IsDataChanged     bool
 
@@ -68,6 +67,10 @@ func NewView(window *app.Window, theme *chapartheme.Theme) *View {
 	u.treeView.SetSelectedOnClick(true)
 
 	return u
+}
+
+func (v *View) Refresh() {
+	v.window.Invalidate()
 }
 
 func (v *View) SetOnChange(f func(values map[string]any)) {
@@ -279,8 +282,8 @@ func (v *View) layoutActions(gtx layout.Context, theme *chapartheme.Theme) layou
 			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				b := &button{
-					Clickable:     &v.ApplyButton,
-					Text:          "Apply",
+					Clickable:     &v.SaveButton,
+					Text:          "Save",
 					IsDataChanged: v.IsDataChanged,
 					Icon:          widgets.SaveIcon,
 				}
