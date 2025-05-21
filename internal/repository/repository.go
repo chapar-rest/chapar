@@ -38,6 +38,8 @@ type Repository interface {
 	GetWorkspace(id string) (*domain.Workspace, error)
 	// LoadProtoFiles loads all proto files
 	LoadProtoFiles() ([]*domain.ProtoFile, error)
+	// SetActiveWorkspace sets the active workspace
+	SetActiveWorkspace(workspace *domain.Workspace)
 
 	// GetConfig gets the config
 	GetConfig() (*domain.Config, error)

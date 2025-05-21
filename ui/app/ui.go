@@ -82,8 +82,10 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		return nil, err
 	}
 
+	appState := prefs.GetAppState()
+
 	// create file storage in user's home directory
-	repo, err := repository.NewFilesystem(legacyDataDir, domain.AppStateSpec{} /* baseDir */)
+	repo, err := repository.NewFilesystem(legacyDataDir, appState.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -264,6 +266,7 @@ func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
 		return fmt.Errorf("failed to update app state, %w", err)
 	}
 
+	u.repo.SetActiveWorkspace(ws)
 	u.workspacesState.SetActiveWorkspace(ws)
 
 	if err := u.load(); err != nil {
@@ -312,11 +315,6 @@ func (u *UI) onThemeChange(isDark bool) error {
 func (u *UI) load() error {
 	appState := prefs.GetAppState()
 
-	config, err := u.repo.GetConfig()
-	if err != nil {
-		return err
-	}
-
 	u.header.SetTheme(appState.Spec.DarkMode)
 	u.Theme.Switch(appState.Spec.DarkMode)
 
@@ -334,7 +332,7 @@ func (u *UI) load() error {
 	}
 
 	if appState.Spec.ActiveWorkspace != nil {
-		if selectedWs := u.workspacesState.GetWorkspace(config.Spec.ActiveWorkspace.ID); selectedWs != nil {
+		if selectedWs := u.workspacesState.GetWorkspace(appState.Spec.ActiveWorkspace.ID); selectedWs != nil {
 			u.workspacesState.SetActiveWorkspace(selectedWs)
 			u.header.SetSelectedWorkspace(u.workspacesState.GetActiveWorkspace())
 		}
