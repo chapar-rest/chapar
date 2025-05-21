@@ -81,7 +81,6 @@ func (m *Manager) Load() error {
 
 	// If both loaded successfully, we're done
 	if configLoaded && stateLoaded {
-		fmt.Println("New format loaded successfully")
 		return nil
 	}
 
@@ -265,8 +264,13 @@ func (m *Manager) saveAppState() error {
 
 // migrateFromOldFormat loads data from the old format and converts it to the new format
 func (m *Manager) migrateFromOldFormat() error {
+	legacyDataDir, err := domain.LegacyConfigDir()
+	if err != nil {
+		return fmt.Errorf("failed to get legacy config dir: %w", err)
+	}
+
 	// Create storage client to access old data format
-	storageClient, err := repository.NewFilesystem(repository.DefaultConfigDir, "" /* baseDir */)
+	storageClient, err := repository.NewFilesystem(legacyDataDir, domain.AppStateSpec{})
 	if err != nil {
 		return err
 	}

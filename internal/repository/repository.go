@@ -36,21 +36,14 @@ type Repository interface {
 	LoadWorkspaces() ([]*domain.Workspace, error)
 	// GetWorkspace gets a workspace by id
 	GetWorkspace(id string) (*domain.Workspace, error)
-	// SetActiveWorkspace sets the active workspace
-	SetActiveWorkspace(workspace *domain.Workspace) error
-
 	// LoadProtoFiles loads all proto files
 	LoadProtoFiles() ([]*domain.ProtoFile, error)
 
 	// GetConfig gets the config
 	GetConfig() (*domain.Config, error)
-	// UpdateConfig updates the config
-	UpdateConfig(config *domain.Config) error
 
 	// ReadPreferences reads the preferences
 	ReadPreferences() (*domain.Preferences, error)
-	// UpdatePreferences updates the preferences
-	UpdatePreferences(pref *domain.Preferences) error
 }
 
 type FilePath struct {

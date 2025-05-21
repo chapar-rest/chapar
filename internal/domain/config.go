@@ -1,9 +1,15 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/google/uuid"
+
+	"github.com/chapar-rest/chapar/internal/util"
 )
 
 // GlobalConfig hold the global configuration for the application.
@@ -113,6 +119,8 @@ type AppStateSpec struct {
 
 // GetDefaultGlobalConfig returns a default global config
 func GetDefaultGlobalConfig() *GlobalConfig {
+	dataDir, _ := LegacyConfigDir()
+
 	return &GlobalConfig{
 		ApiVersion: ApiVersion,
 		Kind:       "GlobalConfig",
@@ -143,7 +151,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				Port:        2397,
 			},
 			Data: DataConfig{
-				WorkspacePath: "",
+				WorkspacePath: dataDir,
 			},
 		},
 	}
@@ -202,7 +210,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.Editor.AutoCloseBrackets = getOrDefault(values, "autoCloseBrackets", g.Spec.Editor.AutoCloseBrackets).(bool)
 	g.Spec.Editor.AutoCloseQuotes = getOrDefault(values, "autoCloseQuotes", g.Spec.Editor.AutoCloseQuotes).(bool)
 
-	g.Spec.Scripting.Enabled = getOrDefault(values, "enabled", g.Spec.Scripting.Enabled).(bool)
+	g.Spec.Scripting.Enabled = getOrDefault(values, "enable", g.Spec.Scripting.Enabled).(bool)
 	g.Spec.Scripting.Language = getOrDefault(values, "language", g.Spec.Scripting.Language).(string)
 	g.Spec.Scripting.UseDocker = getOrDefault(values, "useDocker", g.Spec.Scripting.UseDocker).(bool)
 	g.Spec.Scripting.DockerImage = getOrDefault(values, "dockerImage", g.Spec.Scripting.DockerImage).(string)
@@ -238,6 +246,38 @@ func GetDefaultAppState() *AppState {
 			SelectedEnvironment: &SelectedEnvironment{},
 		},
 	}
+}
+
+func LegacyConfigDir() (string, error) {
+	var dir string
+
+	switch runtime.GOOS {
+	case "windows":
+		dir = os.Getenv("AppData")
+		if dir == "" {
+			return "", errors.New("%AppData% is not defined")
+		}
+
+	case "plan9":
+		dir = os.Getenv("home")
+		if dir == "" {
+			return "", errors.New("$home is not defined")
+		}
+		dir += "/lib"
+
+	default: // Unix
+		dir = os.Getenv("XDG_CONFIG_HOME")
+		if dir == "" {
+			dir = os.Getenv("HOME")
+			if dir == "" {
+				return "", errors.New("neither $XDG_CONFIG_HOME nor $HOME are defined")
+			}
+			dir += "/.config"
+		}
+	}
+
+	path := filepath.Join(dir, "chapar")
+	return path, util.MakeDir(path)
 }
 
 type Config struct {

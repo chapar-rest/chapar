@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/util"
 )
 
 const (
@@ -25,6 +26,8 @@ const (
 var _ Repository = &Filesystem{}
 
 type Filesystem struct {
+	dataDir string
+
 	configDir        string
 	baseDir          string
 	ActiveWorkspace  *domain.Workspace
@@ -35,10 +38,9 @@ type Filesystem struct {
 	workspacePaths   map[string]string
 }
 
-func NewFilesystem(configDir string, baseDir string) (*Filesystem, error) {
+func NewFilesystem(dataDir string, appState domain.AppStateSpec) (*Filesystem, error) {
 	fs := &Filesystem{
-		configDir:        configDir,
-		baseDir:          baseDir,
+		dataDir:          dataDir,
 		requestPaths:     make(map[string]string),
 		collectionPaths:  make(map[string]string),
 		environmentPaths: make(map[string]string),
@@ -46,33 +48,34 @@ func NewFilesystem(configDir string, baseDir string) (*Filesystem, error) {
 		workspacePaths:   make(map[string]string),
 	}
 
-	config, err := fs.GetConfig()
-	if err != nil {
+	// make sure the data directory exists
+	if err := util.MakeDir(dataDir); err != nil {
 		return nil, err
 	}
 
-	cDir, err := fs.getConfigDir()
-	if err != nil {
-		return nil, err
-	}
-
-	if config.Spec.ActiveWorkspace != nil {
-		ws, err := fs.GetWorkspace(filepath.Join(cDir, config.Spec.ActiveWorkspace.Name))
+	if appState.ActiveWorkspace != nil {
+		ws, err := fs.GetWorkspace(filepath.Join(dataDir, appState.ActiveWorkspace.Name))
 		if err != nil {
 			return nil, err
 		}
 		fs.ActiveWorkspace = ws
 	}
 
-	// if there is no active workspace, create default workspace
-	if fs.ActiveWorkspace == nil {
+	// check if the default workspace directory exists
+	defaultWorkspaceDir := filepath.Join(dataDir, domain.DefaultWorkspaceName)
+	if _, err := os.Stat(defaultWorkspaceDir); os.IsNotExist(err) {
 		ws := domain.NewDefaultWorkspace()
-		defaultPath := filepath.Join(cDir, "default")
+		defaultPath := filepath.Join(dataDir, ws.MetaData.Name, "_workspace.yaml")
 		fs.workspacePaths[ws.MetaData.ID] = defaultPath
 		if err := fs.updateWorkspace(ws); err != nil {
 			return nil, err
 		}
-
+	} else {
+		// if it exists, load the default workspace
+		ws, err := fs.GetWorkspace(filepath.Join(dataDir, domain.DefaultWorkspaceName))
+		if err != nil {
+			return nil, err
+		}
 		fs.ActiveWorkspace = ws
 	}
 
@@ -80,13 +83,8 @@ func NewFilesystem(configDir string, baseDir string) (*Filesystem, error) {
 }
 
 func (f *Filesystem) getEntityDirectoryInWorkspace(entityType string) (string, error) {
-	dir, err := f.CreateConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	p := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, entityType)
-	if err := MakeDir(p); err != nil {
+	p := filepath.Join(f.dataDir, f.ActiveWorkspace.MetaData.Name, entityType)
+	if err := util.MakeDir(p); err != nil {
 		return "", err
 	}
 
@@ -157,20 +155,6 @@ func (f *Filesystem) getNewProtoFilePath(name string) (*FilePath, error) {
 	}
 
 	return getNewFilePath(dir, name), nil
-}
-
-func (f *Filesystem) SetActiveWorkspace(workspace *domain.Workspace) error {
-	config, err := f.GetConfig()
-	if err != nil {
-		return err
-	}
-
-	f.ActiveWorkspace = workspace
-	config.Spec.ActiveWorkspace = &domain.ActiveWorkspace{
-		ID:   workspace.MetaData.ID,
-		Name: workspace.MetaData.Name,
-	}
-	return f.UpdateConfig(config)
 }
 
 func (f *Filesystem) GetConfig() (*domain.Config, error) {
@@ -263,13 +247,8 @@ func (f *Filesystem) GetWorkspace(dirPath string) (*domain.Workspace, error) {
 }
 
 func (f *Filesystem) getWorkspacesDir() (string, error) {
-	dir, err := f.CreateConfigDir()
-	if err != nil {
-		return "", err
-	}
-
 	// all folders in the config directory are workspaces
-	return dir, nil
+	return f.dataDir, nil
 }
 
 func (f *Filesystem) updateWorkspace(workspace *domain.Workspace) error {
@@ -516,41 +495,10 @@ func (f *Filesystem) getNewEnvironmentFilePath(name string) (*FilePath, error) {
 }
 
 func (f *Filesystem) ReadPreferences() (*domain.Preferences, error) {
-	dir, err := f.getConfigDir()
-	if err != nil {
-		return nil, err
-	}
-	pdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
+	pdir := filepath.Join(f.dataDir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
 	filePath := filepath.Join(pdir, "preferences.yaml")
 
-	preferences, err := LoadFromYaml[domain.Preferences](filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Return default preferences if file doesn't exist
-			preferences = domain.NewPreferences()
-			if err := f.UpdatePreferences(preferences); err != nil {
-				return nil, err
-			}
-			return preferences, nil
-		}
-		return nil, err
-	}
-	return preferences, nil
-}
-
-func (f *Filesystem) UpdatePreferences(pref *domain.Preferences) error {
-	dir, err := f.getConfigDir()
-	if err != nil {
-		return err
-	}
-
-	pdir := filepath.Join(dir, f.ActiveWorkspace.MetaData.Name, preferencesDir)
-	if err := MakeDir(pdir); err != nil {
-		return err
-	}
-
-	filePath := filepath.Join(pdir, "preferences.yaml")
-	return SaveToYaml[domain.Preferences](filePath, pref)
+	return LoadFromYaml[domain.Preferences](filePath)
 }
 
 func (f *Filesystem) LoadRequests() ([]*domain.Request, error) {
@@ -686,18 +634,7 @@ func dirExist(dirname string) bool {
 }
 
 func (f *Filesystem) getConfigDir() (string, error) {
-	if f.baseDir != "" {
-		path := filepath.Join(f.baseDir, f.configDir)
-		return path, MakeDir(path)
-	}
-
-	dir, err := UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	path := filepath.Join(dir, f.configDir)
-	return path, MakeDir(path)
+	return f.dataDir, nil
 }
 
 func (f *Filesystem) CreateConfigDir() (string, error) {
