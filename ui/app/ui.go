@@ -77,8 +77,13 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		return nil, err
 	}
 
+	legacyDataDir, err := domain.LegacyConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
 	// create file storage in user's home directory
-	repo, err := repository.NewFilesystem(repository.DefaultConfigDir, "" /* baseDir */)
+	repo, err := repository.NewFilesystem(legacyDataDir, domain.AppStateSpec{} /* baseDir */)
 	if err != nil {
 		return nil, err
 	}
@@ -249,9 +254,16 @@ func (u *UI) onSelectSearchResult(result *fuzzysearch.SearchResult) {
 }
 
 func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
-	if err := u.repo.SetActiveWorkspace(ws); err != nil {
-		return fmt.Errorf("failed to set active workspace, %w", err)
+	appState := prefs.GetAppState()
+	appState.Spec.ActiveWorkspace = &domain.ActiveWorkspace{
+		ID:   ws.MetaData.ID,
+		Name: ws.MetaData.Name,
 	}
+
+	if err := prefs.UpdateAppState(appState); err != nil {
+		return fmt.Errorf("failed to update app state, %w", err)
+	}
+
 	u.workspacesState.SetActiveWorkspace(ws)
 
 	if err := u.load(); err != nil {

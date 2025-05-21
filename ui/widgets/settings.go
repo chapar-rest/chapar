@@ -19,7 +19,7 @@ const (
 	ItemTypeText     = "text"
 	ItemTypeFile     = "file"
 	ItemTypeBool     = "bool"
-	ItemTypeLNumber  = "number"
+	ItemTypeNumber   = "number"
 	ItemTypeDropDown = "dropdown"
 	ItemTypeHeader   = "header"
 )
@@ -59,7 +59,7 @@ func (s *Settings) getValues() map[string]any {
 		switch i.Type {
 		case ItemTypeBool:
 			values[i.Key] = i.boolState.Value
-		case ItemTypeLNumber:
+		case ItemTypeNumber:
 			v, err := strconv.Atoi(i.editor.Text())
 			if err != nil {
 				continue
@@ -69,6 +69,8 @@ func (s *Settings) getValues() map[string]any {
 			values[i.Key] = i.FileSelector.GetFilePath()
 		case ItemTypeDropDown:
 			values[i.Key] = i.dropDown.GetSelected().GetValue()
+		case ItemTypeText:
+			values[i.Key] = i.editor.Text()
 		case ItemTypeHeader:
 			// do nothing
 		}
@@ -82,12 +84,14 @@ func (s *Settings) SetValues(values map[string]any) {
 			switch i.Type {
 			case ItemTypeBool:
 				i.boolState.Value = v.(bool)
-			case ItemTypeLNumber:
+			case ItemTypeNumber:
 				i.editor.SetText(strconv.Itoa(v.(int)))
 			case ItemTypeFile:
 				i.FileSelector.SetFileName(v.(string))
 			case ItemTypeDropDown:
 				i.dropDown.SetSelectedByValue(v.(string))
+			case ItemTypeText:
+				i.editor.SetText(v.(string))
 			}
 		}
 	}
@@ -172,7 +176,7 @@ func NewNumberItem(title, key, description string, value int) *SettingItem {
 		Title:       title,
 		Key:         key,
 		Description: description,
-		Type:        ItemTypeLNumber,
+		Type:        ItemTypeNumber,
 		Value:       value,
 		editor:      &widget.Editor{SingleLine: true, Alignment: text.Middle},
 		visible:     true,
@@ -264,7 +268,7 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 						return i.editorLayout(gtx, theme)
 					case ItemTypeBool:
 						return i.switchLayout(gtx, theme)
-					case ItemTypeLNumber:
+					case ItemTypeNumber:
 						return i.editorLayout(gtx, theme)
 					case ItemTypeFile:
 						return i.fileLayout(gtx, theme)

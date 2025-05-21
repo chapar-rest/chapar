@@ -246,14 +246,14 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					newBtn := widgets.Button(theme.Material(), &v.addImportPath, widgets.FileFolderIcon, widgets.IconPositionStart, "Add Import Path")
 					newBtn.Color = theme.ButtonTextColor
-					newBtn.Background = theme.SendButtonBgColor
+					newBtn.Background = theme.ActionButtonBgColor
 					return newBtn.Layout(gtx, theme)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					newBtn := widgets.Button(theme.Material(), &v.addButton, widgets.PlusIcon, widgets.IconPositionStart, "Add Proto file")
 					newBtn.Color = theme.ButtonTextColor
-					newBtn.Background = theme.SendButtonBgColor
+					newBtn.Background = theme.ActionButtonBgColor
 					return newBtn.Layout(gtx, theme)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(25)}.Layout),

@@ -137,7 +137,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 
 			gtx.Constraints.Min.X = gtx.Dp(80)
 			btn := material.Button(theme.Material(), &a.sendClickable, "Invoke")
-			btn.Background = theme.SendButtonBgColor
+			btn.Background = theme.ActionButtonBgColor
 			btn.Color = theme.ButtonTextColor
 			return btn.Layout(gtx)
 		}),

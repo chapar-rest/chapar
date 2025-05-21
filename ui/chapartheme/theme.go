@@ -28,7 +28,7 @@ type Theme struct {
 	BorderColorFocused    color.NRGBA
 	TextColor             color.NRGBA
 	ButtonTextColor       color.NRGBA
-	SendButtonBgColor     color.NRGBA
+	ActionButtonBgColor   color.NRGBA
 	DeleteButtonBgColor   color.NRGBA
 	SwitchBgColor         color.NRGBA
 	TabInactiveColor      color.NRGBA
@@ -79,7 +79,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.TextColor = rgb(0x8b8e95)
 		t.BorderColor = rgb(0x6c6f76)
 		t.TabInactiveColor = rgb(0x4589f5)
-		t.SendButtonBgColor = rgb(0x4589f5)
+		t.ActionButtonBgColor = rgb(0x4589f5)
 		t.SwitchBgColor = rgb(0x4589f5)
 		t.TextColor = rgb(0xffffff)
 		t.ButtonTextColor = rgb(0xffffff)
@@ -106,7 +106,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.BorderColorFocused = rgb(0x4589f5)
 		t.BorderColor = rgb(0x6c6f76)
 		t.TabInactiveColor = rgb(0x4589f5)
-		t.SendButtonBgColor = rgb(0x4589f5)
+		t.ActionButtonBgColor = rgb(0x4589f5)
 		t.SwitchBgColor = rgb(0x4589f5)
 		t.TextColor = rgb(0x000000)
 		t.ButtonTextColor = rgb(0xffffff)
