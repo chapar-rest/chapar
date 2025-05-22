@@ -37,9 +37,11 @@ type Response struct {
 type Service struct {
 	requests     *state.Requests
 	environments *state.Environments
+
+	appVersion string
 }
 
-func New(requests *state.Requests, environments *state.Environments) *Service {
+func New(requests *state.Requests, environments *state.Environments, appVersion string) *Service {
 	return &Service{
 		requests:     requests,
 		environments: environments,
@@ -176,7 +178,7 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	}
 
 	if globalConfig.Spec.General.SendChaparAgentHeader {
-		httpReq.Header.Add("User-Agent", "Chapar/0.3.3")
+		httpReq.Header.Add("User-Agent", "Chapar/"+s.appVersion)
 	}
 
 	res, err := http.DefaultClient.Do(httpReq)

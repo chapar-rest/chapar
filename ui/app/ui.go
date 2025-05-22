@@ -109,7 +109,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	}
 
 	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
-	restService := rest.New(u.requestsState, u.environmentsState)
+	restService := rest.New(u.requestsState, u.environmentsState, appVersion)
 
 	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
 
