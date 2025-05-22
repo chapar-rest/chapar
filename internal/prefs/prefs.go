@@ -114,6 +114,10 @@ func GetGlobalConfig() domain.GlobalConfig {
 	return GetInstance().GetGlobalConfig()
 }
 
+func GetWorkspacePath() string {
+	return GetInstance().GetGlobalConfig().Spec.Data.WorkspacePath
+}
+
 // GetGlobalConfig returns a copy of the global config
 func (m *Manager) GetGlobalConfig() domain.GlobalConfig {
 	return *m.globalConfig

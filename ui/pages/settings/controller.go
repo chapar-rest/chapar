@@ -8,7 +8,8 @@ import (
 type Controller struct {
 	view *View
 
-	oldViewChanged bool
+	oldViewChanged       bool
+	workspacePathChanged bool
 
 	state domain.GlobalConfig
 }
@@ -38,6 +39,11 @@ func (c *Controller) onSave() {
 	c.view.IsDataChanged = false
 	c.oldViewChanged = false
 	c.view.Refresh()
+
+	if c.workspacePathChanged {
+		c.workspacePathChanged = false
+		c.view.ShowInfo("Info", "Workspace path changed. Restart the application to apply changes.")
+	}
 }
 
 func (c *Controller) onCancel() {
@@ -64,11 +70,17 @@ func (c *Controller) onChange(values map[string]any) {
 	// input values
 	inputSettings := domain.GlobalConfigFromValues(globalSettings, values)
 	if globalSettings.Changed(&inputSettings) {
+		// is workspace path changed?
+		if globalSettings.Spec.Data.WorkspacePath != inputSettings.Spec.Data.WorkspacePath {
+			c.workspacePathChanged = true
+		}
+
 		c.view.IsDataChanged = true
 		c.oldViewChanged = true
 		c.state = inputSettings
 		c.view.Refresh()
 	} else {
+		c.workspacePathChanged = false
 		c.view.IsDataChanged = false
 		if c.oldViewChanged {
 			c.view.Refresh()

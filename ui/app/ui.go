@@ -77,15 +77,10 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		return nil, err
 	}
 
-	legacyDataDir, err := domain.LegacyConfigDir()
-	if err != nil {
-		return nil, err
-	}
-
 	appState := prefs.GetAppState()
 
 	// create file storage in user's home directory
-	repo, err := repository.NewFilesystem(legacyDataDir, appState.Spec)
+	repo, err := repository.NewFilesystem(prefs.GetWorkspacePath(), appState.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +115,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
-	u.Theme = chapartheme.New(theme, prefs.GetAppState().Spec.DarkMode)
+	u.Theme = chapartheme.New(theme, appState.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
 	u.settingsView = settings.NewView(w, u.Theme)

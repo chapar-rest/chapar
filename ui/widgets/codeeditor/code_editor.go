@@ -125,11 +125,11 @@ func (c *CodeEditor) setEditorOptions() {
 	}
 
 	if !c.editorConfig.AutoCloseBrackets {
-		editorOptions = append(editorOptions, gvcode.WithQuotePairs(nil))
+		editorOptions = append(editorOptions, gvcode.WithQuotePairs(map[rune]rune{}))
 	}
 
 	if !c.editorConfig.AutoCloseQuotes {
-		editorOptions = append(editorOptions, gvcode.WithQuotePairs(nil))
+		editorOptions = append(editorOptions, gvcode.WithBracketPairs(map[rune]rune{}))
 	}
 
 	c.editor.WithOptions(editorOptions...)

@@ -83,6 +83,13 @@ func (v *View) ShowError(err error) {
 	v.modal.Show()
 }
 
+func (v *View) ShowInfo(title, message string) {
+	v.modal = widgets.NewMessageModal(title, message, widgets.MessageModalTypeInfo, func(_ string) {
+		v.modal.Hide()
+	}, widgets.ModalOption{Text: "Ok"})
+	v.modal.Show()
+}
+
 func (v *View) Refresh() {
 	v.window.Invalidate()
 }
