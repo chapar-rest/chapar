@@ -18,7 +18,6 @@ type DropDown struct {
 	menuContextArea component.ContextArea
 	menu            component.MenuState
 	list            *widget.List
-	theme           *chapartheme.Theme
 
 	MinWidth unit.Dp
 	MaxWidth unit.Dp
@@ -34,6 +33,7 @@ type DropDown struct {
 	borderWidth  unit.Dp
 	cornerRadius unit.Dp
 
+	changed       bool
 	onValueChange func(value string)
 }
 
@@ -145,7 +145,7 @@ func (c *DropDown) SetSelectedByValue(value string) {
 	}
 }
 
-func NewDropDown(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown {
+func NewDropDown(options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		menuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
@@ -159,14 +159,13 @@ func NewDropDown(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown
 		options:      options,
 		borderWidth:  unit.Dp(1),
 		cornerRadius: unit.Dp(4),
-		theme:        theme,
 		menuInit:     true,
 	}
 
 	return c
 }
 
-func NewDropDownWithoutBorder(theme *chapartheme.Theme, options ...*DropDownOption) *DropDown {
+func NewDropDownWithoutBorder(options ...*DropDownOption) *DropDown {
 	c := &DropDown{
 		menuContextArea: component.ContextArea{
 			Activation:       pointer.ButtonPrimary,
@@ -178,7 +177,6 @@ func NewDropDownWithoutBorder(theme *chapartheme.Theme, options ...*DropDownOpti
 			},
 		},
 		options:  options,
-		theme:    theme,
 		menuInit: true,
 	}
 
@@ -251,6 +249,12 @@ func (c *DropDown) SetSize(size image.Point) {
 	c.size = size
 }
 
+func (c *DropDown) Changed() bool {
+	out := c.changed
+	c.changed = false
+	return out
+}
+
 // Layout the DropDown.
 func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	c.isOpen = c.menuContextArea.Active()
@@ -267,6 +271,7 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 	}
 
 	if c.selectedOptionIndex != c.lastSelectedIndex {
+		c.changed = true
 		if c.onValueChange != nil {
 			go c.onValueChange(c.options[c.selectedOptionIndex].Value)
 		}

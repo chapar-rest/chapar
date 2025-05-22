@@ -86,7 +86,7 @@ func (i *InputModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout
 									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 										addBtn := Button(theme.Material(), &i.addBtn, PlusIcon, IconPositionStart, "Add")
 										addBtn.Color = theme.ButtonTextColor
-										addBtn.Background = theme.SendButtonBgColor
+										addBtn.Background = theme.ActionButtonBgColor
 										return addBtn.Layout(gtx, theme)
 									}),
 								)

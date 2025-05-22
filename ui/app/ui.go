@@ -16,6 +16,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -26,6 +27,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
+	"github.com/chapar-rest/chapar/ui/pages/settings"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
 	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
@@ -48,11 +50,13 @@ type UI struct {
 	requestsView     *requests.View
 	workspacesView   *workspaces.View
 	protoFilesView   *protofiles.View
+	settingsView     *settings.View
 
 	environmentsController *environments.Controller
 	requestsController     *requests.Controller
 	workspacesController   *workspaces.Controller
 	protoFilesController   *protofiles.Controller
+	settingsController     *settings.Controller
 
 	environmentsState *state.Environments
 	requestsState     *state.Requests
@@ -73,21 +77,16 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		return nil, err
 	}
 
+	appState := prefs.GetAppState()
+
 	// create file storage in user's home directory
-	repo, err := repository.NewFilesystem(repository.DefaultConfigDir, "" /* baseDir */)
+	repo, err := repository.NewFilesystem(prefs.GetWorkspacePath(), appState.Spec)
 	if err != nil {
 		return nil, err
 	}
 
 	explorerController := explorer.NewExplorer(w)
-
 	u.repo = repo
-
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read preferences, %w", err)
-	}
-
 	u.workspacesView = workspaces.NewView()
 	u.workspacesState = state.NewWorkspaces(repo)
 	u.workspacesController = workspaces.NewController(u.workspacesView, u.workspacesState, repo)
@@ -110,15 +109,17 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	}
 
 	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
-	restService := rest.New(u.requestsState, u.environmentsState)
+	restService := rest.New(u.requestsState, u.environmentsState, appVersion)
 
 	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
-	u.Theme = chapartheme.New(theme, preferences.Spec.DarkMode)
+	u.Theme = chapartheme.New(theme, appState.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
 	u.consolePage = console.New()
+	u.settingsView = settings.NewView(w, u.Theme)
+	u.settingsController = settings.NewController(u.settingsView)
 
 	u.header = NewHeader(w, u.environmentsState, u.workspacesState, u.Theme)
 	u.header.SetSearchDataLoader(u.searchDataLoader)
@@ -250,9 +251,17 @@ func (u *UI) onSelectSearchResult(result *fuzzysearch.SearchResult) {
 }
 
 func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
-	if err := u.repo.SetActiveWorkspace(ws); err != nil {
-		return fmt.Errorf("failed to set active workspace, %w", err)
+	appState := prefs.GetAppState()
+	appState.Spec.ActiveWorkspace = &domain.ActiveWorkspace{
+		ID:   ws.MetaData.ID,
+		Name: ws.MetaData.Name,
 	}
+
+	if err := prefs.UpdateAppState(appState); err != nil {
+		return fmt.Errorf("failed to update app state, %w", err)
+	}
+
+	u.repo.SetActiveWorkspace(ws)
 	u.workspacesState.SetActiveWorkspace(ws)
 
 	if err := u.load(); err != nil {
@@ -262,21 +271,20 @@ func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
 }
 
 func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return fmt.Errorf("failed to read preferences, %w", err)
-	}
-
+	appState := prefs.GetAppState()
 	if env != nil {
-		preferences.Spec.SelectedEnvironment.ID = env.MetaData.ID
-		preferences.Spec.SelectedEnvironment.Name = env.MetaData.Name
+		if appState.Spec.SelectedEnvironment == nil {
+			appState.Spec.SelectedEnvironment = &domain.SelectedEnvironment{}
+		}
+
+		appState.Spec.SelectedEnvironment.ID = env.MetaData.ID
+		appState.Spec.SelectedEnvironment.Name = env.MetaData.Name
 	} else {
-		preferences.Spec.SelectedEnvironment.ID = ""
-		preferences.Spec.SelectedEnvironment.Name = ""
+		appState.Spec.SelectedEnvironment = nil
 	}
 
-	if err := u.repo.UpdatePreferences(preferences); err != nil {
-		return fmt.Errorf("failed to update preferences, %w", err)
+	if err := prefs.UpdateAppState(appState); err != nil {
+		return fmt.Errorf("failed to update app state, %w", err)
 	}
 
 	if env != nil {
@@ -291,31 +299,19 @@ func (u *UI) onSelectedEnvChanged(env *domain.Environment) error {
 func (u *UI) onThemeChange(isDark bool) error {
 	u.Theme.Switch(isDark)
 
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return fmt.Errorf("failed to read preferences, %w", err)
-	}
-
-	preferences.Spec.DarkMode = isDark
-	if err := u.repo.UpdatePreferences(preferences); err != nil {
-		return fmt.Errorf("failed to update preferences, %w", err)
+	appState := prefs.GetAppState()
+	appState.Spec.DarkMode = isDark
+	if err := prefs.UpdateAppState(appState); err != nil {
+		return fmt.Errorf("failed to update app state, %w", err)
 	}
 	return nil
 }
 
 func (u *UI) load() error {
-	preferences, err := u.repo.ReadPreferences()
-	if err != nil {
-		return err
-	}
+	appState := prefs.GetAppState()
 
-	config, err := u.repo.GetConfig()
-	if err != nil {
-		return err
-	}
-
-	u.header.SetTheme(preferences.Spec.DarkMode)
-	u.Theme.Switch(preferences.Spec.DarkMode)
+	u.header.SetTheme(appState.Spec.DarkMode)
+	u.Theme.Switch(appState.Spec.DarkMode)
 
 	if err := u.environmentsController.LoadData(); err != nil {
 		return err
@@ -323,14 +319,18 @@ func (u *UI) load() error {
 
 	u.header.LoadEnvs(u.environmentsState.GetEnvironments())
 
-	if selectedEnv := u.environmentsState.GetEnvironment(preferences.Spec.SelectedEnvironment.ID); selectedEnv != nil {
-		u.environmentsState.SetActiveEnvironment(selectedEnv)
-		u.header.SetSelectedEnvironment(u.environmentsState.GetActiveEnvironment())
+	if appState.Spec.SelectedEnvironment != nil {
+		if selectedEnv := u.environmentsState.GetEnvironment(appState.Spec.SelectedEnvironment.ID); selectedEnv != nil {
+			u.environmentsState.SetActiveEnvironment(selectedEnv)
+			u.header.SetSelectedEnvironment(u.environmentsState.GetActiveEnvironment())
+		}
 	}
 
-	if selectedWs := u.workspacesState.GetWorkspace(config.Spec.ActiveWorkspace.ID); selectedWs != nil {
-		u.workspacesState.SetActiveWorkspace(selectedWs)
-		u.header.SetSelectedWorkspace(u.workspacesState.GetActiveWorkspace())
+	if appState.Spec.ActiveWorkspace != nil {
+		if selectedWs := u.workspacesState.GetWorkspace(appState.Spec.ActiveWorkspace.ID); selectedWs != nil {
+			u.workspacesState.SetActiveWorkspace(selectedWs)
+			u.header.SetSelectedWorkspace(u.workspacesState.GetActiveWorkspace())
+		}
 	}
 
 	return u.requestsController.LoadData()
@@ -392,6 +392,8 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 						return u.workspacesView.Layout(gtx, u.Theme)
 					case 3:
 						return u.protoFilesView.Layout(gtx, u.Theme)
+					case 4:
+						return u.settingsView.Layout(gtx, u.Theme)
 						// case 4:
 						//	return u.consolePage.Layout(gtx, u.Theme)
 					}

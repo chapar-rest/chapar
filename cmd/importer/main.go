@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
 )
@@ -17,7 +18,13 @@ var (
 func main() {
 	flag.Parse()
 
-	repo, err := repository.NewFilesystem(repository.DefaultConfigDir, "")
+	dataDir, err := domain.LegacyConfigDir()
+	if err != nil {
+		fmt.Printf("Error getting data directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	repo, err := repository.NewFilesystem(dataDir, domain.AppStateSpec{})
 	if err != nil {
 		fmt.Printf("Error creating repository: %v\n", err)
 		os.Exit(1)

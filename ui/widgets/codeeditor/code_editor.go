@@ -16,6 +16,8 @@ import (
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
 
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/fonts"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -40,9 +42,7 @@ const (
 
 type CodeEditor struct {
 	editor *gvcode.Editor
-	// popup  completion.CompletionPopup
-
-	code string
+	code   string
 
 	theme *chapartheme.Theme
 
@@ -69,42 +69,31 @@ type CodeEditor struct {
 
 	vScrollbar      widget.Scrollbar
 	vScrollbarStyle material.ScrollbarStyle
+
+	editorConfig domain.EditorConfig
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
 	fff := fonts.MustGetCodeEditorFont()
 
+	globalConfig := prefs.GetGlobalConfig()
+
 	c := &CodeEditor{
-		theme:  theme,
-		editor: &gvcode.Editor{},
-		code:   code,
-		font:   fff,
-		lang:   lang,
+		theme:        theme,
+		editor:       &gvcode.Editor{},
+		code:         code,
+		font:         fff,
+		lang:         lang,
+		editorConfig: globalConfig.Spec.Editor,
 	}
 
-	// cm := &completion.DefaultCompletion{Editor: c.editor}
-	// // set completion triggers
-	// cm.SetTriggers(gvcode.AutoTrigger{})
-	//
-	// // set popup widget to let user navigate the candidates.
-	// c.popup = *completion.NewCompletionPopup(c.editor, cm)
-	// cm.SetPopup(func(gtx layout.Context, items []gvcode.CompletionCandidate) layout.Dimensions {
-	//	c.popup.TextSize = unit.Sp(12)
-	//	c.popup.Size = image.Point{
-	//		X: gtx.Dp(unit.Dp(400)),
-	//		Y: gtx.Dp(unit.Dp(200)),
-	//	}
-	//
-	//	return c.popup.Layout(gtx, theme.Material(), items)
-	// })
+	c.setEditorOptions()
 
-	c.editor.WithOptions(
-		gvcode.WithShaperParams(c.font.Font, unit.Sp(12), text.Start, unit.Sp(16), 1),
-		gvcode.WithTabWidth(4),
-		gvcode.WithSoftTab(true),
-		gvcode.WrapLine(true),
-		// 	gvcode.WithAutoCompletion(cm),
-	)
+	prefs.GetInstance().AddGlobalConfigChangeListener(func(config *domain.GlobalConfig) {
+		c.editorConfig = config.Spec.Editor
+		c.setEditorOptions()
+	})
+
 	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)
 
 	c.border = widget.Border{
@@ -125,6 +114,25 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 	c.editor.SetText(code)
 
 	return c
+}
+
+func (c *CodeEditor) setEditorOptions() {
+	editorOptions := []gvcode.EditorOption{
+		gvcode.WithShaperParams(c.font.Font, unit.Sp(c.editorConfig.FontSize), text.Start, unit.Sp(16), 1),
+		gvcode.WithTabWidth(c.editorConfig.TabWidth),
+		gvcode.WithSoftTab(c.editorConfig.Indentation == domain.IndentationSpaces),
+		gvcode.WrapLine(true),
+	}
+
+	if !c.editorConfig.AutoCloseBrackets {
+		editorOptions = append(editorOptions, gvcode.WithQuotePairs(map[rune]rune{}))
+	}
+
+	if !c.editorConfig.AutoCloseQuotes {
+		editorOptions = append(editorOptions, gvcode.WithBracketPairs(map[rune]rune{}))
+	}
+
+	c.editor.WithOptions(editorOptions...)
 }
 
 func getLexer(lang string) chroma.Lexer {
@@ -264,8 +272,8 @@ func (c *CodeEditor) beautyButton(gtx layout.Context, theme *chapartheme.Theme) 
 
 func (c *CodeEditor) editorStyle(gtx layout.Context, _ string) layout.Dimensions {
 	es := wgvcode.NewEditor(c.theme.Material(), c.editor)
-	es.Font.Typeface = "JetBrains Mono"
-	es.TextSize = unit.Sp(12)
+	es.Font.Typeface = font.Typeface(c.editorConfig.FontFamily)
+	es.TextSize = unit.Sp(c.editorConfig.FontSize)
 	es.LineHeightScale = 1.3
 
 	es.SelectionColor = c.theme.TextSelectionColor

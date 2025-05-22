@@ -3,6 +3,7 @@ package widgets
 import (
 	"strconv"
 
+	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"
@@ -15,10 +16,12 @@ import (
 )
 
 const (
-	ItemTypeText    = "text"
-	ItemTypeFile    = "file"
-	ItemTypeBool    = "bool"
-	ItemTypeLNumber = "number"
+	ItemTypeText     = "text"
+	ItemTypeFile     = "file"
+	ItemTypeBool     = "bool"
+	ItemTypeNumber   = "number"
+	ItemTypeDropDown = "dropdown"
+	ItemTypeHeader   = "header"
 )
 
 type Settings struct {
@@ -56,7 +59,7 @@ func (s *Settings) getValues() map[string]any {
 		switch i.Type {
 		case ItemTypeBool:
 			values[i.Key] = i.boolState.Value
-		case ItemTypeLNumber:
+		case ItemTypeNumber:
 			v, err := strconv.Atoi(i.editor.Text())
 			if err != nil {
 				continue
@@ -64,11 +67,34 @@ func (s *Settings) getValues() map[string]any {
 			values[i.Key] = v
 		case ItemTypeFile:
 			values[i.Key] = i.FileSelector.GetFilePath()
-		default:
+		case ItemTypeDropDown:
+			values[i.Key] = i.dropDown.GetSelected().GetValue()
+		case ItemTypeText:
 			values[i.Key] = i.editor.Text()
+		case ItemTypeHeader:
+			// do nothing
 		}
 	}
 	return values
+}
+
+func (s *Settings) SetValues(values map[string]any) {
+	for _, i := range s.Items {
+		if v, ok := values[i.Key]; ok {
+			switch i.Type {
+			case ItemTypeBool:
+				i.boolState.Value = v.(bool)
+			case ItemTypeNumber:
+				i.editor.SetText(strconv.Itoa(v.(int)))
+			case ItemTypeFile:
+				i.FileSelector.SetFileName(v.(string))
+			case ItemTypeDropDown:
+				i.dropDown.SetSelectedByValue(v.(string))
+			case ItemTypeText:
+				i.editor.SetText(v.(string))
+			}
+		}
+	}
 }
 
 func (s *Settings) onChanged() {
@@ -89,12 +115,17 @@ type SettingItem struct {
 	boolState *widget.Bool
 	editor    *widget.Editor
 
+	dropDown *DropDown
+
 	FileSelector *FileSelector
 
 	visible     bool
 	visibleWhen func(values map[string]any) bool
 
 	onChange func()
+
+	minWidth      unit.Dp
+	textAlignment text.Alignment
 }
 
 func NewFileItem(explorer *explorer.Explorer, title, key, description string, value string, extensions ...string) *SettingItem {
@@ -145,12 +176,51 @@ func NewNumberItem(title, key, description string, value int) *SettingItem {
 		Title:       title,
 		Key:         key,
 		Description: description,
-		Type:        ItemTypeLNumber,
+		Type:        ItemTypeNumber,
 		Value:       value,
 		editor:      &widget.Editor{SingleLine: true, Alignment: text.Middle},
 		visible:     true,
 	}
 	i.editor.SetText(strconv.Itoa(value))
+	return i
+}
+
+func NewDropDownItem(title, key, description, value string, options ...*DropDownOption) *SettingItem {
+	i := &SettingItem{
+		Title:       title,
+		Key:         key,
+		Description: description,
+		Type:        ItemTypeDropDown,
+		Value:       value,
+		dropDown:    NewDropDown(options...),
+		visible:     true,
+	}
+
+	i.dropDown.SetSelectedByValue(value)
+	i.dropDown.MaxWidth = unit.Dp(150)
+	return i
+}
+
+func NewHeaderItem(title string) *SettingItem {
+	i := &SettingItem{
+		Title:   title,
+		Type:    ItemTypeHeader,
+		visible: true,
+	}
+
+	return i
+}
+
+func (i *SettingItem) MinWidth(w unit.Dp) *SettingItem {
+	i.minWidth = w
+	return i
+}
+
+func (i *SettingItem) TextAlignment(a text.Alignment) *SettingItem {
+	i.textAlignment = a
+	if i.editor != nil {
+		i.editor.Alignment = a
+	}
 	return i
 }
 
@@ -165,6 +235,9 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 	}
 
 	inset := layout.Inset{Top: unit.Dp(5), Bottom: unit.Dp(15)}
+	if i.Type == ItemTypeHeader {
+		inset = layout.Inset{Top: unit.Dp(5), Bottom: 0}
+	}
 
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
@@ -174,7 +247,11 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 				}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Bottom: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Label(theme.Material(), unit.Sp(14), i.Title).Layout(gtx)
+							l := material.Label(theme.Material(), unit.Sp(14), i.Title)
+							if i.Type == ItemTypeHeader {
+								l.Font.Weight = font.Bold
+							}
+							return l.Layout(gtx)
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -191,10 +268,12 @@ func (i *SettingItem) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 						return i.editorLayout(gtx, theme)
 					case ItemTypeBool:
 						return i.switchLayout(gtx, theme)
-					case ItemTypeLNumber:
+					case ItemTypeNumber:
 						return i.editorLayout(gtx, theme)
 					case ItemTypeFile:
 						return i.fileLayout(gtx, theme)
+					case ItemTypeDropDown:
+						return i.dropDownLayout(gtx, theme)
 					default:
 						return layout.Dimensions{}
 					}
@@ -240,7 +319,12 @@ func (i *SettingItem) switchLayout(gtx layout.Context, theme *chapartheme.Theme)
 }
 
 func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	gtx.Constraints.Min.X = gtx.Dp(50)
+	if i.minWidth > 0 {
+		gtx.Constraints.Min.X = gtx.Dp(i.minWidth)
+	} else {
+		gtx.Constraints.Min.X = gtx.Dp(50)
+	}
+
 	border := widget.Border{
 		Color:        theme.BorderColor,
 		Width:        unit.Dp(1),
@@ -258,6 +342,14 @@ func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme)
 			return editor.Layout(gtx)
 		})
 	})
+}
+
+func (i *SettingItem) dropDownLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if i.dropDown.Changed() {
+		i.onChange()
+	}
+
+	return i.dropDown.Layout(gtx, theme)
 }
 
 func (s *Settings) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

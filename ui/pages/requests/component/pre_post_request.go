@@ -61,7 +61,7 @@ type Option struct {
 
 func NewPrePostRequest(actions []Option, setFormFromDropDown *widgets.DropDown, theme *chapartheme.Theme) *PrePostRequest {
 	p := &PrePostRequest{
-		dropDown:            widgets.NewDropDown(theme),
+		dropDown:            widgets.NewDropDown(),
 		script:              codeeditor.NewCodeEditor("", codeeditor.CodeLanguagePython, theme),
 		actionDropDownItems: actions,
 		setEnvForm: &SetEnvForm{
@@ -90,8 +90,8 @@ func NewPrePostRequest(actions []Option, setFormFromDropDown *widgets.DropDown, 
 			},
 		},
 		triggerRequestForm: &TriggerRequestForm{
-			collectionsDropDown: widgets.NewDropDown(theme),
-			requestDropDown:     widgets.NewDropDown(theme),
+			collectionsDropDown: widgets.NewDropDown(),
+			requestDropDown:     widgets.NewDropDown(),
 		},
 	}
 

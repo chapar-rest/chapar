@@ -217,7 +217,7 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						newBtn := widgets.Button(theme.Material(), &v.newButton, widgets.PlusIcon, widgets.IconPositionStart, "New Workspace")
 						newBtn.Color = theme.ButtonTextColor
-						newBtn.Background = theme.SendButtonBgColor
+						newBtn.Background = theme.ActionButtonBgColor
 						return newBtn.Layout(gtx, theme)
 					}),
 				)

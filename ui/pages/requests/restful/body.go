@@ -30,7 +30,6 @@ func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Expl
 	b := &Body{
 		body: body,
 		DropDown: widgets.NewDropDown(
-			theme,
 			widgets.NewDropDownOption("None").WithValue(domain.RequestBodyTypeNone),
 			widgets.NewDropDownOption("JSON").WithValue(domain.RequestBodyTypeJSON),
 			widgets.NewDropDownOption("Text").WithValue(domain.RequestBodyTypeText),

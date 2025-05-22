@@ -40,7 +40,6 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 	certExt := []string{"pem", "crt"}
 
 	postRequestDropDown := widgets.NewDropDown(
-		theme,
 		widgets.NewDropDownOption("From Response").WithValue(domain.PostRequestSetFromResponseBody),
 		widgets.NewDropDownOption("From Metadata").WithValue(domain.PostRequestSetFromResponseMetaData),
 		widgets.NewDropDownOption("From Trailers").WithValue(domain.PostRequestSetFromResponseTrailers),

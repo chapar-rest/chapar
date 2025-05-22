@@ -2,7 +2,6 @@ package repository
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,7 +16,7 @@ func setupTestFS(t *testing.T) (*Filesystem, func()) {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	fs, err := NewFilesystem(DefaultConfigDir, tempDir)
+	fs, err := NewFilesystem(tempDir, domain.AppStateSpec{})
 	if err != nil {
 		t.Fatalf("failed to create filesystem: %v", err)
 	}
@@ -237,52 +236,4 @@ func TestFilesystem_UpdateAndDeleteEntities(t *testing.T) {
 			assert.NotEqual(t, env.MetaData.ID, e.MetaData.ID)
 		}
 	})
-}
-
-func TestFilesystem_Preferences(t *testing.T) {
-	fs, cleanup := setupTestFS(t)
-	defer cleanup()
-
-	// Read default preferences
-	prefs, err := fs.ReadPreferences()
-	assert.NoError(t, err)
-	assert.NotNil(t, prefs)
-
-	// Update preferences
-	prefs.Spec.DarkMode = false
-	prefs.Spec.SelectedEnvironment = domain.SelectedEnvironment{
-		ID:   "test-env",
-		Name: "Test Environment",
-	}
-
-	err = fs.UpdatePreferences(prefs)
-	assert.NoError(t, err)
-
-	// Read and verify updated preferences
-	updatedPrefs, err := fs.ReadPreferences()
-	assert.NoError(t, err)
-	assert.Equal(t, false, updatedPrefs.Spec.DarkMode)
-	assert.Equal(t, "test-env", updatedPrefs.Spec.SelectedEnvironment.ID)
-	assert.Equal(t, "Test Environment", updatedPrefs.Spec.SelectedEnvironment.Name)
-}
-
-func TestNewFilesystem_WithBaseDir(t *testing.T) {
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "chapar-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Create filesystem with custom base directory
-	fs, err := NewFilesystem(DefaultConfigDir, tempDir)
-	assert.NoError(t, err)
-	assert.NotNil(t, fs)
-	assert.Equal(t, tempDir, fs.baseDir)
-
-	// Verify config directory is created in the custom base directory
-	configPath := filepath.Join(tempDir, DefaultConfigDir)
-	info, err := os.Stat(configPath)
-	assert.NoError(t, err)
-	assert.True(t, info.IsDir())
 }
