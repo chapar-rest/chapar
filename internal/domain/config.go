@@ -290,13 +290,31 @@ type Config struct {
 // ConfigSpec holds the configuration for the application.
 // its deprecated and its data will be moved to GlobalConfig on the first run
 type ConfigSpec struct {
-	ActiveWorkspace     *ActiveWorkspace     `yaml:"activeWorkspace"`
-	SelectedEnvironment *SelectedEnvironment `yaml:"selectedEnvironment"`
+	ActiveWorkspace   *ActiveWorkspace   `yaml:"activeWorkspace"`
+	ActiveEnvironment *ActiveEnvironment `yaml:"activeEnvironment"`
 }
 
 type ActiveWorkspace struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+type ActiveEnvironment struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type Scripting struct {
+	Plugins []ScriptingPlugin `yaml:"plugins"`
+}
+
+type ScriptingPlugin struct {
+	Language string `yaml:"language"`
+
+	BinPath              string   `yaml:"binPath"`
+	ServerScriptPathPath string   `yaml:"scriptPath"`
+	Args                 []string `yaml:"args"`
+	ServerPort           int      `yaml:"serverPort"`
 }
 
 func NewConfig() *Config {

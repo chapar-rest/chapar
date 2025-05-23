@@ -521,3 +521,19 @@ func (r *Request) SetDefaultValues() {
 		r.SetDefaultValuesForGRPC()
 	}
 }
+
+func KeyValueToMap(headers []KeyValue) map[string]string {
+	headerMap := make(map[string]string)
+	for _, h := range headers {
+		headerMap[h.Key] = h.Value
+	}
+	return headerMap
+}
+
+func MapToKeyValue(headers map[string]string) []KeyValue {
+	var keyValues []KeyValue
+	for k, v := range headers {
+		keyValues = append(keyValues, KeyValue{Key: k, Value: v})
+	}
+	return keyValues
+}

@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"gioui.org/font"
 	"gioui.org/io/input"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -265,7 +264,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 							}
 							return layout.Inset{Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								lb := material.Label(theme.Material(), unit.Sp(13), node.Prefix)
-								lb.Font.Weight = font.SemiBold
+								// lb.Font.Weight = font.SemiBold
 								lb.Color = node.PrefixColor
 								lb.TextSize = unit.Sp(11)
 								lb.MaxLines = 1

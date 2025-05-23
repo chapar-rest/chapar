@@ -53,7 +53,7 @@ func NewRequest(req *domain.Request, theme *chapartheme.Theme, explorer *explore
 			{Title: "Auth"},
 			{Title: "Meta Data"},
 			{Title: "Variables"},
-			{Title: "Settings"},
+			{Title: "GRPCSettings"},
 			{Title: "Pre Request"},
 			{Title: "Post Request"},
 		}, nil),
@@ -142,7 +142,7 @@ func (r *Request) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 					})
 				case "Auth":
 					return r.Auth.Layout(gtx, theme)
-				case "Settings":
+				case "GRPCSettings":
 					return r.Settings.Layout(gtx, theme)
 				case "Pre Request":
 					return r.PreRequest.Layout(gtx, theme)

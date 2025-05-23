@@ -1,6 +1,7 @@
 package egress
 
 import (
+	"context"
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
@@ -9,8 +10,19 @@ import (
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
 )
+
+type ScriptRunner interface {
+	// ExecutePreRequestScript runs a script before the request is sent
+	// and potentially modifies the request data
+	ExecutePreRequestScript(ctx context.Context, script string, params *scripting.ExecParams) (*scripting.ExecResult, error)
+
+	// ExecutePostResponseScript runs a script after a response is received
+	// and can access both request and response data
+	ExecutePostResponseScript(ctx context.Context, script string, params *scripting.ExecParams) (*scripting.ExecResult, error)
+}
 
 type Service struct {
 	requests     *state.Requests
@@ -18,14 +30,17 @@ type Service struct {
 
 	rest *rest.Service
 	grpc *grpc.Service
+
+	scriptPluginManager scripting.PluginManager
 }
 
-func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service) *Service {
+func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service, scriptPluginManager scripting.PluginManager) *Service {
 	return &Service{
-		requests:     requests,
-		environments: environments,
-		rest:         rest,
-		grpc:         grpc,
+		requests:            requests,
+		environments:        environments,
+		rest:                rest,
+		grpc:                grpc,
+		scriptPluginManager: scriptPluginManager,
 	}
 }
 
@@ -247,6 +262,10 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Res
 		return nil
 	}
 
+	if r.Type == domain.PrePostTypePython {
+		return s.handlePythonPostRequest(r.Script, response, env)
+	}
+
 	if r.Type != domain.PrePostTypeSetEnv {
 		// TODO: implement other types
 		return nil
@@ -264,6 +283,93 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Res
 		return s.handlePostRequestFromHeader(r, response, env)
 	case domain.PostRequestSetFromResponseCookie:
 		return s.handlePostRequestFromCookie(r, response, env)
+	}
+
+	return nil
+}
+
+func (s *Service) handlePythonPreRequest(script string, request *domain.Request, env *domain.Environment) error {
+	params := &scripting.ExecParams{
+		Env: env,
+	}
+
+	if request.MetaData.Type == domain.RequestTypeHTTP {
+		params.Req = &scripting.RequestData{
+			Method:      request.Spec.HTTP.Method,
+			URL:         request.Spec.HTTP.URL,
+			Headers:     domain.KeyValueToMap(request.Spec.HTTP.Request.Headers),
+			QueryParams: domain.KeyValueToMap(request.Spec.HTTP.Request.QueryParams),
+			PathParams:  domain.KeyValueToMap(request.Spec.HTTP.Request.PathParams),
+			Body:        request.Spec.HTTP.Request.Body.Data,
+		}
+	} else {
+		params.Req = &scripting.RequestData{
+			Method:   request.Spec.GRPC.LasSelectedMethod,
+			URL:      request.Spec.GRPC.ServerInfo.Address,
+			Metadata: domain.KeyValueToMap(request.Spec.GRPC.Metadata),
+		}
+	}
+
+	runner, _ := s.scriptPluginManager.GetPlugin("python")
+
+	result, err := runner.ExecutePreRequestScript(context.Background(), script, params)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range result.SetEnvironments {
+		if data, ok := v.(string); ok {
+			if env != nil {
+				env.SetKey(k, data)
+				return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
+			}
+		}
+	}
+
+	updateRequestFromScriptResult(request, result)
+
+	return nil
+}
+
+func updateRequestFromScriptResult(req *domain.Request, result *scripting.ExecResult) {
+	if req.MetaData.Type == domain.RequestTypeHTTP {
+		req.Spec.HTTP.Method = result.Req.Method
+		req.Spec.HTTP.URL = result.Req.URL
+		req.Spec.HTTP.Request.Body.Data = result.Req.Body
+		req.Spec.HTTP.Request.Headers = domain.MapToKeyValue(result.Req.Headers)
+		req.Spec.HTTP.Request.QueryParams = domain.MapToKeyValue(result.Req.QueryParams)
+		req.Spec.HTTP.Request.PathParams = domain.MapToKeyValue(result.Req.PathParams)
+	} else {
+		req.Spec.GRPC.LasSelectedMethod = result.Req.Method
+		req.Spec.GRPC.ServerInfo.Address = result.Req.URL
+		req.Spec.GRPC.Metadata = domain.MapToKeyValue(result.Req.Metadata)
+	}
+}
+
+func (s *Service) handlePythonPostRequest(script string, response *rest.Response, env *domain.Environment) error {
+	params := &scripting.ExecParams{
+		Env: env,
+		Res: &scripting.ResponseData{
+			StatusCode: response.StatusCode,
+			Headers:    response.ResponseHeaders,
+			Body:       response.JSON,
+		},
+	}
+
+	runner, _ := s.scriptPluginManager.GetPlugin("python")
+
+	result, err := runner.ExecutePostResponseScript(context.Background(), script, params)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range result.SetEnvironments {
+		if data, ok := v.(string); ok {
+			if env != nil {
+				env.SetKey(k, data)
+				return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
+			}
+		}
 	}
 
 	return nil
