@@ -19,6 +19,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/explorer"
@@ -111,7 +112,16 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState, appVersion)
 
-	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
+	globalConfig := prefs.GetGlobalConfig()
+	pythonExecutor := scripting.NewPythonExecutor(globalConfig.Spec.Scripting)
+	if globalConfig.Spec.Scripting.Enabled {
+		fmt.Println("running pythonExecutor.Init")
+		if err := pythonExecutor.Init(globalConfig.Spec.Scripting); err != nil {
+			return nil, fmt.Errorf("failed to initialize python executor, %w", err)
+		}
+	}
+
+	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService, pythonExecutor)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
