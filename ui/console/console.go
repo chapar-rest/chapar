@@ -13,16 +13,14 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 type Console struct {
 	isVisible bool
-
-	logs []domain.Log
-
-	list *widget.List
+	list      *widget.List
 
 	searchBox   *widgets.TextField
 	clearButton widget.Clickable
@@ -46,7 +44,6 @@ func New(theme *chapartheme.Theme) *Console {
 		searchBox: search,
 	}
 
-	// bus.Subscribe(state.LogSubmitted, c.handleIncomingLog)
 	return c
 }
 
@@ -159,7 +156,7 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 	}
 
 	if c.clearButton.Clicked(gtx) {
-		c.logs = make([]domain.Log, 0)
+		logger.Clear()
 	}
 
 	if c.closeButton.Clicked(gtx) {
@@ -185,14 +182,14 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					if len(c.logs) == 0 {
+					if len(logger.GetLogs()) == 0 {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return material.Label(theme.Material(), theme.TextSize, "No logs available").Layout(gtx)
 						})
 					}
 
-					return material.List(theme.Material(), c.list).Layout(gtx, len(c.logs), func(gtx layout.Context, i int) layout.Dimensions {
-						return c.logLayout(gtx, theme, &c.logs[i])
+					return material.List(theme.Material(), c.list).Layout(gtx, len(logger.GetLogs()), func(gtx layout.Context, i int) layout.Dimensions {
+						return c.logLayout(gtx, theme, &logger.GetLogs()[i])
 					})
 				})
 			}),

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/chapar-rest/chapar/internal/logger"
 )
 
 func isContainerRunning(containerName string) (bool, error) {
@@ -44,9 +46,9 @@ func runContainer(imageName, containerName string, ports, envs []string) error {
 	args = append(args, imageName)
 
 	cmd := exec.Command("docker", args...)
-	fmt.Println("Starting container", cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to run container: %v, output: %s", err, string(output)))
 		return fmt.Errorf("failed to run container: %v, output: %s", err, string(output))
 	}
 
@@ -54,7 +56,7 @@ func runContainer(imageName, containerName string, ports, envs []string) error {
 }
 
 func waitForPort(host string, port string, timeout time.Duration) error {
-	fmt.Println("Waiting for port", port, "to open")
+	logger.Info(fmt.Sprintf("Waiting for executor port %s", port))
 	start := time.Now()
 	for time.Since(start) < timeout {
 		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 1*time.Second)
@@ -66,19 +68,20 @@ func waitForPort(host string, port string, timeout time.Duration) error {
 		time.Sleep(1 * time.Second)
 	}
 
+	logger.Error(fmt.Sprintf("Timeout waiting for port %s:%s", host, port))
 	return fmt.Errorf("timeout waiting for port %s:%s", host, port)
 }
 
 // Force remove container
 func forceRemoveContainer(containerName string) error {
-	fmt.Printf("Force removing container %s...\n", containerName)
-
+	logger.Info(fmt.Sprintf("Force removing container %s", containerName))
 	cmd := exec.Command("docker", "rm", "-f", containerName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to force remove container %s: %v, output: %s", containerName, err, string(output)))
 		return fmt.Errorf("failed to force remove container %s: %v, output: %s", containerName, err, string(output))
 	}
 
-	fmt.Printf("Container %s force removed successfully\n", containerName)
+	logger.Info(fmt.Sprintf("Force removed container %s", containerName))
 	return nil
 }

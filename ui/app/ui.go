@@ -17,6 +17,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
+	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
@@ -120,9 +121,9 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	pythonExecutor := scripting.NewPythonExecutor(globalConfig.Spec.Scripting)
 	if globalConfig.Spec.Scripting.Enabled {
 		go func() {
-			fmt.Println("running pythonExecutor.Init")
+			logger.Info("Initializing Python executor")
 			if err := pythonExecutor.Init(globalConfig.Spec.Scripting); err != nil {
-				fmt.Println("failed to initialize python executor, %w", err)
+				logger.Error(fmt.Sprintf("Failed to initialize Python executor: %v", err))
 			}
 		}()
 	}

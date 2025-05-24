@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/logger"
 )
 
 const (
@@ -31,7 +32,7 @@ func NewPythonExecutor(cfg domain.ScriptingConfig) *PythonExecutor {
 }
 
 func (p PythonExecutor) Init(cfg domain.ScriptingConfig) error {
-	fmt.Println("Python executor config port:", cfg.Port)
+	logger.Info(fmt.Sprintf("Python executor config port: %d", cfg.Port))
 	if cfg.UseDocker {
 		return p.initWithDocker(cfg)
 	}
@@ -41,7 +42,6 @@ func (p PythonExecutor) Init(cfg domain.ScriptingConfig) error {
 
 func (p PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 	// Check if the container is already running
-	fmt.Println("Initializing python executor")
 	running, err := isContainerRunning(containerName)
 	if err != nil {
 		return err
@@ -49,9 +49,7 @@ func (p PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 	if running {
 		return nil
 	}
-
-	fmt.Println("Pulling image and starting container")
-
+	logger.Info("Pulling python executor docker image")
 	// Pull the image if not present
 	if err := pullImage(cfg.DockerImage); err != nil {
 		return err
@@ -66,7 +64,7 @@ func (p PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 		fmt.Sprintf("DEBUG=true"),
 	}
 
-	fmt.Println("Starting container")
+	logger.Info("Starting python executor docker container")
 	// Run the container with the specified ports and environment variables
 	return runContainer(cfg.DockerImage, containerName, ports, envs)
 }
@@ -93,8 +91,6 @@ func (p PythonExecutor) Execute(ctx context.Context, script string, params *Exec
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("executeScript", result)
 
 	out := &ExecResult{
 		SetEnvironments: map[string]interface{}{},
@@ -151,6 +147,5 @@ func (p PythonExecutor) executeScript(endpoint string, requestBody interface{}) 
 }
 
 func (p PythonExecutor) serverURL() string {
-	fmt.Println("Server URL:", fmt.Sprintf("http://localhost:%d", p.cfg.Port))
 	return fmt.Sprintf("http://localhost:%d", p.cfg.Port)
 }
