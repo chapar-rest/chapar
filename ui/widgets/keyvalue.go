@@ -220,13 +220,18 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			ib := IconButton{
-				Icon:      DeleteIcon,
-				Size:      unit.Dp(20),
-				Color:     theme.TextColor,
-				Clickable: item.deleteButton,
-			}
-			return ib.Layout(gtx, theme)
+			return layout.Inset{
+				Right: unit.Dp(12),
+				Left:  unit.Dp(12),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				ib := IconButton{
+					Icon:      DeleteIcon,
+					Size:      unit.Dp(20),
+					Color:     theme.TextColor,
+					Clickable: item.deleteButton,
+				}
+				return ib.Layout(gtx, theme)
+			})
 		}),
 	)
 
@@ -234,7 +239,6 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return content
 		}),
-		// TODO fix unknown padding issue on right side of the separator, as it should be 0 but it's not.
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			// only if it's not the last item
 			if index == len(kv.Items)-1 {
@@ -262,7 +266,10 @@ func (kv *KeyValue) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			return layout.UniformInset(unit.Dp(10)).Layout(gtx, material.Label(theme.Material(), unit.Sp(14), "No items").Layout)
 		}
 
-		return material.List(theme.Material(), kv.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
+		lst := material.List(theme.Material(), kv.list)
+		lst.AnchorStrategy = material.Overlay
+
+		return lst.Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
 			return kv.itemLayout(gtx, theme, i, items[i])
 		})
 	})

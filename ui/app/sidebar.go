@@ -149,7 +149,7 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 						if !theme.IsDark() {
 							return layout.Dimensions{}
 						}
-						return widgets.DrawLine(gtx, theme.SeparatorColor, unit.Dp(gtx.Constraints.Max.Y), unit.Dp(1))
+						return widgets.Divider(layout.Vertical, unit.Dp(1)).Layout(gtx, theme)
 					}),
 				)
 			})
