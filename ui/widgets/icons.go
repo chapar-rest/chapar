@@ -165,3 +165,8 @@ var CodeIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionCode)
 	return icon
 }()
+
+var Notifications *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.SocialNotifications)
+	return icon
+}()
