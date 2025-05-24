@@ -3,8 +3,11 @@ package console
 import (
 	"fmt"
 	"image"
+	"io"
+	"strings"
 	"time"
 
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -22,6 +25,7 @@ type Console struct {
 	isVisible bool
 	list      *widget.List
 
+	filterText  string
 	searchBox   *widgets.TextField
 	clearButton widget.Clickable
 	closeButton widget.Clickable
@@ -43,6 +47,10 @@ func New(theme *chapartheme.Theme) *Console {
 		},
 		searchBox: search,
 	}
+
+	search.SetOnTextChange(func(text string) {
+		c.filterText = text
+	})
 
 	return c
 }
@@ -70,16 +78,11 @@ func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *d
 		textColor = chapartheme.LightYellow
 	}
 
-	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			l := material.Label(theme.Material(), theme.TextSize, fmt.Sprintf("[%s] ", log.Time.Format(time.DateTime)))
-			l.Color = textColor
-			return l.Layout(gtx)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.Label(theme.Material(), theme.TextSize, log.Message).Layout(gtx)
-		}),
-	)
+	logEntry := fmt.Sprintf("[%s] %s: %s", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message)
+
+	l := material.Label(theme.Material(), theme.TextSize, logEntry)
+	l.Color = textColor
+	return l.Layout(gtx)
 }
 
 func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -163,6 +166,28 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		c.isVisible = false
 	}
 
+	if c.copyButton.Clicked(gtx) {
+		logItems := logger.GetLogs()
+		var sb strings.Builder
+		for _, log := range logItems {
+			sb.WriteString(fmt.Sprintf("[%s] %s: %s", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message))
+		}
+		gtx.Execute(clipboard.WriteCmd{
+			Data: io.NopCloser(strings.NewReader(sb.String())),
+		})
+	}
+
+	logItems := logger.GetLogs()
+	if c.filterText != "" {
+		filteredLogs := make([]domain.Log, 0, len(logItems))
+		for _, log := range logItems {
+			if strings.Contains(log.Message, c.filterText) || strings.Contains(log.Level, c.filterText) || strings.Contains(log.Time.Format(time.DateTime), c.filterText) {
+				filteredLogs = append(filteredLogs, log)
+			}
+		}
+		logItems = filteredLogs
+	}
+
 	return layout.Inset{
 		Top:    unit.Dp(3),
 		Left:   unit.Dp(10),
@@ -182,14 +207,14 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					if len(logger.GetLogs()) == 0 {
+					if len(logItems) == 0 {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return material.Label(theme.Material(), theme.TextSize, "No logs available").Layout(gtx)
 						})
 					}
 
-					return material.List(theme.Material(), c.list).Layout(gtx, len(logger.GetLogs()), func(gtx layout.Context, i int) layout.Dimensions {
-						return c.logLayout(gtx, theme, &logger.GetLogs()[i])
+					return material.List(theme.Material(), c.list).Layout(gtx, len(logItems), func(gtx layout.Context, i int) layout.Dimensions {
+						return c.logLayout(gtx, theme, &logItems[i])
 					})
 				})
 			}),

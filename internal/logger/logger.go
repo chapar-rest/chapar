@@ -21,7 +21,11 @@ func New() *Logger {
 }
 
 func (l *Logger) AddLog(log domain.Log) {
+	// add log and make sure to only keep the last 1000 logs
 	l.logs = append(l.logs, log)
+	if len(l.logs) > 1000 {
+		l.logs = l.logs[len(l.logs)-1000:]
+	}
 	l.changed = true
 }
 
