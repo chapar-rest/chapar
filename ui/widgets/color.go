@@ -55,3 +55,13 @@ func approxLuminance(c color.NRGBA) byte {
 	)
 	return byte((r*int(c.R) + g*int(c.G) + b*int(c.B)) / t)
 }
+
+// WithAlpha returns the input color with the new alpha value.
+func WithAlpha(c color.NRGBA, a uint8) color.NRGBA {
+	return color.NRGBA{
+		R: c.R,
+		G: c.G,
+		B: c.B,
+		A: a,
+	}
+}

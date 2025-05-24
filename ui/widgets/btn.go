@@ -32,6 +32,9 @@ type ButtonStyle struct {
 	Inset        layout.Inset
 	Button       *widget.Clickable
 	shaper       *text.Shaper
+
+	IconSize  unit.Sp
+	IconInset layout.Inset
 }
 
 type ButtonLayoutStyle struct {
@@ -65,8 +68,10 @@ func Button(th *material.Theme, button *widget.Clickable, icon *widget.Icon, ico
 			Top: 8, Bottom: 8,
 			Left: 8, Right: 8,
 		},
-		Button: button,
-		shaper: th.Shaper,
+		Button:    button,
+		shaper:    th.Shaper,
+		IconInset: layout.Inset{Right: unit.Dp(5)},
+		IconSize:  unit.Sp(18),
 	}
 	b.Font.Typeface = th.Face
 	return b
@@ -80,8 +85,8 @@ func (b ButtonStyle) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		iconDims := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if b.Icon != nil {
-				return layout.Inset{Right: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = gtx.Dp(18)
+				return b.IconInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Dp(unit.Dp(b.IconSize))
 					return b.Icon.Layout(gtx, b.Color)
 				})
 			}

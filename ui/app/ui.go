@@ -10,20 +10,24 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
+	"gioui.org/unit"
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/codegen"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
+	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/console"
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/fonts"
-	"github.com/chapar-rest/chapar/ui/pages/console"
+	"github.com/chapar-rest/chapar/ui/footer"
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
@@ -39,6 +43,7 @@ type UI struct {
 
 	sideBar *Sidebar
 	header  *Header
+	footer  *footer.Footer
 
 	modal *widgets.MessageModal
 
@@ -70,6 +75,7 @@ type UI struct {
 func New(w *app.Window, appVersion string) (*UI, error) {
 	u := &UI{
 		window: w,
+		footer: &footer.Footer{},
 	}
 
 	fontCollection, err := fonts.Prepare()
@@ -111,13 +117,24 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState, appVersion)
 
-	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
+	globalConfig := prefs.GetGlobalConfig()
+	pythonExecutor := scripting.NewPythonExecutor(globalConfig.Spec.Scripting)
+	if globalConfig.Spec.Scripting.Enabled {
+		go func() {
+			logger.Info("Initializing Python executor")
+			if err := pythonExecutor.Init(globalConfig.Spec.Scripting); err != nil {
+				logger.Error(fmt.Sprintf("Failed to initialize Python executor: %v", err))
+			}
+		}()
+	}
+
+	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService, pythonExecutor)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	u.Theme = chapartheme.New(theme, appState.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
-	u.consolePage = console.New()
+	u.consolePage = console.New(u.Theme)
 	u.settingsView = settings.NewView(w, u.Theme)
 	u.settingsController = settings.NewController(u.settingsView)
 
@@ -400,6 +417,25 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 					return layout.Dimensions{}
 				}),
 			)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !u.consolePage.IsVisible() {
+				return layout.Dimensions{}
+			}
+			return widgets.Divider(layout.Horizontal, unit.Dp(1)).Layout(gtx, u.Theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Max.Y = gtx.Dp(300)
+			return u.consolePage.Layout(gtx, u.Theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.Divider(layout.Horizontal, unit.Dp(1)).Layout(gtx, u.Theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if u.footer.ConsoleClickable.Clicked(gtx) {
+				u.consolePage.ToggleVisibility()
+			}
+			return u.footer.Layout(gtx, u.Theme)
 		}),
 	)
 }
