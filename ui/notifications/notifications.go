@@ -41,7 +41,7 @@ type Notifications struct {
 
 func New(w *app.Window) *Notifications {
 	n := &Notifications{
-		isVisible: true,
+		isVisible: false,
 		w:         w,
 		state: widget.List{
 			List: layout.List{
@@ -49,18 +49,8 @@ func New(w *app.Window) *Notifications {
 			},
 		},
 
-		notifications: []Notification{
-			{
-				Text:        "Welcome to Chapar!",
-				closeButton: widget.Clickable{},
-			},
-			{
-				Text:        "An update is available. Please check the release page.",
-				closeButton: widget.Clickable{},
-			},
-		},
-
-		mx: &sync.Mutex{},
+		notifications: []Notification{},
+		mx:            &sync.Mutex{},
 	}
 
 	DefaultNotifications = n
@@ -72,14 +62,6 @@ func IsVisible() bool {
 		panic("IsVisible called before creating DefaultNotifications")
 	}
 	return DefaultNotifications.isVisible
-}
-
-func SetVisible(visible bool) {
-	if DefaultNotifications == nil {
-		panic("SetVisible called before creating DefaultNotifications")
-	}
-
-	DefaultNotifications.isVisible = visible
 }
 
 func ToggleVisibility() {
