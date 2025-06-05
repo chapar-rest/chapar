@@ -28,6 +28,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/fonts"
 	"github.com/chapar-rest/chapar/ui/footer"
+	"github.com/chapar-rest/chapar/ui/notifications"
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
@@ -77,6 +78,9 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		window: w,
 		footer: &footer.Footer{},
 	}
+
+	// init notification system
+	notifications.New(w)
 
 	fontCollection, err := fonts.Prepare()
 	if err != nil {
@@ -385,10 +389,15 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 	}
 	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(rect).Op())
 	background := macro.Stop()
-
 	background.Add(gtx.Ops)
 
 	u.modal.Layout(gtx, u.Theme)
+
+	if notifications.IsVisible() {
+		ops := op.Record(gtx.Ops)
+		notifications.Layout(gtx, u.Theme)
+		defer op.Defer(gtx.Ops, ops.Stop())
+	}
 
 	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -435,6 +444,11 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 			if u.footer.ConsoleClickable.Clicked(gtx) {
 				u.consolePage.ToggleVisibility()
 			}
+
+			if u.footer.NotificationsClickable.Clicked(gtx) {
+				notifications.ToggleVisibility()
+			}
+
 			return u.footer.Layout(gtx, u.Theme)
 		}),
 	)
