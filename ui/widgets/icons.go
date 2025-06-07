@@ -16,6 +16,21 @@ func MaterialIcons(name string, theme *chapartheme.Theme) material.LabelStyle {
 	return l
 }
 
+var ErrorIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.AlertError)
+	return icon
+}()
+
+var WarningIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.AlertWarning)
+	return icon
+}()
+
+var InfoIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionInfo)
+	return icon
+}()
+
 var DeleteIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionDelete)
 	return icon
@@ -163,5 +178,10 @@ var CleanIcon *widget.Icon = func() *widget.Icon {
 
 var CodeIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ActionCode)
+	return icon
+}()
+
+var Notifications *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.SocialNotifications)
 	return icon
 }()
