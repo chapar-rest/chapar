@@ -12,9 +12,9 @@ import (
 
 func isContainerRunning(containerName string) (bool, error) {
 	cmd := exec.Command("docker", "ps", "-q", "-f", fmt.Sprintf("name=^%s$", containerName))
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return false, fmt.Errorf("failed to check running containers: %v", err)
+		return false, fmt.Errorf("failed to check running containers: %v, %s", err, string(output))
 	}
 
 	// If output has content, container is running

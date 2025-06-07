@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"image"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -128,6 +129,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 			logger.Info("Initializing Python executor")
 			if err := pythonExecutor.Init(globalConfig.Spec.Scripting); err != nil {
 				logger.Error(fmt.Sprintf("Failed to initialize Python executor: %v", err))
+				notifications.SendNotification("Failed to initialize Python executor, check console for errors", notifications.NotificationTypeError, 10*time.Second)
 			}
 		}()
 	}
@@ -393,11 +395,11 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 
 	u.modal.Layout(gtx, u.Theme)
 
-	if notifications.IsVisible() {
-		ops := op.Record(gtx.Ops)
-		notifications.Layout(gtx, u.Theme)
-		defer op.Defer(gtx.Ops, ops.Stop())
-	}
+	// if notifications.IsVisible() {
+	ops := op.Record(gtx.Ops)
+	notifications.Layout(gtx, u.Theme)
+	defer op.Defer(gtx.Ops, ops.Stop())
+	//}
 
 	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
