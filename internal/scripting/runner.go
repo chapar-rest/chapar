@@ -2,6 +2,8 @@ package scripting
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
@@ -9,7 +11,17 @@ import (
 type Executor interface {
 	Init(cfg domain.ScriptingConfig) error
 	Execute(ctx context.Context, script string, params *ExecParams) (*ExecResult, error)
+	Name() string
 	Shutdown() error
+}
+
+func GetExecutor(language string, cfg domain.ScriptingConfig) (Executor, error) {
+	n := strings.ToLower(language)
+	if n == "python" {
+		return NewPythonExecutor(cfg), nil
+	}
+
+	return nil, fmt.Errorf("unknown scripting executor: %s", language)
 }
 
 // RequestData represents the HTTP request data that can be modified by scripts

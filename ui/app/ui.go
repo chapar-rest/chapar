@@ -71,6 +71,10 @@ type UI struct {
 	protoFilesState   *state.ProtoFiles
 
 	repo repository.Repository
+
+	// script executor
+	executor      scripting.Executor
+	egressService *egress.Service
 }
 
 // New creates a new UI using the Go Fonts.
@@ -123,18 +127,24 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	restService := rest.New(u.requestsState, u.environmentsState, appVersion)
 
 	globalConfig := prefs.GetGlobalConfig()
-	pythonExecutor := scripting.NewPythonExecutor(globalConfig.Spec.Scripting)
 	if globalConfig.Spec.Scripting.Enabled {
-		go func() {
-			logger.Info("Initializing Python executor")
-			if err := pythonExecutor.Init(globalConfig.Spec.Scripting); err != nil {
-				logger.Error(fmt.Sprintf("Failed to initialize Python executor: %vAfter fixing the issue, enable and disable the scripting from Settings->Scripting to trigger initiation again.", err))
-				notifications.Send("Failed to initialize Python executor, check console for errors", notifications.NotificationTypeError, 10*time.Second)
-			}
-		}()
+		go u.initiateScripting(globalConfig.Spec.Scripting)
 	}
 
-	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService, pythonExecutor)
+	// listen for changes in scripting config
+	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
+		if old.Spec.Scripting.Changed(updated.Spec.Scripting) {
+			if updated.Spec.Scripting.Enabled {
+				go u.initiateScripting(globalConfig.Spec.Scripting)
+			} else {
+				if old.Spec.Scripting.Enabled && !updated.Spec.Scripting.Enabled {
+					go u.stopScripting()
+				}
+			}
+		}
+	})
+
+	u.egressService = egress.New(u.requestsState, u.environmentsState, restService, grpcService, u.executor)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
@@ -166,7 +176,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.OnSelectedEnvChanged = u.onSelectedEnvChanged
 
 	u.requestsView = requests.NewView(w, u.Theme, explorerController)
-	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, egressService, grpcService)
+	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, u.egressService, grpcService)
 
 	u.header.OnSelectedWorkspaceChanged = u.onWorkspaceChanged
 
@@ -177,6 +187,43 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.OnThemeSwitched = u.onThemeChange
 
 	return u, u.load()
+}
+
+func (u *UI) stopScripting() {
+	if u.executor != nil {
+		return
+	}
+
+	logger.Info(fmt.Sprintf("Stopping %s executor", u.executor.Name()))
+	if err := u.executor.Shutdown(); err != nil {
+		logger.Error(fmt.Sprintf("Failed to stop %s executor: %s", u.executor.Name(), err))
+	}
+}
+
+func (u *UI) initiateScripting(config domain.ScriptingConfig) {
+	if u.executor == nil {
+		executor, err := scripting.GetExecutor(config.Language, config)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Failed to get scripting executor: %v", err))
+			return
+		}
+
+		u.executor = executor
+	}
+
+	notifications.Send(fmt.Sprintf("Initializing %s script executor...", u.executor.Name()), notifications.NotificationTypeInfo, 5*time.Second)
+
+	logger.Info(fmt.Sprintf("Initializing %s executor", u.executor.Name()))
+	if err := u.executor.Init(config); err != nil {
+		logger.Error(fmt.Sprintf("Failed to initialize %s executor: %vAfter fixing the issue, enable and disable the scripting from Settings->Scripting to trigger initiation again.", u.executor.Name(), err))
+		notifications.Send(fmt.Sprintf("Failed to initialize %s executor, check console for errors", u.executor.Name()), notifications.NotificationTypeError, 10*time.Second)
+	}
+
+	if u.egressService != nil {
+		u.egressService.SetExecutor(u.executor)
+	}
+
+	notifications.Send(fmt.Sprintf("%s executor initialized successfully", u.executor.Name()), notifications.NotificationTypeInfo, 5*time.Second)
 }
 
 func (u *UI) showError(err error) {

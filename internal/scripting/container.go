@@ -21,6 +21,28 @@ func isContainerRunning(containerName string) (bool, error) {
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
 
+func isContainerExists(containerName string) (bool, error) {
+	cmd := exec.Command("docker", "ps", "-aq", "-f", fmt.Sprintf("name=^%s$", containerName))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("failed to check existing containers: %v, %s", err, string(output))
+	}
+
+	// If output has content, container exists
+	return len(strings.TrimSpace(string(output))) > 0, nil
+}
+
+func isImageExists(imageName string) (bool, error) {
+	cmd := exec.Command("docker", "images", "-q", imageName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("failed to check existing images: %v, %s", err, string(output))
+	}
+
+	// If output has content, image exists
+	return len(strings.TrimSpace(string(output))) > 0, nil
+}
+
 func pullImage(imageName string) error {
 	cmd := exec.Command("docker", "pull", imageName)
 	output, err := cmd.CombinedOutput()
@@ -52,7 +74,7 @@ func runContainer(imageName, containerName string, ports, envs []string) error {
 		return fmt.Errorf("failed to run container: %v, output: %s", err, string(output))
 	}
 
-	return waitForPort("localhost", ports[0], 10*time.Second)
+	return nil
 }
 
 func waitForPort(host string, port string, timeout time.Duration) error {

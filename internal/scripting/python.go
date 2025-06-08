@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -14,10 +15,11 @@ import (
 )
 
 const (
-	containerName = "chapar-python-executor"
+	PythonContainerName = "chapar-python-executor"
+	PythonExecutorName  = "Python"
 )
 
-var _ Executor = &PythonExecutor{}
+var _ Executor = (*PythonExecutor)(nil)
 
 type PythonExecutor struct {
 	client *http.Client
@@ -31,7 +33,11 @@ func NewPythonExecutor(cfg domain.ScriptingConfig) *PythonExecutor {
 	}
 }
 
-func (p PythonExecutor) Init(cfg domain.ScriptingConfig) error {
+func (p *PythonExecutor) Name() string {
+	return PythonExecutorName
+}
+
+func (p *PythonExecutor) Init(cfg domain.ScriptingConfig) error {
 	logger.Info(fmt.Sprintf("Python executor config port: %d", cfg.Port))
 	if cfg.UseDocker {
 		return p.initWithDocker(cfg)
@@ -40,9 +46,9 @@ func (p PythonExecutor) Init(cfg domain.ScriptingConfig) error {
 	return nil
 }
 
-func (p PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
+func (p *PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 	// Check if the container is already running
-	running, err := isContainerRunning(containerName)
+	running, err := isContainerRunning(PythonContainerName)
 	if err != nil {
 		return err
 	}
@@ -50,9 +56,18 @@ func (p PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 		return nil
 	}
 	logger.Info("Pulling python executor docker image")
-	// Pull the image if not present
-	if err := pullImage(cfg.DockerImage); err != nil {
-		return err
+
+	// Check if the image exists
+	imageExists, err := isImageExists(cfg.DockerImage)
+	if err != nil {
+		return fmt.Errorf("failed to check if image exists: %w", err)
+	}
+
+	if !imageExists {
+		// Pull the image if not present
+		if err := pullImage(cfg.DockerImage); err != nil {
+			return err
+		}
 	}
 
 	ports := []string{
@@ -65,8 +80,30 @@ func (p PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 	}
 
 	logger.Info("Starting python executor docker container")
+
+	// if container with same name already exists, remove it
+	containerExists, err := isContainerExists(PythonContainerName)
+	if err != nil {
+		return fmt.Errorf("failed to check if container exists: %w", err)
+	}
+
+	if containerExists {
+		if err := forceRemoveContainer(PythonContainerName); err != nil {
+			return fmt.Errorf("failed to remove existing container: %w", err)
+		}
+	}
+
 	// Run the container with the specified ports and environment variables
-	return runContainer(cfg.DockerImage, containerName, ports, envs)
+	if err := runContainer(cfg.DockerImage, PythonContainerName, ports, envs); err != nil {
+		return fmt.Errorf("failed to run python executor container: %w", err)
+	}
+
+	if err := waitForPort("localhost", strconv.Itoa(cfg.Port), 10*time.Second); err != nil {
+		return fmt.Errorf("failed to wait for python executor port: %w", err)
+	}
+
+	logger.Info("Python executor docker container started successfully")
+	return nil
 }
 
 type executeRequestBody struct {
@@ -76,7 +113,7 @@ type executeRequestBody struct {
 	Variables    map[string]interface{} `json:"variables"`
 }
 
-func (p PythonExecutor) Execute(ctx context.Context, script string, params *ExecParams) (*ExecResult, error) {
+func (p *PythonExecutor) Execute(ctx context.Context, script string, params *ExecParams) (*ExecResult, error) {
 	// Prepare the request body
 	body := executeRequestBody{
 		Script:       script,
@@ -103,15 +140,15 @@ func (p PythonExecutor) Execute(ctx context.Context, script string, params *Exec
 	return out, nil
 }
 
-func (p PythonExecutor) Shutdown() error {
+func (p *PythonExecutor) Shutdown() error {
 	if p.cfg.UseDocker {
-		return forceRemoveContainer(containerName)
+		return forceRemoveContainer(PythonContainerName)
 	}
 	return nil
 }
 
 // executeScript sends a request to the Python server to execute a script
-func (p PythonExecutor) executeScript(endpoint string, requestBody interface{}) (map[string]interface{}, error) {
+func (p *PythonExecutor) executeScript(endpoint string, requestBody interface{}) (map[string]interface{}, error) {
 	// Marshal the request body
 	data, err := json.Marshal(requestBody)
 	if err != nil {
@@ -146,6 +183,6 @@ func (p PythonExecutor) executeScript(endpoint string, requestBody interface{}) 
 	return result, nil
 }
 
-func (p PythonExecutor) serverURL() string {
+func (p *PythonExecutor) serverURL() string {
 	return fmt.Sprintf("http://localhost:%d", p.cfg.Port)
 }

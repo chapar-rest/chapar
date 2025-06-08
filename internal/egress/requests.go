@@ -34,6 +34,10 @@ func New(requests *state.Requests, environments *state.Environments, rest *rest.
 	}
 }
 
+func (s *Service) SetExecutor(executor scripting.Executor) {
+	s.scriptExecutor = executor
+}
+
 func (s *Service) Send(id, activeEnvironmentID string) (any, error) {
 	req := s.requests.GetRequest(id)
 	if req == nil {
