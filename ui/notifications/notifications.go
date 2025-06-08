@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"sort"
 	"sync"
 	"time"
 
@@ -70,6 +71,11 @@ func (n *Notifications) floatingItems() []*Notification {
 			floating = append(floating, notif)
 		}
 	}
+
+	// only return last 5 floating notifications to avoid cluttering the UI
+	if len(floating) > 5 {
+		return floating[:5]
+	}
 	return floating
 }
 
@@ -98,10 +104,12 @@ func New(w *app.Window) *Notifications {
 	}
 
 	DefaultNotifications = n
+
+	go n.curator()
 	return n
 }
 
-func SendNotification(text string, notifType NotificationType, duration time.Duration) {
+func Send(text string, notifType NotificationType, duration time.Duration) {
 	if DefaultNotifications == nil {
 		panic("AddNotification called before creating DefaultNotifications")
 	}
@@ -123,7 +131,39 @@ func SendNotification(text string, notifType NotificationType, duration time.Dur
 	}
 
 	DefaultNotifications.notifications = append(DefaultNotifications.notifications, n)
+	// sort the notifications by CreatedAt in descending order
+	sort.Slice(DefaultNotifications.notifications, func(i, j int) bool {
+		return DefaultNotifications.notifications[i].CreatedAt.After(DefaultNotifications.notifications[j].CreatedAt)
+	})
+
 	DefaultNotifications.refreshWindow()
+}
+
+func (n *Notifications) curator() {
+	t := time.NewTicker(1 * time.Second)
+	defer t.Stop()
+
+	invalidated := false
+
+	for {
+		select {
+		case <-t.C:
+			n.mx.Lock()
+			for _, notif := range n.notifications {
+				if notif.EndAt.Before(time.Now()) && notif.isFloating {
+					notif.isFloating = false
+					invalidated = true
+				}
+			}
+			n.mx.Unlock()
+			if invalidated {
+				invalidated = false
+				if n.w != nil {
+					n.w.Invalidate()
+				}
+			}
+		}
+	}
 }
 
 func IsVisible() bool {
