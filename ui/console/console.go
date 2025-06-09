@@ -76,9 +76,15 @@ func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *d
 		textColor = chapartheme.LightRed
 	case "warn":
 		textColor = chapartheme.LightYellow
+	case "print":
+		textColor = chapartheme.LightBlue
 	}
 
 	logEntry := fmt.Sprintf("[%s] %s: %s", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message)
+	if log.Level == "print" {
+		// For print logs, we only show the message without the level and time
+		logEntry = fmt.Sprintf("%s", log.Message)
+	}
 
 	l := material.Label(theme.Material(), theme.TextSize, logEntry)
 	l.Color = textColor
@@ -170,7 +176,12 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		logItems := logger.GetLogs()
 		var sb strings.Builder
 		for _, log := range logItems {
-			sb.WriteString(fmt.Sprintf("[%s] %s: %s", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message))
+			if log.Level == "print" {
+				// For print logs, we only copy the message without the level and time
+				sb.WriteString(log.Message + "\n")
+				continue
+			}
+			sb.WriteString(fmt.Sprintf("[%s] %s: %s\n", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message))
 		}
 		gtx.Execute(clipboard.WriteCmd{
 			Data: io.NopCloser(strings.NewReader(sb.String())),

@@ -75,3 +75,11 @@ func Warn(message string) {
 		Message: message,
 	})
 }
+
+func Print(message string) {
+	Default.AddLog(domain.Log{
+		Time:    time.Now(),
+		Level:   "print",
+		Message: message,
+	})
+}

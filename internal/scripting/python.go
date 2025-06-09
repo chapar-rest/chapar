@@ -123,21 +123,12 @@ func (p *PythonExecutor) Execute(ctx context.Context, script string, params *Exe
 	}
 
 	// Execute the script
-	// TODO: update executor to just expose one endpoint for execute
-	result, err := p.executeScript("/execute-post-response", body)
+	result, err := p.executeScript("/execute", body)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &ExecResult{
-		SetEnvironments: map[string]interface{}{},
-	}
-	// Update variables in the store
-	if updatedVars, ok := result["set_environments"].(map[string]interface{}); ok {
-		out.SetEnvironments = updatedVars
-	}
-
-	return out, nil
+	return result, nil
 }
 
 func (p *PythonExecutor) Shutdown() error {
@@ -148,7 +139,7 @@ func (p *PythonExecutor) Shutdown() error {
 }
 
 // executeScript sends a request to the Python server to execute a script
-func (p *PythonExecutor) executeScript(endpoint string, requestBody interface{}) (map[string]interface{}, error) {
+func (p *PythonExecutor) executeScript(endpoint string, requestBody interface{}) (*ExecResult, error) {
 	// Marshal the request body
 	data, err := json.Marshal(requestBody)
 	if err != nil {
@@ -175,12 +166,12 @@ func (p *PythonExecutor) executeScript(endpoint string, requestBody interface{})
 	}
 
 	// Parse the response
-	var result map[string]interface{}
+	var result ExecResult
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 func (p *PythonExecutor) serverURL() string {

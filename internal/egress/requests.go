@@ -9,6 +9,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
+	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -103,7 +104,7 @@ func (s *Service) postRequest(req *domain.Request, res any, env *domain.Environm
 				return err
 			}
 
-			return s.handleHTTPPostRequest(postReq, response, env)
+			return s.handleHTTPPostRequest(postReq, req, response, env)
 		} else {
 			return fmt.Errorf("response is not of type *rest.Response")
 		}
@@ -251,13 +252,13 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 	return errG.Wait()
 }
 
-func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Response, env *domain.Environment) error {
+func (s *Service) handleHTTPPostRequest(r domain.PostRequest, request *domain.Request, response *rest.Response, env *domain.Environment) error {
 	if r == (domain.PostRequest{}) || response == nil || env == nil {
 		return nil
 	}
 
 	if r.Type == domain.PrePostTypePython {
-		return s.handlePostRequestScript(r.Script, response, env)
+		return s.handlePostRequestScript(r.Script, request, response, env)
 	}
 
 	if r.Type != domain.PrePostTypeSetEnv {
@@ -282,9 +283,10 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Res
 	return nil
 }
 
-func (s *Service) handlePostRequestScript(script string, resp *rest.Response, env *domain.Environment) error {
+func (s *Service) handlePostRequestScript(script string, request *domain.Request, resp *rest.Response, env *domain.Environment) error {
 	params := &scripting.ExecParams{
 		Env: env,
+		Req: scripting.RequestDataFromDomain(request),
 		Res: &scripting.ResponseData{
 			StatusCode: resp.StatusCode,
 			Headers:    resp.ResponseHeaders,
@@ -292,20 +294,29 @@ func (s *Service) handlePostRequestScript(script string, resp *rest.Response, en
 		},
 	}
 
-	fmt.Println("Starting script", params.Res.StatusCode)
-
 	result, err := s.scriptExecutor.Execute(context.Background(), script, params)
 	if err != nil {
 		return err
 	}
 
-	for k, v := range result.SetEnvironments {
-		if data, ok := v.(string); ok {
-			if env != nil {
+	if env != nil {
+		changed := false
+		for k, v := range result.SetEnvironments {
+			if data, ok := v.(string); ok {
 				env.SetKey(k, data)
-				return s.environments.UpdateEnvironment(env, state.SourceRestService, false)
+				changed = true
 			}
 		}
+
+		if changed {
+			if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, pt := range result.Prints {
+		logger.Print(pt)
 	}
 
 	return nil
