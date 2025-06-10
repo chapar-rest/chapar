@@ -47,27 +47,48 @@ func (p *PythonExecutor) Init(cfg domain.ScriptingConfig) error {
 }
 
 func (p *PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
-	// Check if the container is already running
-	running, err := isContainerRunning(PythonContainerName)
-	if err != nil {
-		return err
-	}
-	if running {
-		return nil
-	}
-	logger.Info("Pulling python executor docker image")
-
-	// Check if the image exists
-	imageExists, err := isImageExists(cfg.DockerImage)
+	// Check if the image exists and is up to date
+	imageExists, isUptoDate, err := isImageUpToDate(cfg.DockerImage)
 	if err != nil {
 		return fmt.Errorf("failed to check if image exists: %w", err)
 	}
 
+	imageUpdated := false
+	if imageExists && !isUptoDate {
+		// if the image exists but is not up to date, remove it
+		if err := removeImage(cfg.DockerImage); err != nil {
+			return fmt.Errorf("failed to remove outdated image: %w", err)
+		}
+
+		imageExists = false // Set to false, to pull the latest image
+	}
+
 	if !imageExists {
-		// Pull the image if not present
+		logger.Info("Pulling python executor docker image")
+		// Pull the image if not present or not up to date
 		if err := pullImage(cfg.DockerImage); err != nil {
 			return err
 		}
+
+		// did we update the image?
+		if !isUptoDate {
+			imageUpdated = true
+		}
+	}
+
+	// Check if the container is already running when image exists and is up to date
+	running, err := isContainerRunning(PythonContainerName)
+	if err != nil {
+		return err
+	}
+	if running && imageUpdated {
+		// If the container is running and the image was updated, we need to restart the container
+		if err := forceRemoveContainer(PythonContainerName); err != nil {
+			return fmt.Errorf("failed to remove existing outdated container: %w", err)
+		}
+	} else if running {
+		logger.Info("Python executor docker container is already running")
+		return nil
 	}
 
 	ports := []string{
@@ -80,7 +101,6 @@ func (p *PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 	}
 
 	logger.Info("Starting python executor docker container")
-
 	// if container with same name already exists, remove it
 	containerExists, err := isContainerExists(PythonContainerName)
 	if err != nil {
