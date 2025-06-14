@@ -94,25 +94,6 @@ func (dc *DockerClient) isContainerExists(containerName string) (bool, error) {
 	return false, nil
 }
 
-func (dc *DockerClient) isImageExists(imageName string) (bool, error) {
-	ctx := context.Background()
-	images, err := dc.client.ImageList(ctx, image.ListOptions{})
-	if err != nil {
-		return false, fmt.Errorf("failed to check existing images: %v", err)
-	}
-
-	// Check if image exists in the list
-	for _, img := range images {
-		for _, tag := range img.RepoTags {
-			if tag == imageName {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 // getRemoteImageDigest gets the digest of the remote image without pulling it
 func (dc *DockerClient) getRemoteImageDigest(imageName string) (string, error) {
 	ctx := context.Background()
@@ -165,12 +146,8 @@ func (dc *DockerClient) isImageUpToDate(imageName string) (exists bool, upToDate
 
 	// Compare digests - if they match, local image is up to date
 	localDigest := localImage.ID
-	if strings.HasPrefix(localDigest, "sha256:") {
-		localDigest = strings.TrimPrefix(localDigest, "sha256:")
-	}
-	if strings.HasPrefix(remoteDigest, "sha256:") {
-		remoteDigest = strings.TrimPrefix(remoteDigest, "sha256:")
-	}
+	localDigest = strings.TrimPrefix(localDigest, "sha256:")
+	remoteDigest = strings.TrimPrefix(remoteDigest, "sha256:")
 
 	isUpToDate := localDigest == remoteDigest
 	if !isUpToDate {
@@ -366,16 +343,6 @@ func isImageUpToDate(imageName string) (exists bool, upToDate bool, err error) {
 	defer dc.Close()
 
 	return dc.isImageUpToDate(imageName)
-}
-
-func isImageExists(imageName string) (bool, error) {
-	dc, err := NewDockerClient()
-	if err != nil {
-		return false, err
-	}
-	defer dc.Close()
-
-	return dc.isImageExists(imageName)
 }
 
 func removeImage(imageName string) error {

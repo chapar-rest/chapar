@@ -97,7 +97,7 @@ func (p *PythonExecutor) initWithDocker(cfg domain.ScriptingConfig) error {
 
 	envs := []string{
 		fmt.Sprintf("PORT=%d", cfg.Port),
-		fmt.Sprintf("DEBUG=true"),
+		"DEBUG=true",
 	}
 
 	logger.Info("Starting python executor docker container")

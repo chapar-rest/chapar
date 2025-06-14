@@ -22,8 +22,6 @@ type TextField struct {
 
 	size image.Point
 
-	focusRequested bool
-
 	onTextChange func(text string)
 	OnKeyPress   func(k key.Name)
 }

@@ -87,11 +87,9 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		if !ok {
 			break
 		}
-		switch ev := event.(type) {
-		case key.Event:
-			if ev.Name == key.NameEscape {
-				gtx.Execute(key.FocusCmd{Tag: nil})
-			}
+
+		if ev, ok := event.(key.Event); ok && (ev.Name == key.NameEscape) {
+			gtx.Execute(key.FocusCmd{Tag: nil})
 		}
 	}
 

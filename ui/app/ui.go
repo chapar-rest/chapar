@@ -136,10 +136,8 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 		if old.Spec.Scripting.Changed(updated.Spec.Scripting) {
 			if updated.Spec.Scripting.Enabled {
 				go u.initiateScripting(globalConfig.Spec.Scripting)
-			} else {
-				if old.Spec.Scripting.Enabled && !updated.Spec.Scripting.Enabled {
-					go u.stopScripting()
-				}
+			} else if old.Spec.Scripting.Enabled && !updated.Spec.Scripting.Enabled {
+				go u.stopScripting()
 			}
 		}
 	})

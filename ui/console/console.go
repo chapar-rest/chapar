@@ -83,7 +83,7 @@ func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *d
 	logEntry := fmt.Sprintf("[%s] %s: %s", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message)
 	if log.Level == "print" {
 		// For print logs, we only show the message without the level and time
-		logEntry = fmt.Sprintf("%s", log.Message)
+		logEntry = log.Message
 	}
 
 	l := material.Label(theme.Material(), theme.TextSize, logEntry)

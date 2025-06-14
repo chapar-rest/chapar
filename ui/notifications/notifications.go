@@ -48,8 +48,7 @@ type Notifications struct {
 	notifications []*Notification
 	state         widget.List
 
-	w        *app.Window
-	progress float32
+	w *app.Window
 
 	closeButton widget.Clickable
 	clearButton widget.Clickable
@@ -145,22 +144,19 @@ func (n *Notifications) curator() {
 
 	invalidated := false
 
-	for {
-		select {
-		case <-t.C:
-			n.mx.Lock()
-			for _, notif := range n.notifications {
-				if notif.EndAt.Before(time.Now()) && notif.isFloating {
-					notif.isFloating = false
-					invalidated = true
-				}
+	for range t.C {
+		n.mx.Lock()
+		for _, notif := range n.notifications {
+			if notif.EndAt.Before(time.Now()) && notif.isFloating {
+				notif.isFloating = false
+				invalidated = true
 			}
-			n.mx.Unlock()
-			if invalidated {
-				invalidated = false
-				if n.w != nil {
-					n.w.Invalidate()
-				}
+		}
+		n.mx.Unlock()
+		if invalidated {
+			invalidated = false
+			if n.w != nil {
+				n.w.Invalidate()
 			}
 		}
 	}
