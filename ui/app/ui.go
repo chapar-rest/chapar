@@ -13,6 +13,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/codegen"
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -75,6 +76,8 @@ type UI struct {
 	// script executor
 	executor      scripting.Executor
 	egressService *egress.Service
+
+	split widgets.SplitView
 }
 
 // New creates a new UI using the Go Fonts.
@@ -82,6 +85,13 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u := &UI{
 		window: w,
 		footer: &footer.Footer{},
+		split: widgets.SplitView{
+			Resize: component.Resize{
+				Ratio: 0.75,
+				Axis:  layout.Vertical,
+			},
+			BarWidth: unit.Dp(2),
+		},
 	}
 
 	// init notification system
@@ -424,33 +434,33 @@ func (u *UI) Run() error {
 	}
 }
 
-// Layout displays the main program layout.
-func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
-	// set the background color
-	macro := op.Record(gtx.Ops)
-	rect := image.Rectangle{
-		Max: image.Point{
-			X: gtx.Constraints.Max.X,
-			Y: gtx.Constraints.Max.Y,
-		},
-	}
-	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(rect).Op())
-	background := macro.Stop()
-	background.Add(gtx.Ops)
-
-	u.modal.Layout(gtx, u.Theme)
-
-	// if notifications.IsVisible() {
-	ops := op.Record(gtx.Ops)
-	notifications.Layout(gtx, u.Theme)
-	defer op.Defer(gtx.Ops, ops.Stop())
-	//}
-
-	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
+func (u *UI) middleLayout(gtx layout.Context) layout.Dimensions {
+	return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return u.header.Layout(gtx, u.Theme)
+			return u.sideBar.Layout(gtx, u.Theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			switch u.currentPage {
+			case 0:
+				return u.requestsView.Layout(gtx, u.Theme)
+			case 1:
+				return u.environmentsView.Layout(gtx, u.Theme)
+			case 2:
+				return u.workspacesView.Layout(gtx, u.Theme)
+			case 3:
+				return u.protoFilesView.Layout(gtx, u.Theme)
+			case 4:
+				return u.settingsView.Layout(gtx, u.Theme)
+			}
+			return layout.Dimensions{}
+		}),
+	)
+}
+
+func (u *UI) splitLayout(gtx layout.Context) layout.Dimensions {
+	return u.split.Layout(gtx, u.Theme,
+		func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = gtx.Constraints.Max
 			return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return u.sideBar.Layout(gtx, u.Theme)
@@ -467,22 +477,55 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 						return u.protoFilesView.Layout(gtx, u.Theme)
 					case 4:
 						return u.settingsView.Layout(gtx, u.Theme)
-						// case 4:
-						//	return u.consolePage.Layout(gtx, u.Theme)
 					}
 					return layout.Dimensions{}
 				}),
 			)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Max.Y = gtx.Dp(300)
+			return u.consolePage.Layout(gtx, u.Theme)
+		},
+	)
+}
+
+// Layout displays the main program layout.
+func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
+	// set the background color
+	macro := op.Record(gtx.Ops)
+	rect := image.Rectangle{
+		Max: image.Point{
+			X: gtx.Constraints.Max.X,
+			Y: gtx.Constraints.Max.Y,
+		},
+	}
+	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(rect).Op())
+	background := macro.Stop()
+	background.Add(gtx.Ops)
+
+	u.modal.Layout(gtx, u.Theme)
+
+	ops := op.Record(gtx.Ops)
+	notifications.Layout(gtx, u.Theme)
+	defer op.Defer(gtx.Ops, ops.Stop())
+
+	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return u.header.Layout(gtx, u.Theme)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if u.consolePage.IsVisible() {
+				// if console is visible, we use split layout
+				return u.splitLayout(gtx)
+			}
+
+			return u.middleLayout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !u.consolePage.IsVisible() {
 				return layout.Dimensions{}
 			}
 			return widgets.Divider(layout.Horizontal, unit.Dp(1)).Layout(gtx, u.Theme)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.Y = gtx.Dp(300)
-			return u.consolePage.Layout(gtx, u.Theme)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return widgets.Divider(layout.Horizontal, unit.Dp(1)).Layout(gtx, u.Theme)
