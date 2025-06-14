@@ -19,6 +19,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/notifications"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
@@ -351,7 +352,7 @@ func (c *Controller) onCopyResponse(gtx layout.Context, dataType, data string) {
 		Data: io.NopCloser(strings.NewReader(data)),
 	})
 
-	c.view.showNotification(fmt.Sprintf("%s copied to clipboard", dataType), 2*time.Second)
+	notifications.Send(fmt.Sprintf("%s copied to clipboard", dataType), notifications.NotificationTypeInfo, 2*time.Second)
 }
 
 func (c *Controller) onSubmitRequest(id string) {

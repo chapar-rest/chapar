@@ -18,8 +18,8 @@ var (
 )
 
 type (
-	GlobalConfigChangeListener func(config *domain.GlobalConfig)
-	AppStateChangeListener     func(config *domain.AppState)
+	GlobalConfigChangeListener func(old, updated domain.GlobalConfig)
+	AppStateChangeListener     func(old, updated domain.AppState)
 )
 
 // Manager handles loading, saving, and migrating preferences and config
@@ -45,6 +45,14 @@ func GetInstance() *Manager {
 	return instance
 }
 
+func AddGlobalConfigChangeListener(listener GlobalConfigChangeListener) {
+	m := GetInstance()
+	if m == nil {
+		return // Instance not initialized yet
+	}
+	m.AddGlobalConfigChangeListener(listener)
+}
+
 func (m *Manager) AddGlobalConfigChangeListener(listener GlobalConfigChangeListener) {
 	m.globalConfigChangeListeners = append(m.globalConfigChangeListeners, listener)
 }
@@ -53,15 +61,15 @@ func (m *Manager) AddAppStateChangeListener(listener AppStateChangeListener) {
 	m.appStateChangeListeners = append(m.appStateChangeListeners, listener)
 }
 
-func (m *Manager) notifyGlobalConfigChange(config *domain.GlobalConfig) {
+func (m *Manager) notifyGlobalConfigChange(old, updated domain.GlobalConfig) {
 	for _, listener := range m.globalConfigChangeListeners {
-		listener(config)
+		listener(old, updated)
 	}
 }
 
-func (m *Manager) notifyAppStateChange(config *domain.AppState) {
+func (m *Manager) notifyAppStateChange(old, updated domain.AppState) {
 	for _, listener := range m.appStateChangeListeners {
-		listener(config)
+		listener(old, updated)
 	}
 }
 
@@ -129,12 +137,13 @@ func UpdateGlobalConfig(config domain.GlobalConfig) error {
 
 // UpdateGlobalConfig updates the global config
 func (m *Manager) UpdateGlobalConfig(config domain.GlobalConfig) error {
+	old := *m.globalConfig
 	m.globalConfig = &config
 	if err := m.saveGlobalConfig(); err != nil {
 		return fmt.Errorf("failed to save global config: %w", err)
 	}
 
-	m.notifyGlobalConfigChange(&config)
+	m.notifyGlobalConfigChange(old, config)
 	return nil
 }
 
@@ -153,12 +162,13 @@ func UpdateAppState(config domain.AppState) error {
 
 // UpdateAppState updates the app state
 func (m *Manager) UpdateAppState(state domain.AppState) error {
+	old := *m.appState
 	m.appState = &state
 	if err := m.saveAppState(); err != nil {
 		return fmt.Errorf("failed to save app state: %w", err)
 	}
 
-	m.notifyAppStateChange(&state)
+	m.notifyAppStateChange(old, state)
 	return nil
 }
 

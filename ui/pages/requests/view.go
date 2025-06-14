@@ -2,7 +2,6 @@ package requests
 
 import (
 	"image"
-	"time"
 
 	"gioui.org/app"
 	"gioui.org/io/pointer"
@@ -40,8 +39,6 @@ type View struct {
 
 	// modal is used to show error and messages to the user
 	modal *widgets.MessageModal
-
-	notify *widgets.Notification
 
 	// add menu
 	newRequestButton     widget.Clickable
@@ -119,7 +116,6 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 
 		tipsView: tips.New(),
 		explorer: explorer,
-		notify:   &widgets.Notification{},
 	}
 
 	v.tabHeader.SetMaxTitleWidth(20)
@@ -166,10 +162,6 @@ func (v *View) SetPreRequestRequests(id string, requests []*domain.Request, sele
 
 func (v *View) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
 	v.onOnSetOnTriggerRequestChanged = f
-}
-
-func (v *View) showNotification(text string, duration time.Duration) {
-	v.notify.Show(text, duration)
 }
 
 func (v *View) showError(err error) {
@@ -957,8 +949,6 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	v.modal.Layout(gtx, theme)
-
-	v.notify.Layout(gtx, theme)
 
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {

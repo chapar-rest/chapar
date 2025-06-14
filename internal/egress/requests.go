@@ -1,6 +1,7 @@
 package egress
 
 import (
+	"context"
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
@@ -8,7 +9,9 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
+	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
 )
 
@@ -18,15 +21,22 @@ type Service struct {
 
 	rest *rest.Service
 	grpc *grpc.Service
+
+	scriptExecutor scripting.Executor
 }
 
-func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service) *Service {
+func New(requests *state.Requests, environments *state.Environments, rest *rest.Service, grpc *grpc.Service, scriptExecutor scripting.Executor) *Service {
 	return &Service{
-		requests:     requests,
-		environments: environments,
-		rest:         rest,
-		grpc:         grpc,
+		requests:       requests,
+		environments:   environments,
+		rest:           rest,
+		grpc:           grpc,
+		scriptExecutor: scriptExecutor,
 	}
+}
+
+func (s *Service) SetExecutor(executor scripting.Executor) {
+	s.scriptExecutor = executor
 }
 
 func (s *Service) Send(id, activeEnvironmentID string) (any, error) {
@@ -94,7 +104,7 @@ func (s *Service) postRequest(req *domain.Request, res any, env *domain.Environm
 				return err
 			}
 
-			return s.handleHTTPPostRequest(postReq, response, env)
+			return s.handleHTTPPostRequest(postReq, req, response, env)
 		} else {
 			return fmt.Errorf("response is not of type *rest.Response")
 		}
@@ -242,9 +252,13 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 	return errG.Wait()
 }
 
-func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Response, env *domain.Environment) error {
+func (s *Service) handleHTTPPostRequest(r domain.PostRequest, request *domain.Request, response *rest.Response, env *domain.Environment) error {
 	if r == (domain.PostRequest{}) || response == nil || env == nil {
 		return nil
+	}
+
+	if r.Type == domain.PrePostTypePython {
+		return s.handlePostRequestScript(r.Script, request, response, env)
 	}
 
 	if r.Type != domain.PrePostTypeSetEnv {
@@ -264,6 +278,45 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, response *rest.Res
 		return s.handlePostRequestFromHeader(r, response, env)
 	case domain.PostRequestSetFromResponseCookie:
 		return s.handlePostRequestFromCookie(r, response, env)
+	}
+
+	return nil
+}
+
+func (s *Service) handlePostRequestScript(script string, request *domain.Request, resp *rest.Response, env *domain.Environment) error {
+	params := &scripting.ExecParams{
+		Env: env,
+		Req: scripting.RequestDataFromDomain(request),
+		Res: &scripting.ResponseData{
+			StatusCode: resp.StatusCode,
+			Headers:    resp.ResponseHeaders,
+			Body:       resp.JSON,
+		},
+	}
+
+	result, err := s.scriptExecutor.Execute(context.Background(), script, params)
+	if err != nil {
+		return err
+	}
+
+	if env != nil {
+		changed := false
+		for k, v := range result.SetEnvironments {
+			if data, ok := v.(string); ok {
+				env.SetKey(k, data)
+				changed = true
+			}
+		}
+
+		if changed {
+			if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, pt := range result.Prints {
+		logger.Print(pt)
 	}
 
 	return nil
