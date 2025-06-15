@@ -338,6 +338,7 @@ func (i *SettingItem) editorLayout(gtx layout.Context, theme *chapartheme.Theme)
 	return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			editor := material.Editor(theme.Material(), i.editor, "")
+			editor.SelectionColor = theme.TextSelectionColor
 			editor.TextSize = unit.Sp(14)
 			return editor.Layout(gtx)
 		})
