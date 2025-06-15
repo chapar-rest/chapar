@@ -84,7 +84,9 @@ type UI struct {
 func New(w *app.Window, appVersion string) (*UI, error) {
 	u := &UI{
 		window: w,
-		footer: &footer.Footer{},
+		footer: &footer.Footer{
+			AppVersion: appVersion,
+		},
 		split: widgets.SplitView{
 			Resize: component.Resize{
 				Ratio: 0.75,
@@ -166,7 +168,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.SetSearchDataLoader(u.searchDataLoader)
 	u.header.SetOnSearchResultSelect(u.onSelectSearchResult)
 
-	u.sideBar = NewSidebar(u.Theme, appVersion)
+	u.sideBar = NewSidebar(u.Theme)
 
 	u.sideBar.OnSelectedChanged = func(index int) {
 		u.currentPage = index

@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -12,14 +13,17 @@ import (
 type Footer struct {
 	NotificationsClickable widget.Clickable
 	ConsoleClickable       widget.Clickable
+
+	AppVersion string
 }
 
-func NewFooter() *Footer {
-	return &Footer{}
+func (f *Footer) leftLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	return layout.Inset{Left: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return material.Label(theme.Material(), unit.Sp(12), f.AppVersion).Layout(gtx)
+	})
 }
 
-func (f *Footer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+func (f *Footer) rightLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.End}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			btn := widgets.Button(theme.Material(), &f.ConsoleClickable, widgets.ConsoleIcon, widgets.IconPositionStart, "Console")
@@ -39,5 +43,17 @@ func (f *Footer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 			return btn.Layout(gtx, theme)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
+	)
+}
+
+func (f *Footer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Start}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return f.leftLayout(gtx, theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return f.rightLayout(gtx, theme)
+		}),
 	)
 }

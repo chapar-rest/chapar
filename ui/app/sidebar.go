@@ -7,10 +7,8 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -30,8 +28,6 @@ type Sidebar struct {
 	selectedIndex int
 
 	OnSelectedChanged func(index int)
-
-	appVersion string
 }
 
 type SideBarButton struct {
@@ -39,11 +35,10 @@ type SideBarButton struct {
 	Text string
 }
 
-func NewSidebar(theme *chapartheme.Theme, appVersion string) *Sidebar {
+func NewSidebar(theme *chapartheme.Theme) *Sidebar {
 	s := &Sidebar{
-		appVersion: appVersion,
-		Theme:      theme,
-		cache:      new(op.Ops),
+		Theme: theme,
+		cache: new(op.Ops),
 
 		Buttons: []*SideBarButton{
 			{Icon: widgets.SwapHoriz, Text: "Requests"},
@@ -118,30 +113,16 @@ func (s *Sidebar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
-									btn := s.flatButtons[i]
-									if s.selectedIndex == i {
-										btn.TextColor = theme.SideBarTextColor
-									} else {
-										btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
-									}
+						return s.list.Layout(gtx, len(s.Buttons), func(gtx layout.Context, i int) layout.Dimensions {
+							btn := s.flatButtons[i]
+							if s.selectedIndex == i {
+								btn.TextColor = theme.SideBarTextColor
+							} else {
+								btn.TextColor = widgets.Disabled(theme.SideBarTextColor)
+							}
 
-									return btn.Layout(gtx, theme)
-								})
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{
-									Bottom: unit.Dp(5),
-								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									gtx.Constraints.Min.X = gtx.Dp(70)
-									st := material.Subtitle1(theme.Theme, s.appVersion)
-									st.Alignment = text.Middle
-									return st.Layout(gtx)
-								})
-							}),
-						)
+							return btn.Layout(gtx, theme)
+						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if !theme.IsDark() {
