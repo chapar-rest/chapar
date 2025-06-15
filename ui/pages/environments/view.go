@@ -61,10 +61,6 @@ func NewView(window *app.Window, theme *chapartheme.Theme) *View {
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	search.SetBorderColor(theme.BorderColor)
 
-	itemsSearchBox := widgets.NewTextField("", "Search...")
-	itemsSearchBox.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	itemsSearchBox.SetBorderColor(theme.BorderColor)
-
 	v := &View{
 		window:            window,
 		treeViewSearchBox: search,

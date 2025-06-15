@@ -89,9 +89,11 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 
 	c.setEditorOptions()
 
-	prefs.GetInstance().AddGlobalConfigChangeListener(func(config *domain.GlobalConfig) {
-		c.editorConfig = config.Spec.Editor
-		c.setEditorOptions()
+	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
+		if old.Spec.Editor.Changed(updated.Spec.Editor) {
+			c.editorConfig = updated.Spec.Editor
+			c.setEditorOptions()
+		}
 	})
 
 	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)

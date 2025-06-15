@@ -55,6 +55,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 	for {
 		event, ok := gtx.Event(
 			key.FocusFilter{Target: t},
+			key.Filter{Name: "F", Required: key.ModShortcut},
 			key.Filter{Focus: &t.textEditor, Name: key.NameEscape},
 			key.Filter{Focus: &t.textEditor, Name: key.NameReturn},
 			key.Filter{Focus: &t.textEditor, Name: key.NameDownArrow},
@@ -64,8 +65,15 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		}
 		switch ev := event.(type) {
 		case key.FocusEvent:
-			gtx.Execute(key.FocusCmd{Tag: &t.textEditor})
+			if ev.Focus {
+				gtx.Execute(key.FocusCmd{Tag: &t.textEditor})
+			}
 		case key.Event:
+			if ev.Modifiers.Contain(key.ModShortcut) && ev.Name == "F" {
+				// Focus the text editor when Ctrl+F is pressed
+				gtx.Execute(key.FocusCmd{Tag: &t.textEditor})
+			}
+
 			if ev.Name == key.NameReturn {
 				if t.OnKeyPress != nil {
 					t.OnKeyPress(ev.Name)

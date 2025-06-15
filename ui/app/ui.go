@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"image"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -10,20 +11,26 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
+	"gioui.org/unit"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/codegen"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/grpc"
+	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/rest"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/console"
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/fonts"
-	"github.com/chapar-rest/chapar/ui/pages/console"
+	"github.com/chapar-rest/chapar/ui/footer"
+	"github.com/chapar-rest/chapar/ui/notifications"
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
@@ -39,6 +46,7 @@ type UI struct {
 
 	sideBar *Sidebar
 	header  *Header
+	footer  *footer.Footer
 
 	modal *widgets.MessageModal
 
@@ -64,13 +72,32 @@ type UI struct {
 	protoFilesState   *state.ProtoFiles
 
 	repo repository.Repository
+
+	// script executor
+	executor      scripting.Executor
+	egressService *egress.Service
+
+	split widgets.SplitView
 }
 
 // New creates a new UI using the Go Fonts.
 func New(w *app.Window, appVersion string) (*UI, error) {
 	u := &UI{
 		window: w,
+		footer: &footer.Footer{
+			AppVersion: appVersion,
+		},
+		split: widgets.SplitView{
+			Resize: component.Resize{
+				Ratio: 0.75,
+				Axis:  layout.Vertical,
+			},
+			BarWidth: unit.Dp(2),
+		},
 	}
+
+	// init notification system
+	notifications.New(w)
 
 	fontCollection, err := fonts.Prepare()
 	if err != nil {
@@ -111,13 +138,29 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	grpcService := grpc.NewService(appVersion, u.requestsState, u.environmentsState, u.protoFilesState)
 	restService := rest.New(u.requestsState, u.environmentsState, appVersion)
 
-	egressService := egress.New(u.requestsState, u.environmentsState, restService, grpcService)
+	globalConfig := prefs.GetGlobalConfig()
+	if globalConfig.Spec.Scripting.Enabled {
+		go u.initiateScripting(globalConfig.Spec.Scripting)
+	}
+
+	// listen for changes in scripting config
+	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
+		if old.Spec.Scripting.Changed(updated.Spec.Scripting) {
+			if updated.Spec.Scripting.Enabled {
+				go u.initiateScripting(globalConfig.Spec.Scripting)
+			} else if old.Spec.Scripting.Enabled && !updated.Spec.Scripting.Enabled {
+				go u.stopScripting()
+			}
+		}
+	})
+
+	u.egressService = egress.New(u.requestsState, u.environmentsState, restService, grpcService, u.executor)
 
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
 	u.Theme = chapartheme.New(theme, appState.Spec.DarkMode)
 	// console need to be initialized before other pages as its listening for logs
-	u.consolePage = console.New()
+	u.consolePage = console.New(u.Theme)
 	u.settingsView = settings.NewView(w, u.Theme)
 	u.settingsController = settings.NewController(u.settingsView)
 
@@ -125,7 +168,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.SetSearchDataLoader(u.searchDataLoader)
 	u.header.SetOnSearchResultSelect(u.onSelectSearchResult)
 
-	u.sideBar = NewSidebar(u.Theme, appVersion)
+	u.sideBar = NewSidebar(u.Theme)
 
 	u.sideBar.OnSelectedChanged = func(index int) {
 		u.currentPage = index
@@ -143,7 +186,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.OnSelectedEnvChanged = u.onSelectedEnvChanged
 
 	u.requestsView = requests.NewView(w, u.Theme, explorerController)
-	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, egressService, grpcService)
+	u.requestsController = requests.NewController(u.requestsView, repo, u.requestsState, u.environmentsState, explorerController, u.egressService, grpcService)
 
 	u.header.OnSelectedWorkspaceChanged = u.onWorkspaceChanged
 
@@ -154,6 +197,43 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	u.header.OnThemeSwitched = u.onThemeChange
 
 	return u, u.load()
+}
+
+func (u *UI) stopScripting() {
+	if u.executor != nil {
+		return
+	}
+
+	logger.Info(fmt.Sprintf("Stopping %s executor", u.executor.Name()))
+	if err := u.executor.Shutdown(); err != nil {
+		logger.Error(fmt.Sprintf("Failed to stop %s executor: %s", u.executor.Name(), err))
+	}
+}
+
+func (u *UI) initiateScripting(config domain.ScriptingConfig) {
+	if u.executor == nil {
+		executor, err := scripting.GetExecutor(config.Language, config)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Failed to get scripting executor: %v", err))
+			return
+		}
+
+		u.executor = executor
+	}
+
+	notifications.Send(fmt.Sprintf("Initializing %s script executor...", u.executor.Name()), notifications.NotificationTypeInfo, 5*time.Second)
+
+	logger.Info(fmt.Sprintf("Initializing %s executor", u.executor.Name()))
+	if err := u.executor.Init(config); err != nil {
+		logger.Error(fmt.Sprintf("Failed to initialize %s executor: %vAfter fixing the issue, enable and disable the scripting from Settings->Scripting to trigger initiation again.", u.executor.Name(), err))
+		notifications.Send(fmt.Sprintf("Failed to initialize %s executor, check console for errors", u.executor.Name()), notifications.NotificationTypeError, 10*time.Second)
+	}
+
+	if u.egressService != nil {
+		u.egressService.SetExecutor(u.executor)
+	}
+
+	notifications.Send(fmt.Sprintf("%s executor initialized successfully", u.executor.Name()), notifications.NotificationTypeInfo, 5*time.Second)
 }
 
 func (u *UI) showError(err error) {
@@ -356,28 +436,33 @@ func (u *UI) Run() error {
 	}
 }
 
-// Layout displays the main program layout.
-func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
-	// set the background color
-	macro := op.Record(gtx.Ops)
-	rect := image.Rectangle{
-		Max: image.Point{
-			X: gtx.Constraints.Max.X,
-			Y: gtx.Constraints.Max.Y,
-		},
-	}
-	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(rect).Op())
-	background := macro.Stop()
-
-	background.Add(gtx.Ops)
-
-	u.modal.Layout(gtx, u.Theme)
-
-	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
+func (u *UI) middleLayout(gtx layout.Context) layout.Dimensions {
+	return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return u.header.Layout(gtx, u.Theme)
+			return u.sideBar.Layout(gtx, u.Theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			switch u.currentPage {
+			case 0:
+				return u.requestsView.Layout(gtx, u.Theme)
+			case 1:
+				return u.environmentsView.Layout(gtx, u.Theme)
+			case 2:
+				return u.workspacesView.Layout(gtx, u.Theme)
+			case 3:
+				return u.protoFilesView.Layout(gtx, u.Theme)
+			case 4:
+				return u.settingsView.Layout(gtx, u.Theme)
+			}
+			return layout.Dimensions{}
+		}),
+	)
+}
+
+func (u *UI) splitLayout(gtx layout.Context) layout.Dimensions {
+	return u.split.Layout(gtx, u.Theme,
+		func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = gtx.Constraints.Max
 			return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return u.sideBar.Layout(gtx, u.Theme)
@@ -394,12 +479,69 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 						return u.protoFilesView.Layout(gtx, u.Theme)
 					case 4:
 						return u.settingsView.Layout(gtx, u.Theme)
-						// case 4:
-						//	return u.consolePage.Layout(gtx, u.Theme)
 					}
 					return layout.Dimensions{}
 				}),
 			)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Max.Y = gtx.Dp(300)
+			return u.consolePage.Layout(gtx, u.Theme)
+		},
+	)
+}
+
+// Layout displays the main program layout.
+func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
+	// set the background color
+	macro := op.Record(gtx.Ops)
+	rect := image.Rectangle{
+		Max: image.Point{
+			X: gtx.Constraints.Max.X,
+			Y: gtx.Constraints.Max.Y,
+		},
+	}
+	paint.FillShape(gtx.Ops, u.Theme.Palette.Bg, clip.Rect(rect).Op())
+	background := macro.Stop()
+	background.Add(gtx.Ops)
+
+	u.modal.Layout(gtx, u.Theme)
+
+	ops := op.Record(gtx.Ops)
+	notifications.Layout(gtx, u.Theme)
+	defer op.Defer(gtx.Ops, ops.Stop())
+
+	return layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return u.header.Layout(gtx, u.Theme)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if u.consolePage.IsVisible() {
+				// if console is visible, we use split layout
+				return u.splitLayout(gtx)
+			}
+
+			return u.middleLayout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !u.consolePage.IsVisible() {
+				return layout.Dimensions{}
+			}
+			return widgets.Divider(layout.Horizontal, unit.Dp(1)).Layout(gtx, u.Theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.Divider(layout.Horizontal, unit.Dp(1)).Layout(gtx, u.Theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if u.footer.ConsoleClickable.Clicked(gtx) {
+				u.consolePage.ToggleVisibility()
+			}
+
+			if u.footer.NotificationsClickable.Clicked(gtx) {
+				notifications.ToggleVisibility()
+			}
+
+			return u.footer.Layout(gtx, u.Theme)
 		}),
 	)
 }

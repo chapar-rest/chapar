@@ -25,7 +25,16 @@ Herodus described the Chapar as follows:
 > Herodotus, about 440 BC
 
 ## State of the project
-Chapar is currently in the early beta phase and under active development, with regular updates and improvements planned to enhance the user experience and functionality.
+On the main branch of the repository, you will find the latest development version of Chapar.
+This version is not yet stable and may contain bugs or incomplete features. We are actively working on improving the application and adding new features.
+
+### Current Unreleased Features
+* Pre/Post request scripts to set environment variables and read request/response data.
+* Console panel to view logs
+* New UI design for notifications.
+* Many bug fixes and improvements.
+
+You can build the project from the main branch to test the latest features. However, please note that this version is not yet stable and may contain bugs or incomplete features.
 
 ## Screenshots
 <div align="center">

@@ -23,7 +23,9 @@ type TextField struct {
 	Icon       *widget.Icon
 	iconClick  widget.Clickable
 
-	IconPosition int
+	IconPosition       int
+	BorderColor        color.NRGBA
+	BorderColorFocused color.NRGBA
 
 	Text        string
 	Placeholder string
@@ -32,7 +34,6 @@ type TextField struct {
 
 	onIconClick  func()
 	onTextChange func(text string)
-	borderColor  color.NRGBA
 }
 
 func NewTextField(text, placeholder string) *TextField {
@@ -60,12 +61,16 @@ func (t *TextField) SetIcon(icon *widget.Icon, position int) {
 	t.IconPosition = position
 }
 
+func (t *TextField) SetSize(s image.Point) {
+	t.size = s
+}
+
 func (t *TextField) SetMinWidth(width int) {
 	t.size.X = width
 }
 
 func (t *TextField) SetBorderColor(color color.NRGBA) {
-	t.borderColor = color
+	t.BorderColor = color
 }
 
 func (t *TextField) SetOnTextChange(f func(text string)) {
@@ -82,19 +87,23 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		if !ok {
 			break
 		}
-		switch ev := event.(type) {
-		case key.FocusEvent:
-			gtx.Execute(key.FocusCmd{Tag: &t.textEditor})
-		case key.Event:
-			if ev.Name == key.NameEscape {
-				gtx.Execute(key.FocusCmd{Tag: nil})
-			}
+
+		if ev, ok := event.(key.Event); ok && (ev.Name == key.NameEscape) {
+			gtx.Execute(key.FocusCmd{Tag: nil})
 		}
 	}
 
-	borderColor := theme.BorderColor
+	borderColor := t.BorderColor
+	if t.BorderColor == (color.NRGBA{}) {
+		borderColor = theme.BorderColor
+	}
+
 	if gtx.Source.Focused(&t.textEditor) {
-		borderColor = theme.BorderColorFocused
+		if t.BorderColorFocused == (color.NRGBA{}) {
+			borderColor = theme.BorderColorFocused
+		} else {
+			borderColor = t.BorderColorFocused
+		}
 	}
 
 	cornerRadius := unit.Dp(4)
