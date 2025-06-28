@@ -712,7 +712,12 @@ func (c *Controller) onImport() {
 			return
 		}
 
-		if err := importer.ImportPostmanCollection(result.Data, c.repo); err != nil {
+		// if err := importer.ImportPostmanCollection(result.Data, c.repo); err != nil {
+		// 	c.view.showError(fmt.Errorf("failed to import postman collection, %w", err))
+		// 	return
+		// }
+
+		if err := importer.ImportOpenAPI(result.Data, c.repo); err != nil {
 			c.view.showError(fmt.Errorf("failed to import postman collection, %w", err))
 			return
 		}
@@ -722,7 +727,7 @@ func (c *Controller) onImport() {
 			return
 		}
 
-	}, "json")
+	}, "yaml,json")
 }
 
 func (c *Controller) onNewCollection() {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -236,7 +237,7 @@ func ImportPostmanEnvironment(data []byte, repo repository.Repository) error {
 func ImportPostmanEnvironmentFromFile(filePath string, repo repository.Repository) error {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("error reading file: %v\n", err)
+		return fmt.Errorf("error reading file: %v", err)
 	}
 
 	return ImportPostmanEnvironment(fileContent, repo)
@@ -248,4 +249,157 @@ func replaceVariables(input []byte) []byte {
 	}
 
 	return input
+}
+
+func ImportOpenAPI(data []byte, repo repository.Repository) error {
+	loader := openapi3.NewLoader()
+	spec, err := loader.LoadFromData(data)
+	if err != nil {
+		return fmt.Errorf("error loading OpenAPI spec: %w", err)
+	}
+
+	// if err := spec.Validate(loader.Context); err != nil {
+	// 	return fmt.Errorf("error validating OpenAPI spec: %w", err)
+	// }
+
+	col := domain.NewCollection(spec.Info.Title)
+	if err := repo.Create(col); err != nil {
+		return fmt.Errorf("error saving collection: %w", err)
+	}
+
+	basePath := ""
+	if len(spec.Servers) > 0 {
+		basePath = spec.Servers[0].URL
+	}
+
+	fmt.Println("Base Path:", basePath)
+
+	for path, pathItem := range spec.Paths.Map() {
+		// add basePath to the path
+		if !strings.HasPrefix(path, basePath) {
+			path = basePath + path
+		}
+
+		for method, operation := range pathItem.Operations() {
+			req := &domain.Request{
+				ApiVersion: "v1",
+				Kind:       "Request",
+				MetaData: domain.RequestMeta{
+					ID:   uuid.NewString(),
+					Name: operation.OperationID,
+					Type: domain.RequestTypeHTTP,
+				},
+				Spec: domain.RequestSpec{
+					HTTP: &domain.HTTPRequestSpec{
+						Method:  method,
+						URL:     path,
+						Request: &domain.HTTPRequest{},
+					},
+				},
+			}
+
+			if operation.RequestBody != nil {
+
+				if content := operation.RequestBody.Value.Content.Get("application/json"); content != nil {
+					fmt.Println(content.Schema.Value)
+
+					example := generateExampleFromSchema(content.Schema)
+					jsonBytes, _ := json.MarshalIndent(example, "", "  ")
+
+					req.Spec.HTTP.Request.Body.Data = string(jsonBytes) // Placeholder for JSON body
+					req.Spec.HTTP.Request.Body.Type = domain.RequestBodyTypeJSON
+				}
+			}
+
+			for _, param := range operation.Parameters {
+				switch param.Value.In {
+				case "query":
+					req.Spec.HTTP.Request.QueryParams = append(req.Spec.HTTP.Request.QueryParams, domain.KeyValue{
+						ID:     uuid.NewString(),
+						Key:    param.Value.Name,
+						Value:  "",
+						Enable: true,
+					})
+				case "header":
+					req.Spec.HTTP.Request.Headers = append(req.Spec.HTTP.Request.Headers, domain.KeyValue{
+						ID:     uuid.NewString(),
+						Key:    param.Value.Name,
+						Value:  "",
+						Enable: true,
+					})
+				case "path":
+					req.Spec.HTTP.Request.PathParams = append(req.Spec.HTTP.Request.PathParams, domain.KeyValue{
+						ID:     uuid.NewString(),
+						Key:    param.Value.Name,
+						Value:  "",
+						Enable: true,
+					})
+				}
+			}
+
+			req.SetDefaultValues()
+
+			if err := repo.CreateRequestInCollection(col, req); err != nil {
+				fmt.Println("Error saving request:", err)
+				return fmt.Errorf("error saving request: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func getPrimaryType(schema *openapi3.Schema) string {
+	if schema == nil || schema.Type == nil {
+		return ""
+	}
+
+	t := *schema.Type
+
+	if len(t) > 0 {
+		return t[0] // prioritize first type
+	}
+	return "" // fallback for cases like `oneOf`, `anyOf`, etc.
+}
+
+func generateExampleFromSchema(schemaRef *openapi3.SchemaRef) interface{} {
+	if schemaRef == nil || schemaRef.Value == nil {
+		return nil
+	}
+
+	schema := schemaRef.Value
+	t := getPrimaryType(schema)
+
+	switch t {
+	case "object":
+		result := make(map[string]interface{})
+		for name, prop := range schema.Properties {
+			result[name] = generateExampleFromSchema(prop)
+		}
+		return result
+	case "array":
+		return []interface{}{generateExampleFromSchema(schema.Items)}
+	case "string":
+		if schema.Format != "" {
+			return fmt.Sprintf("<%s>", schema.Format)
+		}
+		return "string"
+	case "integer":
+		return 0
+	case "number":
+		return 0.0
+	case "boolean":
+		return true
+	default:
+		return nil
+	}
+}
+
+func ImportOpenAPIFromFile(filePath string, repo repository.Repository) error {
+	fileContent, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
+
+	return ImportOpenAPI(fileContent, repo)
 }

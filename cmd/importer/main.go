@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	fileType = flag.String("t", "collection", "type of input file (collection or environment)")
+	fileType = flag.String("t", "collection", "type of input file (collection, environment or openapi)")
 	filePath = flag.String("p", "example.json", "path to the input file")
 )
 
@@ -37,7 +37,12 @@ func main() {
 		}
 	} else if *fileType == "environment" {
 		if err := importer.ImportPostmanEnvironmentFromFile(*filePath, repo); err != nil {
-			fmt.Printf("Error importing Postman environment	: %v\n", err)
+			fmt.Printf("Error importing Postman environment\t: %v\n", err)
+		}
+	} else if *fileType == "openapi" {
+		if err := importer.ImportOpenAPIFromFile(*filePath, repo); err != nil {
+			fmt.Printf("Error importing OpenAPI spec: %v\n", err)
+			os.Exit(1)
 		}
 	}
 }
