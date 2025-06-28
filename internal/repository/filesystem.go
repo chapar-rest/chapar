@@ -776,12 +776,21 @@ func (f *Filesystem) createWorkspace(workspace *domain.Workspace) error {
 }
 
 func (f *Filesystem) Delete(entity interface{}) error {
-	deleteFn := func(mp map[string]string, id string) error {
+	deleteFn := func(mp map[string]string, id string, isDir bool) error {
 		filePath, exists := mp[id]
 		if !exists {
-			return fmt.Errorf("collection path not found")
+			return fmt.Errorf("entiry path not found")
 		}
-		err := os.RemoveAll(filepath.Dir(filePath))
+
+		var err error
+		if isDir {
+			dirName := filepath.Dir(filePath)
+			// If it's a directory, remove it and all its content
+			err = os.RemoveAll(dirName)
+		} else {
+			// If it's a regular or symlink file, remove it
+			err = os.Remove(filePath)
+		}
 		if err == nil {
 			delete(mp, id)
 		}
@@ -790,15 +799,15 @@ func (f *Filesystem) Delete(entity interface{}) error {
 
 	switch e := entity.(type) {
 	case *domain.Request:
-		return deleteFn(f.requestPaths, e.MetaData.ID)
+		return deleteFn(f.requestPaths, e.MetaData.ID, false)
 	case *domain.Collection:
-		return deleteFn(f.collectionPaths, e.MetaData.ID)
+		return deleteFn(f.collectionPaths, e.MetaData.ID, true)
 	case *domain.Environment:
-		return deleteFn(f.environmentPaths, e.MetaData.ID)
+		return deleteFn(f.environmentPaths, e.MetaData.ID, false)
 	case *domain.Workspace:
-		return deleteFn(f.workspacePaths, e.MetaData.ID)
+		return deleteFn(f.workspacePaths, e.MetaData.ID, true)
 	case *domain.ProtoFile:
-		return deleteFn(f.protoFilePaths, e.MetaData.ID)
+		return deleteFn(f.protoFilePaths, e.MetaData.ID, false)
 	default:
 		return fmt.Errorf("unsupported entity type: %T", entity)
 	}
