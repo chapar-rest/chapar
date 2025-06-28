@@ -59,6 +59,14 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 	return r
 }
 
+func (r *Restful) ToggleSplitOrientation() {
+	if r.split.Axis == layout.Horizontal {
+		r.split.Axis = layout.Vertical
+	} else {
+		r.split.Axis = layout.Horizontal
+	}
+}
+
 func (r *Restful) SetPreRequestCollections(collections []*domain.Collection, selectedID string) {
 	r.Request.PreRequest.SetCollections(collections, selectedID)
 }
@@ -277,7 +285,6 @@ func (r *Restful) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return r.Prompt.Layout(gtx, theme)
-				// return layout.Dimensions{}
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,

@@ -185,3 +185,13 @@ var Notifications *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.SocialNotifications)
 	return icon
 }()
+
+var SplitH *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.EditorBorderHorizontal)
+	return icon
+}()
+
+var SplitV *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.EditorVerticalAlignCenter)
+	return icon
+}()

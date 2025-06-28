@@ -24,6 +24,9 @@ type Collection struct {
 	onDataChanged func(id string, data any)
 }
 
+func (c *Collection) ToggleSplitOrientation() {
+}
+
 func (c *Collection) SetOnDataChanged(f func(id string, data any)) {
 	c.onDataChanged = f
 }

@@ -541,6 +541,10 @@ func (u *UI) Layout(gtx layout.Context) layout.Dimensions {
 				notifications.ToggleVisibility()
 			}
 
+			if u.footer.RequestSplitToggle.Clicked(gtx) {
+				u.requestsView.ToggleRequestSplit()
+			}
+
 			return u.footer.Layout(gtx, u.Theme)
 		}),
 	)

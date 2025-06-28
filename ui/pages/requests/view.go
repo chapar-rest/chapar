@@ -103,6 +103,7 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 			// Ratio:       -0.64,
 			Resize: giox.Resize{
 				Ratio: 0.19,
+				Axis:  layout.Horizontal,
 			},
 			BarWidth: unit.Dp(2),
 		},
@@ -128,6 +129,13 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 	})
 
 	return v
+}
+
+func (v *View) ToggleRequestSplit() {
+	cts := v.containers.Values()
+	for _, ct := range cts {
+		ct.ToggleSplitOrientation()
+	}
 }
 
 func (v *View) SetOnRequestTabChange(f func(id string, tab string)) {

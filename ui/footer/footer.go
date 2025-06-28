@@ -11,10 +11,13 @@ import (
 )
 
 type Footer struct {
+	RequestSplitToggle     widget.Clickable
 	NotificationsClickable widget.Clickable
 	ConsoleClickable       widget.Clickable
 
 	AppVersion string
+
+	splitIcon *widget.Icon
 }
 
 func (f *Footer) leftLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -25,6 +28,15 @@ func (f *Footer) leftLayout(gtx layout.Context, theme *chapartheme.Theme) layout
 
 func (f *Footer) rightLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.End}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			btn := widgets.Button(theme.Material(), &f.RequestSplitToggle, widgets.Notifications, widgets.IconPositionStart, "||")
+			btn.TextSize = unit.Sp(12)
+			btn.IconSize = unit.Sp(12)
+			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
+			btn.Inset = layout.UniformInset(unit.Dp(3))
+			return btn.Layout(gtx, theme)
+		}),
+		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			btn := widgets.Button(theme.Material(), &f.ConsoleClickable, widgets.ConsoleIcon, widgets.IconPositionStart, "Console")
 			btn.TextSize = unit.Sp(12)
@@ -42,7 +54,6 @@ func (f *Footer) rightLayout(gtx layout.Context, theme *chapartheme.Theme) layou
 			btn.Inset = layout.Inset{Top: unit.Dp(3), Bottom: unit.Dp(3), Left: unit.Dp(10), Right: unit.Dp(10)}
 			return btn.Layout(gtx, theme)
 		}),
-		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 	)
 }
 

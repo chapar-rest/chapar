@@ -32,6 +32,14 @@ type Grpc struct {
 	onInvoke      func(id string)
 }
 
+func (r *Grpc) ToggleSplitOrientation() {
+	if r.split.Axis == layout.Horizontal {
+		r.split.Axis = layout.Vertical
+	} else {
+		r.split.Axis = layout.Horizontal
+	}
+}
+
 func (r *Grpc) SetOnTitleChanged(f func(title string)) {
 	r.Breadcrumb.SetOnTitleChanged(f)
 }
