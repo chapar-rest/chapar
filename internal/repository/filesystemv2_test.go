@@ -168,6 +168,74 @@ func TestFilesystemV2_DeleteProtoFile(t *testing.T) {
 	assert.Equal(t, pf1.MetaData.Name, protoFiles[0].MetaData.Name, "expected remaining proto file name to be 'NotToDelete1'")
 }
 
+func TestFilesystemV2_LoadRequests(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a temporary request file for testing
+	tempRequestFile := "test_request.yaml"
+	dir, err := fs.EntityPath(domain.KindRequest)
+	assert.Nil(t, err, "expected no error getting request path")
+	tempFilePath := filepath.Join(dir, tempRequestFile)
+
+	req := domain.NewHTTPRequest("TestRequest")
+	assert.Nil(t, SaveToYaml(tempFilePath, req), "expected no error saving request")
+
+	requests, err := fs.LoadRequests()
+	assert.Nil(t, err, "expected no error loading requests")
+
+	assert.Len(t, requests, 1, "expected exactly one request")
+	assert.Equal(t, req.MetaData.Name, requests[0].MetaData.Name, "expected request name")
+}
+
+func TestFilesystemV2_CreateRequest(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new request
+	req := domain.NewHTTPRequest("TestCreateRequest")
+	err := fs.CreateRequest(req, nil)
+	assert.Nil(t, err, "expected no error creating request")
+
+	// Verify the request was created
+	requests, err := fs.LoadRequests()
+	assert.Nil(t, err, "expected no error loading requests")
+	assert.Len(t, requests, 1, "expected exactly one request after creation")
+	assert.Equal(t, req.MetaData.Name, requests[0].MetaData.Name, "expected request name to match")
+
+	// Create another request with the same name to test unique naming
+	reqDuplicate := domain.NewHTTPRequest("TestCreateRequest")
+	err = fs.CreateRequest(reqDuplicate, nil)
+	assert.Nil(t, err, "expected no error creating duplicate request")
+	// Verify the duplicate was created with a unique name
+	requests, err = fs.LoadRequests()
+	assert.Nil(t, err, "expected no error loading requests after duplicate creation")
+	assert.Len(t, requests, 2, "expected exactly two requests after creating duplicate")
+	assert.Contains(t, []string{"TestCreateRequest", "TestCreateRequest_1"}, requests[1].MetaData.Name, "expected one of the request names to be 'TestCreateRequest' or 'TestCreateRequest_1'")
+}
+
+func TestFilesystemV2_UpdateRequest(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new request
+	req := domain.NewHTTPRequest("TestUpdateRequest")
+	err := fs.CreateRequest(req, nil)
+	assert.Nil(t, err, "expected no error creating request")
+
+	// Update the request
+	req.Spec.HTTP.URL = "https://updated.url"
+	err = fs.UpdateRequest(req, nil)
+	assert.Nil(t, err, "expected no error updating request")
+
+	// Load the requests to verify the update
+	requests, err := fs.LoadRequests()
+	assert.Nil(t, err, "expected no error loading requests after update")
+	assert.Len(t, requests, 1, "expected exactly one request after update")
+	assert.Equal(t, req.MetaData.Name, requests[0].MetaData.Name, "expected request name to match")
+	assert.Equal(t, "https://updated.url", requests[0].Spec.HTTP.URL, "expected request URL to be updated")
+}
+
 // setupTest creates a temporary directory for testing and returns a cleanup function
 func setupTest(t *testing.T) (*FilesystemV2, func()) {
 	t.Helper()

@@ -45,7 +45,49 @@ func (f *FilesystemV2) UpdateProtoFile(protoFile *domain.ProtoFile) error {
 }
 
 func (f *FilesystemV2) DeleteProtoFile(protoFile *domain.ProtoFile) error {
-	return f.deleteEntity(protoFile)
+	path, err := f.EntityPath(protoFile.GetKind())
+	if err != nil {
+		return err
+	}
+
+	return f.deleteEntity(path, protoFile)
+}
+
+// LoadRequests loads standalone requests from the filesystem.
+func (f *FilesystemV2) LoadRequests() ([]*domain.Request, error) {
+	dir, err := f.EntityPath(domain.KindRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return loadList[domain.Request](dir)
+}
+
+func (f *FilesystemV2) CreateRequest(request *domain.Request, collection *domain.Collection) error {
+	return f.writeStandaloneRequest(request, false)
+}
+
+func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain.Collection) error {
+	return f.writeStandaloneRequest(request, true)
+}
+
+func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain.Collection) error {
+	dir, err := f.EntityPath(domain.KindRequest)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Handle collection-specific requests if here
+
+	return f.deleteEntity(dir, request)
+}
+
+func (f *FilesystemV2) writeStandaloneRequest(request *domain.Request, override bool) error {
+	path, err := f.EntityPath(domain.KindRequest)
+	if err != nil {
+		return err
+	}
+	return f.writeRequestOrProtoFile(path, request, override)
 }
 
 func (f *FilesystemV2) writeProtoFile(protoFile *domain.ProtoFile, override bool) error {
@@ -56,12 +98,7 @@ func (f *FilesystemV2) writeProtoFile(protoFile *domain.ProtoFile, override bool
 	return f.writeRequestOrProtoFile(path, protoFile, override)
 }
 
-func (f *FilesystemV2) deleteEntity(e Entity) error {
-	path, err := f.EntityPath(e.GetKind())
-	if err != nil {
-		return err
-	}
-
+func (f *FilesystemV2) deleteEntity(path string, e Entity) error {
 	// if the entity is a workspace or a collection, we need to delete the entire directory
 	if e.GetKind() == domain.KindWorkspace || e.GetKind() == domain.KindCollection {
 		dir := filepath.Join(path, e.GetName())
