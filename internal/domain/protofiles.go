@@ -1,12 +1,31 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"gopkg.in/yaml.v2"
+)
 
 type ProtoFile struct {
 	ApiVersion string        `yaml:"apiVersion"`
 	Kind       string        `yaml:"kind"`
 	MetaData   MetaData      `yaml:"metadata"`
 	Spec       ProtoFileSpec `yaml:"spec"`
+}
+
+func (p *ProtoFile) GetKind() string {
+	return p.Kind
+}
+
+func (p *ProtoFile) SetName(name string) {
+	p.MetaData.Name = name
+}
+
+func (p *ProtoFile) GetName() string {
+	return p.MetaData.Name
+}
+
+func (p *ProtoFile) MarshalYaml() ([]byte, error) {
+	return yaml.Marshal(p)
 }
 
 type ProtoFileSpec struct {

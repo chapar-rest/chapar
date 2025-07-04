@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v2"
 )
 
 type Environment struct {
@@ -11,6 +12,22 @@ type Environment struct {
 	Kind       string   `yaml:"kind"`
 	MetaData   MetaData `yaml:"metadata"`
 	Spec       EnvSpec  `yaml:"spec"`
+}
+
+func (e *Environment) GetKind() string {
+	return e.Kind
+}
+
+func (e *Environment) SetName(name string) {
+	e.MetaData.Name = name
+}
+
+func (e *Environment) GetName() string {
+	return e.MetaData.Name
+}
+
+func (e *Environment) MarshalYaml() ([]byte, error) {
+	return yaml.Marshal(e)
 }
 
 type EnvSpec struct {
