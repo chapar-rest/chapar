@@ -82,6 +82,68 @@ func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain
 	return f.deleteEntity(dir, request)
 }
 
+func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
+	path, err := f.EntityPath(domain.KindCollection)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load all collection directories
+	dirs, err := os.ReadDir(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read collection directory: %w", err)
+	}
+
+	var collections []*domain.Collection
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue // Skip non-directory entries
+		}
+
+		// Each collection directory should have a "_collection.yaml" file
+		collectionFile := filepath.Join(path, dir.Name(), "_collection.yaml")
+		if _, err := os.Stat(collectionFile); os.IsNotExist(err) {
+			continue // Skip if the collection file does not exist
+		}
+
+		// Load the collection from the YAML file
+		collection, err := LoadFromYaml[domain.Collection](collectionFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load collection %s: %w", dir.Name(), err)
+		}
+
+		collections = append(collections, collection)
+	}
+
+	return collections, nil
+}
+
+func (f *FilesystemV2) CreateCollection(collection *domain.Collection) error {
+	path, err := f.EntityPath(domain.KindCollection)
+	if err != nil {
+		return err
+	}
+
+	collectionDir := filepath.Join(path, collection.GetName())
+	// Ensure the collection directory exists
+	if err := os.MkdirAll(collectionDir, 0755); err != nil {
+		return fmt.Errorf("failed to create collection directory: %w", err)
+	}
+
+	// Collection folder always has a file named "_collection.yaml" which contains the collection metadata
+	return f.writeMetadataFile(collectionDir, "_collection", collection)
+}
+
+func (f *FilesystemV2) writeMetadataFile(path, name string, e Entity) error {
+	data, err := e.MarshalYaml()
+	if err != nil {
+		return fmt.Errorf("failed to marshal entity %s", e.GetName())
+	}
+
+	filePath := filepath.Join(path, name+".yaml")
+	return os.WriteFile(filePath, data, 0644)
+}
+
 func (f *FilesystemV2) writeStandaloneRequest(request *domain.Request, override bool) error {
 	path, err := f.EntityPath(domain.KindRequest)
 	if err != nil {

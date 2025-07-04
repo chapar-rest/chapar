@@ -236,6 +236,78 @@ func TestFilesystemV2_UpdateRequest(t *testing.T) {
 	assert.Equal(t, "https://updated.url", requests[0].Spec.HTTP.URL, "expected request URL to be updated")
 }
 
+func TestFilesystemV2_DeleteRequest(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create two new requests
+	req := domain.NewHTTPRequest("TestDeleteRequest")
+	err := fs.CreateRequest(req, nil)
+	assert.Nil(t, err, "expected no error creating request")
+
+	req1 := domain.NewHTTPRequest("NotToDeleteRequest")
+	err = fs.CreateRequest(req1, nil)
+	assert.Nil(t, err, "expected no error creating second request")
+
+	// Delete the request
+	err = fs.DeleteRequest(req, nil)
+	assert.Nil(t, err, "expected no error deleting request")
+	// Load the requests to verify deletion
+	requests, err := fs.LoadRequests()
+	assert.Nil(t, err, "expected no error loading requests after deletion")
+	assert.Len(t, requests, 1, "expected exactly one request after deletion")
+	assert.Equal(t, req1.MetaData.Name, requests[0].MetaData.Name, "expected remaining request name to be 'NotToDeleteRequest'")
+}
+
+func TestFilesystemV2_LoadCollections(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a temporary collection file for testing
+	dir, err := fs.EntityPath(domain.KindCollection)
+	assert.Nil(t, err, "expected no error getting collection path")
+	collectionMetaPath := filepath.Join(dir, "TestCollection", "_collection.yaml")
+
+	// make sure the directory exists
+	err = os.MkdirAll(filepath.Dir(collectionMetaPath), 0755)
+	assert.Nil(t, err, "expected no error creating collection directory")
+
+	// create an empty folder in collections directory
+	// this folder will be skipped by LoadCollections as it does not contain a "_collection.yaml" file
+	noneCollectionDir := filepath.Join(dir, "NoneCollection")
+	err = os.MkdirAll(noneCollectionDir, 0755)
+	assert.Nil(t, err, "expected no error creating none collection directory")
+
+	// create a random file in the collections directory
+	// this file will not be loaded as a collection
+	randomFilePath := filepath.Join(dir, "random.txt")
+	err = os.WriteFile(randomFilePath, []byte("This is a random file"), 0644)
+
+	col := domain.NewCollection("TestCollection")
+	assert.Nil(t, SaveToYaml(collectionMetaPath, col), "expected no error saving collection")
+
+	collections, err := fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections")
+	assert.Len(t, collections, 1, "expected exactly one collection")
+	assert.Equal(t, col.MetaData.Name, collections[0].MetaData.Name, "expected collection name to match")
+}
+
+func TestFilesystemV2_CreateCollection(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new collection
+	col := domain.NewCollection("TestCreateCollection")
+	err := fs.CreateCollection(col)
+	assert.Nil(t, err, "expected no error creating collection")
+
+	// Verify the collection was created
+	collections, err := fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections")
+	assert.Len(t, collections, 1, "expected exactly one collection after creation")
+	assert.Equal(t, col.MetaData.Name, collections[0].MetaData.Name, "expected collection name to match")
+}
+
 // setupTest creates a temporary directory for testing and returns a cleanup function
 func setupTest(t *testing.T) (*FilesystemV2, func()) {
 	t.Helper()
