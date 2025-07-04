@@ -37,23 +37,23 @@ func (f *FilesystemV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 }
 
 func (f *FilesystemV2) CreateProtoFile(protoFile *domain.ProtoFile) error {
-	return f.writeProtoFile(protoFile)
+	return f.writeProtoFile(protoFile, false)
 }
 
 func (f *FilesystemV2) UpdateProtoFile(protoFile *domain.ProtoFile) error {
-	return f.writeProtoFile(protoFile)
+	return f.writeProtoFile(protoFile, true)
 }
 
 func (f *FilesystemV2) DeleteProtoFile(protoFile *domain.ProtoFile) error {
 	return f.deleteEntity(protoFile)
 }
 
-func (f *FilesystemV2) writeProtoFile(protoFile *domain.ProtoFile) error {
+func (f *FilesystemV2) writeProtoFile(protoFile *domain.ProtoFile, override bool) error {
 	path, err := f.EntityPath(protoFile.GetKind())
 	if err != nil {
 		return err
 	}
-	return f.writeRequestOrProtoFile(path, protoFile)
+	return f.writeRequestOrProtoFile(path, protoFile, override)
 }
 
 func (f *FilesystemV2) deleteEntity(e Entity) error {
@@ -81,21 +81,25 @@ func (f *FilesystemV2) deleteEntity(e Entity) error {
 }
 
 // writeRequestOrProtoFile, writes the protofile or request files to the filesystem.
-func (f *FilesystemV2) writeRequestOrProtoFile(path string, e Entity) error {
-	uniqueName, err := f.ensureUniqueName(path, e.GetName())
-	if err != nil {
-		return err
+func (f *FilesystemV2) writeRequestOrProtoFile(path string, e Entity, override bool) error {
+	filename := e.GetName()
+	if !override {
+		uniqueName, err := f.ensureUniqueName(path, e.GetName())
+		if err != nil {
+			return err
+		}
+
+		// Set the unique name to the entity
+		e.SetName(uniqueName)
+		filename = uniqueName
 	}
 
-	// Set the unique name to the entity
-	e.SetName(uniqueName)
-
 	data, err := e.MarshalYaml()
-	if data == nil {
+	if err != nil {
 		return fmt.Errorf("failed to marshal entity %s", e.GetName())
 	}
 
-	filePath := filepath.Join(path, uniqueName+".yaml")
+	filePath := filepath.Join(path, filename+".yaml")
 	return os.WriteFile(filePath, data, 0644)
 }
 

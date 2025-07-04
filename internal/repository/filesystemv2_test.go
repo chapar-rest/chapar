@@ -123,6 +123,47 @@ func TestFilesystemV2_CreateProtoFile(t *testing.T) {
 	assert.Contains(t, names, "TestCreate_1", "expected unique name for duplicate proto file")
 }
 
+func TestFilesystemV2_UpdateProtoFile(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new proto file
+	pf := domain.NewProtoFile("TestUpdate")
+	err := fs.CreateProtoFile(pf)
+	assert.Nil(t, err, "expected no error creating proto file")
+
+	// Update the proto file
+	pf.Spec.Path = "updated/path/to/proto"
+
+	err = fs.UpdateProtoFile(pf)
+	assert.Nil(t, err, "expected no error updating proto file")
+
+	// Load the proto files to verify the update
+	protoFiles, err := fs.LoadProtoFiles()
+	assert.Nil(t, err, "expected no error loading proto files after update")
+	assert.Len(t, protoFiles, 1, "expected exactly one proto file after update")
+	assert.Equal(t, pf.MetaData.Name, protoFiles[0].MetaData.Name, "expected proto file name")
+}
+
+func TestFilesystemV2_DeleteProtoFile(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new proto file
+	pf := domain.NewProtoFile("TestDelete")
+	err := fs.CreateProtoFile(pf)
+	assert.Nil(t, err, "expected no error creating proto file")
+
+	// Delete the proto file
+	err = fs.DeleteProtoFile(pf)
+	assert.Nil(t, err, "expected no error deleting proto file")
+
+	// Load the proto files to verify deletion
+	protoFiles, err := fs.LoadProtoFiles()
+	assert.Nil(t, err, "expected no error loading proto files after deletion")
+	assert.Len(t, protoFiles, 0, "expected no proto files after deletion")
+}
+
 // setupTest creates a temporary directory for testing and returns a cleanup function
 func setupTest(t *testing.T) (*FilesystemV2, func()) {
 	t.Helper()
