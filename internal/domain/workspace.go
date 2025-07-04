@@ -13,6 +13,10 @@ type Workspace struct {
 	MetaData   MetaData `yaml:"metadata"`
 }
 
+func (w *Workspace) ID() string {
+	return w.MetaData.ID
+}
+
 func (w *Workspace) GetKind() string {
 	return w.Kind
 }

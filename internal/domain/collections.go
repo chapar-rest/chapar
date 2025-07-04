@@ -12,6 +12,10 @@ type Collection struct {
 	Spec       ColSpec  `yaml:"spec"`
 }
 
+func (r *Collection) ID() string {
+	return r.MetaData.ID
+}
+
 func (c *Collection) GetKind() string {
 	return c.Kind
 }

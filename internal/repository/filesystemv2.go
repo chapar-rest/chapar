@@ -9,6 +9,7 @@ import (
 )
 
 type Entity interface {
+	ID() string
 	GetKind() string
 	GetName() string
 	SetName(name string)
@@ -18,12 +19,16 @@ type Entity interface {
 type FilesystemV2 struct {
 	dataDir       string
 	workspaceName string
+
+	// entities is a map to hold loaded entities so filesystem can name changes
+	entities map[string]string
 }
 
 func NewFilesystemV2(dataDir, workspaceName string) *FilesystemV2 {
 	return &FilesystemV2{
 		dataDir:       dataDir,
 		workspaceName: workspaceName,
+		entities:      make(map[string]string),
 	}
 }
 
@@ -37,6 +42,7 @@ func (f *FilesystemV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 }
 
 func (f *FilesystemV2) CreateProtoFile(protoFile *domain.ProtoFile) error {
+	f.entities[protoFile.ID()] = protoFile.GetName()
 	return f.writeProtoFile(protoFile, false)
 }
 
@@ -50,7 +56,13 @@ func (f *FilesystemV2) DeleteProtoFile(protoFile *domain.ProtoFile) error {
 		return err
 	}
 
-	return f.deleteEntity(path, protoFile)
+	if err := f.deleteEntity(path, protoFile); err != nil {
+		return err
+	}
+
+	// Remove the proto file from the entities map
+	delete(f.entities, protoFile.ID())
+	return nil
 }
 
 // LoadRequests loads standalone requests from the filesystem.
@@ -64,10 +76,33 @@ func (f *FilesystemV2) LoadRequests() ([]*domain.Request, error) {
 }
 
 func (f *FilesystemV2) CreateRequest(request *domain.Request, collection *domain.Collection) error {
+	// add the request to the entities map but break the pointer to avoid sharing the same object
+	f.entities[request.ID()] = request.GetName()
 	return f.writeStandaloneRequest(request, false)
 }
 
 func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain.Collection) error {
+	oldEntityName, ok := f.entities[request.ID()]
+	if !ok {
+		return fmt.Errorf("request with ID %s not found", request.ID())
+	}
+
+	// did the request change its name?
+	if oldEntityName != request.GetName() {
+		// as name has changed, we need to rename the file
+		path, err := f.EntityPath(domain.KindRequest)
+		if err != nil {
+			return err
+		}
+
+		if err := f.renameEntity(path, oldEntityName+".yaml", request.GetName()+".yaml"); err != nil {
+			return fmt.Errorf("cannot rename request with ID %s: %v", request.ID(), err)
+		}
+
+		// Update the name in the entities map
+		f.entities[request.ID()] = request.GetName()
+	}
+
 	return f.writeStandaloneRequest(request, true)
 }
 
@@ -79,7 +114,13 @@ func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain
 
 	// TODO: Handle collection-specific requests if here
 
-	return f.deleteEntity(dir, request)
+	if err := f.deleteEntity(dir, request); err != nil {
+		return err
+	}
+
+	// Remove the request from the entities map
+	delete(f.entities, request.ID())
+	return nil
 }
 
 func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
@@ -119,6 +160,39 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 }
 
 func (f *FilesystemV2) CreateCollection(collection *domain.Collection) error {
+	f.entities[collection.ID()] = collection.GetName()
+	return f.writeCollection(collection)
+}
+
+func (f *FilesystemV2) UpdateCollection(collection *domain.Collection) error {
+	// if the collection already exists, we can just update it otherwise, it means the name has changed
+	path, err := f.EntityPath(domain.KindCollection)
+	if err != nil {
+		return err
+	}
+
+	// Check if the collection name has changed
+	oldEntityName, ok := f.entities[collection.ID()]
+	if ok && oldEntityName != collection.GetName() {
+		// Rename the collection directory if the name has changed
+		if err := f.renameEntity(path, oldEntityName, collection.GetName()); err != nil {
+			return fmt.Errorf("cannot rename collection with ID %s: %v", collection.ID(), err)
+		}
+
+		// Update the name in the entities map
+		f.entities[collection.ID()] = collection.GetName()
+	}
+
+	collectionPath := filepath.Join(path, collection.GetName())
+	// if collection already exists, we can just update it
+	if _, err := os.Stat(filepath.Join(collectionPath, "_collection.yaml")); err == nil {
+		return f.writeMetadataFile(collectionPath, "_collection", collection)
+	}
+
+	return f.writeCollection(collection)
+}
+
+func (f *FilesystemV2) writeCollection(collection *domain.Collection) error {
 	path, err := f.EntityPath(domain.KindCollection)
 	if err != nil {
 		return err
@@ -126,11 +200,16 @@ func (f *FilesystemV2) CreateCollection(collection *domain.Collection) error {
 
 	collectionDir := filepath.Join(path, collection.GetName())
 	// Ensure the collection directory exists
-	if err := os.MkdirAll(collectionDir, 0755); err != nil {
-		return fmt.Errorf("failed to create collection directory: %w", err)
+	if _, err := os.Stat(collectionDir); os.IsNotExist(err) {
+		// Create the collection directory if it does not exist
+		if err := os.MkdirAll(collectionDir, 0755); err != nil {
+			return fmt.Errorf("failed to create collection directory: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to check collection directory: %w", err)
 	}
 
-	// Collection folder always has a file named "_collection.yaml" which contains the collection metadata
+	// Update the collection metadata file
 	return f.writeMetadataFile(collectionDir, "_collection", collection)
 }
 
@@ -200,6 +279,23 @@ func (f *FilesystemV2) writeRequestOrProtoFile(path string, e Entity, override b
 
 	filePath := filepath.Join(path, filename+".yaml")
 	return os.WriteFile(filePath, data, 0644)
+}
+
+func (f *FilesystemV2) renameEntity(path string, oldName, newName string) error {
+	oldFilePath := filepath.Join(path, oldName)
+	newFilePath := filepath.Join(path, newName)
+
+	// Check if the old file exists
+	if _, err := os.Stat(oldFilePath); os.IsNotExist(err) {
+		return fmt.Errorf("file %s does not exist", oldFilePath)
+	}
+
+	// Rename the entity
+	if err := os.Rename(oldFilePath, newFilePath); err != nil {
+		return fmt.Errorf("failed to rename file from %s to %s: %w", oldFilePath, newFilePath, err)
+	}
+
+	return nil
 }
 
 func (f *FilesystemV2) ensureUniqueName(path, name string) (string, error) {

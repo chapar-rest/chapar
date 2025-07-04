@@ -14,6 +14,10 @@ type Environment struct {
 	Spec       EnvSpec  `yaml:"spec"`
 }
 
+func (e *Environment) ID() string {
+	return e.MetaData.ID
+}
+
 func (e *Environment) GetKind() string {
 	return e.Kind
 }

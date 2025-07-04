@@ -333,6 +333,10 @@ type Preferences struct {
 	Spec       PrefSpec `yaml:"spec"`
 }
 
+func (c *Preferences) ID() string {
+	return c.MetaData.ID
+}
+
 func (c *Preferences) GetKind() string {
 	return c.Kind
 }

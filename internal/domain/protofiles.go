@@ -12,6 +12,10 @@ type ProtoFile struct {
 	Spec       ProtoFileSpec `yaml:"spec"`
 }
 
+func (p *ProtoFile) ID() string {
+	return p.MetaData.ID
+}
+
 func (p *ProtoFile) GetKind() string {
 	return p.Kind
 }

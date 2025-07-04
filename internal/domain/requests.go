@@ -61,6 +61,10 @@ type Request struct {
 	CollectionID   string `yaml:"-"`
 }
 
+func (r *Request) ID() string {
+	return r.MetaData.ID
+}
+
 func (r *Request) GetKind() string {
 	return r.Kind
 }

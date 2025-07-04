@@ -234,6 +234,29 @@ func TestFilesystemV2_UpdateRequest(t *testing.T) {
 	assert.Len(t, requests, 1, "expected exactly one request after update")
 	assert.Equal(t, req.MetaData.Name, requests[0].MetaData.Name, "expected request name to match")
 	assert.Equal(t, "https://updated.url", requests[0].Spec.HTTP.URL, "expected request URL to be updated")
+
+	// Update the request name to test renaming the file
+	req.MetaData.Name = "UpdatedRequestName"
+	err = fs.UpdateRequest(req, nil)
+	assert.Nil(t, err, "expected no error updating request name")
+
+	// Load the requests to verify the renaming
+	requests, err = fs.LoadRequests()
+	assert.Nil(t, err, "expected no error loading requests after renaming")
+	assert.Len(t, requests, 1, "expected exactly one request after renaming")
+	assert.Equal(t, "UpdatedRequestName", requests[0].MetaData.Name, "expected request name to be 'UpdatedRequestName'")
+
+	// Verify the file was renamed
+	requestPath, err := fs.EntityPath(domain.KindRequest)
+	assert.Nil(t, err, "expected no error getting request path")
+	renamedFilePath := filepath.Join(requestPath, "UpdatedRequestName.yaml")
+	_, err = os.Stat(renamedFilePath)
+	assert.Nil(t, err, "expected no error checking renamed request file existence")
+
+	// Check that the old file name does not exist
+	oldFilePath := filepath.Join(requestPath, "TestUpdateRequest.yaml")
+	_, err = os.Stat(oldFilePath)
+	assert.True(t, os.IsNotExist(err), "expected old request file to not exist after renaming")
 }
 
 func TestFilesystemV2_DeleteRequest(t *testing.T) {
@@ -306,6 +329,39 @@ func TestFilesystemV2_CreateCollection(t *testing.T) {
 	assert.Nil(t, err, "expected no error loading collections")
 	assert.Len(t, collections, 1, "expected exactly one collection after creation")
 	assert.Equal(t, col.MetaData.Name, collections[0].MetaData.Name, "expected collection name to match")
+}
+
+func TestFilesystemV2_UpdateCollection(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new collection
+	col := domain.NewCollection("TestUpdateCollection")
+	err := fs.CreateCollection(col)
+	assert.Nil(t, err, "expected no error creating collection")
+
+	// Update the collection
+	col.MetaData.Name = "UpdatedCollectionName"
+	err = fs.UpdateCollection(col)
+	assert.Nil(t, err, "expected no error updating collection")
+
+	// Load the collections to verify the update
+	collections, err := fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections after update")
+	assert.Len(t, collections, 1, "expected exactly one collection after update")
+
+	assert.Equal(t, "UpdatedCollectionName", collections[0].MetaData.Name, "expected collection name to be 'UpdatedCollectionName'")
+	// Verify the collection file was renamed
+	collectionPath, err := fs.EntityPath(domain.KindCollection)
+	assert.Nil(t, err, "expected no error getting collection path")
+	renamedDirPath := filepath.Join(collectionPath, "UpdatedCollectionName")
+	_, err = os.Stat(renamedDirPath)
+	assert.Nil(t, err, "expected no error checking renamed collection file existence")
+
+	// Check that the old file name does not exist
+	oldDirPath := filepath.Join(collectionPath, "TestUpdateCollection")
+	_, err = os.Stat(oldDirPath)
+	assert.True(t, os.IsNotExist(err), "expected old collection file to not exist after renaming")
 }
 
 // setupTest creates a temporary directory for testing and returns a cleanup function
