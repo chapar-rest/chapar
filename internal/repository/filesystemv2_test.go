@@ -272,11 +272,15 @@ func TestFilesystemV2_DeleteRequest(t *testing.T) {
 	err = fs.CreateRequest(req1, nil)
 	assert.Nil(t, err, "expected no error creating second request")
 
+	requests, err := fs.LoadRequests()
+	assert.Nil(t, err, "expected no error loading requests before deletion")
+	assert.Len(t, requests, 2, "expected exactly two requests before deletion")
+
 	// Delete the request
 	err = fs.DeleteRequest(req, nil)
 	assert.Nil(t, err, "expected no error deleting request")
 	// Load the requests to verify deletion
-	requests, err := fs.LoadRequests()
+	requests, err = fs.LoadRequests()
 	assert.Nil(t, err, "expected no error loading requests after deletion")
 	assert.Len(t, requests, 1, "expected exactly one request after deletion")
 	assert.Equal(t, req1.MetaData.Name, requests[0].MetaData.Name, "expected remaining request name to be 'NotToDeleteRequest'")
@@ -362,6 +366,34 @@ func TestFilesystemV2_UpdateCollection(t *testing.T) {
 	oldDirPath := filepath.Join(collectionPath, "TestUpdateCollection")
 	_, err = os.Stat(oldDirPath)
 	assert.True(t, os.IsNotExist(err), "expected old collection file to not exist after renaming")
+}
+
+func TestFilesystemV2_DeleteCollection(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create two new collections
+	col := domain.NewCollection("TestDeleteCollection")
+	err := fs.CreateCollection(col)
+	assert.Nil(t, err, "expected no error creating collection")
+
+	col1 := domain.NewCollection("NotToDeleteCollection")
+	err = fs.CreateCollection(col1)
+	assert.Nil(t, err, "expected no error creating second collection")
+
+	collections, err := fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections before deletion")
+	assert.Len(t, collections, 2, "expected exactly two collections before deletion")
+
+	// Delete the collection
+	err = fs.DeleteCollection(col)
+	assert.Nil(t, err, "expected no error deleting collection")
+
+	// Load the collections to verify deletion
+	collections, err = fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections after deletion")
+	assert.Len(t, collections, 1, "expected exactly one collection after deletion")
+	assert.Equal(t, col1.MetaData.Name, collections[0].MetaData.Name, "expected remaining collection name to be 'NotToDeleteCollection'")
 }
 
 // setupTest creates a temporary directory for testing and returns a cleanup function

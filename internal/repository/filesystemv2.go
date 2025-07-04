@@ -192,6 +192,22 @@ func (f *FilesystemV2) UpdateCollection(collection *domain.Collection) error {
 	return f.writeCollection(collection)
 }
 
+func (f *FilesystemV2) DeleteCollection(collection *domain.Collection) error {
+	path, err := f.EntityPath(domain.KindCollection)
+	if err != nil {
+		return err
+	}
+
+	// Delete the collection directory
+	if err := f.deleteEntity(path, collection); err != nil {
+		return err
+	}
+
+	// Remove the collection from the entities map
+	delete(f.entities, collection.ID())
+	return nil
+}
+
 func (f *FilesystemV2) writeCollection(collection *domain.Collection) error {
 	path, err := f.EntityPath(domain.KindCollection)
 	if err != nil {
