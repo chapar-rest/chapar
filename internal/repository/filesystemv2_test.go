@@ -119,8 +119,7 @@ func TestFilesystemV2_CreateProtoFile(t *testing.T) {
 		names = append(names, pf.MetaData.Name)
 	}
 
-	assert.Contains(t, names, "TestCreate", "expected original proto file name")
-	assert.Contains(t, names, "TestCreate_1", "expected unique name for duplicate proto file")
+	assert.Subset(t, names, []string{"TestCreate", "TestCreate_1"}, "expected original proto file name")
 }
 
 func TestFilesystemV2_UpdateProtoFile(t *testing.T) {
@@ -149,10 +148,14 @@ func TestFilesystemV2_DeleteProtoFile(t *testing.T) {
 	fs, cleanup := setupTest(t)
 	defer cleanup()
 
-	// Create a new proto file
+	// Create two new proto file
 	pf := domain.NewProtoFile("TestDelete")
 	err := fs.CreateProtoFile(pf)
 	assert.Nil(t, err, "expected no error creating proto file")
+
+	pf1 := domain.NewProtoFile("NotToDelete1")
+	err = fs.CreateProtoFile(pf1)
+	assert.Nil(t, err, "expected no error creating second proto file")
 
 	// Delete the proto file
 	err = fs.DeleteProtoFile(pf)
@@ -161,7 +164,8 @@ func TestFilesystemV2_DeleteProtoFile(t *testing.T) {
 	// Load the proto files to verify deletion
 	protoFiles, err := fs.LoadProtoFiles()
 	assert.Nil(t, err, "expected no error loading proto files after deletion")
-	assert.Len(t, protoFiles, 0, "expected no proto files after deletion")
+	assert.Len(t, protoFiles, 1, "expected exactly one proto file after deletion")
+	assert.Equal(t, pf1.MetaData.Name, protoFiles[0].MetaData.Name, "expected remaining proto file name to be 'NotToDelete1'")
 }
 
 // setupTest creates a temporary directory for testing and returns a cleanup function
