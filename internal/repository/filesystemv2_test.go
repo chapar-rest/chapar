@@ -396,6 +396,125 @@ func TestFilesystemV2_DeleteCollection(t *testing.T) {
 	assert.Equal(t, col1.MetaData.Name, collections[0].MetaData.Name, "expected remaining collection name to be 'NotToDeleteCollection'")
 }
 
+func TestFilesystemV2_LoadEnvironments(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a temporary environment file for testing
+	tempEnvFile := "test_env.yaml"
+	dir, err := fs.EntityPath(domain.KindEnv)
+	assert.Nil(t, err, "expected no error getting environment path")
+
+	tempFilePath := filepath.Join(dir, tempEnvFile)
+	env := domain.NewEnvironment("TestEnv")
+	assert.Nil(t, SaveToYaml(tempFilePath, env), "expected no error saving environment")
+
+	environments, err := fs.LoadEnvironments()
+	assert.Nil(t, err, "expected no error loading environments")
+
+	assert.Len(t, environments, 1, "expected exactly one environment")
+	assert.Equal(t, env.MetaData.Name, environments[0].MetaData.Name, "expected environment name to match")
+}
+
+func TestFilesystemV2_CreateEnvironment(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new environment
+	env := domain.NewEnvironment("TestEnv")
+	err := fs.CreateEnvironment(env)
+	assert.Nil(t, err, "expected no error creating environment")
+
+	// Verify the environment was created
+	environments, err := fs.LoadEnvironments()
+	assert.Nil(t, err, "expected no error loading environments")
+	assert.Len(t, environments, 1, "expected exactly one environment")
+
+	assert.Equal(t, env.MetaData.Name, environments[0].MetaData.Name, "expected environment name to match")
+
+	// Create another environment with the same name to test unique naming
+	envDuplicate := domain.NewEnvironment("TestEnv")
+	err = fs.CreateEnvironment(envDuplicate)
+	assert.Nil(t, err, "expected no error creating duplicate environment")
+	// Verify the duplicate was created with a unique name
+	environments, err = fs.LoadEnvironments()
+	assert.Nil(t, err, "expected no error loading environments after duplicate creation")
+	assert.Len(t, environments, 2, "expected exactly two environments after creating duplicate")
+	assert.Contains(t, []string{"TestEnv", "TestEnv_1"}, environments[1].MetaData.Name, "expected one of the environment names to be 'TestEnv' or 'TestEnv_1'")
+}
+
+func TestFilesystemV2_UpdateEnvironment(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new environment
+	env := domain.NewEnvironment("TestUpdateEnv")
+	err := fs.CreateEnvironment(env)
+	assert.Nil(t, err, "expected no error creating environment")
+
+	// Update the environment
+	env.Spec.Values = append(env.Spec.Values, domain.KeyValue{Key: "API_KEY", Value: "new_key"})
+	err = fs.UpdateEnvironment(env)
+	assert.Nil(t, err, "expected no error updating environment")
+
+	// Load the environments to verify the update
+	environments, err := fs.LoadEnvironments()
+	assert.Nil(t, err, "expected no error loading environments after update")
+	assert.Len(t, environments, 1, "expected exactly one environment after update")
+	assert.Equal(t, env.MetaData.Name, environments[0].MetaData.Name, "expected environment name to match")
+	assert.Len(t, environments[0].Spec.Values, 1, "expected one key-value pair in environment values")
+	assert.Equal(t, "API_KEY", environments[0].Spec.Values[0].Key, "expected key to be 'API_KEY'")
+
+	// Update the environment name to test renaming the file
+	env.MetaData.Name = "UpdatedEnvironmentName"
+	err = fs.UpdateEnvironment(env)
+	assert.Nil(t, err, "expected no error updating environment name")
+	// Load the environments to verify the renaming
+	environments, err = fs.LoadEnvironments()
+	assert.Nil(t, err, "expected no error loading environments after renaming")
+	assert.Len(t, environments, 1, "expected exactly one environment after renaming")
+	assert.Equal(t, "UpdatedEnvironmentName", environments[0].MetaData.Name, "expected environment name to be 'UpdatedEnvironmentName'")
+	// Verify the file was renamed
+	envPath, err := fs.EntityPath(domain.KindEnv)
+	assert.Nil(t, err, "expected no error getting environment path")
+	renamedFilePath := filepath.Join(envPath, "UpdatedEnvironmentName.yaml")
+	_, err = os.Stat(renamedFilePath)
+	assert.Nil(t, err, "expected no error checking renamed environment file existence")
+
+	// Check that the old file name does not exist
+	oldFilePath := filepath.Join(envPath, "TestUpdateEnv.yaml")
+	_, err = os.Stat(oldFilePath)
+	assert.True(t, os.IsNotExist(err), "expected old environment file to not exist after renaming")
+}
+
+func TestFilesystemV2_DeleteEnvironment(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create two new environments
+	env := domain.NewEnvironment("TestDeleteEnv")
+	err := fs.CreateEnvironment(env)
+	assert.Nil(t, err, "expected no error creating environment")
+
+	env1 := domain.NewEnvironment("NotToDeleteEnv")
+	err = fs.CreateEnvironment(env1)
+	assert.Nil(t, err, "expected no error creating second environment")
+
+	environments, err := fs.LoadEnvironments()
+	assert.Nil(t, err, "expected no error loading environments before deletion")
+	assert.Len(t, environments, 2, "expected exactly two environments before deletion")
+
+	// Delete the environment
+	err = fs.DeleteEnvironment(env)
+	assert.Nil(t, err, "expected no error deleting environment")
+
+	// Load the environments to verify deletion
+	environments, err = fs.LoadEnvironments()
+	assert.Nil(t, err, "expected no error loading environments after deletion")
+	assert.Len(t, environments, 1, "expected exactly one environment after deletion")
+	assert.Equal(t, env1.MetaData.Name, environments[0].MetaData.Name, "expected remaining environment name to be 'NotToDeleteEnv'")
+}
+
 // setupTest creates a temporary directory for testing and returns a cleanup function
 func setupTest(t *testing.T) (*FilesystemV2, func()) {
 	t.Helper()

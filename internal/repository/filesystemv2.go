@@ -208,6 +208,60 @@ func (f *FilesystemV2) DeleteCollection(collection *domain.Collection) error {
 	return nil
 }
 
+func (f *FilesystemV2) LoadEnvironments() ([]*domain.Environment, error) {
+	path, err := f.EntityPath(domain.KindEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	return loadList[domain.Environment](path)
+}
+
+func (f *FilesystemV2) CreateEnvironment(environment *domain.Environment) error {
+	f.entities[environment.ID()] = environment.GetName()
+	return f.writeEnvironmentFile(environment, false)
+}
+
+func (f *FilesystemV2) UpdateEnvironment(environment *domain.Environment) error {
+	oldEntityName, ok := f.entities[environment.ID()]
+	if !ok {
+		return fmt.Errorf("environment with ID %s not found", environment.ID())
+	}
+
+	// did the environment change its name?
+	if oldEntityName != environment.GetName() {
+		// as name has changed, we need to rename the file
+		path, err := f.EntityPath(environment.GetKind())
+		if err != nil {
+			return err
+		}
+
+		if err := f.renameEntity(path, oldEntityName+".yaml", environment.GetName()+".yaml"); err != nil {
+			return fmt.Errorf("cannot rename environment with ID %s: %v", environment.ID(), err)
+		}
+
+		// Update the name in the entities map
+		f.entities[environment.ID()] = environment.GetName()
+	}
+
+	return f.writeEnvironmentFile(environment, true)
+}
+
+func (f *FilesystemV2) DeleteEnvironment(environment *domain.Environment) error {
+	path, err := f.EntityPath(environment.GetKind())
+	if err != nil {
+		return err
+	}
+
+	if err := f.deleteEntity(path, environment); err != nil {
+		return err
+	}
+
+	// Remove the environment from the entities map
+	delete(f.entities, environment.ID())
+	return nil
+}
+
 func (f *FilesystemV2) writeCollection(collection *domain.Collection) error {
 	path, err := f.EntityPath(domain.KindCollection)
 	if err != nil {
@@ -244,7 +298,7 @@ func (f *FilesystemV2) writeStandaloneRequest(request *domain.Request, override 
 	if err != nil {
 		return err
 	}
-	return f.writeRequestOrProtoFile(path, request, override)
+	return f.writeFile(path, request, override)
 }
 
 func (f *FilesystemV2) writeProtoFile(protoFile *domain.ProtoFile, override bool) error {
@@ -252,7 +306,15 @@ func (f *FilesystemV2) writeProtoFile(protoFile *domain.ProtoFile, override bool
 	if err != nil {
 		return err
 	}
-	return f.writeRequestOrProtoFile(path, protoFile, override)
+	return f.writeFile(path, protoFile, override)
+}
+
+func (f *FilesystemV2) writeEnvironmentFile(environment *domain.Environment, override bool) error {
+	path, err := f.EntityPath(environment.GetKind())
+	if err != nil {
+		return err
+	}
+	return f.writeFile(path, environment, override)
 }
 
 func (f *FilesystemV2) deleteEntity(path string, e Entity) error {
@@ -274,8 +336,8 @@ func (f *FilesystemV2) deleteEntity(path string, e Entity) error {
 	return nil
 }
 
-// writeRequestOrProtoFile, writes the protofile or request files to the filesystem.
-func (f *FilesystemV2) writeRequestOrProtoFile(path string, e Entity, override bool) error {
+// writeFile, writes the protofile, request and environment files to the filesystem.
+func (f *FilesystemV2) writeFile(path string, e Entity, override bool) error {
 	filename := e.GetName()
 	if !override {
 		uniqueName, err := f.ensureUniqueName(path, e.GetName())
@@ -344,6 +406,7 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 	case domain.KindRequest:
 		path = filepath.Join(f.dataDir, f.workspaceName, "requests")
 	default:
+		// workspace and old config files are living in the dataDir directly
 		path = filepath.Join(f.dataDir)
 	}
 
