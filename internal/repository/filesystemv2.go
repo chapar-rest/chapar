@@ -344,10 +344,7 @@ func (f *FilesystemV2) writeWorkspace(workspace *domain.Workspace, override bool
 
 	if !override {
 		// Ensure the workspace name is unique
-		uniqueName, err := f.ensureUniqueName(path, workspace.GetName(), "")
-		if err != nil {
-			return fmt.Errorf("failed to ensure unique workspace name: %w", err)
-		}
+		uniqueName := f.ensureUniqueName(path, workspace.GetName(), "")
 		workspace.SetName(uniqueName)
 	}
 
@@ -379,10 +376,7 @@ func (f *FilesystemV2) writeCollection(collection *domain.Collection, override b
 
 	if !override {
 		// Ensure the collection name is unique
-		uniqueName, err := f.ensureUniqueName(path, collection.GetName(), "")
-		if err != nil {
-			return fmt.Errorf("failed to ensure unique collection name: %w", err)
-		}
+		uniqueName := f.ensureUniqueName(path, collection.GetName(), "")
 		collection.SetName(uniqueName)
 	}
 
@@ -458,11 +452,7 @@ func (f *FilesystemV2) deleteEntity(path string, e Entity) error {
 func (f *FilesystemV2) writeFile(path string, e Entity, override bool) error {
 	filename := e.GetName()
 	if !override {
-		uniqueName, err := f.ensureUniqueName(path, e.GetName(), ".yaml")
-		if err != nil {
-			return err
-		}
-
+		uniqueName := f.ensureUniqueName(path, e.GetName(), ".yaml")
 		// Set the unique name to the entity
 		e.SetName(uniqueName)
 		filename = uniqueName
@@ -494,19 +484,18 @@ func (f *FilesystemV2) renameEntity(path string, oldName, newName string) error 
 	return nil
 }
 
-func (f *FilesystemV2) ensureUniqueName(path, name, extension string) (string, error) {
-	filePath := filepath.Join(path, name, extension)
-
+func (f *FilesystemV2) ensureUniqueName(path, name, extension string) string {
+	filePath := filepath.Join(path, name+extension)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return name, nil
+		return name
 	}
 
 	// If the file already exists, append a suffix to make it unique
 	for i := 1; ; i++ {
 		newName := fmt.Sprintf("%s_%d", name, i)
-		newFilePath := filepath.Join(path, newName, extension)
+		newFilePath := filepath.Join(path, newName+extension)
 		if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
-			return newName, nil
+			return newName
 		}
 	}
 }
