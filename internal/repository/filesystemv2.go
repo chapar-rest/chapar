@@ -38,7 +38,9 @@ func (f *FilesystemV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 		return nil, err
 	}
 
-	return loadList[domain.ProtoFile](dir)
+	return loadList[domain.ProtoFile](dir, func(n *domain.ProtoFile) {
+		f.entities[n.ID()] = n.GetName()
+	})
 }
 
 func (f *FilesystemV2) CreateProtoFile(protoFile *domain.ProtoFile) error {
@@ -72,7 +74,9 @@ func (f *FilesystemV2) LoadRequests() ([]*domain.Request, error) {
 		return nil, err
 	}
 
-	return loadList[domain.Request](dir)
+	return loadList[domain.Request](dir, func(n *domain.Request) {
+		f.entities[n.ID()] = n.GetName()
+	})
 }
 
 func (f *FilesystemV2) CreateRequest(request *domain.Request, collection *domain.Collection) error {
@@ -215,7 +219,9 @@ func (f *FilesystemV2) LoadEnvironments() ([]*domain.Environment, error) {
 		return nil, err
 	}
 
-	return loadList[domain.Environment](path)
+	return loadList[domain.Environment](path, func(n *domain.Environment) {
+		f.entities[n.ID()] = n.GetName()
+	})
 }
 
 func (f *FilesystemV2) CreateEnvironment(environment *domain.Environment) error {
@@ -524,7 +530,7 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 	return path, nil
 }
 
-func loadList[T any](dir string) ([]*T, error) {
+func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 	var out []*T
 
 	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
@@ -537,6 +543,9 @@ func loadList[T any](dir string) ([]*T, error) {
 			return nil, err
 		} else {
 			out = append(out, item)
+			if fallback != nil {
+				fallback(item)
+			}
 		}
 	}
 
