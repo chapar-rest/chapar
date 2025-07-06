@@ -154,6 +154,7 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 		}
 
 		collections = append(collections, collection)
+		f.entities[collection.ID()] = collection.GetName()
 	}
 
 	return collections, nil
@@ -161,7 +162,7 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 
 func (f *FilesystemV2) CreateCollection(collection *domain.Collection) error {
 	f.entities[collection.ID()] = collection.GetName()
-	return f.writeCollection(collection)
+	return f.writeCollection(collection, false)
 }
 
 func (f *FilesystemV2) UpdateCollection(collection *domain.Collection) error {
@@ -189,7 +190,7 @@ func (f *FilesystemV2) UpdateCollection(collection *domain.Collection) error {
 		return f.writeMetadataFile(collectionPath, "_collection", collection)
 	}
 
-	return f.writeCollection(collection)
+	return f.writeCollection(collection, true)
 }
 
 func (f *FilesystemV2) DeleteCollection(collection *domain.Collection) error {
@@ -262,10 +263,127 @@ func (f *FilesystemV2) DeleteEnvironment(environment *domain.Environment) error 
 	return nil
 }
 
-func (f *FilesystemV2) writeCollection(collection *domain.Collection) error {
+func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
+	// Workspaces are stored in the dataDir directly
+	path := f.dataDir
+
+	// Load all workspace directories
+	dirs, err := os.ReadDir(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workspace directory: %w", err)
+	}
+
+	var workspaces []*domain.Workspace
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue // Skip non-directory entries
+		}
+
+		// Each workspace directory should have a "workspace.yaml" file
+		workspaceFile := filepath.Join(path, dir.Name(), "_workspace.yaml")
+		if _, err := os.Stat(workspaceFile); os.IsNotExist(err) {
+			continue // Skip if the workspace file does not exist
+		}
+
+		// Load the workspace from the YAML file
+		workspace, err := LoadFromYaml[domain.Workspace](workspaceFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load workspace %s: %w", dir.Name(), err)
+		}
+
+		workspaces = append(workspaces, workspace)
+		f.entities[workspace.ID()] = workspace.GetName()
+	}
+
+	return workspaces, nil
+}
+
+// CreateWorkspace creates a new workspace and writes it to the filesystem.
+func (f *FilesystemV2) CreateWorkspace(workspace *domain.Workspace) error {
+	f.entities[workspace.ID()] = workspace.GetName()
+	return f.writeWorkspace(workspace, false)
+}
+
+// UpdateWorkspace updates an existing workspace and writes it to the filesystem.
+func (f *FilesystemV2) UpdateWorkspace(workspace *domain.Workspace) error {
+	oldEntityName, ok := f.entities[workspace.ID()]
+	if !ok {
+		return fmt.Errorf("workspace with ID %s not found", workspace.ID())
+	}
+
+	// did the workspace change its name?
+	if oldEntityName != workspace.GetName() {
+		// as name has changed, we need to rename the file
+		if err := f.renameEntity(f.dataDir, oldEntityName, workspace.GetName()); err != nil {
+			return fmt.Errorf("cannot rename workspace with ID %s: %v", workspace.ID(), err)
+		}
+
+		// Update the name in the entities map
+		f.entities[workspace.ID()] = workspace.GetName()
+	}
+
+	return f.writeWorkspace(workspace, true)
+}
+
+func (f *FilesystemV2) DeleteWorkspace(workspace *domain.Workspace) error {
+	// Delete the workspace directory
+	if err := f.deleteEntity(f.dataDir, workspace); err != nil {
+		return err
+	}
+
+	// Remove the workspace from the entities map
+	delete(f.entities, workspace.ID())
+	return nil
+}
+
+func (f *FilesystemV2) writeWorkspace(workspace *domain.Workspace, override bool) error {
+	path, err := f.EntityPath(domain.KindWorkspace)
+	if err != nil {
+		return err
+	}
+
+	if !override {
+		// Ensure the workspace name is unique
+		uniqueName, err := f.ensureUniqueName(path, workspace.GetName(), "")
+		if err != nil {
+			return fmt.Errorf("failed to ensure unique workspace name: %w", err)
+		}
+		workspace.SetName(uniqueName)
+	}
+
+	workspaceDir := filepath.Join(path, workspace.GetName())
+	// Ensure the workspace directory exists
+	if _, err := os.Stat(workspaceDir); os.IsNotExist(err) {
+		// Create the workspace directory if it does not exist
+		if err := os.MkdirAll(workspaceDir, 0755); err != nil {
+			return fmt.Errorf("failed to create collection directory: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to check collection directory: %w", err)
+	}
+
+	// Update the collection metadata file
+	if err := f.writeMetadataFile(workspaceDir, "_workspace", workspace); err != nil {
+		return err
+	}
+
+	f.entities[workspace.ID()] = workspace.GetName()
+	return nil
+}
+
+func (f *FilesystemV2) writeCollection(collection *domain.Collection, override bool) error {
 	path, err := f.EntityPath(domain.KindCollection)
 	if err != nil {
 		return err
+	}
+
+	if !override {
+		// Ensure the collection name is unique
+		uniqueName, err := f.ensureUniqueName(path, collection.GetName(), "")
+		if err != nil {
+			return fmt.Errorf("failed to ensure unique collection name: %w", err)
+		}
+		collection.SetName(uniqueName)
 	}
 
 	collectionDir := filepath.Join(path, collection.GetName())
@@ -340,7 +458,7 @@ func (f *FilesystemV2) deleteEntity(path string, e Entity) error {
 func (f *FilesystemV2) writeFile(path string, e Entity, override bool) error {
 	filename := e.GetName()
 	if !override {
-		uniqueName, err := f.ensureUniqueName(path, e.GetName())
+		uniqueName, err := f.ensureUniqueName(path, e.GetName(), ".yaml")
 		if err != nil {
 			return err
 		}
@@ -376,9 +494,8 @@ func (f *FilesystemV2) renameEntity(path string, oldName, newName string) error 
 	return nil
 }
 
-func (f *FilesystemV2) ensureUniqueName(path, name string) (string, error) {
-	fileName := name + ".yaml"
-	filePath := filepath.Join(path, fileName)
+func (f *FilesystemV2) ensureUniqueName(path, name, extension string) (string, error) {
+	filePath := filepath.Join(path, name, extension)
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return name, nil
@@ -387,7 +504,7 @@ func (f *FilesystemV2) ensureUniqueName(path, name string) (string, error) {
 	// If the file already exists, append a suffix to make it unique
 	for i := 1; ; i++ {
 		newName := fmt.Sprintf("%s_%d", name, i)
-		newFilePath := filepath.Join(path, newName+".yaml")
+		newFilePath := filepath.Join(path, newName, extension)
 		if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
 			return newName, nil
 		}

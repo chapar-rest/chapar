@@ -333,6 +333,16 @@ func TestFilesystemV2_CreateCollection(t *testing.T) {
 	assert.Nil(t, err, "expected no error loading collections")
 	assert.Len(t, collections, 1, "expected exactly one collection after creation")
 	assert.Equal(t, col.MetaData.Name, collections[0].MetaData.Name, "expected collection name to match")
+
+	// Create another collection with the same name to test unique naming
+	colDuplicate := domain.NewCollection("TestCreateCollection")
+	err = fs.CreateCollection(colDuplicate)
+	assert.Nil(t, err, "expected no error creating collection")
+	// Verify the duplicate was created with a unique name
+	collections, err = fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections after duplicate creation")
+	assert.Len(t, collections, 2, "expected exactly two collections after creating duplicate")
+	assert.Contains(t, []string{"TestCreateCollection", "TestCreateCollection_1"}, collections[1].MetaData.Name, "expected one of the collection names to be 'TestCreateCollection' or 'TestCreateCollection_1'")
 }
 
 func TestFilesystemV2_UpdateCollection(t *testing.T) {
@@ -513,6 +523,126 @@ func TestFilesystemV2_DeleteEnvironment(t *testing.T) {
 	assert.Nil(t, err, "expected no error loading environments after deletion")
 	assert.Len(t, environments, 1, "expected exactly one environment after deletion")
 	assert.Equal(t, env1.MetaData.Name, environments[0].MetaData.Name, "expected remaining environment name to be 'NotToDeleteEnv'")
+}
+
+func TestFilesystemV2_LoadWorkspaces(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a temporary workspace file for testing
+	dir, err := fs.EntityPath(domain.KindWorkspace)
+	assert.Nil(t, err, "expected no error getting workspace path")
+	workspaceMetaPath := filepath.Join(dir, "TestWorkspace", "_workspace.yaml")
+
+	// make sure the directory exists
+	err = os.MkdirAll(filepath.Dir(workspaceMetaPath), 0755)
+	assert.Nil(t, err, "expected no error creating workspace directory")
+
+	// create an empty folder in workspaces directory
+	// this folder will be skipped by LoadWorkspaces as it does not contain a "_workspace.yaml" file
+	noneWorkspaceDir := filepath.Join(dir, "NoneWorkspace")
+	err = os.MkdirAll(noneWorkspaceDir, 0755)
+	assert.Nil(t, err, "expected no error creating none workspace directory")
+
+	// create a random file in the workspaces directory
+	// this file will not be loaded as a workspace
+	randomFilePath := filepath.Join(dir, "random.txt")
+	err = os.WriteFile(randomFilePath, []byte("This is a random file"), 0644)
+
+	wks := domain.NewWorkspace("TestWorkspace")
+	assert.Nil(t, SaveToYaml(workspaceMetaPath, wks), "expected no error saving workspace")
+
+	collections, err := fs.LoadWorkspaces()
+	assert.Nil(t, err, "expected no error loading workspaces")
+	assert.Len(t, collections, 1, "expected exactly one workspace")
+	assert.Equal(t, wks.MetaData.Name, collections[0].MetaData.Name, "expected workspace name to match")
+}
+
+func TestFilesystemV2_CreateWorkspace(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new workspace
+	wks := domain.NewWorkspace("TestCreateWorkspace")
+	err := fs.CreateWorkspace(wks)
+	assert.Nil(t, err, "expected no error creating workspace")
+
+	// Verify the workspace was created
+	collections, err := fs.LoadWorkspaces()
+	assert.Nil(t, err, "expected no error loading workspaces")
+	assert.Len(t, collections, 1, "expected exactly one workspace after creation")
+	assert.Equal(t, wks.MetaData.Name, collections[0].MetaData.Name, "expected workspace name to match")
+
+	// Create another workspace with the same name to test unique naming
+	wksDuplicate := domain.NewWorkspace("TestCreateWorkspace")
+	err = fs.CreateWorkspace(wksDuplicate)
+	assert.Nil(t, err, "expected no error creating duplicate workspace")
+	// Verify the duplicate was created with a unique name
+	collections, err = fs.LoadWorkspaces()
+	assert.Nil(t, err, "expected no error loading workspaces after duplicate creation")
+	assert.Len(t, collections, 2, "expected exactly two workspaces after creating duplicate")
+	assert.Contains(t, []string{"TestCreateWorkspace", "TestCreateWorkspace_1"}, collections[1].MetaData.Name, "expected one of the workspace names to be 'TestCreateWorkspace' or 'TestCreateWorkspace_1'")
+}
+
+func TestFilesystemV2_UpdateWorkspace(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new workspace
+	wks := domain.NewWorkspace("TestUpdateWorkspace")
+	err := fs.CreateWorkspace(wks)
+	assert.Nil(t, err, "expected no error creating workspace")
+
+	// Update the workspace
+	wks.MetaData.Name = "UpdatedWorkspaceName"
+	err = fs.UpdateWorkspace(wks)
+	assert.Nil(t, err, "expected no error updating workspace")
+
+	// Load the workspaces to verify the update
+	collections, err := fs.LoadWorkspaces()
+	assert.Nil(t, err, "expected no error loading workspaces after update")
+	assert.Len(t, collections, 1, "expected exactly one workspace after update")
+	assert.Equal(t, "UpdatedWorkspaceName", collections[0].MetaData.Name, "expected workspace name to be 'UpdatedWorkspaceName'")
+
+	// Verify the directory was renamed
+	wksPath, err := fs.EntityPath(domain.KindWorkspace)
+	assert.Nil(t, err, "expected no error getting workspace path")
+	renamedDirPath := filepath.Join(wksPath, "UpdatedWorkspaceName")
+	_, err = os.Stat(renamedDirPath)
+	assert.Nil(t, err, "expected no error checking renamed workspace directory existence")
+
+	// Check that the old directory name does not exist
+	oldDirPath := filepath.Join(wksPath, "TestUpdateWorkspace")
+	_, err = os.Stat(oldDirPath)
+	assert.True(t, os.IsNotExist(err), "expected old workspace directory to not exist after renaming")
+}
+
+func TestFilesystemV2_DeleteWorkspace(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create two new workspaces
+	wks := domain.NewWorkspace("TestDeleteWorkspace")
+	err := fs.CreateWorkspace(wks)
+	assert.Nil(t, err, "expected no error creating workspace")
+
+	wks1 := domain.NewWorkspace("NotToDeleteWorkspace")
+	err = fs.CreateWorkspace(wks1)
+	assert.Nil(t, err, "expected no error creating second workspace")
+
+	collections, err := fs.LoadWorkspaces()
+	assert.Nil(t, err, "expected no error loading workspaces before deletion")
+	assert.Len(t, collections, 2, "expected exactly two workspaces before deletion")
+
+	// Delete the workspace
+	err = fs.DeleteWorkspace(wks)
+	assert.Nil(t, err, "expected no error deleting workspace")
+
+	// Load the workspaces to verify deletion
+	collections, err = fs.LoadWorkspaces()
+	assert.Nil(t, err, "expected no error loading workspaces after deletion")
+	assert.Len(t, collections, 1, "expected exactly one workspace after deletion")
+	assert.Equal(t, wks1.MetaData.Name, collections[0].MetaData.Name, "expected remaining workspace name to be 'NotToDeleteWorkspace'")
 }
 
 // setupTest creates a temporary directory for testing and returns a cleanup function
