@@ -82,7 +82,7 @@ func (f *FilesystemV2) LoadRequests() ([]*domain.Request, error) {
 func (f *FilesystemV2) CreateRequest(request *domain.Request, collection *domain.Collection) error {
 	// add the request to the entities map but break the pointer to avoid sharing the same object
 	f.entities[request.ID()] = request.GetName()
-	return f.writeStandaloneRequest(request, false)
+	return f.writeStandaloneRequest(request, collection, false)
 }
 
 func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain.Collection) error {
@@ -93,10 +93,19 @@ func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain
 
 	// did the request change its name?
 	if oldEntityName != request.GetName() {
+		kind := domain.KindRequest
+		if collection != nil {
+			kind = domain.KindCollection
+		}
 		// as name has changed, we need to rename the file
-		path, err := f.EntityPath(domain.KindRequest)
+		path, err := f.EntityPath(kind)
 		if err != nil {
 			return err
+		}
+
+		if collection != nil {
+			// if request is part of a collection, we need to add the collection name to the path
+			path = filepath.Join(path, collection.GetName())
 		}
 
 		if err := f.renameEntity(path, oldEntityName+".yaml", request.GetName()+".yaml"); err != nil {
@@ -107,16 +116,24 @@ func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain
 		f.entities[request.ID()] = request.GetName()
 	}
 
-	return f.writeStandaloneRequest(request, true)
+	return f.writeStandaloneRequest(request, collection, true)
 }
 
 func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain.Collection) error {
-	dir, err := f.EntityPath(domain.KindRequest)
+	kind := domain.KindRequest
+	if collection != nil {
+		kind = domain.KindCollection
+	}
+
+	dir, err := f.EntityPath(kind)
 	if err != nil {
 		return err
 	}
 
-	// TODO: Handle collection-specific requests if here
+	// If the request is part of a collection, we need to delete it from the collection directory
+	if collection != nil {
+		dir = filepath.Join(dir, collection.GetName())
+	}
 
 	if err := f.deleteEntity(dir, request); err != nil {
 		return err
@@ -157,11 +174,23 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 			return nil, fmt.Errorf("failed to load collection %s: %w", dir.Name(), err)
 		}
 
+		requests, err := f.loadCollectionRequests(filepath.Join(path, dir.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to load requests for collection %s: %w", dir.Name(), err)
+		}
+		collection.Spec.Requests = requests
+
 		collections = append(collections, collection)
 		f.entities[collection.ID()] = collection.GetName()
 	}
 
 	return collections, nil
+}
+
+func (f *FilesystemV2) loadCollectionRequests(path string) ([]*domain.Request, error) {
+	return loadList[domain.Request](path, func(n *domain.Request) {
+		f.entities[n.ID()] = n.GetName()
+	})
 }
 
 func (f *FilesystemV2) CreateCollection(collection *domain.Collection) error {
@@ -411,11 +440,22 @@ func (f *FilesystemV2) writeMetadataFile(path, name string, e Entity) error {
 	return os.WriteFile(filePath, data, 0644)
 }
 
-func (f *FilesystemV2) writeStandaloneRequest(request *domain.Request, override bool) error {
-	path, err := f.EntityPath(domain.KindRequest)
+func (f *FilesystemV2) writeStandaloneRequest(request *domain.Request, collection *domain.Collection, override bool) error {
+	kind := domain.KindRequest
+	if collection != nil {
+		kind = domain.KindCollection
+	}
+
+	path, err := f.EntityPath(kind)
 	if err != nil {
 		return err
 	}
+
+	if collection != nil {
+		// if the request is part of a collection, we need to add the collection name to the path
+		path = filepath.Join(path, collection.GetName())
+	}
+
 	return f.writeFile(path, request, override)
 }
 
@@ -456,12 +496,10 @@ func (f *FilesystemV2) deleteEntity(path string, e Entity) error {
 
 // writeFile, writes the protofile, request and environment files to the filesystem.
 func (f *FilesystemV2) writeFile(path string, e Entity, override bool) error {
-	filename := e.GetName()
 	if !override {
 		uniqueName := f.ensureUniqueName(path, e.GetName(), ".yaml")
 		// Set the unique name to the entity
 		e.SetName(uniqueName)
-		filename = uniqueName
 	}
 
 	data, err := e.MarshalYaml()
@@ -469,7 +507,7 @@ func (f *FilesystemV2) writeFile(path string, e Entity, override bool) error {
 		return fmt.Errorf("failed to marshal entity %s", e.GetName())
 	}
 
-	filePath := filepath.Join(path, filename+".yaml")
+	filePath := filepath.Join(path, e.GetName()+".yaml")
 	return os.WriteFile(filePath, data, 0644)
 }
 
@@ -539,6 +577,11 @@ func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 	}
 
 	for _, file := range files {
+		// skip the metadata files
+		if filepath.Base(file) == "_collection.yaml" || filepath.Base(file) == "_workspace.yaml" {
+			continue
+		}
+
 		if item, err := LoadFromYaml[T](file); err != nil {
 			return nil, err
 		} else {

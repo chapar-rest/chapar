@@ -214,6 +214,127 @@ func TestFilesystemV2_CreateRequest(t *testing.T) {
 	assert.Contains(t, []string{"TestCreateRequest", "TestCreateRequest_1"}, requests[1].MetaData.Name, "expected one of the request names to be 'TestCreateRequest' or 'TestCreateRequest_1'")
 }
 
+func TestFilesystemV2_CreateRequestInCollection(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new collection
+	col := domain.NewCollection("TestCollection")
+	err := fs.CreateCollection(col)
+	assert.Nil(t, err, "expected no error creating collection")
+
+	// Create a new request in the collection
+	req := domain.NewHTTPRequest("TestRequestInCollection")
+	err = fs.CreateRequest(req, col)
+	assert.Nil(t, err, "expected no error creating request")
+
+	// Load the collections to verify the creation
+	collections, err := fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections")
+	assert.Len(t, collections, 1, "expected exactly one collection after creation")
+	assert.Equal(t, col.MetaData.Name, collections[0].MetaData.Name, "expected collection name to match")
+	// Verify the request was added to the collection
+	assert.Len(t, collections[0].Spec.Requests, 1, "expected exactly one request in the collection")
+	assert.Equal(t, req.MetaData.Name, collections[0].Spec.Requests[0].MetaData.Name, "expected request name to match")
+
+	// Create another request with the same name in the collection to test unique naming
+	reqDuplicate := domain.NewHTTPRequest("TestRequestInCollection")
+	err = fs.CreateRequest(reqDuplicate, col)
+	assert.Nil(t, err, "expected no error creating duplicate request in collection")
+
+	// Verify the duplicate was created with a unique name
+	collections, err = fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading requests after duplicate creation")
+	assert.Len(t, collections, 1, "expected exactly one collection after creation")
+	assert.Len(t, collections[0].Spec.Requests, 2, "expected exactly two requests in the collection after creating duplicate")
+	assert.Contains(t, []string{"TestRequestInCollection", "TestRequestInCollection_1"}, collections[0].Spec.Requests[1].MetaData.Name, "expected one of the request names to be 'TestRequestInCollection' or 'TestRequestInCollection_1'")
+}
+
+func TestFilesystemV2_UpdateRequestInCollection(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new collection
+	col := domain.NewCollection("TestUpdateCollection")
+	err := fs.CreateCollection(col)
+	assert.Nil(t, err, "expected no error creating collection")
+
+	// Create a new request in the collection
+	req := domain.NewHTTPRequest("TestRequestInCollection")
+	err = fs.CreateRequest(req, col)
+	assert.Nil(t, err, "expected no error creating request in collection")
+
+	// Update the request
+	req.Spec.HTTP.URL = "https://updated.url"
+	err = fs.UpdateRequest(req, col)
+	assert.Nil(t, err, "expected no error updating request in collection")
+
+	// Load the collections to verify the update
+	collections, err := fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections after update")
+	assert.Len(t, collections, 1, "expected exactly one collection after update")
+	assert.Equal(t, col.MetaData.Name, collections[0].MetaData.Name, "expected collection name to match")
+
+	// Update the request name to test renaming the file
+	req.MetaData.Name = "UpdatedRequestName"
+	err = fs.UpdateRequest(req, col)
+	assert.Nil(t, err, "expected no error updating request name in collection")
+	// Load the collections to verify the renaming
+	collections, err = fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections after renaming")
+	assert.Len(t, collections, 1, "expected exactly one collection after renaming")
+	assert.Len(t, collections[0].Spec.Requests, 1, "expected exactly one request in the collection after renaming")
+	assert.Equal(t, "UpdatedRequestName", collections[0].Spec.Requests[0].MetaData.Name, "expected request name to be 'UpdatedRequestName'")
+
+	// Verify the file was renamed
+	requestPath, err := fs.EntityPath(domain.KindCollection)
+	assert.Nil(t, err, "expected no error getting request path")
+	renamedFilePath := filepath.Join(requestPath, "TestUpdateCollection", "UpdatedRequestName.yaml")
+	_, err = os.Stat(renamedFilePath)
+	assert.Nil(t, err, "expected no error checking renamed request file existence")
+
+	// Check that the old file name does not exist
+	oldFilePath := filepath.Join(requestPath, "TestUpdateCollection", "TestRequestInCollection.yaml")
+	_, err = os.Stat(oldFilePath)
+	assert.True(t, os.IsNotExist(err), "expected old request file to not exist after renaming")
+}
+
+func TestFilesystemV2_DeleteRequestInCollection(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Create a new collection
+	col := domain.NewCollection("TestDeleteCollection")
+	err := fs.CreateCollection(col)
+	assert.Nil(t, err, "expected no error creating collection")
+
+	// Create two new requests in the collection
+	req := domain.NewHTTPRequest("TestRequestToDelete")
+	err = fs.CreateRequest(req, col)
+	assert.Nil(t, err, "expected no error creating request in collection")
+
+	req1 := domain.NewHTTPRequest("NotToDeleteRequest")
+	err = fs.CreateRequest(req1, col)
+	assert.Nil(t, err, "expected no error creating second request in collection")
+
+	collections, err := fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections before deletion")
+	assert.Len(t, collections, 1, "expected exactly one collection before deletion")
+	assert.Len(t, collections[0].Spec.Requests, 2, "expected exactly two requests in the collection before deletion")
+
+	// Delete the request
+	err = fs.DeleteRequest(req, col)
+	assert.Nil(t, err, "expected no error deleting request from collection")
+
+	// Load the collections to verify deletion
+	collections, err = fs.LoadCollections()
+	assert.Nil(t, err, "expected no error loading collections after deletion")
+	assert.Len(t, collections, 1, "expected exactly one collection after deletion")
+	assert.Len(t, collections[0].Spec.Requests, 1, "expected exactly one request in the collection after deletion")
+	assert.Equal(t, req1.MetaData.Name, collections[0].Spec.Requests[0].MetaData.Name,
+		"expected remaining request name to be 'NotToDeleteRequest'")
+}
+
 func TestFilesystemV2_UpdateRequest(t *testing.T) {
 	fs, cleanup := setupTest(t)
 	defer cleanup()
