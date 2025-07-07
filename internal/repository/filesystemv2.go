@@ -175,7 +175,7 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 		return nil, fmt.Errorf("failed to read collection directory: %w", err)
 	}
 
-	var collections []*domain.Collection
+	collections := make([]*domain.Collection, 0, len(dirs))
 	for _, dir := range dirs {
 		if !dir.IsDir() {
 			continue // Skip non-directory entries
@@ -329,7 +329,7 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 		return nil, fmt.Errorf("failed to read workspace directory: %w", err)
 	}
 
-	var workspaces []*domain.Workspace
+	workspaces := make([]*domain.Workspace, 0, len(dirs))
 	for _, dir := range dirs {
 		if !dir.IsDir() {
 			continue // Skip non-directory entries
@@ -578,7 +578,7 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 		path = filepath.Join(f.dataDir, f.workspaceName, "requests")
 	default:
 		// workspace and old config files are living in the dataDir directly
-		path = filepath.Join(f.dataDir)
+		path = f.dataDir
 	}
 
 	// Ensure the directory exists
