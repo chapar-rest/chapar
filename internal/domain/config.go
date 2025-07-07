@@ -242,7 +242,7 @@ func GetDefaultAppState() *AppState {
 		Spec: AppStateSpec{
 			ActiveWorkspace: &ActiveWorkspace{
 				ID:   "default",
-				Name: "Default Workspace",
+				Name: DefaultWorkspaceName,
 			},
 			SelectedEnvironment: &SelectedEnvironment{},
 		},

@@ -24,12 +24,31 @@ type FilesystemV2 struct {
 	entities map[string]string
 }
 
-func NewFilesystemV2(dataDir, workspaceName string) *FilesystemV2 {
-	return &FilesystemV2{
+func NewFilesystemV2(dataDir, workspaceName string) (*FilesystemV2, error) {
+	fs := &FilesystemV2{
 		dataDir:       dataDir,
 		workspaceName: workspaceName,
 		entities:      make(map[string]string),
 	}
+
+	// Ensure the data directory exists
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		return nil, fmt.Errorf("could not create directory %s: %w", dataDir, err)
+	}
+
+	// Ensure the workspace directory exists
+	workspacePath := filepath.Join(dataDir, workspaceName)
+	if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+		if err := os.MkdirAll(workspacePath, 0755); err != nil {
+			return nil, fmt.Errorf("could not create workspace directory %s: %w", workspacePath, err)
+		}
+	}
+
+	return fs, nil
+}
+
+func (f *FilesystemV2) SetActiveWorkspace(workspaceName string) {
+	f.workspaceName = workspaceName
 }
 
 func (f *FilesystemV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
@@ -189,6 +208,8 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 
 func (f *FilesystemV2) loadCollectionRequests(path string) ([]*domain.Request, error) {
 	return loadList[domain.Request](path, func(n *domain.Request) {
+		// set request default values
+		n.SetDefaultValues()
 		f.entities[n.ID()] = n.GetName()
 	})
 }
@@ -566,6 +587,30 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 	}
 
 	return path, nil
+}
+
+// GetLegacyConfig gets the legacy config from the filesystem.
+func (f *FilesystemV2) GetLegacyConfig() (*domain.Config, error) {
+	filePath := filepath.Join(f.dataDir, "config.yaml")
+
+	// if config file does not exist, create it
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		config := domain.NewConfig()
+		if err := SaveToYaml(filePath, config); err != nil {
+			return nil, err
+		}
+
+		return config, nil
+	}
+
+	return LoadFromYaml[domain.Config](filePath)
+}
+
+// ReadLegacyPreferences reads the preferences
+func (f *FilesystemV2) ReadLegacyPreferences() (*domain.Preferences, error) {
+	pdir := filepath.Join(f.dataDir, f.workspaceName, preferencesDir)
+	filePath := filepath.Join(pdir, "preferences.yaml")
+	return LoadFromYaml[domain.Preferences](filePath)
 }
 
 func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
