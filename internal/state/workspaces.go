@@ -17,10 +17,10 @@ type Workspaces struct {
 	workspaces                     *safemap.Map[*domain.Workspace]
 
 	activeWorkspace *domain.Workspace
-	repository      repository.Repository
+	repository      repository.RepositoryV2
 }
 
-func NewWorkspaces(repository repository.Repository) *Workspaces {
+func NewWorkspaces(repository repository.RepositoryV2) *Workspaces {
 	return &Workspaces{
 		repository: repository,
 		workspaces: safemap.New[*domain.Workspace](),
@@ -58,7 +58,7 @@ func (m *Workspaces) RemoveWorkspace(workspace *domain.Workspace, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.repository.Delete(workspace); err != nil {
+		if err := m.repository.DeleteWorkspace(workspace); err != nil {
 			return err
 		}
 	}
@@ -79,7 +79,7 @@ func (m *Workspaces) UpdateWorkspace(workspace *domain.Workspace, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.repository.Update(workspace); err != nil {
+		if err := m.repository.UpdateWorkspace(workspace); err != nil {
 			return err
 		}
 	}

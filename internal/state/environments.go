@@ -18,10 +18,10 @@ type Environments struct {
 
 	activeEnvironment *domain.Environment
 
-	repository repository.Repository
+	repository repository.RepositoryV2
 }
 
-func NewEnvironments(repository repository.Repository) *Environments {
+func NewEnvironments(repository repository.RepositoryV2) *Environments {
 	return &Environments{
 		repository:   repository,
 		environments: safemap.New[*domain.Environment](),
@@ -59,7 +59,7 @@ func (m *Environments) RemoveEnvironment(environment *domain.Environment, source
 	}
 
 	if !stateOnly {
-		if err := m.repository.Delete(environment); err != nil {
+		if err := m.repository.DeleteEnvironment(environment); err != nil {
 			return err
 		}
 	}
@@ -80,7 +80,7 @@ func (m *Environments) UpdateEnvironment(env *domain.Environment, source Source,
 	}
 
 	if !stateOnly {
-		if err := m.repository.Update(env); err != nil {
+		if err := m.repository.UpdateEnvironment(env); err != nil {
 			return err
 		}
 	}
@@ -110,12 +110,18 @@ func (m *Environments) GetActiveEnvironment() *domain.Environment {
 }
 
 func (m *Environments) GetPersistedEnvironment(id string) (*domain.Environment, error) {
-	env, ok := m.environments.Get(id)
-	if !ok {
-		return nil, ErrNotFound
+	environments, err := m.repository.LoadEnvironments()
+	if err != nil {
+		return nil, err
 	}
 
-	return m.repository.GetEnvironment(env.MetaData.ID)
+	for _, e := range environments {
+		if e.MetaData.ID == id {
+			return e, nil
+		}
+	}
+
+	return nil, ErrNotFound
 }
 
 func (m *Environments) ReloadEnvironment(id string, source Source) {

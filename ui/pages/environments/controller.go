@@ -15,14 +15,14 @@ type Controller struct {
 	view  *View
 	state *state.Environments
 
-	repo repository.Repository
+	repo repository.RepositoryV2
 
 	explorer *explorer.Explorer
 
 	activeTabID string
 }
 
-func NewController(view *View, repo repository.Repository, envState *state.Environments, explorer *explorer.Explorer) *Controller {
+func NewController(view *View, repo repository.RepositoryV2, envState *state.Environments, explorer *explorer.Explorer) *Controller {
 	c := &Controller{
 		view:     view,
 		state:    envState,
@@ -50,7 +50,7 @@ func (c *Controller) OpenEnvironment(id string) {
 
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
-	if err := c.repo.Create(env); err != nil {
+	if err := c.repo.CreateEnvironment(env); err != nil {
 		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
 		return
 	}
@@ -270,7 +270,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name += " (copy)"
 
-	if err := c.repo.Create(newEnv); err != nil {
+	if err := c.repo.CreateEnvironment(newEnv); err != nil {
 		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
 		return
 	}

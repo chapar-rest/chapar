@@ -108,7 +108,7 @@ func convertItemToRequest(item RequestItem) *domain.Request {
 	return req
 }
 
-func ImportPostmanCollection(data []byte, repo repository.Repository) error {
+func ImportPostmanCollection(data []byte, repo repository.RepositoryV2) error {
 	data = replaceVariables(data)
 
 	var collection PostmanCollection
@@ -122,7 +122,7 @@ func ImportPostmanCollection(data []byte, repo repository.Repository) error {
 	}
 
 	col := domain.NewCollection(collection.Info.Name)
-	if err := repo.Create(col); err != nil {
+	if err := repo.CreateCollection(col); err != nil {
 		return fmt.Errorf("error saving collection: %w", err)
 	}
 
@@ -154,7 +154,7 @@ func ImportPostmanCollection(data []byte, repo repository.Repository) error {
 
 		req.SetDefaultValues()
 
-		if err := repo.CreateRequestInCollection(col, req); err != nil {
+		if err := repo.CreateRequest(req, col); err != nil {
 			return fmt.Errorf("error saving request: %w", err)
 		}
 	}
@@ -162,7 +162,7 @@ func ImportPostmanCollection(data []byte, repo repository.Repository) error {
 	return nil
 }
 
-func ImportPostmanCollectionFromFile(filePath string, repo repository.Repository) error {
+func ImportPostmanCollectionFromFile(filePath string, repo repository.RepositoryV2) error {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("error reading file: %w", err)
@@ -204,7 +204,7 @@ func findInApiKey(arr []ApiKey, filter func(apiKey ApiKey) bool) (int, bool) {
 	return 0, false
 }
 
-func ImportPostmanEnvironment(data []byte, repo repository.Repository) error {
+func ImportPostmanEnvironment(data []byte, repo repository.RepositoryV2) error {
 	data = replaceVariables(data)
 
 	var env PostmanEnvironment
@@ -226,14 +226,14 @@ func ImportPostmanEnvironment(data []byte, repo repository.Repository) error {
 
 	environment.Spec.Values = variables
 
-	if err := repo.Create(environment); err != nil {
+	if err := repo.CreateEnvironment(environment); err != nil {
 		return fmt.Errorf("error saving environment: %w", err)
 	}
 
 	return nil
 }
 
-func ImportPostmanEnvironmentFromFile(filePath string, repo repository.Repository) error {
+func ImportPostmanEnvironmentFromFile(filePath string, repo repository.RepositoryV2) error {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("error reading file: %v\n", err)

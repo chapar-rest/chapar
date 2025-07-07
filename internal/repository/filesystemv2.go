@@ -573,7 +573,7 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 	case domain.KindCollection:
 		path = filepath.Join(f.dataDir, f.workspaceName, "collections")
 	case domain.KindEnv:
-		path = filepath.Join(f.dataDir, f.workspaceName, "environments")
+		path = filepath.Join(f.dataDir, f.workspaceName, "envs")
 	case domain.KindRequest:
 		path = filepath.Join(f.dataDir, f.workspaceName, "requests")
 	default:

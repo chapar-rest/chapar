@@ -14,10 +14,10 @@ type ProtoFiles struct {
 	protoFilesChangeListeners []ProtoFileChangeListener
 
 	protoFiles *safemap.Map[*domain.ProtoFile]
-	repository repository.Repository
+	repository repository.RepositoryV2
 }
 
-func NewProtoFiles(repository repository.Repository) *ProtoFiles {
+func NewProtoFiles(repository repository.RepositoryV2) *ProtoFiles {
 	return &ProtoFiles{
 		repository: repository,
 		protoFiles: safemap.New[*domain.ProtoFile](),
@@ -28,15 +28,15 @@ func (m *ProtoFiles) AddProtoFileChangeListener(listener ProtoFileChangeListener
 	m.protoFilesChangeListeners = append(m.protoFilesChangeListeners, listener)
 }
 
-func (m *ProtoFiles) notifyProtoFileChange(request *domain.ProtoFile, action Action) {
+func (m *ProtoFiles) notifyProtoFileChange(proto *domain.ProtoFile, action Action) {
 	for _, listener := range m.protoFilesChangeListeners {
-		listener(request, action)
+		listener(proto, action)
 	}
 }
 
-func (m *ProtoFiles) AddProtoFile(request *domain.ProtoFile) {
-	m.protoFiles.Set(request.MetaData.ID, request)
-	m.notifyProtoFileChange(request, ActionAdd)
+func (m *ProtoFiles) AddProtoFile(proto *domain.ProtoFile) {
+	m.protoFiles.Set(proto.MetaData.ID, proto)
+	m.notifyProtoFileChange(proto, ActionAdd)
 }
 
 func (m *ProtoFiles) GetProtoFile(id string) *domain.ProtoFile {
@@ -50,7 +50,7 @@ func (m *ProtoFiles) UpdateProtoFile(proto *domain.ProtoFile, stateOnly bool) er
 	}
 
 	if !stateOnly {
-		if err := m.repository.Update(proto); err != nil {
+		if err := m.repository.UpdateProtoFile(proto); err != nil {
 			return err
 		}
 	}
@@ -61,19 +61,19 @@ func (m *ProtoFiles) UpdateProtoFile(proto *domain.ProtoFile, stateOnly bool) er
 	return nil
 }
 
-func (m *ProtoFiles) RemoveProtoFile(request *domain.ProtoFile, stateOnly bool) error {
-	if _, ok := m.protoFiles.Get(request.MetaData.ID); !ok {
+func (m *ProtoFiles) RemoveProtoFile(proto *domain.ProtoFile, stateOnly bool) error {
+	if _, ok := m.protoFiles.Get(proto.MetaData.ID); !ok {
 		return ErrNotFound
 	}
 
 	if !stateOnly {
-		if err := m.repository.Delete(request); err != nil {
+		if err := m.repository.DeleteProtoFile(proto); err != nil {
 			return err
 		}
 	}
 
-	m.protoFiles.Delete(request.MetaData.ID)
-	m.notifyProtoFileChange(request, ActionDelete)
+	m.protoFiles.Delete(proto.MetaData.ID)
+	m.notifyProtoFileChange(proto, ActionDelete)
 
 	return nil
 }

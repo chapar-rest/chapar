@@ -18,10 +18,10 @@ type Requests struct {
 	requests    *safemap.Map[*domain.Request]
 	collections *safemap.Map[*domain.Collection]
 
-	repository repository.Repository
+	repository repository.RepositoryV2
 }
 
-func NewRequests(repository repository.Repository) *Requests {
+func NewRequests(repository repository.RepositoryV2) *Requests {
 	return &Requests{
 		repository:  repository,
 		requests:    safemap.New[*domain.Request](),
@@ -54,15 +54,9 @@ func (m *Requests) AddRequest(request *domain.Request) {
 	m.notifyRequestChange(request, ActionAdd)
 }
 
-func (m *Requests) RemoveRequest(request *domain.Request, stateOnly bool) error {
+func (m *Requests) RemoveRequest(request *domain.Request) error {
 	if _, ok := m.requests.Get(request.MetaData.ID); !ok {
 		return ErrNotFound
-	}
-
-	if !stateOnly {
-		if err := m.repository.Delete(request); err != nil {
-			return err
-		}
 	}
 
 	m.requests.Delete(request.MetaData.ID)
@@ -81,7 +75,7 @@ func (m *Requests) RemoveCollection(collection *domain.Collection, stateOnly boo
 	}
 
 	if !stateOnly {
-		if err := m.repository.Delete(collection); err != nil {
+		if err := m.repository.DeleteCollection(collection); err != nil {
 			return err
 		}
 	}
@@ -105,15 +99,9 @@ func (m *Requests) GetCollection(id string) *domain.Collection {
 	return collection
 }
 
-func (m *Requests) UpdateRequest(request *domain.Request, stateOnly bool) error {
+func (m *Requests) UpdateRequest(request *domain.Request) error {
 	if _, ok := m.requests.Get(request.MetaData.ID); !ok {
 		return ErrNotFound
-	}
-
-	if !stateOnly {
-		if err := m.repository.Update(request); err != nil {
-			return err
-		}
 	}
 
 	m.requests.Set(request.MetaData.ID, request)
@@ -128,7 +116,7 @@ func (m *Requests) UpdateCollection(collection *domain.Collection, stateOnly boo
 	}
 
 	if !stateOnly {
-		if err := m.repository.Update(collection); err != nil {
+		if err := m.repository.UpdateCollection(collection); err != nil {
 			return err
 		}
 	}
@@ -165,21 +153,41 @@ func (m *Requests) GetCollections() []*domain.Collection {
 }
 
 func (m *Requests) GetPersistedRequest(id string) (*domain.Request, error) {
-	req, ok := m.requests.Get(id)
-	if !ok {
-		return nil, ErrNotFound
-	}
-
-	freshReq, err := m.repository.GetRequest(req.MetaData.ID)
+	requests, err := m.getAllPersistedRequests()
 	if err != nil {
 		return nil, err
 	}
 
-	// update metadata from state
-	freshReq.CollectionID = req.CollectionID
-	freshReq.CollectionName = req.CollectionName
+	// find the request in the persisted requests
+	for _, r := range requests {
+		if r.MetaData.ID == id {
+			return r, nil
+		}
+	}
 
-	return freshReq, nil
+	return nil, ErrNotFound
+}
+
+func (m *Requests) getAllPersistedRequests() ([]*domain.Request, error) {
+	requests, err := m.repository.LoadRequests()
+	if err != nil {
+		return nil, err
+	}
+
+	collections, err := m.repository.LoadCollections()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, col := range collections {
+		for _, req := range col.Spec.Requests {
+			req.CollectionName = col.MetaData.Name
+			req.CollectionID = col.MetaData.ID
+			requests = append(requests, req)
+		}
+	}
+
+	return requests, nil
 }
 
 func (m *Requests) ReloadRequest(id string) {

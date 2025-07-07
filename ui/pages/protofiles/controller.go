@@ -17,12 +17,12 @@ type Controller struct {
 	view *View
 
 	state *state.ProtoFiles
-	repo  repository.Repository
+	repo  repository.RepositoryV2
 
 	explorer *explorer.Explorer
 }
 
-func NewController(view *View, state *state.ProtoFiles, repo repository.Repository, explorer *explorer.Explorer) *Controller {
+func NewController(view *View, state *state.ProtoFiles, repo repository.RepositoryV2, explorer *explorer.Explorer) *Controller {
 	c := &Controller{
 		view:     view,
 		state:    state,
@@ -66,7 +66,7 @@ func (c *Controller) addPath(path string) {
 	proto.Spec.Path = path
 
 	// Let the repository handle the creation details
-	if err := c.repo.Create(proto); err != nil {
+	if err := c.repo.CreateProtoFile(proto); err != nil {
 		c.showError("Failed to create proto file", err.Error())
 		return
 	}
@@ -101,7 +101,7 @@ func (c *Controller) onAdd() {
 		proto.Spec.Services = pInfo.Services
 
 		// Let the repository handle the creation details
-		if err := c.repo.Create(proto); err != nil {
+		if err := c.repo.CreateProtoFile(proto); err != nil {
 			c.showError("Failed to create proto file", err.Error())
 			return
 		}
