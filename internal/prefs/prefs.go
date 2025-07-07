@@ -128,6 +128,10 @@ func GetWorkspacePath() string {
 
 // GetGlobalConfig returns a copy of the global config
 func (m *Manager) GetGlobalConfig() domain.GlobalConfig {
+	if m.globalConfig == nil {
+		m.globalConfig = domain.GetDefaultGlobalConfig()
+	}
+
 	return *m.globalConfig
 }
 
