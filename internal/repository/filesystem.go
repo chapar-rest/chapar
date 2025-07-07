@@ -19,8 +19,6 @@ const (
 	preferencesDir  = "preferences"
 )
 
-var _ Repository = &Filesystem{}
-
 type Filesystem struct {
 	dataDir string
 

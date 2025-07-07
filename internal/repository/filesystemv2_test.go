@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,8 +33,8 @@ func TestFilesystemV2_EntityPath(t *testing.T) {
 	// Get the path for environments
 	path, err = fs.EntityPath(domain.KindEnv)
 	assert.NoError(t, err, "expected no error getting environment path")
-	if path != filepath.Join(fs.dataDir, fs.workspaceName, "environments") {
-		t.Errorf("expected environment path '%s', got '%s'", filepath.Join(fs.dataDir, fs.workspaceName, "environments"), path)
+	if path != filepath.Join(fs.dataDir, fs.workspaceName, "envs") {
+		t.Errorf("expected environment path '%s', got '%s'", filepath.Join(fs.dataDir, fs.workspaceName, "envs"), path)
 	}
 
 	// Get the path for requests
@@ -142,6 +143,25 @@ func TestFilesystemV2_UpdateProtoFile(t *testing.T) {
 	assert.NoError(t, err, "expected no error loading proto files after update")
 	assert.Len(t, protoFiles, 1, "expected exactly one proto file after update")
 	assert.Equal(t, pf.MetaData.Name, protoFiles[0].MetaData.Name, "expected proto file name")
+
+	// create a second proto file to test renaming
+	pf2 := domain.NewProtoFile("TestUpdate2")
+	err = fs.CreateProtoFile(pf2)
+	assert.NoError(t, err, "expected no error creating proto file")
+
+	// Update the proto file name to test renaming with the existing name to make sure it gets a unique name
+	pf2.MetaData.Name = "TestUpdate"
+	err = fs.UpdateProtoFile(pf2)
+	assert.NoError(t, err, "expected no error updating proto file")
+
+	// Load the proto files to verify the renaming
+	protoFiles, err = fs.LoadProtoFiles()
+	assert.NoError(t, err, "expected no error loading proto files after renaming")
+	assert.Len(t, protoFiles, 2, "expected exactly two proto files after renaming")
+	fmt.Println(protoFiles[0].MetaData.Name)
+	fmt.Println(protoFiles[1].MetaData.Name)
+
+	assert.Contains(t, []string{"TestUpdate", "TestUpdate_1"}, protoFiles[1].MetaData.Name, "expected one of the proto file names to be 'TestUpdate' or 'TestUpdate_1'")
 }
 
 func TestFilesystemV2_DeleteProtoFile(t *testing.T) {

@@ -68,6 +68,36 @@ func (f *FilesystemV2) CreateProtoFile(protoFile *domain.ProtoFile) error {
 }
 
 func (f *FilesystemV2) UpdateProtoFile(protoFile *domain.ProtoFile) error {
+	oldEntityName, ok := f.entities[protoFile.ID()]
+	if !ok {
+		return fmt.Errorf("proto file with ID %s not found", protoFile.ID())
+	}
+
+	// did the proto file change its name?
+	if oldEntityName != protoFile.GetName() {
+		// as name has changed, we need to rename the file
+		path, err := f.EntityPath(protoFile.GetKind())
+		if err != nil {
+			return err
+		}
+
+		anotherFileExists, err := doesFileNameExistWithDifferentID(filepath.Join(path, protoFile.GetName()+".yaml"), protoFile.ID())
+		if err != nil {
+			return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+		}
+		if anotherFileExists {
+			n := f.ensureUniqueName(path, protoFile.GetName(), ".yaml")
+			protoFile.SetName(n)
+		}
+
+		if err := f.renameEntity(path, oldEntityName+".yaml", protoFile.GetName()+".yaml"); err != nil {
+			return fmt.Errorf("cannot rename proto file with ID %s: %v", protoFile.ID(), err)
+		}
+
+		// Update the name in the entities map
+		f.entities[protoFile.ID()] = protoFile.GetName()
+	}
+
 	return f.writeProtoFile(protoFile, true)
 }
 
@@ -125,6 +155,14 @@ func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain
 		if collection != nil {
 			// if request is part of a collection, we need to add the collection name to the path
 			path = filepath.Join(path, collection.GetName())
+		}
+
+		anotherFileExists, err := doesFileNameExistWithDifferentID(filepath.Join(path, request.GetName()+".yaml"), request.ID())
+		if err != nil {
+			return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+		}
+		if anotherFileExists {
+			request.SetName(f.ensureUniqueName(path, request.GetName(), ".yaml"))
 		}
 
 		if err := f.renameEntity(path, oldEntityName+".yaml", request.GetName()+".yaml"); err != nil {
@@ -229,6 +267,15 @@ func (f *FilesystemV2) UpdateCollection(collection *domain.Collection) error {
 	// Check if the collection name has changed
 	oldEntityName, ok := f.entities[collection.ID()]
 	if ok && oldEntityName != collection.GetName() {
+		potentialExistingCollectionPath := filepath.Join(path, collection.GetName(), "_collection.yaml")
+		anotherFileExists, err := doesFileNameExistWithDifferentID(potentialExistingCollectionPath, collection.ID())
+		if err != nil {
+			return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+		}
+		if anotherFileExists {
+			collection.SetName(f.ensureUniqueName(path, collection.GetName(), ""))
+		}
+
 		// Rename the collection directory if the name has changed
 		if err := f.renameEntity(path, oldEntityName, collection.GetName()); err != nil {
 			return fmt.Errorf("cannot rename collection with ID %s: %v", collection.ID(), err)
@@ -291,6 +338,14 @@ func (f *FilesystemV2) UpdateEnvironment(environment *domain.Environment) error 
 		path, err := f.EntityPath(environment.GetKind())
 		if err != nil {
 			return err
+		}
+
+		anotherFileExists, err := doesFileNameExistWithDifferentID(filepath.Join(path, environment.GetName()+".yaml"), environment.ID())
+		if err != nil {
+			return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+		}
+		if anotherFileExists {
+			environment.SetName(f.ensureUniqueName(path, environment.GetName(), ".yaml"))
 		}
 
 		if err := f.renameEntity(path, oldEntityName+".yaml", environment.GetName()+".yaml"); err != nil {
@@ -369,6 +424,15 @@ func (f *FilesystemV2) UpdateWorkspace(workspace *domain.Workspace) error {
 
 	// did the workspace change its name?
 	if oldEntityName != workspace.GetName() {
+		potentialExistingWorkspacePath := filepath.Join(f.dataDir, workspace.GetName(), "_workspace.yaml")
+		anotherFileExists, err := doesFileNameExistWithDifferentID(potentialExistingWorkspacePath, workspace.ID())
+		if err != nil {
+			return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+		}
+		if anotherFileExists {
+			workspace.SetName(f.ensureUniqueName(f.dataDir, workspace.GetName(), ""))
+		}
+
 		// as name has changed, we need to rename the file
 		if err := f.renameEntity(f.dataDir, oldEntityName, workspace.GetName()); err != nil {
 			return fmt.Errorf("cannot rename workspace with ID %s: %v", workspace.ID(), err)
@@ -604,6 +668,35 @@ func (f *FilesystemV2) GetLegacyConfig() (*domain.Config, error) {
 	}
 
 	return LoadFromYaml[domain.Config](filePath)
+}
+
+func doesFileNameExistWithDifferentID(filePath, id string) (bool, error) {
+	type Dummy struct {
+		ApiVersion string          `yaml:"apiVersion"`
+		Kind       string          `yaml:"kind"`
+		MetaData   domain.MetaData `yaml:"metadata"`
+	}
+
+	// Check if the file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// If the file does not exist, we can safely return false
+		return false, nil
+	}
+
+	v, err := LoadFromYaml[Dummy](filePath)
+	if err != nil {
+		return false, fmt.Errorf("failed to load metadata from file %s: %w", filePath, err)
+	}
+
+	if v == nil {
+		return false, fmt.Errorf("loaded metadata from file %s is nil", filePath)
+	}
+
+	if v.MetaData.ID != id {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // ReadLegacyPreferences reads the preferences
