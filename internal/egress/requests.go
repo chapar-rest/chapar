@@ -10,6 +10,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/grpc"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/logger"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
@@ -257,7 +258,8 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, request *domain.Re
 		return nil
 	}
 
-	if r.Type == domain.PrePostTypePython {
+	// TODO: this is a temporary solution to fix crashes when scripting is disabled. it need to be improved
+	if r.Type == domain.PrePostTypePython && prefs.GetGlobalConfig().Spec.Scripting.Enabled {
 		return s.handlePostRequestScript(r.Script, request, response, env)
 	}
 
