@@ -38,11 +38,6 @@ type RepositoryV2 interface {
 	DeleteWorkspace(workspace *domain.Workspace) error
 }
 
-type FilePath struct {
-	Path    string
-	NewName string
-}
-
 func LoadFromYaml[T any](filename string) (*T, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {

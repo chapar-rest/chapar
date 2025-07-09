@@ -672,9 +672,7 @@ func (f *FilesystemV2) GetLegacyConfig() (*domain.Config, error) {
 
 func doesFileNameExistWithDifferentID(filePath, id string) (bool, error) {
 	type Dummy struct {
-		ApiVersion string          `yaml:"apiVersion"`
-		Kind       string          `yaml:"kind"`
-		MetaData   domain.MetaData `yaml:"metadata"`
+		MetaData domain.MetaData `yaml:"metadata"`
 	}
 
 	// Check if the file exists
@@ -701,7 +699,7 @@ func doesFileNameExistWithDifferentID(filePath, id string) (bool, error) {
 
 // ReadLegacyPreferences reads the preferences
 func (f *FilesystemV2) ReadLegacyPreferences() (*domain.Preferences, error) {
-	pdir := filepath.Join(f.dataDir, f.workspaceName, preferencesDir)
+	pdir := filepath.Join(f.dataDir, f.workspaceName, "preferences")
 	filePath := filepath.Join(pdir, "preferences.yaml")
 	return LoadFromYaml[domain.Preferences](filePath)
 }
