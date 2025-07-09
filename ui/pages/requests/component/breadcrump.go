@@ -35,6 +35,10 @@ func (b *Breadcrumb) SetOnTitleChanged(f func(title string)) {
 	b.Title.SetOnChanged(f)
 }
 
+func (b *Breadcrumb) SetTitle(title string) {
+	b.Title.SetText(title)
+}
+
 func (b *Breadcrumb) SetContainerType(cType string) {
 	b.ContainerType = cType
 }

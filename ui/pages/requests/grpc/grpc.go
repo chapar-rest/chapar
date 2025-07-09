@@ -36,6 +36,10 @@ func (r *Grpc) SetOnTitleChanged(f func(title string)) {
 	r.Breadcrumb.SetOnTitleChanged(f)
 }
 
+func (r *Grpc) SetTitle(title string) {
+	r.Breadcrumb.SetTitle(title)
+}
+
 func (r *Grpc) SetDataChanged(changed bool) {
 	r.Actions.IsDataChanged = changed
 }

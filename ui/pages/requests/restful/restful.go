@@ -127,6 +127,10 @@ func (r *Restful) SetOnTitleChanged(f func(title string)) {
 	r.Breadcrumb.SetOnTitleChanged(f)
 }
 
+func (r *Restful) SetTitle(title string) {
+	r.Breadcrumb.SetTitle(title)
+}
+
 func (r *Restful) SetOnCopyResponse(f func(gtx layout.Context, dataType, data string)) {
 	r.Response.SetOnCopyResponse(f)
 }

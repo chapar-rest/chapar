@@ -374,6 +374,11 @@ func (v *View) UpdateTabTitle(id, title string) {
 		tab.Title = title
 	}
 }
+func (v *View) SetContainerTitle(id, title string) {
+	if ct, ok := v.containers.Get(id); ok {
+		ct.SetTitle(title)
+	}
+}
 
 func (v *View) UpdateTreeNodeTitle(id, title string) {
 	if node, ok := v.treeViewNodes.Get(id); ok {
