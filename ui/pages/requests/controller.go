@@ -466,8 +466,6 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	}
 	c.view.SetTabDirty(id, !domain.CompareRequests(req, reqFromFile))
 	c.view.SetTreeViewNodePrefix(id, req)
-	// It can happen that repository is selecting another name when we update the request name to avoid
-	// conflicting with another request. so we need to update the name in the view.
 }
 
 func (c *Controller) checkForPreRequestParams(id string, req *domain.Request, inComingRequest *domain.Request) {
@@ -686,6 +684,7 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 
 	c.view.UpdateTreeNodeTitle(col.MetaData.ID, col.MetaData.Name)
 	c.view.UpdateTabTitle(col.MetaData.ID, col.MetaData.Name)
+	c.view.SetContainerTitle(id, col.MetaData.Name)
 }
 
 func (c *Controller) onNewRequest(requestType string) {
