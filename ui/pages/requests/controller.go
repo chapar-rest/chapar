@@ -837,6 +837,9 @@ func (c *Controller) addRequestToCollection(id string, requestType string) {
 		return
 	}
 
+	req.CollectionID = col.MetaData.ID
+	req.CollectionName = col.MetaData.Name
+
 	c.model.AddRequest(req)
 	c.view.AddChildTreeViewNode(col.MetaData.ID, req)
 	c.model.AddRequestToCollection(col, req)
@@ -945,8 +948,11 @@ func (c *Controller) duplicateRequest(id string) {
 	newReq := reqFromFile.Clone()
 	newReq.MetaData.Name += " (copy)"
 
+	// If the request is part of a collection, set the collection ID and name
+	col := c.model.GetCollection(reqFromFile.CollectionID)
+
 	// Let the repository handle the creation details
-	if err := c.repo.CreateRequest(newReq, nil); err != nil {
+	if err := c.repo.CreateRequest(newReq, col); err != nil {
 		c.view.showError(fmt.Errorf("failed to create request: %w", err))
 		return
 	}
