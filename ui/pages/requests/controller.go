@@ -648,7 +648,7 @@ func (c *Controller) onRequestTitleChange(id, title string) {
 
 	req.MetaData.Name = title
 
-	col := c.model.GetCollection(id)
+	col := c.model.GetCollection(req.CollectionID)
 	if err := c.repo.UpdateRequest(req, col); err != nil {
 		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return
@@ -755,7 +755,7 @@ func (c *Controller) saveRequest(id string) {
 		return
 	}
 
-	col := c.model.GetCollection(id)
+	col := c.model.GetCollection(req.CollectionID)
 	if err := c.repo.UpdateRequest(req, col); err != nil {
 		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return

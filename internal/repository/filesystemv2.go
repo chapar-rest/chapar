@@ -335,7 +335,7 @@ func (f *FilesystemV2) UpdateEnvironment(environment *domain.Environment) error 
 	// did the environment change its name?
 	if oldEntityName != environment.GetName() {
 		// as name has changed, we need to rename the file
-		path, err := f.EntityPath(environment.GetKind())
+		path, err := f.EntityPath(domain.KindEnv)
 		if err != nil {
 			return err
 		}
@@ -553,7 +553,7 @@ func (f *FilesystemV2) writeProtoFile(protoFile *domain.ProtoFile, override bool
 }
 
 func (f *FilesystemV2) writeEnvironmentFile(environment *domain.Environment, override bool) error {
-	path, err := f.EntityPath(environment.GetKind())
+	path, err := f.EntityPath(domain.KindEnv)
 	if err != nil {
 		return err
 	}

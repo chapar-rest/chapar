@@ -112,15 +112,15 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	}
 
 	env.MetaData.Name = title
-	c.view.UpdateTreeNodeTitle(env.MetaData.ID, env.MetaData.Name)
-	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
-
 	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
 		c.view.showError(fmt.Errorf("failed to update environment, %w", err))
 		return
 	}
 
 	c.view.SetTabDirty(id, false)
+	c.view.UpdateTreeNodeTitle(id, env.MetaData.Name)
+	c.view.UpdateTabTitle(id, env.MetaData.Name)
+	c.view.SetContainerTitle(id, env.MetaData.Name)
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {

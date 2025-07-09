@@ -114,6 +114,12 @@ func (v *View) PopulateTreeView(envs []*domain.Environment) {
 	v.treeView.SetNodes(treeViewNodes)
 }
 
+func (v *View) SetContainerTitle(id, title string) {
+	if ct, ok := v.containers.Get(id); ok {
+		ct.SetTitle(title)
+	}
+}
+
 func (v *View) AddTreeViewNode(env *domain.Environment) {
 	if env.MetaData.ID == "" {
 		env.MetaData.ID = uuid.NewString()

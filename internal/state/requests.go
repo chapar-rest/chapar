@@ -173,21 +173,23 @@ func (m *Requests) getAllPersistedRequests() ([]*domain.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	collections, err := m.repository.LoadCollections()
 	if err != nil {
 		return nil, err
 	}
 
+	out := make([]*domain.Request, 0, len(requests))
+	out = append(out, requests...)
+
 	for _, col := range collections {
 		for _, req := range col.Spec.Requests {
 			req.CollectionName = col.MetaData.Name
 			req.CollectionID = col.MetaData.ID
-			requests = append(requests, req)
+			out = append(out, req)
 		}
 	}
 
-	return requests, nil
+	return out, nil
 }
 
 func (m *Requests) ReloadRequest(id string) {
