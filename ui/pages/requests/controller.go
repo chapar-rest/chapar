@@ -981,10 +981,17 @@ func (c *Controller) deleteCollection(id string) {
 	if col == nil {
 		return
 	}
+
+	for _, req := range col.Spec.Requests {
+		c.view.RemoveTreeViewNode(req.MetaData.ID)
+		c.view.CloseTab(req.MetaData.ID)
+	}
+
 	if err := c.model.RemoveCollection(col, false); err != nil {
 		c.view.showError(fmt.Errorf("failed to remove collection, %w", err))
 		return
 	}
+
 	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
 }
