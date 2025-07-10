@@ -674,7 +674,6 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	if col.MetaData.Name == title {
 		return
 	}
-
 	col.MetaData.Name = title
 
 	if err := c.model.UpdateCollection(col, false); err != nil {
@@ -858,6 +857,8 @@ func (c *Controller) viewRequest(id string) {
 		return
 	}
 
+	fmt.Println("Viewing request:", req.MetaData.ID)
+
 	if c.view.IsTabOpen(id) {
 		c.view.SwitchToTab(req.MetaData.ID)
 		c.view.OpenRequestContainer(req)
@@ -865,7 +866,8 @@ func (c *Controller) viewRequest(id string) {
 	}
 
 	// make a clone to keep the original request unchanged
-	clone, _ := domain.Clone[domain.Request](req)
+	// clone, _ := domain.Clone[domain.Request](req)
+	clone := req.Clone()
 	clone.MetaData.ID = id
 
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
@@ -904,8 +906,6 @@ func (c *Controller) duplicateCollection(id string) {
 
 	// Create a clone of the collection with "(copy)" suffix
 	colClone := col.Clone()
-	colClone.MetaData.Name += " (copy)"
-
 	// Let the repository handle the collection creation
 	if err := c.repo.CreateCollection(colClone); err != nil {
 		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
@@ -915,27 +915,17 @@ func (c *Controller) duplicateCollection(id string) {
 	c.model.AddCollection(colClone)
 	c.view.AddCollectionTreeViewNode(colClone)
 
-	// Store the requests temporarily and clear them from the collection
-	requests := colClone.Spec.Requests
-	colClone.Spec.Requests = nil
-
 	// Duplicate each request in the collection
-	for _, req := range requests {
-		reqClone := req.Clone()
-		reqClone.MetaData.Name += " (copy)"
-
+	for _, req := range colClone.Spec.Requests {
 		// Let the repository handle the request creation in the collection
-		if err := c.repo.CreateRequest(reqClone, colClone); err != nil {
+		if err := c.repo.CreateRequest(req, colClone); err != nil {
 			c.view.showError(fmt.Errorf("failed to create request: %w", err))
 			continue
 		}
 
-		c.model.AddRequest(reqClone)
-		c.view.AddChildTreeViewNode(colClone.MetaData.ID, reqClone)
+		c.model.AddRequest(req)
+		c.view.AddChildTreeViewNode(colClone.MetaData.ID, req)
 	}
-
-	// Restore the requests array
-	colClone.Spec.Requests = requests
 }
 
 func (c *Controller) duplicateRequest(id string) {

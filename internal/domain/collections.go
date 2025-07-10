@@ -12,8 +12,8 @@ type Collection struct {
 	Spec       ColSpec  `yaml:"spec"`
 }
 
-func (r *Collection) ID() string {
-	return r.MetaData.ID
+func (c *Collection) ID() string {
+	return c.MetaData.ID
 }
 
 func (c *Collection) GetKind() string {
@@ -42,14 +42,20 @@ func (c *Collection) Clone() *Collection {
 		Kind:       c.Kind,
 		MetaData: MetaData{
 			ID:   uuid.NewString(),
-			Name: c.MetaData.Name,
+			Name: c.MetaData.Name + "(copy)",
 		},
 		Spec: ColSpec{
-			Requests: make([]*Request, len(c.Spec.Requests)),
+			Requests: make([]*Request, 0, len(c.Spec.Requests)),
 		},
 	}
 
-	copy(clone.Spec.Requests, c.Spec.Requests)
+	for _, req := range c.Spec.Requests {
+		cloneReq := req.Clone()
+		cloneReq.CollectionID = clone.MetaData.ID
+		cloneReq.CollectionName = clone.MetaData.Name
+		clone.Spec.Requests = append(clone.Spec.Requests, cloneReq)
+	}
+
 	return clone
 }
 
