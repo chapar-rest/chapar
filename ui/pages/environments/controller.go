@@ -55,6 +55,12 @@ func (c *Controller) onNewEnvironment() {
 		return
 	}
 
+	env, err := c.state.GetPersistedEnvironment(env.MetaData.ID)
+	if err != nil {
+		c.view.showError(fmt.Errorf("failed to get environment from file %w", err))
+		return
+	}
+
 	c.state.AddEnvironment(env, state.SourceController)
 	c.view.AddTreeViewNode(env)
 }
