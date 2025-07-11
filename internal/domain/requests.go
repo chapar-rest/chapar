@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -58,6 +59,26 @@ type Request struct {
 
 	CollectionName string `yaml:"-"`
 	CollectionID   string `yaml:"-"`
+}
+
+func (r *Request) ID() string {
+	return r.MetaData.ID
+}
+
+func (r *Request) GetKind() string {
+	return r.Kind
+}
+
+func (r *Request) SetName(name string) {
+	r.MetaData.Name = name
+}
+
+func (r *Request) GetName() string {
+	return r.MetaData.Name
+}
+
+func (r *Request) MarshalYaml() ([]byte, error) {
+	return yaml.Marshal(r)
 }
 
 type ResponseDetail struct {

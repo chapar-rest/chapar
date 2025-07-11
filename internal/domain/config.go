@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/util"
 )
@@ -241,7 +242,7 @@ func GetDefaultAppState() *AppState {
 		Spec: AppStateSpec{
 			ActiveWorkspace: &ActiveWorkspace{
 				ID:   "default",
-				Name: "Default Workspace",
+				Name: DefaultWorkspaceName,
 			},
 			SelectedEnvironment: &SelectedEnvironment{},
 		},
@@ -287,6 +288,14 @@ type Config struct {
 	Spec       ConfigSpec `yaml:"spec"`
 }
 
+func (c *Config) SetName(name string) {
+	c.MetaData.Name = name
+}
+
+func (c *Config) GetName() string {
+	return c.MetaData.Name
+}
+
 // ConfigSpec holds the configuration for the application.
 // its deprecated and its data will be moved to GlobalConfig on the first run
 type ConfigSpec struct {
@@ -322,6 +331,26 @@ type Preferences struct {
 	Kind       string   `yaml:"kind"`
 	MetaData   MetaData `yaml:"metadata"`
 	Spec       PrefSpec `yaml:"spec"`
+}
+
+func (c *Preferences) ID() string {
+	return c.MetaData.ID
+}
+
+func (c *Preferences) GetKind() string {
+	return c.Kind
+}
+
+func (c *Preferences) SetName(name string) {
+	c.MetaData.Name = name
+}
+
+func (c *Preferences) GetName() string {
+	return c.MetaData.Name
+}
+
+func (c *Preferences) MarshalYaml() ([]byte, error) {
+	return yaml.Marshal(c)
 }
 
 type PrefSpec struct {

@@ -71,7 +71,7 @@ type UI struct {
 	workspacesState   *state.Workspaces
 	protoFilesState   *state.ProtoFiles
 
-	repo repository.Repository
+	repo repository.RepositoryV2
 
 	// script executor
 	executor      scripting.Executor
@@ -107,7 +107,7 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	appState := prefs.GetAppState()
 
 	// create file storage in user's home directory
-	repo, err := repository.NewFilesystem(prefs.GetWorkspacePath(), appState.Spec)
+	repo, err := repository.NewFilesystemV2(prefs.GetWorkspacePath(), appState.Spec.ActiveWorkspace.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +341,7 @@ func (u *UI) onWorkspaceChanged(ws *domain.Workspace) error {
 		return fmt.Errorf("failed to update app state, %w", err)
 	}
 
-	u.repo.SetActiveWorkspace(ws)
+	u.repo.SetActiveWorkspace(ws.GetName())
 	u.workspacesState.SetActiveWorkspace(ws)
 
 	if err := u.load(); err != nil {

@@ -13,10 +13,10 @@ type Controller struct {
 
 	state *state.Workspaces
 
-	repo repository.Repository
+	repo repository.RepositoryV2
 }
 
-func NewController(view *View, state *state.Workspaces, repo repository.Repository) *Controller {
+func NewController(view *View, state *state.Workspaces, repo repository.RepositoryV2) *Controller {
 	c := &Controller{
 		view:  view,
 		state: state,
@@ -42,7 +42,7 @@ func (c *Controller) LoadData() error {
 
 func (c *Controller) onNew() {
 	ws := domain.NewWorkspace("New Workspace")
-	if err := c.repo.Create(ws); err != nil {
+	if err := c.repo.CreateWorkspace(ws); err != nil {
 		c.view.showError(fmt.Errorf("failed to create workspace: %w", err))
 		return
 	}

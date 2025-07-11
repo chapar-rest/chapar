@@ -288,13 +288,13 @@ func (m *Manager) migrateFromOldFormat() error {
 	}
 
 	// Create storage client to access old data format
-	storageClient, err := repository.NewFilesystem(legacyDataDir, domain.AppStateSpec{})
+	storageClient, err := repository.NewFilesystemV2(legacyDataDir, domain.DefaultWorkspaceName)
 	if err != nil {
 		return err
 	}
 
 	// Try to load old config
-	oldConfig, err := storageClient.GetConfig()
+	oldConfig, err := storageClient.GetLegacyConfig()
 
 	// Create default new formats
 	m.globalConfig = domain.GetDefaultGlobalConfig()
@@ -315,7 +315,7 @@ func (m *Manager) migrateFromOldFormat() error {
 	}
 
 	// Try to load old preferences
-	oldPrefs, err := storageClient.ReadPreferences()
+	oldPrefs, err := storageClient.ReadLegacyPreferences()
 	if err == nil && oldPrefs != nil {
 		// Migrate data from old preferences to new structures
 

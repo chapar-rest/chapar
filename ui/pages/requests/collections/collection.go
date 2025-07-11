@@ -65,6 +65,10 @@ func (c *Collection) SetOnTitleChanged(f func(string)) {
 	c.Title.SetOnChanged(f)
 }
 
+func (c *Collection) SetTitle(title string) {
+	c.Title.SetText(title)
+}
+
 func (c *Collection) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if c.onSave != nil {
 		keys.OnSaveCommand(gtx, c, func() {

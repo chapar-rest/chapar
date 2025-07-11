@@ -42,6 +42,10 @@ func (c *container) SetItems(items []domain.KeyValue) {
 	c.Items.SetItems(converter.WidgetItemsFromKeyValue(items))
 }
 
+func (c *container) SetTitle(title string) {
+	c.Title.SetText(title)
+}
+
 func (c *container) Layout(gtx layout.Context, theme *chapartheme.Theme, selectedID string) layout.Dimensions {
 	return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,

@@ -15,14 +15,14 @@ type Controller struct {
 	view  *View
 	state *state.Environments
 
-	repo repository.Repository
+	repo repository.RepositoryV2
 
 	explorer *explorer.Explorer
 
 	activeTabID string
 }
 
-func NewController(view *View, repo repository.Repository, envState *state.Environments, explorer *explorer.Explorer) *Controller {
+func NewController(view *View, repo repository.RepositoryV2, envState *state.Environments, explorer *explorer.Explorer) *Controller {
 	c := &Controller{
 		view:     view,
 		state:    envState,
@@ -50,8 +50,14 @@ func (c *Controller) OpenEnvironment(id string) {
 
 func (c *Controller) onNewEnvironment() {
 	env := domain.NewEnvironment("New Environment")
-	if err := c.repo.Create(env); err != nil {
+	if err := c.repo.CreateEnvironment(env); err != nil {
 		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
+		return
+	}
+
+	env, err := c.state.GetPersistedEnvironment(env.MetaData.ID)
+	if err != nil {
+		c.view.showError(fmt.Errorf("failed to get environment from file %w", err))
 		return
 	}
 
@@ -112,15 +118,15 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	}
 
 	env.MetaData.Name = title
-	c.view.UpdateTreeNodeTitle(env.MetaData.ID, env.MetaData.Name)
-	c.view.UpdateTabTitle(env.MetaData.ID, env.MetaData.Name)
-
 	if err := c.state.UpdateEnvironment(env, state.SourceController, false); err != nil {
 		c.view.showError(fmt.Errorf("failed to update environment, %w", err))
 		return
 	}
 
 	c.view.SetTabDirty(id, false)
+	c.view.UpdateTreeNodeTitle(id, env.MetaData.Name)
+	c.view.UpdateTabTitle(id, env.MetaData.Name)
+	c.view.SetContainerTitle(id, env.MetaData.Name)
 }
 
 func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
@@ -270,7 +276,7 @@ func (c *Controller) duplicateEnvironment(id string) {
 	newEnv := envFromFile.Clone()
 	newEnv.MetaData.Name += " (copy)"
 
-	if err := c.repo.Create(newEnv); err != nil {
+	if err := c.repo.CreateEnvironment(newEnv); err != nil {
 		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
 		return
 	}

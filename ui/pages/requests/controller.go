@@ -29,7 +29,7 @@ type Controller struct {
 
 	envState *state.Environments
 
-	repo repository.Repository
+	repo repository.RepositoryV2
 
 	explorer *explorer.Explorer
 
@@ -37,7 +37,7 @@ type Controller struct {
 	egressService *egress.Service
 }
 
-func NewController(view *View, repo repository.Repository, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, egressService *egress.Service, grpcService *grpc.Service) *Controller {
+func NewController(view *View, repo repository.RepositoryV2, model *state.Requests, envState *state.Environments, explorer *explorer.Explorer, egressService *egress.Service, grpcService *grpc.Service) *Controller {
 	c := &Controller{
 		view:     view,
 		model:    model,
@@ -453,7 +453,7 @@ func (c *Controller) onRequestDataChanged(id string, data any) {
 	clone := inComingRequest.Clone()
 	req.Spec = clone.Spec
 
-	if err := c.model.UpdateRequest(req, true); err != nil {
+	if err := c.model.UpdateRequest(req); err != nil {
 		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return
 	}
@@ -648,13 +648,21 @@ func (c *Controller) onRequestTitleChange(id, title string) {
 
 	req.MetaData.Name = title
 
-	if err := c.model.UpdateRequest(req, false); err != nil {
+	col := c.model.GetCollection(req.CollectionID)
+	if err := c.repo.UpdateRequest(req, col); err != nil {
+		c.view.showError(fmt.Errorf("failed to update request, %w", err))
+		return
+	}
+
+	// update the state
+	if err := c.model.UpdateRequest(req); err != nil {
 		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return
 	}
 
 	c.view.UpdateTreeNodeTitle(req.MetaData.ID, req.MetaData.Name)
 	c.view.UpdateTabTitle(req.MetaData.ID, req.MetaData.Name)
+	c.view.SetContainerTitle(id, req.MetaData.Name)
 }
 
 func (c *Controller) onCollectionTitleChange(id, title string) {
@@ -666,7 +674,6 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	if col.MetaData.Name == title {
 		return
 	}
-
 	col.MetaData.Name = title
 
 	if err := c.model.UpdateCollection(col, false); err != nil {
@@ -676,6 +683,7 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 
 	c.view.UpdateTreeNodeTitle(col.MetaData.ID, col.MetaData.Name)
 	c.view.UpdateTabTitle(col.MetaData.ID, col.MetaData.Name)
+	c.view.SetContainerTitle(id, col.MetaData.Name)
 }
 
 func (c *Controller) onNewRequest(requestType string) {
@@ -687,8 +695,15 @@ func (c *Controller) onNewRequest(requestType string) {
 	}
 
 	// Let the repository handle the creation details
-	if err := c.repo.Create(req); err != nil {
+	if err := c.repo.CreateRequest(req, nil); err != nil {
 		c.view.showError(fmt.Errorf("failed to create request: %w", err))
+		return
+	}
+
+	// load back the created request from the repository
+	req, err := c.model.GetPersistedRequest(req.MetaData.ID)
+	if err != nil {
+		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
 		return
 	}
 
@@ -728,7 +743,7 @@ func (c *Controller) onImport() {
 func (c *Controller) onNewCollection() {
 	col := domain.NewCollection("New Collection")
 
-	if err := c.repo.Create(col); err != nil {
+	if err := c.repo.CreateCollection(col); err != nil {
 		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
 		return
 	}
@@ -745,7 +760,15 @@ func (c *Controller) saveRequest(id string) {
 	if req == nil {
 		return
 	}
-	if err := c.model.UpdateRequest(req, false); err != nil {
+
+	col := c.model.GetCollection(req.CollectionID)
+	if err := c.repo.UpdateRequest(req, col); err != nil {
+		c.view.showError(fmt.Errorf("failed to update request, %w", err))
+		return
+	}
+
+	// update the state
+	if err := c.model.UpdateRequest(req); err != nil {
 		c.view.showError(fmt.Errorf("failed to update request, %w", err))
 		return
 	}
@@ -815,10 +838,13 @@ func (c *Controller) addRequestToCollection(id string, requestType string) {
 	}
 
 	// Let the repository handle the creation details
-	if err := c.repo.CreateRequestInCollection(col, req); err != nil {
+	if err := c.repo.CreateRequest(req, col); err != nil {
 		c.view.showError(fmt.Errorf("failed to create request: %w", err))
 		return
 	}
+
+	req.CollectionID = col.MetaData.ID
+	req.CollectionName = col.MetaData.Name
 
 	c.model.AddRequest(req)
 	c.view.AddChildTreeViewNode(col.MetaData.ID, req)
@@ -845,7 +871,8 @@ func (c *Controller) viewRequest(id string) {
 	}
 
 	// make a clone to keep the original request unchanged
-	clone, _ := domain.Clone[domain.Request](req)
+	// clone, _ := domain.Clone[domain.Request](req)
+	clone := req.Clone()
 	clone.MetaData.ID = id
 
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
@@ -884,10 +911,8 @@ func (c *Controller) duplicateCollection(id string) {
 
 	// Create a clone of the collection with "(copy)" suffix
 	colClone := col.Clone()
-	colClone.MetaData.Name += " (copy)"
-
 	// Let the repository handle the collection creation
-	if err := c.repo.Create(colClone); err != nil {
+	if err := c.repo.CreateCollection(colClone); err != nil {
 		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
 		return
 	}
@@ -895,27 +920,17 @@ func (c *Controller) duplicateCollection(id string) {
 	c.model.AddCollection(colClone)
 	c.view.AddCollectionTreeViewNode(colClone)
 
-	// Store the requests temporarily and clear them from the collection
-	requests := colClone.Spec.Requests
-	colClone.Spec.Requests = nil
-
 	// Duplicate each request in the collection
-	for _, req := range requests {
-		reqClone := req.Clone()
-		reqClone.MetaData.Name += " (copy)"
-
+	for _, req := range colClone.Spec.Requests {
 		// Let the repository handle the request creation in the collection
-		if err := c.repo.CreateRequestInCollection(colClone, reqClone); err != nil {
+		if err := c.repo.CreateRequest(req, colClone); err != nil {
 			c.view.showError(fmt.Errorf("failed to create request: %w", err))
 			continue
 		}
 
-		c.model.AddRequest(reqClone)
-		c.view.AddChildTreeViewNode(colClone.MetaData.ID, reqClone)
+		c.model.AddRequest(req)
+		c.view.AddChildTreeViewNode(colClone.MetaData.ID, req)
 	}
-
-	// Restore the requests array
-	colClone.Spec.Requests = requests
 }
 
 func (c *Controller) duplicateRequest(id string) {
@@ -928,8 +943,11 @@ func (c *Controller) duplicateRequest(id string) {
 	newReq := reqFromFile.Clone()
 	newReq.MetaData.Name += " (copy)"
 
+	// If the request is part of a collection, set the collection ID and name
+	col := c.model.GetCollection(reqFromFile.CollectionID)
+
 	// Let the repository handle the creation details
-	if err := c.repo.Create(newReq); err != nil {
+	if err := c.repo.CreateRequest(newReq, col); err != nil {
 		c.view.showError(fmt.Errorf("failed to create request: %w", err))
 		return
 	}
@@ -947,7 +965,14 @@ func (c *Controller) deleteRequest(id string) {
 	if req == nil {
 		return
 	}
-	if err := c.model.RemoveRequest(req, false); err != nil {
+
+	col := c.model.GetCollection(req.CollectionID)
+	if err := c.repo.DeleteRequest(req, col); err != nil {
+		c.view.showError(fmt.Errorf("failed to delete request, %w", err))
+		return
+	}
+
+	if err := c.model.RemoveRequest(req); err != nil {
 		c.view.showError(fmt.Errorf("failed to remove request, %w", err))
 		return
 	}
@@ -961,10 +986,17 @@ func (c *Controller) deleteCollection(id string) {
 	if col == nil {
 		return
 	}
+
+	for _, req := range col.Spec.Requests {
+		c.view.RemoveTreeViewNode(req.MetaData.ID)
+		c.view.CloseTab(req.MetaData.ID)
+	}
+
 	if err := c.model.RemoveCollection(col, false); err != nil {
 		c.view.showError(fmt.Errorf("failed to remove collection, %w", err))
 		return
 	}
+
 	c.view.RemoveTreeViewNode(id)
 	c.view.CloseTab(id)
 }

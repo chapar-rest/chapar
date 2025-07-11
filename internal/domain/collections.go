@@ -1,12 +1,35 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"gopkg.in/yaml.v2"
+)
 
 type Collection struct {
 	ApiVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
 	MetaData   MetaData `yaml:"metadata"`
 	Spec       ColSpec  `yaml:"spec"`
+}
+
+func (c *Collection) ID() string {
+	return c.MetaData.ID
+}
+
+func (c *Collection) GetKind() string {
+	return c.Kind
+}
+
+func (c *Collection) SetName(name string) {
+	c.MetaData.Name = name
+}
+
+func (c *Collection) GetName() string {
+	return c.MetaData.Name
+}
+
+func (c *Collection) MarshalYaml() ([]byte, error) {
+	return yaml.Marshal(c)
 }
 
 type ColSpec struct {
@@ -19,14 +42,20 @@ func (c *Collection) Clone() *Collection {
 		Kind:       c.Kind,
 		MetaData: MetaData{
 			ID:   uuid.NewString(),
-			Name: c.MetaData.Name,
+			Name: c.MetaData.Name + "(copy)",
 		},
 		Spec: ColSpec{
-			Requests: make([]*Request, len(c.Spec.Requests)),
+			Requests: make([]*Request, 0, len(c.Spec.Requests)),
 		},
 	}
 
-	copy(clone.Spec.Requests, c.Spec.Requests)
+	for _, req := range c.Spec.Requests {
+		cloneReq := req.Clone()
+		cloneReq.CollectionID = clone.MetaData.ID
+		cloneReq.CollectionName = clone.MetaData.Name
+		clone.Spec.Requests = append(clone.Spec.Requests, cloneReq)
+	}
+
 	return clone
 }
 
