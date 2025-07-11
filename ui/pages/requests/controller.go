@@ -700,6 +700,13 @@ func (c *Controller) onNewRequest(requestType string) {
 		return
 	}
 
+	// load back the created request from the repository
+	req, err := c.model.GetPersistedRequest(req.MetaData.ID)
+	if err != nil {
+		c.view.showError(fmt.Errorf("failed to get request from file, %w", err))
+		return
+	}
+
 	c.model.AddRequest(req)
 	c.view.AddRequestTreeViewNode(req)
 	c.view.OpenTab(req.MetaData.ID, req.MetaData.Name, TypeRequest)
@@ -856,8 +863,6 @@ func (c *Controller) viewRequest(id string) {
 		c.view.showError(fmt.Errorf("failed to get request, %s", id))
 		return
 	}
-
-	fmt.Println("Viewing request:", req.MetaData.ID)
 
 	if c.view.IsTabOpen(id) {
 		c.view.SwitchToTab(req.MetaData.ID)
