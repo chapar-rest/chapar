@@ -115,7 +115,13 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	explorerController := explorer.NewExplorer(w)
 	u.repo = repo
 	u.workspacesView = workspaces.NewView()
-	u.workspacesState = state.NewWorkspaces(repo)
+
+	ws, err := state.NewWorkspaces(repo)
+	if err != nil {
+		return nil, err
+	}
+	u.workspacesState = ws
+
 	u.workspacesController = workspaces.NewController(u.workspacesView, u.workspacesState, repo)
 	if err := u.workspacesController.LoadData(); err != nil {
 		return nil, err

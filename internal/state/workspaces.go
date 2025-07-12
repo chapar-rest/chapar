@@ -20,11 +20,27 @@ type Workspaces struct {
 	repository      repository.RepositoryV2
 }
 
-func NewWorkspaces(repository repository.RepositoryV2) *Workspaces {
-	return &Workspaces{
+func NewWorkspaces(repository repository.RepositoryV2) (*Workspaces, error) {
+	// NOTE(Isaac799) if no workspaces exist we create one to prevent nil deref
+	// on startup when header getting selected workspace ddl option
+	workspaces, err := repository.LoadWorkspaces()
+	if err != nil {
+		return nil, err
+	}
+	if len(workspaces) == 0 {
+		workspace := domain.NewWorkspace("New Workspace")
+		err := repository.CreateWorkspace(workspace)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	workspace := Workspaces{
 		repository: repository,
 		workspaces: safemap.New[*domain.Workspace](),
 	}
+
+	return &workspace, nil
 }
 
 func (m *Workspaces) AddWorkspaceChangeListener(listener WorkspaceChangeListener) {
