@@ -454,7 +454,8 @@ func (u *UI) middleLayout(gtx layout.Context) layout.Dimensions {
 			case 1:
 				return u.environmentsView.Layout(gtx, u.Theme)
 			case 2:
-				return u.workspacesView.Layout(gtx, u.Theme)
+				activeWorkspace := u.workspacesState.GetActiveWorkspace()
+				return u.workspacesView.Layout(gtx, u.Theme, activeWorkspace)
 			case 3:
 				return u.protoFilesView.Layout(gtx, u.Theme)
 			case 4:
@@ -480,7 +481,8 @@ func (u *UI) splitLayout(gtx layout.Context) layout.Dimensions {
 					case 1:
 						return u.environmentsView.Layout(gtx, u.Theme)
 					case 2:
-						return u.workspacesView.Layout(gtx, u.Theme)
+						activeWorkspace := u.workspacesState.GetActiveWorkspace()
+						return u.workspacesView.Layout(gtx, u.Theme, activeWorkspace)
 					case 3:
 						return u.protoFilesView.Layout(gtx, u.Theme)
 					case 4:
