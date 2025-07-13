@@ -65,6 +65,7 @@ func (m *Workspaces) RemoveWorkspace(workspace *domain.Workspace, source Source,
 
 	m.workspaces.Delete(workspace.MetaData.ID)
 	m.notifyWorkspaceChange(workspace, source, ActionDelete)
+
 	return nil
 }
 
@@ -120,16 +121,6 @@ func (m *Workspaces) LoadWorkspaces() ([]*domain.Workspace, error) {
 
 	for _, w := range ws {
 		m.workspaces.Set(w.MetaData.ID, w)
-	}
-
-	if len(m.workspaces.Keys()) < 1 {
-		_default := domain.NewWorkspace("default")
-		err = m.repository.CreateWorkspace(_default)
-		if err != nil {
-			return nil, err
-		}
-
-		ws = append(ws, _default)
 	}
 
 	return ws, nil

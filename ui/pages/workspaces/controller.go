@@ -36,6 +36,18 @@ func (c *Controller) LoadData() error {
 		return err
 	}
 
+	if len(data) < 1 {
+		_default := domain.NewWorkspace("default")
+		err = c.repo.CreateWorkspace(_default)
+		if err != nil {
+			return err
+		}
+
+		c.state.AddWorkspace(_default, state.SourceController)
+		c.state.SetActiveWorkspace(_default)
+		data = append(data, _default)
+	}
+
 	c.view.SetItems(data)
 	return nil
 }
