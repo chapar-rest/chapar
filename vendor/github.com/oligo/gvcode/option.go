@@ -4,6 +4,7 @@ import (
 	"gioui.org/font"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"github.com/oligo/gvcode/textstyle/syntax"
 )
 
 // EditorOption defines a function to configure the editor.
@@ -16,6 +17,8 @@ func (e *Editor) WithOptions(opts ...EditorOption) {
 	}
 }
 
+// Deprecated: Use the dedicated EditorOptions to set each of the options instead.
+//
 // WithShaperParams set the basic shaping params for the editor.
 func WithShaperParams(font font.Font, textSize unit.Sp, alignment text.Alignment, lineHeight unit.Sp, lineHeightScale float32) EditorOption {
 	return func(e *Editor) {
@@ -23,6 +26,37 @@ func WithShaperParams(font font.Font, textSize unit.Sp, alignment text.Alignment
 		e.text.Font = font
 		e.text.TextSize = textSize
 		e.text.Alignment = alignment
+		e.text.LineHeight = lineHeight
+		e.text.LineHeightScale = lineHeightScale
+	}
+}
+
+// Set font to use for the editor.
+func WithFont(font font.Font) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.text.Font = font
+	}
+}
+
+// Set size of the text.
+func WithTextSize(textSize unit.Sp) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.text.TextSize = textSize
+	}
+}
+
+func WithTextAlignment(align text.Alignment) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.text.Alignment = align
+	}
+}
+
+func WithLineHeight(lineHeight unit.Sp, lineHeightScale float32) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
 		e.text.LineHeight = lineHeight
 		e.text.LineHeightScale = lineHeightScale
 	}
@@ -89,11 +123,22 @@ func ReadOnlyMode(enabled bool) EditorOption {
 func WrapLine(enabled bool) EditorOption {
 	return func(e *Editor) {
 		e.initBuffer()
-		changed := e.text.WrapLine == enabled
-		e.text.WrapLine = enabled
-		if changed {
-			e.text.invalidate()
-		}
+		e.text.SetWrapLine(enabled)
+	}
+}
+
+// WithLineNumber configures whether to show line number or not.
+func WithLineNumber(enabled bool) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.showLineNumber = enabled
+	}
+}
+
+func WithLineNumberGutterGap(gap unit.Dp) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.lineNumberGutterGap = gap
 	}
 }
 
@@ -101,6 +146,17 @@ func WithAutoCompletion(completor Completion) EditorOption {
 	return func(e *Editor) {
 		e.initBuffer()
 		e.completor = completor
+	}
+}
+
+// WithColorScheme configures the color scheme used for styling syntax tokens.
+// Syntax highlight implementations should align with the token types used in the
+// ColorScheme.
+func WithColorScheme(scheme syntax.ColorScheme) EditorOption {
+	return func(e *Editor) {
+		e.initBuffer()
+		e.colorPalette = &scheme.ColorPalette
+		e.text.SetColorScheme(&scheme)
 	}
 }
 

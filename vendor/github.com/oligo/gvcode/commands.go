@@ -7,6 +7,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
+	"github.com/oligo/gvcode/textview"
 )
 
 // CommandHandler defines a callback function for the specific key event. It returns
@@ -132,9 +133,9 @@ func (e *Editor) buildBuiltinCommands() {
 
 	registerCommand(key.Filter{Focus: e, Name: key.NameHome, Optional: key.ModShortcut | key.ModShift},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 
 			if evt.Modifiers.Contain(key.ModShortcut) {
@@ -147,9 +148,9 @@ func (e *Editor) buildBuiltinCommands() {
 
 	registerCommand(key.Filter{Focus: e, Name: key.NameEnd, Optional: key.ModShortcut | key.ModShift},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 			if evt.Modifiers.Contain(key.ModShortcut) {
 				e.text.MoveTextEnd(selAct)
@@ -175,7 +176,7 @@ func (e *Editor) buildBuiltinCommands() {
 					}
 				} else {
 					if e.Delete(-1) != 0 {
-						e.updateCompletor(false)
+						e.updateCompletor("", true)
 						return ChangeEvent{}
 					}
 				}
@@ -202,9 +203,9 @@ func (e *Editor) buildBuiltinCommands() {
 
 	registerCommand(key.Filter{Focus: e, Name: key.NamePageDown, Optional: key.ModShift},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 			e.text.MovePages(+1, selAct)
 			return nil
@@ -212,9 +213,9 @@ func (e *Editor) buildBuiltinCommands() {
 
 	registerCommand(key.Filter{Focus: e, Name: key.NamePageUp, Optional: key.ModShift},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 			e.text.MovePages(-1, selAct)
 			return nil
@@ -242,15 +243,15 @@ func (e *Editor) buildBuiltinCommands() {
 			if gtx.Locale.Direction.Progression() == system.TowardOrigin {
 				direction = -1
 			}
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 
 			if moveByWord {
 				e.text.MoveWords(-1*direction, selAct)
 			} else {
-				if selAct == selectionClear {
+				if selAct == textview.SelectionClear {
 					e.text.ClearSelection()
 				}
 				e.text.MoveCaret(-1*direction, -1*direction*int(selAct))
@@ -265,9 +266,9 @@ func (e *Editor) buildBuiltinCommands() {
 				return nil
 			}
 
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 			e.text.MoveLines(-1, selAct)
 			return nil
@@ -285,15 +286,15 @@ func (e *Editor) buildBuiltinCommands() {
 			if gtx.Locale.Direction.Progression() == system.TowardOrigin {
 				direction = -1
 			}
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 
 			if moveByWord {
 				e.text.MoveWords(1*direction, selAct)
 			} else {
-				if selAct == selectionClear {
+				if selAct == textview.SelectionClear {
 					e.text.ClearSelection()
 				}
 				e.text.MoveCaret(1*direction, int(selAct)*direction)
@@ -308,9 +309,9 @@ func (e *Editor) buildBuiltinCommands() {
 				return nil
 			}
 
-			selAct := selectionClear
+			selAct := textview.SelectionClear
 			if evt.Modifiers.Contain(key.ModShift) {
-				selAct = selectionExtend
+				selAct = textview.SelectionExtend
 			}
 			e.text.MoveLines(+1, selAct)
 			return nil

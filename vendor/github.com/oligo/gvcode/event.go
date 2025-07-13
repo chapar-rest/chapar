@@ -13,6 +13,8 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/io/transfer"
 	"gioui.org/layout"
+	gestureExt "github.com/oligo/gvcode/internal/gesture"
+	"github.com/oligo/gvcode/textview"
 )
 
 func (e *Editor) processEvents(gtx layout.Context) (ev EditorEvent, ok bool) {
@@ -51,28 +53,25 @@ func (e *Editor) processPointer(gtx layout.Context) (EditorEvent, bool) {
 	visibleDims := e.text.Dimensions()
 
 	scrollOffX := e.text.ScrollOff().X
-	scrollX.Min = min(-scrollOffX, 0)
+	scrollX.Min = -scrollOffX
 	scrollX.Max = max(0, textDims.Size.X-(scrollOffX+visibleDims.Size.X))
 
 	scrollOffY := e.text.ScrollOff().Y
 	scrollY.Min = -scrollOffY
 	scrollY.Max = max(0, textDims.Size.Y-(scrollOffY+visibleDims.Size.Y))
-
 	sbounds := e.text.ScrollBounds()
-	var soff int
-	var smin, smax int
 
-	sdist := e.scroller.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Vertical, scrollX, scrollY)
-	// Have to wait for the patch to be accepted by Gio dev team.
-	// if e.scroller.Direction() == gesture.Horizontal {
-	// 	e.text.ScrollRel(sdist, 0)
-	// 	soff = e.text.ScrollOff().X
-	// 	smin, smax = sbounds.Min.X, sbounds.Max.X
-	// } else {
-	e.text.ScrollRel(0, sdist)
-	soff = e.text.ScrollOff().Y
-	smin, smax = sbounds.Min.Y, sbounds.Max.Y
-	//}
+	var soff, smin, smax int
+	sdist := e.scroller.Update(gtx.Metric, gtx.Source, gtx.Now, scrollX, scrollY)
+	if e.scroller.Direction() == gestureExt.Horizontal {
+		e.text.ScrollRel(sdist, 0)
+		soff = e.text.ScrollOff().X
+		smin, smax = sbounds.Min.X, sbounds.Max.X
+	} else {
+		e.text.ScrollRel(0, sdist)
+		soff = e.text.ScrollOff().Y
+		smin, smax = sbounds.Min.Y, sbounds.Max.Y
+	}
 
 	for {
 		evt, ok := e.clicker.Update(gtx.Source)
@@ -98,6 +97,21 @@ func (e *Editor) processPointer(gtx layout.Context) (EditorEvent, bool) {
 	if (sdist > 0 && soff >= smax) || (sdist < 0 && soff <= smin) {
 		e.scroller.Stop()
 	}
+
+	// detects hover event.
+	hoverEvent, ok := e.hover.Update(gtx)
+	if ok {
+		switch hoverEvent.Kind {
+		case gestureExt.KindHovered:
+			line, col, runeOff := e.text.QueryPos(hoverEvent.Position)
+			if runeOff >= 0 {
+				return HoverEvent{PixelOff: hoverEvent.Position, Pos: Position{Line: line, Column: col, Runes: runeOff}}, ok
+			}
+		case gestureExt.KindCancelled:
+			return HoverEvent{IsCancel: true}, ok
+		}
+	}
+
 	return nil, false
 }
 
@@ -117,7 +131,7 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 			if !e.readOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
-			if e.scroller.State() != gesture.StateFlinging {
+			if e.scroller.State() != gestureExt.StateFlinging {
 				e.scrollCaret = true
 			}
 
@@ -136,12 +150,12 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 			// Process multi-clicks.
 			switch {
 			case evt.NumClicks == 2:
-				e.text.MoveWords(-1, selectionClear)
-				e.text.MoveWords(1, selectionExtend)
+				e.text.MoveWords(-1, textview.SelectionClear)
+				e.text.MoveWords(1, textview.SelectionExtend)
 				e.dragging = false
 			case evt.NumClicks >= 3:
-				e.text.MoveLineStart(selectionClear)
-				e.text.MoveLineEnd(selectionExtend)
+				e.text.MoveLineStart(textview.SelectionClear)
+				e.text.MoveLineEnd(textview.SelectionExtend)
 				e.dragging = false
 			}
 
@@ -347,7 +361,7 @@ func (e *Editor) onTextInput(ke key.EditEvent) {
 		// auto-insert the closing part.
 		e.replace(ke.Range.Start, ke.Range.End, ke.Text+string(counterpart))
 		e.text.MoveCaret(-1, -1)
-		start, _ := e.text.Selection()
+		start, _ := e.text.Selection() // start and end should be the same
 		e.autoInsertions[start] = counterpart
 
 	} else if counterpart > 0 {
@@ -370,44 +384,43 @@ func (e *Editor) onTextInput(ke key.EditEvent) {
 
 	e.scrollCaret = true
 	e.scroller.Stop()
-	// e.replace(ke.Range.Start, ke.Range.End, ke.Text)
 	// Reset caret xoff.
 	e.text.MoveCaret(0, 0)
 	// start to auto-complete, if there is a configured Completion.
-	e.updateCompletor(true)
+	e.updateCompletor(ke.Text, false)
 }
 
-func (e *Editor) updateCompletor(startNew bool) {
+func (e *Editor) updateCompletor(input string, cancel bool) {
 	if e.completor == nil {
 		return
 	}
 
-	e.completor.OnText(e.currentCompletionCtx(startNew))
+	if cancel {
+		e.completor.Cancel()
+		return
+	}
+
+	e.completor.OnText(e.currentCompletionCtx(input))
 }
 
-func (e *Editor) currentCompletionCtx(startNew bool) CompletionContext {
-	word, wordOff := e.text.ReadWord(true)
-	prefix := []rune(word)[:wordOff]
-	//log.Println("word, prefix and wordOff", word, string(prefix), wordOff)
-	ctx := CompletionContext{
-		Input: string(prefix),
-	}
+func (e *Editor) currentCompletionCtx(input string) CompletionContext {
+	ctx := CompletionContext{Input: input}
 	ctx.Position.Line, ctx.Position.Column = e.text.CaretPos()
-	// scroll off will change after we update the position, so we use doc view position instead
-	// of viewport position.
-	ctx.Position.Coords = e.text.CaretCoords().Round().Add(e.text.ScrollOff())
+	// scroll off will change after we update the position, so we use doc
+	// view position instead of viewport position.
+	ctx.Coords = e.text.CaretCoords().Round().Add(e.text.ScrollOff())
 
-	start, end := e.text.Selection()
-	ctx.Position.Start = start - len(prefix)
-	ctx.Position.End = end
-	ctx.New = startNew
+	// start and end should be the same, but there's a bug in text.MoveCaret
+	//  that makes start and end unequal, so we use end here.
+	_, end := e.text.Selection()
+	ctx.Position.Runes = end
 	return ctx
 }
 
 // GetCompletionContext returns a context from the current caret position.
 // This is usually used in the condition of a key triggered completion.
 func (e *Editor) GetCompletionContext() CompletionContext {
-	return e.currentCompletionCtx(true)
+	return e.currentCompletionCtx("")
 }
 
 func (e *Editor) onPasteEvent(ke transfer.DataEvent) EditorEvent {

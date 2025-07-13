@@ -1,4 +1,4 @@
-package gvcode
+package textview
 
 import (
 	"image"
@@ -16,7 +16,7 @@ import (
 // calculateViewSize determines the size of the current visible content,
 // ensuring that even if there is no text content, some space is reserved
 // for the caret.
-func (e *textView) calculateViewSize(gtx layout.Context) image.Point {
+func (e *TextView) calculateViewSize(gtx layout.Context) image.Point {
 	base := e.dims.Size
 	if caretWidth := gtx.Dp(e.CaretWidth); base.X < caretWidth {
 		base.X = caretWidth
@@ -24,46 +24,26 @@ func (e *textView) calculateViewSize(gtx layout.Context) image.Point {
 	return gtx.Constraints.Constrain(base)
 }
 
-func (e *textView) layoutText(shaper *text.Shaper) {
+func (e *TextView) layoutText(shaper *text.Shaper) {
 	//e.layoutByParagraph(shaper, &it)
 	e.dims = e.layouter.Layout(shaper, &e.params, e.TabWidth, e.WrapLine)
 }
 
 // PaintText clips and paints the visible text glyph outlines using the provided
 // material to fill the glyphs.
-func (e *textView) PaintText(gtx layout.Context, material op.CallOp, textStyles []*TextStyle) {
-	m := op.Record(gtx.Ops)
+func (e *TextView) PaintText(gtx layout.Context, material op.CallOp) {
 	viewport := image.Rectangle{
 		Min: e.scrollOff,
 		Max: e.viewSize.Add(e.scrollOff),
 	}
 
-	tp := textPainter{
-		viewport: viewport,
-		styles:   textStyles,
-	}
-
-	for _, line := range e.layouter.Lines {
-		if line.Descent.Ceil()+line.YOff < viewport.Min.Y {
-			continue
-		}
-		if line.YOff-line.Ascent.Floor() > viewport.Max.Y {
-			break
-		}
-
-		tp.paintLine(gtx, e.shaper, line, material)
-	}
-
-	call := m.Stop()
-	viewport.Min = viewport.Min.Add(tp.padding.Min)
-	viewport.Max = viewport.Max.Add(tp.padding.Max)
-	defer clip.Rect(viewport.Sub(e.scrollOff)).Push(gtx.Ops).Pop()
-	call.Add(gtx.Ops)
+	e.textPainter.SetViewport(viewport, e.scrollOff)
+	e.textPainter.Paint(gtx, e.shaper, e.layouter.Lines, material, e.syntaxStyles, e.decorations)
 }
 
 // PaintSelection clips and paints the visible text selection rectangles using
 // the provided material to fill the rectangles.
-func (e *textView) PaintSelection(gtx layout.Context, material op.CallOp) {
+func (e *TextView) PaintSelection(gtx layout.Context, material op.CallOp) {
 	localViewport := image.Rectangle{Max: e.viewSize}
 	docViewport := image.Rectangle{Max: e.viewSize}.Add(e.scrollOff)
 	defer clip.Rect(localViewport).Push(gtx.Ops).Pop()
@@ -82,21 +62,7 @@ func (e *textView) PaintSelection(gtx layout.Context, material op.CallOp) {
 	}
 }
 
-// paintRegions clips and paints the visible text rectangles using
-// the provided material to fill the rectangles. Regions passed in should be constrained
-// in the viewport.
-func (e *textView) PaintRegions(gtx layout.Context, regions []Region, material op.CallOp) {
-	localViewport := image.Rectangle{Max: e.viewSize}
-	defer clip.Rect(localViewport).Push(gtx.Ops).Pop()
-	for _, region := range regions {
-		area := clip.Rect(e.adjustPadding(region.Bounds)).Push(gtx.Ops)
-		material.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-		area.Pop()
-	}
-}
-
-func (e *textView) PaintOverlay(gtx layout.Context, offset image.Point, overlay layout.Widget) {
+func (e *TextView) PaintOverlay(gtx layout.Context, offset image.Point, overlay layout.Widget) {
 	viewport := image.Rectangle{
 		Min: e.scrollOff,
 		Max: e.viewSize.Add(e.scrollOff),
@@ -122,7 +88,7 @@ func (e *textView) PaintOverlay(gtx layout.Context, offset image.Point, overlay 
 	call.Add(gtx.Ops)
 }
 
-func (e *textView) highlightMatchingBrackets(gtx layout.Context, material op.CallOp) {
+func (e *TextView) HighlightMatchingBrackets(gtx layout.Context, material op.CallOp) {
 	left, right := e.NearestMatchingBrackets()
 	if left < 0 || right < 0 {
 		// no matching found
@@ -157,7 +123,7 @@ func (e *textView) highlightMatchingBrackets(gtx layout.Context, material op.Cal
 
 // caretCurrentLine returns the current paragraph that the carent is in.
 // Only the start position is checked.
-func (e *textView) caretCurrentLine() (start lt.CombinedPos, end lt.CombinedPos) {
+func (e *TextView) caretCurrentLine() (start lt.CombinedPos, end lt.CombinedPos) {
 	caretStart := e.closestToRune(e.caret.start)
 	lines := e.selectedParagraphs()
 	if len(lines) == 0 {
@@ -173,7 +139,7 @@ func (e *textView) caretCurrentLine() (start lt.CombinedPos, end lt.CombinedPos)
 
 // paintLineHighlight clips and paints the visible line that the caret is in when there is no
 // text selected.
-func (e *textView) paintLineHighlight(gtx layout.Context, material op.CallOp) {
+func (e *TextView) PaintLineHighlight(gtx layout.Context, material op.CallOp) {
 	if e.caret.start != e.caret.end {
 		return
 	}
@@ -183,8 +149,10 @@ func (e *textView) paintLineHighlight(gtx layout.Context, material op.CallOp) {
 		return
 	}
 
-	bounds := image.Rectangle{Min: image.Point{X: 0, Y: start.Y - start.Ascent.Ceil()},
-		Max: image.Point{X: gtx.Constraints.Max.X, Y: end.Y + end.Descent.Ceil()}}.Sub(e.scrollOff)
+	bounds := image.Rectangle{
+		Min: image.Point{X: 0, Y: start.Y - start.Ascent.Ceil()},
+		Max: image.Point{X: gtx.Constraints.Max.X, Y: end.Y + end.Descent.Ceil()},
+	}.Sub(image.Point{Y: e.scrollOff.Y}) // fill the whole line.
 
 	area := clip.Rect(e.adjustPadding(bounds)).Push(gtx.Ops)
 	material.Add(gtx.Ops)
@@ -192,14 +160,14 @@ func (e *textView) paintLineHighlight(gtx layout.Context, material op.CallOp) {
 	area.Pop()
 }
 
-func (e *textView) PaintLineNumber(gtx layout.Context, lt *text.Shaper, material op.CallOp) layout.Dimensions {
+func (e *TextView) PaintLineNumber(gtx layout.Context, lt *text.Shaper, material op.CallOp) layout.Dimensions {
 	m := op.Record(gtx.Ops)
 	viewport := image.Rectangle{
 		Min: e.scrollOff,
 		Max: e.viewSize.Add(e.scrollOff),
 	}
 
-	dims := paintLineNumber(gtx, lt, e.params, viewport, e.layouter.Paragraphs, material)
+	dims := paintLineNumber(gtx, lt, e.params, viewport, &e.layouter.Paragraphs, material)
 	call := m.Stop()
 
 	rect := viewport.Sub(e.scrollOff)
@@ -212,7 +180,7 @@ func (e *textView) PaintLineNumber(gtx layout.Context, lt *text.Shaper, material
 
 // PaintCaret clips and paints the caret rectangle, adding material immediately
 // before painting to set the appropriate paint material.
-func (e *textView) PaintCaret(gtx layout.Context, material op.CallOp) {
+func (e *TextView) PaintCaret(gtx layout.Context, material op.CallOp) {
 	carWidth2 := gtx.Dp(e.CaretWidth)
 	caretPos, carAsc, carDesc := e.CaretInfo()
 
@@ -229,7 +197,7 @@ func (e *textView) PaintCaret(gtx layout.Context, material op.CallOp) {
 	}
 }
 
-func (e *textView) CaretInfo() (pos image.Point, ascent, descent int) {
+func (e *TextView) CaretInfo() (pos image.Point, ascent, descent int) {
 	caretStart := e.closestToRune(e.caret.start)
 
 	ascent = caretStart.Ascent.Ceil()
@@ -245,7 +213,7 @@ func (e *textView) CaretInfo() (pos image.Point, ascent, descent int) {
 
 // adjustPadding adjusts the vertical padding of a bounding box around the texts.
 // This improves the visual effects of selected texts, or any other texts to be highlighted.
-func (e *textView) adjustPadding(bounds image.Rectangle) image.Rectangle {
+func (e *TextView) adjustPadding(bounds image.Rectangle) image.Rectangle {
 	if e.lineHeight <= 0 {
 		e.lineHeight = e.calcLineHeight()
 	}
@@ -262,7 +230,7 @@ func (e *textView) adjustPadding(bounds image.Rectangle) image.Rectangle {
 	return bounds
 }
 
-func (e *textView) adjustDescentPadding() int {
+func (e *TextView) adjustDescentPadding() int {
 	caretStart := e.closestToRune(e.caret.start)
 	height := caretStart.Ascent + caretStart.Descent
 
@@ -276,4 +244,7 @@ func (e *textView) adjustDescentPadding() int {
 
 	leading := (e.lineHeight - height).Round()
 	return int(math.Round(float64(float32(leading) / 2.0)))
+}
+
+type TextViewSplitter struct {
 }

@@ -1,4 +1,4 @@
-package gvcode
+package textview
 
 import (
 	"bufio"
@@ -11,7 +11,7 @@ import (
 // IndentLines indent or dedent each of the selected non-empty lines with
 // one tab(soft tab or hard tab). If there is no selection, the current line is
 // indented or dedented.
-func (e *textView) IndentLines(dedent bool) int {
+func (e *TextView) IndentLines(dedent bool) int {
 	// 1. normal case: insert a TAB forward.
 	if selectedLines := e.selectedParagraphs(); !dedent && len(selectedLines) <= 1 {
 		// expand soft tab.
@@ -96,7 +96,7 @@ func (e *textView) IndentLines(dedent bool) int {
 	return inserted
 }
 
-func (e *textView) dedentLine(line string) string {
+func (e *TextView) dedentLine(line string) string {
 	level := 0
 	spaces := 0
 	off := 0
@@ -161,7 +161,7 @@ func checkIndentLevel(line []byte, tabWidth int) int {
 // if between a pair of brackets, it also insert indented lines between them.
 //
 // This is mainly used as the line break handler when Enter or Return is pressed.
-func (e *textView) IndentOnBreak(s string) int {
+func (e *TextView) IndentOnBreak(s string) int {
 	var lineStart, lineEnd int
 	e.lineBuf, lineStart, lineEnd = e.SelectedLineText(e.lineBuf)
 

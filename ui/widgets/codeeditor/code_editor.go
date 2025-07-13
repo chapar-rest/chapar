@@ -1,20 +1,22 @@
 package codeeditor
 
 import (
+	"fmt"
+	"image"
 	"image/color"
 
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
-	"github.com/alecthomas/chroma/v2/styles"
+	gvcolor "github.com/oligo/gvcode/color"
+	"github.com/oligo/gvcode/textstyle/syntax"
+	wg "github.com/oligo/gvcode/widget"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
@@ -23,7 +25,6 @@ import (
 	"github.com/chapar-rest/chapar/ui/widgets"
 
 	"github.com/oligo/gvcode"
-	wgvcode "github.com/oligo/gvcode/widget"
 )
 
 const (
@@ -47,12 +48,10 @@ type CodeEditor struct {
 	theme *chapartheme.Theme
 
 	styledCode string
-	styles     []*gvcode.TextStyle
+	tokens     []syntax.Token
 
-	lexer     chroma.Lexer
-	codeStyle *chroma.Style
-
-	lang string
+	lexer chroma.Lexer
+	lang  string
 
 	onChange func(text string)
 
@@ -67,8 +66,8 @@ type CodeEditor struct {
 
 	onLoadExample func()
 
-	vScrollbar      widget.Scrollbar
-	vScrollbarStyle material.ScrollbarStyle
+	xScroll widget.Scrollbar
+	yScroll widget.Scrollbar
 
 	editorConfig domain.EditorConfig
 }
@@ -80,13 +79,14 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 
 	c := &CodeEditor{
 		theme:        theme,
-		editor:       &gvcode.Editor{},
+		editor:       wg.NewEditor(theme.Material()),
 		code:         code,
 		font:         fff,
 		lang:         lang,
 		editorConfig: globalConfig.Spec.Editor,
 	}
 
+	c.lexer = getLexer(lang)
 	c.setEditorOptions()
 
 	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
@@ -96,34 +96,41 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 		}
 	})
 
-	c.vScrollbarStyle = material.Scrollbar(theme.Material(), &c.vScrollbar)
-
 	c.border = widget.Border{
 		Color:        theme.BorderColor,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
 	}
 
-	c.lexer = getLexer(lang)
-
-	style := styles.Get("dracula")
-	if style == nil {
-		style = styles.Fallback
-	}
-
-	c.codeStyle = style
-
 	c.editor.SetText(code)
-
 	return c
 }
 
 func (c *CodeEditor) setEditorOptions() {
+	// color scheme
+	th := c.theme.Material()
+	colorScheme := syntax.ColorScheme{}
+	colorScheme.Foreground = gvcolor.MakeColor(th.Fg)
+	colorScheme.SelectColor = gvcolor.MakeColor(c.theme.TextSelectionColor).MulAlpha(0x60)
+	colorScheme.LineColor = gvcolor.MakeColor(th.ContrastBg).MulAlpha(0x30)
+	colorScheme.LineNumberColor = gvcolor.MakeColor(th.ContrastFg).MulAlpha(0xb6)
+
+	themeName := prefs.GetGlobalConfig().Spec.Editor.Theme
+	syntaxStyles := getColorStyles(themeName, c.theme)
+	for _, style := range syntaxStyles {
+		colorScheme.AddStyle(style.scope, style.textStyle, style.color, style.background)
+	}
+
 	editorOptions := []gvcode.EditorOption{
-		gvcode.WithShaperParams(c.font.Font, unit.Sp(c.editorConfig.FontSize), text.Start, unit.Sp(16), 1),
+		gvcode.WithFont(c.font.Font),
+		gvcode.WithTextSize(unit.Sp(c.editorConfig.FontSize)),
+		gvcode.WithTextAlignment(text.Start),
+		gvcode.WithLineHeight(unit.Sp(16), 1),
 		gvcode.WithTabWidth(c.editorConfig.TabWidth),
 		gvcode.WithSoftTab(c.editorConfig.Indentation == domain.IndentationSpaces),
 		gvcode.WrapLine(true),
+		gvcode.WithLineNumber(true),
+		gvcode.WithColorScheme(colorScheme),
 	}
 
 	if !c.editorConfig.AutoCloseBrackets {
@@ -165,13 +172,13 @@ func (c *CodeEditor) SetOnLoadExample(f func()) {
 func (c *CodeEditor) SetCode(code string) {
 	c.editor.SetText(code)
 	c.code = code
-	c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+	c.editor.SetSyntaxTokens(c.stylingText(c.editor.Text())...)
 }
 
 func (c *CodeEditor) SetLanguage(lang string) {
 	c.lang = lang
 	c.lexer = getLexer(lang)
-	c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+	c.editor.SetSyntaxTokens(c.stylingText(c.editor.Text())...)
 }
 
 func (c *CodeEditor) Code() string {
@@ -181,15 +188,17 @@ func (c *CodeEditor) Code() string {
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
 	if c.styledCode == "" {
 		// First time styling
-		c.editor.UpdateTextStyles(c.stylingText(c.editor.Text()))
+		c.editor.SetSyntaxTokens(c.stylingText(c.editor.Text())...)
 	}
+
+	scrollIndicatorColor := gvcolor.MakeColor(theme.Material().Fg).MulAlpha(0x30)
 
 	if !c.editor.ReadOnly() {
 		if ev, ok := c.editor.Update(gtx); ok {
 			if _, ok := ev.(gvcode.ChangeEvent); ok {
 				st := c.stylingText(c.editor.Text())
-				c.styles = st
-				c.editor.UpdateTextStyles(st)
+				c.tokens = st
+				c.editor.SetSyntaxTokens(st...)
 				if c.onChange != nil {
 					c.onChange(c.editor.Text())
 					c.code = c.editor.Text()
@@ -200,6 +209,12 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 
 	if c.loadExample.Clicked(gtx) {
 		c.onLoadExample()
+	}
+
+	xScrollDist := c.xScroll.ScrollDistance()
+	yScrollDist := c.yScroll.ScrollDistance()
+	if xScrollDist != 0.0 || yScrollDist != 0.0 {
+		c.editor.Scroll(gtx, xScrollDist, yScrollDist)
 	}
 
 	flexH := layout.Flex{Axis: layout.Horizontal}
@@ -242,8 +257,29 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 							Left:   unit.Dp(8),
 							Right:  unit.Dp(4),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return c.editorStyle(gtx, hint)
+							dims := c.editor.Layout(gtx, theme.Material().Shaper)
+
+							macro := op.Record(gtx.Ops)
+							scrollbarDims := func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{
+									Left: gtx.Metric.PxToDp(c.editor.GutterWidth()),
+								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									minX, maxX, _, _ := c.editor.ScrollRatio()
+									bar := makeScrollbar(theme.Material(), &c.xScroll, scrollIndicatorColor.NRGBA())
+									return bar.Layout(gtx, layout.Horizontal, minX, maxX)
+								})
+							}(gtx)
+
+							scrollbarOp := macro.Stop()
+							defer op.Offset(image.Point{Y: dims.Size.Y - scrollbarDims.Size.Y}).Push(gtx.Ops).Pop()
+							scrollbarOp.Add(gtx.Ops)
+							return dims
 						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						_, _, minY, maxY := c.editor.ScrollRatio()
+						bar := makeScrollbar(theme.Material(), &c.yScroll, scrollIndicatorColor.NRGBA())
+						return bar.Layout(gtx, layout.Vertical, minY, maxY)
 					}),
 				)
 			})
@@ -272,85 +308,52 @@ func (c *CodeEditor) beautyButton(gtx layout.Context, theme *chapartheme.Theme) 
 	})
 }
 
-func (c *CodeEditor) editorStyle(gtx layout.Context, _ string) layout.Dimensions {
-	es := wgvcode.NewEditor(c.theme.Material(), c.editor)
-	es.Font.Typeface = font.Typeface(c.editorConfig.FontFamily)
-	es.TextSize = unit.Sp(c.editorConfig.FontSize)
-	es.LineHeightScale = 1.3
-
-	es.SelectionColor = c.theme.TextSelectionColor
-	editorDims := es.Layout(gtx)
-
-	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		viewportStart, viewportEnd := c.editor.ViewPortRatio()
-		return c.vScrollbarStyle.Layout(gtx, layout.Vertical, viewportStart, viewportEnd)
-	})
-
-	if delta := c.vScrollbar.ScrollDistance(); delta != 0 {
-		c.editor.ScrollByRatio(gtx, delta)
-	}
-
-	return editorDims
+func makeScrollbar(th *material.Theme, scroll *widget.Scrollbar, color color.NRGBA) material.ScrollbarStyle {
+	bar := material.Scrollbar(th, scroll)
+	bar.Indicator.Color = color
+	bar.Indicator.CornerRadius = unit.Dp(0)
+	bar.Indicator.MinorWidth = unit.Dp(8)
+	bar.Track.MajorPadding = unit.Dp(0)
+	bar.Track.MinorPadding = unit.Dp(1)
+	return bar
 }
 
-func (c *CodeEditor) stylingText(text string) []*gvcode.TextStyle {
+func (c *CodeEditor) stylingText(text string) []syntax.Token {
 	if c.styledCode == text {
-		return c.styles
+		return c.tokens
 	}
 
 	// nolint:prealloc
-	var textStyles []*gvcode.TextStyle
+	var tokens []syntax.Token
 
 	offset := 0
 
 	iterator, err := c.lexer.Tokenise(nil, text)
 	if err != nil {
-		return textStyles
+		return tokens
 	}
 
 	for _, token := range iterator.Tokens() {
-		entry := c.codeStyle.Get(token.Type)
-
-		textStyle := &gvcode.TextStyle{
-			TextRange: gvcode.TextRange{
-				Start: offset,
-				End:   offset + len([]rune(token.Value)),
-			},
-			Color: rgbToOp(c.theme.Fg),
-			// Background: rgbToOp(c.theme.Bg),
+		gtoken := syntax.Token{
+			Start: offset,
+			End:   offset + len([]rune(token.Value)),
+			Scope: syntax.StyleScope(fmt.Sprintf("%s", token.Type)),
 		}
-
-		if entry.Colour.IsSet() {
-			textStyle.Color = chromaColorToOp(entry.Colour)
-		}
-
-		textStyles = append(textStyles, textStyle)
-		offset = textStyle.End
+		tokens = append(tokens, gtoken)
+		offset = gtoken.End
 	}
 
 	c.styledCode = text
-	c.styles = textStyles
+	c.tokens = tokens
 
-	return textStyles
+	return tokens
 }
 
-func chromaColorToOp(textColor chroma.Colour) op.CallOp {
-	ops := new(op.Ops)
-
-	m := op.Record(ops)
-	paint.ColorOp{Color: color.NRGBA{
+func chromaColorToNRGBA(textColor chroma.Colour) color.NRGBA {
+	return color.NRGBA{
 		R: textColor.Red(),
 		G: textColor.Green(),
 		B: textColor.Blue(),
 		A: 0xff,
-	}}.Add(ops)
-	return m.Stop()
-}
-
-func rgbToOp(color color.NRGBA) op.CallOp {
-	ops := new(op.Ops)
-
-	m := op.Record(ops)
-	paint.ColorOp{Color: color}.Add(ops)
-	return m.Stop()
+	}
 }

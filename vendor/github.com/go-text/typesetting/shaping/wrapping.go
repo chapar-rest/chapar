@@ -422,7 +422,8 @@ type WrapConfig struct {
 	// the text. A value of zero means no limit.
 	TruncateAfterLines int
 	// Truncator, if provided, will be inserted at the end of a truncated line. This
-	// feature is only active if TruncateAfterLines is nonzero.
+	// feature is only active if TruncateAfterLines is nonzero. See the documentation
+	// for [LineWrapper.WrapNextLine] for details about how this works.
 	Truncator Output
 	// TextContinues indicates that the paragraph wrapped by this config is not the
 	// final paragraph in the text. This alters text truncation when filling the
@@ -767,6 +768,10 @@ func (l *LineWrapper) Prepare(config WrapConfig, paragraph []rune, runs RunItera
 // that many lines. The truncated return value is the count of runes truncated from
 // the end of the text. The returned lines are only valid until the next call to
 // [*LineWrapper.WrapParagraph] or [*LineWrapper.Prepare].
+//
+// See [(*LineWrapper).WrapNextLine] for a description of how [WrapConfig]'s truncation
+// features impact the wrapped text output. This method returns the quantity of runes
+// truncated by line wrapping in the [truncated] return value.
 func (l *LineWrapper) WrapParagraph(config WrapConfig, maxWidth int, paragraph []rune, runs RunIterator) (_ []Line, truncated int) {
 	l.scratch.reset()
 	// Check whether we can skip line wrapping altogether for the simple single-run-that-fits case.
@@ -939,7 +944,12 @@ func (l *LineWrapper) postProcessLine(finalLine Line, done bool) (WrappedLine, b
 			insertTruncator = truncated > 0 || l.config.TextContinues
 		}
 		if insertTruncator {
-			finalLine = append(finalLine, l.config.Truncator)
+			truncator := l.config.Truncator
+			truncator.Runes.Count = truncated
+			truncator.Runes.Offset = l.lineStartRune
+			finalLine = append(finalLine, truncator)
+			// We've just modified the line, we need to recompute the bidi ordering.
+			computeBidiOrdering(l.config.Direction, finalLine)
 		}
 	}
 
@@ -958,6 +968,15 @@ func (l *LineWrapper) postProcessLine(finalLine Line, done bool) (WrappedLine, b
 //
 // The returned line is only valid until the next call to
 // [*LineWrapper.Prepare] or [*LineWrapper.WrapParagraph].
+//
+// If the LineWrapper's [WrapConfig].TruncateAfterLines
+// is non-zero, the final line of text returned by successive calls to WrapNextLine
+// may be truncated. The quantity of runes truncated by wrapping the line is
+// returned in [WrappedLine].Truncated. If this is non-zero AND the LineWrapper's
+// [WrapConfig].Truncator is set, the final line will end with an extra [Output].
+// [Output]s before the final [Output] will represent the input runes that are still
+// visible before truncation, and the final [Output] will be a copy of the Truncator
+// with its Runes.Count set to the quantity of runes truncated during line wrapping.
 func (l *LineWrapper) WrapNextLine(maxWidth int) (out WrappedLine, done bool) {
 	// If we've already finished the paragraph, don't do any more work.
 	if !l.more {
