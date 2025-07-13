@@ -122,5 +122,15 @@ func (m *Workspaces) LoadWorkspaces() ([]*domain.Workspace, error) {
 		m.workspaces.Set(w.MetaData.ID, w)
 	}
 
+	if len(m.workspaces.Keys()) < 1 {
+		_default := domain.NewWorkspace("default")
+		err = m.repository.CreateWorkspace(_default)
+		if err != nil {
+			return nil, err
+		}
+
+		ws = append(ws, _default)
+	}
+
 	return ws, nil
 }
