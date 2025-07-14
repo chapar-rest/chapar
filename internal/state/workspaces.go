@@ -28,7 +28,7 @@ func NewWorkspaces(repository repository.RepositoryV2) (*Workspaces, error) {
 		return nil, err
 	}
 	if len(workspaces) == 0 {
-		workspace := domain.NewWorkspace("New Workspace")
+		workspace := domain.NewWorkspace(domain.DefaultWorkspaceName)
 		err := repository.CreateWorkspace(workspace)
 		if err != nil {
 			return nil, err
