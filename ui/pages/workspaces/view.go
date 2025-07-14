@@ -147,34 +147,41 @@ func (v *View) AddItem(item *domain.Workspace) {
 	})
 }
 
-func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *Item, isLast bool) layout.Dimensions {
+func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *Item, isLast bool, isActive bool) layout.Dimensions {
 	content := layout.Inset{Top: unit.Dp(10), Bottom: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Dp(100)
-				return item.Name.Layout(gtx, theme)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if item.readOnly {
-					return layout.Dimensions{}
-				}
+		layoutFlex := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}
 
-				ib := widgets.IconButton{
-					Icon:      widgets.DeleteIcon,
-					Size:      unit.Dp(20),
-					Color:     theme.TextColor,
-					Clickable: &item.deleteButton,
-				}
+		editableLabel := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Dp(100)
+			return item.Name.Layout(gtx, theme)
+		})
 
-				ib.OnClick = func() {
-					if v.onDelete != nil {
-						v.onDelete(item.w)
-					}
-				}
+		// NOTE(Isaac799) don't show delete button for active workspace
+		if isActive {
+			return layoutFlex.Layout(gtx, editableLabel)
+		}
 
-				return ib.Layout(gtx, theme)
-			}),
-		)
+		deleteIconButton := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if item.readOnly {
+				return layout.Dimensions{}
+			}
+
+			ib := widgets.IconButton{
+				Icon:      widgets.DeleteIcon,
+				Size:      unit.Dp(20),
+				Color:     theme.TextColor,
+				Clickable: &item.deleteButton,
+			}
+
+			ib.OnClick = func() {
+				if v.onDelete != nil {
+					v.onDelete(item.w)
+				}
+			}
+
+			return ib.Layout(gtx, theme)
+		})
+		return layoutFlex.Layout(gtx, editableLabel, deleteIconButton)
 	})
 
 	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
@@ -191,7 +198,7 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 	)
 }
 
-func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme, activeWorkspace *domain.Workspace) layout.Dimensions {
 	v.modal.Layout(gtx, theme)
 
 	items := v.items
@@ -238,7 +245,8 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Rigid(layout.Spacer{Height: unit.Dp(30)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.List(theme.Material(), v.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-					return v.itemLayout(gtx, theme, items[i], i == len(items)-1)
+					isActive := activeWorkspace != nil && items[i].w.ID() == activeWorkspace.ID()
+					return v.itemLayout(gtx, theme, items[i], i == len(items)-1, isActive)
 				})
 			}),
 		)

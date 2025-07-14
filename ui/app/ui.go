@@ -115,7 +115,13 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 	explorerController := explorer.NewExplorer(w)
 	u.repo = repo
 	u.workspacesView = workspaces.NewView()
-	u.workspacesState = state.NewWorkspaces(repo)
+
+	ws, err := state.NewWorkspaces(repo)
+	if err != nil {
+		return nil, err
+	}
+	u.workspacesState = ws
+
 	u.workspacesController = workspaces.NewController(u.workspacesView, u.workspacesState, repo)
 	if err := u.workspacesController.LoadData(); err != nil {
 		return nil, err
@@ -448,7 +454,8 @@ func (u *UI) middleLayout(gtx layout.Context) layout.Dimensions {
 			case 1:
 				return u.environmentsView.Layout(gtx, u.Theme)
 			case 2:
-				return u.workspacesView.Layout(gtx, u.Theme)
+				activeWorkspace := u.workspacesState.GetActiveWorkspace()
+				return u.workspacesView.Layout(gtx, u.Theme, activeWorkspace)
 			case 3:
 				return u.protoFilesView.Layout(gtx, u.Theme)
 			case 4:
@@ -474,7 +481,8 @@ func (u *UI) splitLayout(gtx layout.Context) layout.Dimensions {
 					case 1:
 						return u.environmentsView.Layout(gtx, u.Theme)
 					case 2:
-						return u.workspacesView.Layout(gtx, u.Theme)
+						activeWorkspace := u.workspacesState.GetActiveWorkspace()
+						return u.workspacesView.Layout(gtx, u.Theme, activeWorkspace)
 					case 3:
 						return u.protoFilesView.Layout(gtx, u.Theme)
 					case 4:
