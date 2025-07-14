@@ -1,7 +1,6 @@
 package codeeditor
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2"
@@ -74,7 +73,7 @@ func getColorStyle(token chroma.TokenType, style chroma.StyleEntry, theme *chapa
 	}
 
 	return true, colorStyle{
-		scope:     syntax.StyleScope(fmt.Sprintf("%s", token)),
+		scope:     syntax.StyleScope(token.String()),
 		textStyle: textStyle,
 		color:     setColor,
 	}

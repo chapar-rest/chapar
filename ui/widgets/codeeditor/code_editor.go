@@ -1,7 +1,6 @@
 package codeeditor
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 
@@ -336,7 +335,7 @@ func (c *CodeEditor) stylingText(text string) []syntax.Token {
 		gtoken := syntax.Token{
 			Start: offset,
 			End:   offset + len([]rune(token.Value)),
-			Scope: syntax.StyleScope(fmt.Sprintf("%s", token.Type)),
+			Scope: syntax.StyleScope(token.Type.String()),
 		}
 		tokens = append(tokens, gtoken)
 		offset = gtoken.End
