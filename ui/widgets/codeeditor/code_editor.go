@@ -108,17 +108,16 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 
 func (c *CodeEditor) setEditorOptions() {
 	// color scheme
-	th := c.theme.Material()
 	colorScheme := syntax.ColorScheme{}
-	colorScheme.Foreground = gvcolor.MakeColor(th.Fg)
-	colorScheme.SelectColor = gvcolor.MakeColor(c.theme.TextSelectionColor).MulAlpha(0x60)
-	colorScheme.LineColor = gvcolor.MakeColor(th.ContrastBg).MulAlpha(0x30)
-	colorScheme.LineNumberColor = gvcolor.MakeColor(th.ContrastFg).MulAlpha(0xb6)
+	colorScheme.Foreground = gvcolor.MakeColor(c.theme.Fg)
+	colorScheme.SelectColor = gvcolor.MakeColor(c.theme.TextSelectionColor)
+	colorScheme.LineColor = gvcolor.MakeColor(c.theme.ContrastBg).MulAlpha(0x30)
+	colorScheme.LineNumberColor = gvcolor.MakeColor(c.theme.ContrastFg).MulAlpha(0xb6)
 
-	themeName := prefs.GetGlobalConfig().Spec.Editor.Theme
-	syntaxStyles := getColorStyles(themeName, c.theme)
+	// TODO make the color scheme configurable
+	syntaxStyles := getColorStyles("dracula", c.theme)
 	for _, style := range syntaxStyles {
-		colorScheme.AddStyle(style.scope, style.textStyle, style.color, style.background)
+		colorScheme.AddStyle(style.scope, style.textStyle, style.color, gvcolor.Color{})
 	}
 
 	editorOptions := []gvcode.EditorOption{

@@ -13,10 +13,9 @@ import (
 )
 
 type colorStyle struct {
-	scope      syntax.StyleScope
-	textStyle  syntax.TextStyle
-	color      gvcolor.Color
-	background gvcolor.Color
+	scope     syntax.StyleScope
+	textStyle syntax.TextStyle
+	color     gvcolor.Color
 }
 
 // registry holds the color styles for styles
@@ -56,12 +55,15 @@ func getColorStyle(token chroma.TokenType, style chroma.StyleEntry, theme *chapa
 	}
 
 	var textStyle syntax.TextStyle = 0
-	if strings.EqualFold(cc[0], "bold") {
+	switch strings.ToLower(cc[0]) {
+	case "bold":
 		textStyle = syntax.Bold
-	} else if strings.EqualFold(cc[0], "italic") {
+	case "italic":
 		textStyle = syntax.Italic
-	} else if strings.EqualFold(cc[0], "underline") {
+	case "underline":
 		textStyle = syntax.Underline
+	case "border":
+		textStyle = syntax.Border
 	}
 
 	var setColor gvcolor.Color
@@ -72,9 +74,8 @@ func getColorStyle(token chroma.TokenType, style chroma.StyleEntry, theme *chapa
 	}
 
 	return true, colorStyle{
-		scope:      syntax.StyleScope(fmt.Sprintf("%s", token)),
-		textStyle:  textStyle,
-		color:      setColor,
-		background: gvcolor.MakeColor(th.Bg),
+		scope:     syntax.StyleScope(fmt.Sprintf("%s", token)),
+		textStyle: textStyle,
+		color:     setColor,
 	}
 }

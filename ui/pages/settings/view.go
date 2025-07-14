@@ -8,7 +8,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	giox "gioui.org/x/component"
-	"github.com/alecthomas/chroma/v2/styles"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
@@ -186,9 +185,6 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewHeaderItem("Font"),
 		widgets.NewTextItem("Font Family", "fontFamily", "The font to use for the editor", config.Spec.Editor.FontFamily).MinWidth(unit.Dp(400)).TextAlignment(text.Start),
 		widgets.NewNumberItem("Font size", "fontSize", "The font size to use for the editor", config.Spec.Editor.FontSize),
-		widgets.NewDropDownItem("Theme", "theme", "Select editor theme", config.Spec.Editor.Theme,
-			getThemes()...,
-		),
 		widgets.NewHeaderItem("Editing"),
 		widgets.NewDropDownItem("Indentation", "indentation", "Select the indentation type to use for the editor", config.Spec.Editor.Indentation,
 			widgets.NewDropDownOption("Spaces").WithIdentifier("spaces").WithValue("spaces"),
@@ -206,15 +202,6 @@ func (v *View) Load(config domain.GlobalConfig) {
 	})
 	dataSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("data", dataSettings)
-}
-
-func getThemes() []*widgets.DropDownOption {
-	names := styles.Names()
-	out := make([]*widgets.DropDownOption, 0, len(names))
-	for _, name := range names {
-		out = append(out, widgets.NewDropDownOption(name).WithIdentifier(name).WithValue(name))
-	}
-	return out
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

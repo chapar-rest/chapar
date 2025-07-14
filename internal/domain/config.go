@@ -61,7 +61,6 @@ type EditorConfig struct {
 	FontFamily        string `yaml:"fontFamily"`
 	FontSize          int    `yaml:"FontSize"`
 	Indentation       string `yaml:"indentation"` // spaces or tabs
-	Theme             string `yaml:"theme"`       // theme name, e.q dracula, github, etc.
 	TabWidth          int    `yaml:"tabWidth"`
 	AutoCloseBrackets bool   `yaml:"autoCloseBrackets"`
 	AutoCloseQuotes   bool   `yaml:"autoCloseQuotes"`
@@ -71,7 +70,6 @@ func (e EditorConfig) Changed(other EditorConfig) bool {
 	return e.FontFamily != other.FontFamily ||
 		e.FontSize != other.FontSize ||
 		e.Indentation != other.Indentation ||
-		e.Theme != other.Theme ||
 		e.TabWidth != other.TabWidth ||
 		e.AutoCloseBrackets != other.AutoCloseBrackets ||
 		e.AutoCloseQuotes != other.AutoCloseQuotes
@@ -142,7 +140,6 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				FontFamily:        "JetBrains Mono",
 				FontSize:          12,
 				Indentation:       IndentationSpaces,
-				Theme:             "dracula",
 				TabWidth:          4,
 				AutoCloseBrackets: true,
 				AutoCloseQuotes:   true,
@@ -174,7 +171,6 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"fontFamily":        g.Spec.Editor.FontFamily,
 			"fontSize":          g.Spec.Editor.FontSize,
 			"indentation":       g.Spec.Editor.Indentation,
-			"theme":             g.Spec.Editor.Theme,
 			"tabWidth":          g.Spec.Editor.TabWidth,
 			"autoCloseBrackets": g.Spec.Editor.AutoCloseBrackets,
 			"autoCloseQuotes":   g.Spec.Editor.AutoCloseQuotes,
@@ -211,7 +207,6 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)
 	g.Spec.Editor.Indentation = getOrDefault(values, "indentation", g.Spec.Editor.Indentation).(string)
-	g.Spec.Editor.Theme = getOrDefault(values, "theme", g.Spec.Editor.Theme).(string)
 	g.Spec.Editor.TabWidth = getOrDefault(values, "tabWidth", g.Spec.Editor.TabWidth).(int)
 	g.Spec.Editor.AutoCloseBrackets = getOrDefault(values, "autoCloseBrackets", g.Spec.Editor.AutoCloseBrackets).(bool)
 	g.Spec.Editor.AutoCloseQuotes = getOrDefault(values, "autoCloseQuotes", g.Spec.Editor.AutoCloseQuotes).(bool)

@@ -111,6 +111,7 @@ type SettingItem struct {
 	Description string
 	Type        string
 	Value       any
+	Default     any
 
 	boolState *widget.Bool
 	editor    *widget.Editor
@@ -208,6 +209,11 @@ func NewHeaderItem(title string) *SettingItem {
 		visible: true,
 	}
 
+	return i
+}
+
+func (i *SettingItem) WithDefaultValue(value any) *SettingItem {
+	i.Default = value
 	return i
 }
 
