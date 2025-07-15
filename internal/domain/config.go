@@ -64,6 +64,8 @@ type EditorConfig struct {
 	TabWidth          int    `yaml:"tabWidth"`
 	AutoCloseBrackets bool   `yaml:"autoCloseBrackets"`
 	AutoCloseQuotes   bool   `yaml:"autoCloseQuotes"`
+	ShowLineNumbers   bool   `yaml:"showLineNumbers"`
+	WrapLines         bool   `yaml:"wrapLines"`
 }
 
 func (e EditorConfig) Changed(other EditorConfig) bool {
@@ -72,7 +74,9 @@ func (e EditorConfig) Changed(other EditorConfig) bool {
 		e.Indentation != other.Indentation ||
 		e.TabWidth != other.TabWidth ||
 		e.AutoCloseBrackets != other.AutoCloseBrackets ||
-		e.AutoCloseQuotes != other.AutoCloseQuotes
+		e.AutoCloseQuotes != other.AutoCloseQuotes ||
+		e.ShowLineNumbers != other.ShowLineNumbers ||
+		e.WrapLines != other.WrapLines
 }
 
 type ScriptingConfig struct {
@@ -143,6 +147,8 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				TabWidth:          4,
 				AutoCloseBrackets: true,
 				AutoCloseQuotes:   true,
+				ShowLineNumbers:   true,
+				WrapLines:         true,
 			},
 			Scripting: ScriptingConfig{
 				Enabled:     false,
@@ -174,6 +180,8 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"tabWidth":          g.Spec.Editor.TabWidth,
 			"autoCloseBrackets": g.Spec.Editor.AutoCloseBrackets,
 			"autoCloseQuotes":   g.Spec.Editor.AutoCloseQuotes,
+			"showLineNumbers":   g.Spec.Editor.ShowLineNumbers,
+			"wrapLines":         g.Spec.Editor.WrapLines,
 		},
 		"scripting": map[string]any{
 			"enabled":          g.Spec.Scripting.Enabled,
@@ -210,6 +218,8 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.Editor.TabWidth = getOrDefault(values, "tabWidth", g.Spec.Editor.TabWidth).(int)
 	g.Spec.Editor.AutoCloseBrackets = getOrDefault(values, "autoCloseBrackets", g.Spec.Editor.AutoCloseBrackets).(bool)
 	g.Spec.Editor.AutoCloseQuotes = getOrDefault(values, "autoCloseQuotes", g.Spec.Editor.AutoCloseQuotes).(bool)
+	g.Spec.Editor.ShowLineNumbers = getOrDefault(values, "showLineNumbers", g.Spec.Editor.ShowLineNumbers).(bool)
+	g.Spec.Editor.WrapLines = getOrDefault(values, "wrapLines", g.Spec.Editor.WrapLines).(bool)
 
 	g.Spec.Scripting.Enabled = getOrDefault(values, "enable", g.Spec.Scripting.Enabled).(bool)
 	g.Spec.Scripting.Language = getOrDefault(values, "language", g.Spec.Scripting.Language).(string)

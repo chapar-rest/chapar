@@ -91,7 +91,7 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
 		if old.Spec.Editor.Changed(updated.Spec.Editor) {
 			c.editorConfig = updated.Spec.Editor
-			c.setEditorOptions()
+			c.updateEditorOptions(old.Spec.Editor, updated.Spec.Editor)
 		}
 	})
 
@@ -103,6 +103,35 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 
 	c.editor.SetText(code)
 	return c
+}
+
+func (c *CodeEditor) updateEditorOptions(old, updated domain.EditorConfig) {
+	switch {
+	case old.AutoCloseBrackets != updated.AutoCloseBrackets:
+		if !updated.AutoCloseBrackets {
+			c.editor.WithOptions(gvcode.WithQuotePairs(map[rune]rune{}))
+		}
+
+		if !c.editorConfig.AutoCloseQuotes {
+			c.editor.WithOptions(gvcode.WithBracketPairs(map[rune]rune{}))
+		}
+	case old.FontFamily != updated.FontFamily:
+		if updated.FontFamily != "" {
+			c.editor.WithOptions(gvcode.WithFont(c.font.Font))
+		}
+	case old.FontSize != updated.FontSize:
+		if updated.FontSize > 0 {
+			c.editor.WithOptions(gvcode.WithTextSize(unit.Sp(updated.FontSize)))
+		}
+	case old.TabWidth != updated.TabWidth:
+		c.editor.WithOptions(gvcode.WithTabWidth(updated.TabWidth))
+	case old.Indentation != updated.Indentation:
+		c.editor.WithOptions(gvcode.WithSoftTab(updated.Indentation == domain.IndentationSpaces))
+	case old.ShowLineNumbers != updated.ShowLineNumbers:
+		c.editor.WithOptions(gvcode.WithLineNumber(updated.ShowLineNumbers))
+	case old.WrapLines != updated.WrapLines:
+		c.editor.WithOptions(gvcode.WrapLine(updated.WrapLines))
+	}
 }
 
 func (c *CodeEditor) setEditorOptions() {
@@ -126,8 +155,8 @@ func (c *CodeEditor) setEditorOptions() {
 		gvcode.WithLineHeight(unit.Sp(16), 1),
 		gvcode.WithTabWidth(c.editorConfig.TabWidth),
 		gvcode.WithSoftTab(c.editorConfig.Indentation == domain.IndentationSpaces),
-		gvcode.WrapLine(true),
-		gvcode.WithLineNumber(true),
+		gvcode.WrapLine(c.editorConfig.WrapLines),
+		gvcode.WithLineNumber(c.editorConfig.ShowLineNumbers),
 		gvcode.WithColorScheme(colorScheme),
 	}
 
