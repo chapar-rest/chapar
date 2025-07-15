@@ -370,7 +370,9 @@ func (s *Settings) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 
 	inset := layout.Inset{Top: unit.Dp(10), Bottom: unit.Dp(15), Right: unit.Dp(20)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return s.list.Layout(gtx, len(s.Items), func(gtx layout.Context, i int) layout.Dimensions {
+		l := material.List(theme.Material(), s.list)
+		l.AnchorStrategy = material.Occupy
+		return l.Layout(gtx, len(s.Items), func(gtx layout.Context, i int) layout.Dimensions {
 			return s.Items[i].Layout(gtx, theme)
 		})
 	})
