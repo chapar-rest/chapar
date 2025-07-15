@@ -2,7 +2,9 @@ package buffer
 
 import (
 	"fmt"
+	"io"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -55,6 +57,11 @@ type PieceTable struct {
 	changed bool
 	// setting a batchId to group
 	currentBatch *int
+	mu           sync.RWMutex
+
+	// Index of the slice saves the continuous line number starting from zero.
+	// The value contains the rune length of the line.
+	lines []lineInfo
 }
 
 func NewPieceTable(text []byte) *PieceTable {
@@ -71,6 +78,9 @@ func NewPieceTable(text []byte) *PieceTable {
 }
 
 func (pt *PieceTable) SetText(text []byte) {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
 	pt.originalBuf = newTextBuffer()
 	pt.modifyBuf = newTextBuffer()
 	pt.pieces = newPieceList()
@@ -146,11 +156,11 @@ func (pt *PieceTable) push2UndoStack(rng, newRng *pieceRange) {
 	rng.Swap(newRng)
 }
 
-// Insert insert text at the logical position specifed by runeIndex. runeIndex is measured by rune.
+// insert insert text at the logical position specifed by runeIndex. runeIndex is measured by rune.
 // There are 2 scenarios need to be handled:
 //  1. Insert in the middle of a piece.
 //  2. Insert at the boundary of two pieces.
-func (pt *PieceTable) Insert(runeIndex int, text string) bool {
+func (pt *PieceTable) insert(runeIndex int, text string) bool {
 	if runeIndex > pt.seqLength || runeIndex < 0 || text == "" {
 		return false
 	}
@@ -322,7 +332,7 @@ func (pt *PieceTable) undoRedo(src *pieceRangeStack, dest *pieceRangeStack) ([]C
 	return cursors, true
 }
 
-func (pt *PieceTable) Erase(startOff, endOff int) bool {
+func (pt *PieceTable) erase(startOff, endOff int) bool {
 	cursor := CursorPos{Start: startOff, End: endOff}
 
 	if startOff > endOff {
@@ -447,43 +457,58 @@ func (pt *PieceTable) Erase(startOff, endOff int) bool {
 
 // Replace removes text from startOff to endOff(exclusive), and insert text at the position of startOff.
 func (pt *PieceTable) Replace(startOff, endOff int, text string) bool {
-	defer pt.Inspect()
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	defer pt.inspect()
 
 	if endOff > pt.seqLength {
 		endOff = pt.seqLength
 	}
 
 	if startOff == endOff && text != "" {
-		return pt.Insert(startOff, text)
+		return pt.insert(startOff, text)
 	}
 
 	if text == "" {
-		return pt.Erase(startOff, endOff)
+		return pt.erase(startOff, endOff)
 	}
 
-	pt.GroupOp()
-	defer pt.UnGroupOp()
+	pt.groupOp()
+	defer pt.unGroupOp()
 
-	if !pt.Erase(startOff, endOff) {
+	if !pt.erase(startOff, endOff) {
 		return false
 	}
 
-	return pt.Insert(startOff, text)
+	return pt.insert(startOff, text)
 }
 
 func (pt *PieceTable) Undo() ([]CursorPos, bool) {
-	defer pt.Inspect()
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	defer pt.inspect()
 	return pt.undoRedo(pt.undoStack, pt.redoStack)
 }
 
 func (pt *PieceTable) Redo() ([]CursorPos, bool) {
-	defer pt.Inspect()
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	defer pt.inspect()
 	return pt.undoRedo(pt.redoStack, pt.undoStack)
 }
 
 // Group operations such as insert, earase or replace in a batch.
 // Nested call share the same single batch.
 func (pt *PieceTable) GroupOp() {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+	pt.groupOp()
+}
+
+func (pt *PieceTable) groupOp() {
 	if pt.currentBatch == nil {
 		pt.currentBatch = new(int)
 	}
@@ -493,7 +518,17 @@ func (pt *PieceTable) GroupOp() {
 
 // Ungroup a batch. Latter insert, earase or replace operations outside of
 // a group is not batched.
+//
+// This results in global batch op if writes are accessed from concurrent
+// goroutine, may be not what the user want. But in our scenarios most of
+// the time it is safe to do so.
 func (pt *PieceTable) UnGroupOp() {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+	pt.unGroupOp()
+}
+
+func (pt *PieceTable) unGroupOp() {
 	*pt.currentBatch--
 	if *pt.currentBatch <= 0 {
 		pt.currentBatch = nil
@@ -502,17 +537,69 @@ func (pt *PieceTable) UnGroupOp() {
 
 // Size returns the total length of the document data in runes.
 func (pt *PieceTable) Len() int {
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
 	return pt.seqLength
 }
 
+func (pt *PieceTable) Size() int {
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
+	return pt.seqBytes
+}
+
 func (pt *PieceTable) Changed() bool {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
 	c := pt.changed
 	pt.changed = false
 	return c
 }
 
-// Inspect prints the internal of the piece table. For debug purpose only.
-func (pt *PieceTable) Inspect() {
+// ReadAt implements [io.ReaderAt]
+func (pt *PieceTable) ReadAt(p []byte, offset int64) (total int, err error) {
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
+
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if offset >= int64(pt.seqBytes) {
+		return 0, io.EOF
+	}
+
+	var expected = len(p)
+	var bytes int64
+	for n := pt.pieces.Head(); n != pt.pieces.tail; n = n.next {
+		bytes += int64(n.byteLength)
+
+		if bytes > offset {
+			fragment := pt.getBuf(n.source).getTextByRange(
+				n.byteOff+n.byteLength-int(bytes-offset), // calculate the offset in the source buffer.
+				int(bytes-offset))
+
+			n := copy(p, fragment)
+			p = p[n:]
+			total += n
+			offset += int64(n)
+
+			if total >= expected {
+				break
+			}
+		}
+
+	}
+
+	if total < expected {
+		err = io.EOF
+	}
+
+	return
+}
+
+// inspect prints the internal of the piece table. For debug purpose only.
+func (pt *PieceTable) inspect() {
 	if !debugEnabled {
 		return
 	}

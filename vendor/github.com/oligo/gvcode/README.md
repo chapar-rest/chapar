@@ -123,10 +123,11 @@ In the case of a overlay widget, this enables us to handle keyboard events witho
 `gvcode` provides extensible auto-completion component. The central component is the `Completion` interface which acts as the scheduler between the editor and the completion algorithm, and the popup widget.
 
 To setup an auto-completion component, we have to provide the following parts:
-1. `Trigger`: Tell the editor in what condition can it activate the completion. An activated completion shows a popup box. The completion component support 3 kinds of triggers, and you can set more than one at the same time. 
-    * `AutoTrigger`: This activates the completion if there are enough characters before the caret. The number of characters can be specifed.
-    * `PrefixTrigger`: This activates the completion if the user typed the required prefix.
+1. `Trigger`: Tell the editor in what condition can it activate the completion. An activated completion shows a popup box. 
+    * `Characters`: This activates the completion if the user typed the required characters.
     * `KeyTrigger`: This activates the competion if the required key binding is pressed.
+    * Other: This activates the completion if when any of the allowed characters are typed.
+
 2. `Completor`: Completors provide completion algorithms to the completion component. The completion component accepts multiple completors so you can have different completors for different sources.
 3. `CompletionPopup`: A `CompletionPopup` shows completion candidates to the user, and user can navigate through them to select the desired one.
 4  `Completion`: The completion component itself.
@@ -136,23 +137,13 @@ The code from the example editor shows the usage:
 ```go
 	// Setting up auto-completion.
 	cm := &completion.DefaultCompletion{Editor: editorApp.state}
-	// set completion triggers
-	cm.SetTriggers(
-		gvcode.AutoTrigger{},
-		gvcode.KeyTrigger{Name: "P", Modifiers: key.ModShortcut})
-	// set the completion algorithms
-	cm.SetCompletors(&goCompletor{})
-	// set popup widget to let user navigate the candidates.
-	editorApp.popup = *completion.NewCompletionPopup(editorApp.state, cm)
-	cm.SetPopup(func(gtx layout.Context, items []gvcode.CompletionCandicate) layout.Dimensions {
-		editorApp.popup.TextSize = unit.Sp(12)
-		editorApp.popup.Size = image.Point{
-			X: gtx.Dp(unit.Dp(400)),
-			Y: gtx.Dp(unit.Dp(200)),
-		}
 
-		return editorApp.popup.Layout(gtx, th, items)
-	})
+	// set popup widget to let user navigate the candidates.
+	popup := completion.NewCompletionPopup(editorApp.state, cm)
+	popup.Theme = th
+	popup.TextSize = unit.Sp(12)
+
+	cm.AddCompletor(&goCompletor{editor: editorApp.state}, popup)
 ```
 
 

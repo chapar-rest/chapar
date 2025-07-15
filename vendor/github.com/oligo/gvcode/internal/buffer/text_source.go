@@ -8,8 +8,6 @@ import "io"
 // undo/redo are supported. If used with GroupOp and UnGroupOp,
 // the undo and redo operations can be batched.
 type TextSource interface {
-	io.Seeker
-	io.Reader
 	io.ReaderAt
 
 	// ReadRuneAt reads the rune starting at the given rune offset, if any.
@@ -21,19 +19,15 @@ type TextSource interface {
 	// Lines returns the total number of lines/paragraphs of the source.
 	Lines() int
 
-	//Text returns the contents of the editor.
-	Text(buf []byte) []byte
-
 	// Len is the length of the editor contents, in runes.
 	Len() int
+
+	// Size returns the size of the editor content in bytes.
+	Size() int
 
 	// SetText reset the buffer and replace the content of the buffer with the provided text.
 	SetText(text []byte)
 
-	// Insert insert text at the logical position specifed by runeIndex measured by rune.
-	Insert(runeIndex int, text string) bool
-	// Delete text from startOff to endOff(exclusive).
-	Erase(startOff, endOff int) bool
 	// Replace replace text from startOff to endOff(exclusive) with text.
 	Replace(startOff, endOff int, text string) bool
 
@@ -54,4 +48,11 @@ type TextSource interface {
 
 	// Changed report whether the contents have changed since the last call to Changed.
 	Changed() bool
+}
+
+type TextReader interface {
+	io.Seeker
+	io.Reader
+	//ReadAll returns the contents of the editor.
+	ReadAll(buf []byte) []byte
 }

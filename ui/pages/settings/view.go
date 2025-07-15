@@ -193,6 +193,8 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewNumberItem("Tab width", "tabWidth", "The width of the tab to use for the editor", config.Spec.Editor.TabWidth),
 		widgets.NewBoolItem("Auto close brackets", "autoCloseBrackets", "Automatically close brackets in the editor", config.Spec.Editor.AutoCloseBrackets),
 		widgets.NewBoolItem("Auto close quotes", "autoCloseQuotes", "Automatically close quotes in the editor", config.Spec.Editor.AutoCloseQuotes),
+		widgets.NewBoolItem("Show Line numbers", "showLineNumbers", "Show line numbers", config.Spec.Editor.ShowLineNumbers),
+		widgets.NewBoolItem("Wrap lines", "wrapLines", "Automatically wrap long lines", config.Spec.Editor.WrapLines),
 	})
 	editorSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("editor", editorSettings)
@@ -245,20 +247,29 @@ func (v *View) settingDetail(gtx layout.Context, theme *chapartheme.Theme) layou
 		return layout.Dimensions{}
 	}
 
-	return layout.UniformInset(unit.Dp(20)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{
+		Top:    unit.Dp(20),
+		Bottom: unit.Dp(10),
+	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-					layout.Rigid(material.H5(theme.Material(), v.selectedSettingTitle).Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return v.layoutActions(gtx, theme)
-					}),
-				)
+				return layout.Inset{Left: unit.Dp(20), Right: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+						layout.Rigid(material.H5(theme.Material(), v.selectedSettingTitle).Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return v.layoutActions(gtx, theme)
+						}),
+					)
+				})
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 			widgets.DrawLineFlex(theme.SeparatorColor, unit.Dp(1), unit.Dp(gtx.Constraints.Max.X)),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{
+					Top:   unit.Dp(10),
+					Left:  unit.Dp(20),
+					Right: unit.Dp(20),
+				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return setting.Layout(gtx, theme)
 				})
 			}),

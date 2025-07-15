@@ -309,6 +309,7 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					if c.MaxWidth != 0 {
 						gtx.Constraints.Max.X = gtx.Dp(c.MaxWidth)
 					}
+					gtx.Constraints.Max.Y = gtx.Dp(300)
 					m := component.Menu(theme.Material(), &c.menu)
 					m.SurfaceStyle.Fill = theme.DropDownMenuBgColor
 					return m.Layout(gtx)

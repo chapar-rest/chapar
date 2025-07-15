@@ -194,6 +194,9 @@ func (l *LexerState) Iterator() Token { // nolint: gocognit
 		for len(l.iteratorStack) > 0 {
 			n := len(l.iteratorStack) - 1
 			t := l.iteratorStack[n]()
+			if t.Type == Ignore {
+				continue
+			}
 			if t == EOF {
 				l.iteratorStack = l.iteratorStack[:n]
 				continue
@@ -243,6 +246,9 @@ func (l *LexerState) Iterator() Token { // nolint: gocognit
 	for len(l.iteratorStack) > 0 {
 		n := len(l.iteratorStack) - 1
 		t := l.iteratorStack[n]()
+		if t.Type == Ignore {
+			continue
+		}
 		if t == EOF {
 			l.iteratorStack = l.iteratorStack[:n]
 			continue
@@ -343,7 +349,7 @@ func (r *RegexLexer) maybeCompile() (err error) {
 restart:
 	seen := map[LexerMutator]bool{}
 	for state := range r.rules {
-		for i := 0; i < len(r.rules[state]); i++ {
+		for i := range len(r.rules[state]) {
 			rule := r.rules[state][i]
 			if compile, ok := rule.Mutator.(LexerMutator); ok {
 				if seen[compile] {
@@ -357,6 +363,17 @@ restart:
 				//
 				// This sounds bad, but shouldn't be significant in practice.
 				goto restart
+			}
+		}
+	}
+	// Validate emitters
+	for state := range r.rules {
+		for i := range len(r.rules[state]) {
+			rule := r.rules[state][i]
+			if validate, ok := rule.Type.(ValidatingEmitter); ok {
+				if err := validate.ValidateEmitter(rule); err != nil {
+					return fmt.Errorf("%s: %s: %s: %w", r.config.Name, state, rule.Pattern, err)
+				}
 			}
 		}
 	}
@@ -468,7 +485,7 @@ func matchRules(text []rune, pos int, rules []*CompiledRule) (int, *CompiledRule
 func ensureLF(text string) string {
 	buf := make([]byte, len(text))
 	var j int
-	for i := 0; i < len(text); i++ {
+	for i := range len(text) {
 		c := text[i]
 		if c == '\r' {
 			if i < len(text)-1 && text[i+1] == '\n' {

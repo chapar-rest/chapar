@@ -197,7 +197,7 @@ func (m *Manager) loadGlobalConfig() (bool, error) {
 		return false, err
 	}
 
-	config := &domain.GlobalConfig{}
+	config := domain.GetDefaultGlobalConfig()
 	if err := yaml.Unmarshal(data, config); err != nil {
 		return false, err
 	}
@@ -225,7 +225,7 @@ func (m *Manager) loadAppState() (bool, error) {
 		return false, err
 	}
 
-	state := &domain.AppState{}
+	state := domain.GetDefaultAppState()
 	if err := yaml.Unmarshal(data, state); err != nil {
 		return false, err
 	}

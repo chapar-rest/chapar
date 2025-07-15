@@ -1,4 +1,4 @@
-package gvcode
+package textview
 
 import (
 	"image"
@@ -11,21 +11,24 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	lt "github.com/oligo/gvcode/internal/layout"
+	"golang.org/x/image/math/fixed"
 )
 
-func paintLineNumber(gtx layout.Context, shaper *text.Shaper, params text.Parameters, viewport image.Rectangle, paragraphs []lt.Paragraph, textMaterial op.CallOp) layout.Dimensions {
+func paintLineNumber(gtx layout.Context, shaper *text.Shaper, params text.Parameters, viewport image.Rectangle, paragraphs *[]lt.Paragraph, textMaterial op.CallOp) layout.Dimensions {
 	// inherit all other settings from the main text layout.
 	params.Alignment = text.End
-	params.MinWidth = gtx.Constraints.Min.X
-	params.MaxWidth = gtx.Constraints.Max.X
+	params.MinWidth = 0
 	params.MaxLines = 1
 
+	maxWidth := getMaxLineNumWidth(shaper, params, len(*paragraphs))
+	params.MinWidth = maxWidth.Ceil()
+
 	var dims layout.Dimensions
-	glyphs := make([]text.Glyph, 5)
+	glyphs := make([]text.Glyph, 0)
 
 	quit := false
 lineLoop:
-	for i, line := range paragraphs {
+	for i, line := range *paragraphs {
 		if quit {
 			break
 		}
@@ -62,8 +65,9 @@ lineLoop:
 		}
 
 		dims.Size = image.Point{X: max(bounds.Dx(), dims.Size.X), Y: dims.Size.Y + bounds.Dy()}
-
-		trans := op.Affine(f32.Affine2D{}.Offset(f32.Point{Y: float32(line.StartY)}.Sub(layout.FPt(viewport.Min)))).Push(gtx.Ops)
+		trans := op.Affine(f32.Affine2D{}.Offset(
+			f32.Point{X: float32(glyphs[0].X.Floor()), Y: float32(line.StartY)}.Sub(layout.FPt(image.Point{Y: viewport.Min.Y}))),
+		).Push(gtx.Ops)
 
 		// draw glyph
 		path := shaper.Shape(glyphs)
@@ -75,4 +79,20 @@ lineLoop:
 	}
 
 	return dims
+}
+
+func getMaxLineNumWidth(shaper *text.Shaper, params text.Parameters, line int) fixed.Int26_6 {
+	params.MinWidth = 0
+	shaper.LayoutString(params, strconv.Itoa(line))
+
+	var width fixed.Int26_6
+	for {
+		g, ok := shaper.NextGlyph()
+		if !ok {
+			break
+		}
+		width += g.Advance
+	}
+
+	return width
 }

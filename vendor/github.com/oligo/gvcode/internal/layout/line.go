@@ -89,6 +89,16 @@ func (li *Line) GetGlyphs(offset, count int) []text.Glyph {
 	return out
 }
 
+func (li *Line) All() iter.Seq[text.Glyph] {
+	return func(yield func(text.Glyph) bool) {
+		for _, gl := range li.Glyphs {
+			if !yield(*gl) {
+				return
+			}
+		}
+	}
+}
+
 // Paragraph contains the pixel coordinates of the start and end position
 // of the paragraph.
 type Paragraph struct {

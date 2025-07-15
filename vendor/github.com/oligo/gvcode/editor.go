@@ -2,6 +2,7 @@ package gvcode
 
 import (
 	"image"
+	"io"
 	"strings"
 	"time"
 
@@ -14,30 +15,17 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"github.com/oligo/gvcode/color"
 	"github.com/oligo/gvcode/internal/buffer"
+	gestureExt "github.com/oligo/gvcode/internal/gesture"
+	"github.com/oligo/gvcode/textview"
 )
 
 // Editor implements an editable and scrollable text area.
 type Editor struct {
-	// LineNumberGutter specifies the gap between the line number and the main text.
-	LineNumberGutter unit.Dp
-	// Color used to paint text
-	TextMaterial op.CallOp
-	// Color used to highlight the selections.
-	SelectMaterial op.CallOp
-	// Color used to highlight the current paragraph.
-	LineMaterial op.CallOp
-	// Color used to paint the line number
-	LineNumberMaterial op.CallOp
-	// Color used to highlight the text snippets, such as search matches.
-	TextHighlightMaterial op.CallOp
-
-	// hooks
-	onPaste   BeforePasteHook
-	completor Completion
-
 	// readOnly controls whether the contents of the editor can be altered by
 	// user interaction. If set to true, the editor will allow selecting text
 	// and copying it interactively, but not modifying it.
@@ -45,18 +33,21 @@ type Editor struct {
 
 	// text manages the text buffer and provides shaping and cursor positioning
 	// services.
-	text       textView
-	buffer     buffer.TextSource
-	textStyles []*TextStyle
-	// highlights specifies the text to be highlighted using text ranges.
-	highlights []TextRange
+	text   *textview.TextView
+	buffer buffer.TextSource
 
+	// colorPalette configures the color scheme used for syntax highlighting.
+	colorPalette *color.ColorPalette
+	// LineNumberGutterGap specifies the right inset between the line number and the
+	// editor text area.
+	lineNumberGutterGap unit.Dp
+	showLineNumber      bool
+	// hooks
+	onPaste   BeforePasteHook
+	completor Completion
 	// scratch is a byte buffer that is reused to efficiently read portions of text
 	// from the textView.
-	scratch []byte
-	// regions is a region buffer.
-	regions []Region
-
+	scratch    []byte
 	blinkStart time.Time
 
 	// ime tracks the state relevant to input methods.
@@ -67,7 +58,8 @@ type Editor struct {
 
 	dragging    bool
 	dragger     gesture.Drag
-	scroller    gesture.Scroll
+	scroller    gestureExt.Scroll
+	hover       gestureExt.Hover
 	scrollCaret bool
 	showCaret   bool
 	clicker     gesture.Click
@@ -76,6 +68,9 @@ type Editor struct {
 	commands map[key.Name][]keyCommand
 	// autoInsertions tracks recently inserted closing brackets or quotes.
 	autoInsertions map[int]rune
+	// gutterWidth can be used to guide to set the horizontal offset when
+	// laying out a horizontal scrollbar.
+	gutterWidth int
 }
 
 type imeState struct {
@@ -86,13 +81,6 @@ type imeState struct {
 	snippet    key.Snippet
 	start, end int
 }
-
-type selectionAction int
-
-const (
-	selectionExtend selectionAction = iota
-	selectionClear
-)
 
 type EditorEvent interface {
 	isEditorEvent()
@@ -109,6 +97,14 @@ type ChangeEvent struct{}
 // Editor.SelectedText() (which can be empty).
 type SelectEvent struct{}
 
+// A HoverEvent is generated if the pointer hovers and keep still or maybe some
+// small movement for some time.
+type HoverEvent struct {
+	PixelOff image.Point
+	Pos      Position
+	IsCancel bool
+}
+
 const (
 	blinksPerSecond  = 1
 	maxBlinkDuration = 10 * time.Second
@@ -119,8 +115,8 @@ const (
 // and has its fields synced with the editor.
 func (e *Editor) initBuffer() {
 	if e.buffer == nil {
-		e.buffer = buffer.NewTextSource()
-		e.text.SetSource(e.buffer)
+		e.text = textview.NewTextView()
+		e.buffer = e.text.Source()
 	}
 
 	e.text.CaretWidth = unit.Dp(1)
@@ -173,21 +169,32 @@ func (e *Editor) Layout(gtx layout.Context, lt *text.Shaper) layout.Dimensions {
 
 	defer clip.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Push(gtx.Ops).Pop()
 	e.scroller.Add(gtx.Ops)
+	if e.colorPalette != nil && e.colorPalette.Background.IsSet() {
+		e.colorPalette.Background.Op(nil).Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+	}
 
 	return layout.Flex{
 		Axis: layout.Horizontal,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return e.text.PaintLineNumber(gtx, lt, e.LineNumberMaterial)
-		}),
-
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if e.LineNumberGutter <= 0 {
-				e.LineNumberGutter = unit.Dp(24)
+			if !e.showLineNumber {
+				return layout.Dimensions{}
 			}
-			return layout.Spacer{Width: e.LineNumberGutter}.Layout(gtx)
-		}),
 
+			dims := layout.Inset{Right: max(0, e.lineNumberGutterGap)}.Layout(gtx,
+				func(gtx layout.Context) layout.Dimensions {
+					var lineNumberColor color.Color
+					if e.colorPalette.LineNumberColor.IsSet() {
+						lineNumberColor = e.colorPalette.LineNumberColor
+					} else {
+						lineNumberColor = color.Color{}.MulAlpha(255)
+					}
+					return e.text.PaintLineNumber(gtx, lt, lineNumberColor.Op(gtx.Ops))
+				})
+			e.gutterWidth = dims.Size.X
+			return dims
+		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			e.text.Layout(gtx, lt)
 			dims := e.layout(gtx)
@@ -209,6 +216,7 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 
 	e.clicker.Add(gtx.Ops)
 	e.dragger.Add(gtx.Ops)
+	e.hover.Add(gtx.Ops)
 	e.showCaret = false
 	if gtx.Focused(e) {
 		now := gtx.Now
@@ -222,67 +230,73 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 		e.showCaret = !blinking || dt%timePerBlink < timePerBlink/2
 	}
 	semantic.Editor.Add(gtx.Ops)
+
+	// determine the various colors to use.
+	if e.colorPalette == nil {
+		panic("No color palette is set!")
+	}
+
+	textMaterial := color.Color{}
+	var selectColor, lineColor color.Color
+	if e.colorPalette.Foreground.IsSet() {
+		textMaterial = e.colorPalette.Foreground
+	}
+	if e.colorPalette.SelectColor.IsSet() {
+		selectColor = e.colorPalette.SelectColor
+	} else {
+		selectColor = textMaterial.MulAlpha(0x60)
+	}
+	if e.colorPalette.LineColor.IsSet() {
+		lineColor = e.colorPalette.LineColor
+	} else {
+		lineColor = textMaterial.MulAlpha(0x30)
+	}
+
 	if e.Len() > 0 {
-		e.paintSelection(gtx, e.SelectMaterial)
-		e.paintLineHighlight(gtx, e.LineMaterial)
-		e.paintTextRanges(gtx, e.TextHighlightMaterial)
-		e.text.highlightMatchingBrackets(gtx, e.SelectMaterial)
-		e.paintText(gtx, e.TextMaterial)
+		e.paintSelection(gtx, selectColor)
+		e.paintLineHighlight(gtx, lineColor)
+		e.text.HighlightMatchingBrackets(gtx, selectColor.Op(gtx.Ops))
+		e.paintText(gtx, textMaterial)
 	}
 	if gtx.Enabled() {
-		e.paintCaret(gtx, e.TextMaterial)
+		e.paintCaret(gtx, textMaterial)
 	}
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
+// PaintOverlay draws a overlay widget over the main editor area.
+func (e *Editor) PaintOverlay(gtx layout.Context, position image.Point, w layout.Widget) {
+	offset := position.Add(e.text.ScrollOff())
+	e.text.PaintOverlay(gtx, offset, w)
+}
+
 // paintSelection paints the contrasting background for selected text using the provided
 // material to set the painting material for the selection.
-func (e *Editor) paintSelection(gtx layout.Context, material op.CallOp) {
+func (e *Editor) paintSelection(gtx layout.Context, material color.Color) {
 	e.initBuffer()
-	e.text.PaintSelection(gtx, material)
+	e.text.PaintSelection(gtx, material.Op(gtx.Ops))
 }
 
 // paintText paints the text glyphs using the provided material to set the fill of the
 // glyphs.
-func (e *Editor) paintText(gtx layout.Context, material op.CallOp) {
+func (e *Editor) paintText(gtx layout.Context, material color.Color) {
 	e.initBuffer()
-	e.text.PaintText(gtx, material, e.textStyles)
+	e.text.PaintText(gtx, material.Op(gtx.Ops))
 }
 
 // paintCaret paints the text glyphs using the provided material to set the fill material
 // of the caret rectangle.
-func (e *Editor) paintCaret(gtx layout.Context, material op.CallOp) {
+func (e *Editor) paintCaret(gtx layout.Context, material color.Color) {
 	e.initBuffer()
 	if !e.showCaret || e.readOnly {
 		return
 	}
-	e.text.PaintCaret(gtx, material)
+	e.text.PaintCaret(gtx, material.Op(gtx.Ops))
 }
 
-func (e *Editor) paintLineHighlight(gtx layout.Context, material op.CallOp) {
+func (e *Editor) paintLineHighlight(gtx layout.Context, material color.Color) {
 	e.initBuffer()
-	e.text.paintLineHighlight(gtx, material)
-}
-
-// SetHighlights sets the texts to be highlighted.
-func (e *Editor) SetHighlights(highlights []TextRange) {
-	e.highlights = highlights
-	e.ClearSelection()
-}
-
-func (e *Editor) paintTextRanges(gtx layout.Context, material op.CallOp) {
-	e.initBuffer()
-
-	e.regions = e.regions[:0]
-	rg := make([]Region, 0)
-	for _, txt := range e.highlights {
-		rg = rg[:0]
-		e.regions = append(e.regions, e.text.Regions(txt.Start, txt.End, rg)...)
-	}
-
-	if len(e.regions) > 0 {
-		e.text.PaintRegions(gtx, e.regions, material)
-	}
+	e.text.PaintLineHighlight(gtx, material.Op(gtx.Ops))
 }
 
 // Len is the length of the editor contents, in runes.
@@ -291,11 +305,22 @@ func (e *Editor) Len() int {
 	return e.buffer.Len()
 }
 
-// Text returns the contents of the editor.
+// Text returns the contents of the editor. This method is not concurrent safe,
+// and you should use the Reader returned from GetReader to read from multiple
+// goroutines.
 func (e *Editor) Text() string {
 	e.initBuffer()
-	e.scratch = e.buffer.Text(e.scratch)
+
+	srcReader := buffer.NewReader(e.text.Source())
+	e.scratch = srcReader.ReadAll(e.scratch)
 	return string(e.scratch)
+}
+
+// GetReader returns a [io.ReadSeeker] to the caller to read the text buffer. This
+// is the preferred way to read from the editor, especially when reading from
+// multiple goroutines.
+func (e *Editor) GetReader() io.ReadSeeker {
+	return buffer.NewReader(e.text.Source())
 }
 
 func (e *Editor) SetText(s string) {
@@ -323,6 +348,17 @@ func (e *Editor) CaretPos() (line, col int) {
 func (e *Editor) CaretCoords() f32.Point {
 	e.initBuffer()
 	return e.text.CaretCoords()
+}
+
+// ConvertPos convert a line/col position to rune offset.
+func (e *Editor) ConvertPos(line, col int) int {
+	return e.text.ConvertPos(line, col)
+}
+
+// ReadUntil reads in the specified direction from the current caret position until the
+// seperator returns false. It returns the read text.
+func (e *Editor) ReadUntil(direction int, seperator func(r rune) bool) string {
+	return e.text.ReadUntil(direction, seperator)
 }
 
 // Delete runes from the caret position. The sign of the argument specifies the
@@ -574,9 +610,9 @@ func (e *Editor) deleteWord(distance int) (deletedRunes int) {
 	runes := 1
 	for ii := 0; ii < words; ii++ {
 		r := next(runes)
-		isSeperator := e.text.isWordSeperator(r)
+		isSeperator := e.text.IsWordSeperator(r)
 
-		for r := next(runes); (isSeperator == e.text.isWordSeperator(r)) && !atEnd(runes); r = next(runes) {
+		for r := next(runes); (isSeperator == e.text.IsWordSeperator(r)) && !atEnd(runes); r = next(runes) {
 			runes += 1
 		}
 	}
@@ -621,24 +657,36 @@ func (e *Editor) ClearSelection() {
 	e.text.ClearSelection()
 }
 
-// returns start and end offset ratio of viewport
-func (e *Editor) ViewPortRatio() (float32, float32) {
+// ScrollRatio returns the viewport's start and end scrolling offset in ratio
+// relating to the reandered document coordinate space.
+func (e *Editor) ScrollRatio() (minX, maxX float32, minY, maxY float32) {
 	textDims := e.text.FullDimensions()
 	visibleDims := e.text.Dimensions()
-	scrollOffY := e.text.ScrollOff().Y
+	scrollOff := e.text.ScrollOff()
 
-	return float32(scrollOffY) / float32(textDims.Size.Y),
-		float32(scrollOffY+visibleDims.Size.Y) / float32(textDims.Size.Y)
+	minX = float32(scrollOff.X) / float32(textDims.Size.X)
+	maxX = float32(scrollOff.X+visibleDims.Size.X) / float32(textDims.Size.X)
+	minY = float32(scrollOff.Y) / float32(textDims.Size.Y)
+	maxY = float32(scrollOff.Y+visibleDims.Size.Y) / float32(textDims.Size.Y)
+	return
 }
 
-func (e *Editor) ScrollByRatio(gtx layout.Context, ratio float32) {
-	textDims := e.text.FullDimensions()
-	sdist := int(float32(textDims.Size.Y) * ratio)
-	e.text.ScrollRel(0, sdist)
+// Scroll scrolls the horizontal or vertical scrollbar, using ratio related to
+// the rendered document size.
+func (e *Editor) Scroll(gtx layout.Context, xRatio, yRatio float32) {
+	textDims := e.text.FullDimensions().Size
+	xRatio = min(1.0, xRatio)
+	xRatio = max(xRatio, -1.0)
+	yRatio = min(1.0, yRatio)
+	yRatio = max(yRatio, -1.0)
+
+	e.text.ScrollRel(int(float32(textDims.X)*xRatio), int(float32(textDims.Y)*yRatio))
 }
 
-func (e *Editor) UpdateTextStyles(styles []*TextStyle) {
-	e.textStyles = styles
+// GutterWidth returns the width of the gutter in pixel, which can be used to
+// guide to set the horizontal offset when laying out a horizontal scrollbar.
+func (e *Editor) GutterWidth() int {
+	return e.gutterWidth
 }
 
 func (e *Editor) ReadOnly() bool {
@@ -651,6 +699,10 @@ func (e *Editor) TabStyle() (TabStyle, int) {
 	}
 
 	return Tabs, e.text.TabWidth
+}
+
+func (e *Editor) ColorPalette() *color.ColorPalette {
+	return e.colorPalette
 }
 
 // SetDebug enable or disable the debug mode.
@@ -679,3 +731,4 @@ func sign(n int) int {
 
 func (s ChangeEvent) isEditorEvent() {}
 func (s SelectEvent) isEditorEvent() {}
+func (s HoverEvent) isEditorEvent()  {}
