@@ -3,6 +3,7 @@ package egress
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/rest"
 	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
+	"github.com/chapar-rest/chapar/ui/notifications"
 )
 
 type Service struct {
@@ -291,6 +293,13 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, request *domain.Re
 }
 
 func (s *Service) handlePostRequestScript(script string, request *domain.Request, resp *rest.Response, env *domain.Environment) error {
+	// if script executor is not set, return error
+	if s.scriptExecutor == nil {
+		logger.Warn("script executor is not enable or not ready yet, cannot handle post request script")
+		notifications.Send("Failed to run post request script, check console for logs", notifications.NotificationTypeError, time.Second*3)
+		return nil
+	}
+
 	params := &scripting.ExecParams{
 		Env: env,
 		Req: scripting.RequestDataFromDomain(request),
