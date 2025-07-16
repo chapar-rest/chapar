@@ -239,6 +239,10 @@ func (e *Environment) ApplyToHTTPRequest(req *HTTPRequestSpec) {
 }
 
 func (e *Environment) GetKeyValues() map[string]interface{} {
+	if e == nil || len(e.Spec.Values) == 0 {
+		return nil
+	}
+
 	values := make(map[string]interface{})
 
 	for _, kv := range e.Spec.Values {

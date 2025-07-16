@@ -254,7 +254,7 @@ func (s *Service) handleGRPcVariables(variables []domain.Variable, response *grp
 }
 
 func (s *Service) handleHTTPPostRequest(r domain.PostRequest, request *domain.Request, response *rest.Response, env *domain.Environment) error {
-	if r == (domain.PostRequest{}) || response == nil || env == nil {
+	if r == (domain.PostRequest{}) || response == nil {
 		return nil
 	}
 
@@ -265,6 +265,11 @@ func (s *Service) handleHTTPPostRequest(r domain.PostRequest, request *domain.Re
 
 	if r.Type != domain.PrePostTypeSetEnv {
 		// TODO: implement other types
+		return nil
+	}
+
+	if env == nil {
+		logger.Warn("No active environment, cannot handle post request set environment")
 		return nil
 	}
 
@@ -315,6 +320,9 @@ func (s *Service) handlePostRequestScript(script string, request *domain.Request
 				return err
 			}
 		}
+	} else if len(result.SetEnvironments) > 0 {
+		// let user know that the environment is nil
+		logger.Warn("No active environment, cannot set environment variables from script")
 	}
 
 	for _, pt := range result.Prints {

@@ -77,7 +77,7 @@ func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *d
 	case "warn":
 		textColor = chapartheme.LightYellow
 	case "print":
-		textColor = chapartheme.LightBlue
+		textColor = theme.ContrastFg
 	}
 
 	logEntry := fmt.Sprintf("[%s] %s: %s", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message)
