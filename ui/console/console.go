@@ -9,6 +9,7 @@ import (
 
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -166,6 +167,7 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 
 	if c.clearButton.Clicked(gtx) {
 		logger.Clear()
+		gtx.Execute(op.InvalidateCmd{})
 	}
 
 	if c.closeButton.Clicked(gtx) {
@@ -173,19 +175,7 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 	}
 
 	if c.copyButton.Clicked(gtx) {
-		logItems := logger.GetLogs()
-		var sb strings.Builder
-		for _, log := range logItems {
-			if log.Level == "print" {
-				// For print logs, we only copy the message without the level and time
-				sb.WriteString(log.Message + "\n")
-				continue
-			}
-			sb.WriteString(fmt.Sprintf("[%s] %s: %s\n", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message))
-		}
-		gtx.Execute(clipboard.WriteCmd{
-			Data: io.NopCloser(strings.NewReader(sb.String())),
-		})
+		copyToClipboard(gtx)
 	}
 
 	logItems := logger.GetLogs()
@@ -216,7 +206,7 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 					}),
 				)
 			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					if len(logItems) == 0 {
 						return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -230,5 +220,21 @@ func (c *Console) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 				})
 			}),
 		)
+	})
+}
+
+func copyToClipboard(gtx layout.Context) {
+	logItems := logger.GetLogs()
+	var sb strings.Builder
+	for _, log := range logItems {
+		if log.Level == "print" {
+			// For print logs, we only copy the message without the level and time
+			sb.WriteString(log.Message + "\n")
+			continue
+		}
+		sb.WriteString(fmt.Sprintf("[%s] %s: %s\n", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message))
+	}
+	gtx.Execute(clipboard.WriteCmd{
+		Data: io.NopCloser(strings.NewReader(sb.String())),
 	})
 }

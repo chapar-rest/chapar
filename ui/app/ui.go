@@ -493,7 +493,6 @@ func (u *UI) splitLayout(gtx layout.Context) layout.Dimensions {
 			)
 		},
 		func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.Y = gtx.Dp(300)
 			return u.consolePage.Layout(gtx, u.Theme)
 		},
 	)
