@@ -5,6 +5,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -48,12 +49,15 @@ func (f *Footer) rightLayout(gtx layout.Context, theme *chapartheme.Theme) layou
 
 func (f *Footer) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	gtx.Constraints.Min.X = gtx.Constraints.Max.X
-	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Start}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return f.leftLayout(gtx, theme)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return f.rightLayout(gtx, theme)
-		}),
-	)
+	gtx.Constraints.Max.Y = gtx.Dp(unit.Dp(24)) // Set a maximum height for the footer
+	return component.Sheet{}.Layout(gtx, theme.Material(), &component.VisibilityAnimation{}, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween, Alignment: layout.Start}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return f.leftLayout(gtx, theme)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return f.rightLayout(gtx, theme)
+			}),
+		)
+	})
 }
