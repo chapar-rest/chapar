@@ -38,11 +38,11 @@ You can build the project from the main branch to test the latest features. Howe
 
 ## Screenshots
 <div align="center">
+  <img src="screenshots/scripting.png" alt="Chapar" width="400"/>
   <img src="screenshots/requests_details.png" alt="Chapar" width="400"/>
   <img src="./screenshots/environments.png" alt="Chapar" width="400"/>
   <img src="./screenshots/post_request.png" alt="Chapar" width="400"/>
   <img src="./screenshots/workspaces.png" alt="Chapar" width="400"/>
-  <img src="./screenshots/params.png" alt="Chapar" width="400"/>
   <img src="./screenshots/params.png" alt="Chapar" width="400"/>
   <img src="./screenshots/protofiles.png" alt="Chapar" width="400"/>
   <img src="./screenshots/grpc_request.png" alt="Chapar" width="400"/>
