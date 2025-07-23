@@ -19,8 +19,12 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/router"
+	"github.com/chapar-rest/chapar/ui/sidebar"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
+
+var _ router.Page = &View{}
 
 type View struct {
 	addButton            widget.Clickable
@@ -46,6 +50,14 @@ type View struct {
 
 	inputModal          *widgets.InputModal
 	showImportPathModal bool
+}
+
+func (v *View) SideBarItem() sidebar.Item {
+	return sidebar.Item{
+		Tag:  "protofiles",
+		Name: "Proto Files",
+		Icon: widgets.FileFolderIcon,
+	}
 }
 
 type Item struct {

@@ -36,6 +36,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/settings"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
+	"github.com/chapar-rest/chapar/ui/sidebar"
 	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
 )
@@ -45,8 +46,11 @@ type UI struct {
 	window *app.Window
 
 	sideBar *Sidebar
-	header  *Header
-	footer  *footer.Footer
+
+	sidebarV2 *sidebar.Sidebar
+
+	header *Header
+	footer *footer.Footer
 
 	modal *widgets.MessageModal
 
@@ -94,7 +98,21 @@ func New(w *app.Window, appVersion string) (*UI, error) {
 			},
 			BarWidth: unit.Dp(2),
 		},
+
+		sidebarV2: sidebar.New(),
 	}
+
+	u.sidebarV2.AddNavItem(sidebar.Item{
+		Tag:  "requests",
+		Name: "Requests",
+		Icon: widgets.SwapHoriz,
+	})
+
+	u.sidebarV2.AddNavItem(sidebar.Item{
+		Tag:  "envs",
+		Name: "Envs",
+		Icon: widgets.MenuIcon,
+	})
 
 	// init notification system
 	notifications.New(w)
@@ -445,7 +463,12 @@ func (u *UI) Run() error {
 func (u *UI) middleLayout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return u.sideBar.Layout(gtx, u.Theme)
+			gtx.Constraints.Max.X = gtx.Dp(80)
+			return u.sidebarV2.Layout(gtx, u.Theme)
+			// return u.sideBar.Layout(gtx, u.Theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.Divider(layout.Vertical, unit.Dp(1)).Layout(gtx, u.Theme)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			switch u.currentPage {
@@ -454,8 +477,8 @@ func (u *UI) middleLayout(gtx layout.Context) layout.Dimensions {
 			case 1:
 				return u.environmentsView.Layout(gtx, u.Theme)
 			case 2:
-				activeWorkspace := u.workspacesState.GetActiveWorkspace()
-				return u.workspacesView.Layout(gtx, u.Theme, activeWorkspace)
+				// activeWorkspace := u.workspacesState.GetActiveWorkspace()
+				return u.workspacesView.Layout(gtx, u.Theme)
 			case 3:
 				return u.protoFilesView.Layout(gtx, u.Theme)
 			case 4:
@@ -472,7 +495,12 @@ func (u *UI) splitLayout(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min = gtx.Constraints.Max
 			return layout.Flex{Axis: layout.Horizontal, Spacing: 0}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return u.sideBar.Layout(gtx, u.Theme)
+					gtx.Constraints.Max.X = gtx.Dp(80)
+					return u.sidebarV2.Layout(gtx, u.Theme)
+					// return u.sideBar.Layout(gtx, u.Theme)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return widgets.Divider(layout.Vertical, unit.Dp(1)).Layout(gtx, u.Theme)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					switch u.currentPage {
@@ -481,8 +509,8 @@ func (u *UI) splitLayout(gtx layout.Context) layout.Dimensions {
 					case 1:
 						return u.environmentsView.Layout(gtx, u.Theme)
 					case 2:
-						activeWorkspace := u.workspacesState.GetActiveWorkspace()
-						return u.workspacesView.Layout(gtx, u.Theme, activeWorkspace)
+						// activeWorkspace := u.workspacesState.GetActiveWorkspace()
+						return u.workspacesView.Layout(gtx, u.Theme)
 					case 3:
 						return u.protoFilesView.Layout(gtx, u.Theme)
 					case 4:

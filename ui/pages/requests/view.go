@@ -14,6 +14,8 @@ import (
 
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
+	"github.com/chapar-rest/chapar/ui/router"
+	"github.com/chapar-rest/chapar/ui/sidebar"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
@@ -24,6 +26,8 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/tips"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
+
+var _ router.Page = &View{}
 
 const (
 	MenuDuplicate      = "Duplicate"
@@ -87,6 +91,14 @@ type View struct {
 	tipsView *tips.Tips
 
 	explorer *explorer.Explorer
+}
+
+func (v *View) SideBarItem() sidebar.Item {
+	return sidebar.Item{
+		Tag:  "requests",
+		Name: "Requests",
+		Icon: widgets.SwapHoriz,
+	}
 }
 
 func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explorer) *View {

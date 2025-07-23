@@ -13,8 +13,12 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/router"
+	"github.com/chapar-rest/chapar/ui/sidebar"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
+
+var _ router.Page = &View{}
 
 type View struct {
 	newButton widget.Clickable
@@ -33,6 +37,14 @@ type View struct {
 	onNew    func()
 	onDelete func(w *domain.Workspace)
 	onUpdate func(w *domain.Workspace)
+}
+
+func (v *View) SideBarItem() sidebar.Item {
+	return sidebar.Item{
+		Tag:  "workspaces",
+		Name: "Workspaces",
+		Icon: widgets.WorkspacesIcon,
+	}
 }
 
 type Item struct {
@@ -198,7 +210,7 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 	)
 }
 
-func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme, activeWorkspace *domain.Workspace) layout.Dimensions {
+func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	v.modal.Layout(gtx, theme)
 
 	items := v.items
@@ -245,8 +257,8 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme, activeWorksp
 			layout.Rigid(layout.Spacer{Height: unit.Dp(30)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.List(theme.Material(), v.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-					isActive := activeWorkspace != nil && items[i].w.ID() == activeWorkspace.ID()
-					return v.itemLayout(gtx, theme, items[i], i == len(items)-1, isActive)
+					// isActive := activeWorkspace != nil && items[i].w.ID() == activeWorkspace.ID()
+					return v.itemLayout(gtx, theme, items[i], i == len(items)-1, false)
 				})
 			}),
 		)

@@ -14,8 +14,12 @@ import (
 	"github.com/chapar-rest/chapar/ui/converter"
 	"github.com/chapar-rest/chapar/ui/keys"
 	"github.com/chapar-rest/chapar/ui/pages/tips"
+	"github.com/chapar-rest/chapar/ui/router"
+	"github.com/chapar-rest/chapar/ui/sidebar"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
+
+var _ router.Page = &View{}
 
 const (
 	Duplicate = "Duplicate"
@@ -54,6 +58,14 @@ type View struct {
 	treeViewNodes *safemap.Map[*widgets.TreeNode]
 
 	tipsView *tips.Tips
+}
+
+func (v *View) SideBarItem() sidebar.Item {
+	return sidebar.Item{
+		Tag:  "environments",
+		Name: "Envs",
+		Icon: widgets.MenuIcon,
+	}
 }
 
 func NewView(window *app.Window, theme *chapartheme.Theme) *View {
