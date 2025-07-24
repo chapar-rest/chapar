@@ -281,12 +281,14 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 
 	var respHeaders, respTrailers metadata.MD
 
-	timeOut := 5000 * time.Millisecond
+	// Apply timeout if specified (0 means no timeout)
+	var cancel context.CancelFunc
 	if spec.Settings.TimeoutMilliseconds > 0 {
-		timeOut = time.Duration(spec.Settings.TimeoutMilliseconds) * time.Millisecond
+		timeOut := time.Duration(spec.Settings.TimeoutMilliseconds) * time.Millisecond
+		ctx, cancel = context.WithTimeout(ctx, timeOut)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeOut)
 	defer cancel()
 
 	outgoingMetadata, _ := metadata.FromOutgoingContext(ctx)
