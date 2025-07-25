@@ -1,14 +1,12 @@
 package router
 
 import (
-	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/x/component"
 
-	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/console"
 	"github.com/chapar-rest/chapar/ui/footer"
@@ -16,6 +14,14 @@ import (
 	"github.com/chapar-rest/chapar/ui/notifications"
 	"github.com/chapar-rest/chapar/ui/sidebar"
 	"github.com/chapar-rest/chapar/ui/widgets"
+)
+
+const (
+	RequestsTag     = "requests"
+	EnvironmentsTag = "environments"
+	ProtoFilesTag   = "protofiles"
+	WorkspacesTag   = "workspaces"
+	SettingsTag     = "settings"
 )
 
 type Router struct {
@@ -30,10 +36,10 @@ type Router struct {
 	consoleLayout *console.Console
 }
 
-func New(appVersion string, w *app.Window, envState *state.Environments, workspacesState *state.Workspaces, th *chapartheme.Theme) Router {
+func New(headerLayout *header.Header, footerLayout *footer.Footer, th *chapartheme.Theme) *Router {
 	modal := component.NewModal()
 
-	return Router{
+	return &Router{
 		pages:      make(map[any]Page),
 		ModalLayer: modal,
 		Sidebar:    sidebar.New(),
@@ -45,10 +51,8 @@ func New(appVersion string, w *app.Window, envState *state.Environments, workspa
 			BarWidth: unit.Dp(2),
 		},
 		consoleLayout: console.New(th),
-		header:        header.NewHeader(w, envState, workspacesState, th),
-		footer: &footer.Footer{
-			AppVersion: appVersion,
-		},
+		header:        headerLayout,
+		footer:        footerLayout,
 	}
 }
 
