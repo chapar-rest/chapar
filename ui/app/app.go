@@ -6,6 +6,7 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/text"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/codegen"
@@ -23,6 +24,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/fonts"
 	"github.com/chapar-rest/chapar/ui/footer"
 	"github.com/chapar-rest/chapar/ui/header"
+	"github.com/chapar-rest/chapar/ui/modals"
 	"github.com/chapar-rest/chapar/ui/notifications"
 	"github.com/chapar-rest/chapar/ui/pages/environments"
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
@@ -261,25 +263,25 @@ func stopScripting(executor scripting.Executor) {
 func (a *App) searchDataLoader() []fuzzysearch.Item {
 	envs, err := a.Repository.LoadEnvironments()
 	if err != nil {
-		// a.showError(fmt.Errorf("failed to load environments, %w", err))
+		a.showError(fmt.Errorf("failed to load environments, %w", err))
 		return nil
 	}
 
 	cols, err := a.Repository.LoadCollections()
 	if err != nil {
-		// a.showError(fmt.Errorf("failed to load collections, %w", err))
+		a.showError(fmt.Errorf("failed to load collections, %w", err))
 		return nil
 	}
 
 	protoFiles, err := a.Repository.LoadProtoFiles()
 	if err != nil {
-		// a.showError(fmt.Errorf("failed to load proto files, %w", err))
+		a.showError(fmt.Errorf("failed to load proto files, %w", err))
 		return nil
 	}
 
 	reqs, err := a.Repository.LoadRequests()
 	if err != nil {
-		// a.showError(fmt.Errorf("failed to load requests, %w", err))
+		a.showError(fmt.Errorf("failed to load requests, %w", err))
 		return nil
 	}
 
@@ -343,6 +345,15 @@ func (a *App) onSelectSearchResult(result *fuzzysearch.SearchResult) {
 	case domain.KindWorkspace:
 		a.Router.SwitchTo(router.WorkspacesTag)
 	}
+}
+
+func (a *App) showError(err error) {
+	a.Router.SetMessageDialog(modals.Message{
+		Title: "Error",
+		Body:  err.Error(),
+		Type:  modals.MessageTypeErr,
+		OKBtn: widget.Clickable{},
+	}, a.Theme)
 }
 
 func (a *App) onSelectedEnvChanged(env *domain.Environment) error {
