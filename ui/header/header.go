@@ -21,9 +21,6 @@ type Header struct {
 	selectedEnv string
 	envDropDown *widgets.DropDown
 
-	// modal is used to show error and messages to the user
-	modal *widgets.MessageModal
-
 	headerSearch *fuzzysearch.SearchDropDown
 
 	selectedWorkspace string
@@ -38,9 +35,9 @@ type Header struct {
 	iconDarkMode  material.LabelStyle
 	iconLightMode material.LabelStyle
 
-	OnSelectedEnvChanged       func(env *domain.Environment) error
-	OnSelectedWorkspaceChanged func(env *domain.Workspace) error
-	OnThemeSwitched            func(isDark bool) error
+	OnSelectedEnvChanged       func(env *domain.Environment)
+	OnSelectedWorkspaceChanged func(env *domain.Workspace)
+	OnThemeSwitched            func(isDark bool)
 }
 
 const (
@@ -67,13 +64,6 @@ func NewHeader(w *app.Window, envState *state.Environments, workspacesState *sta
 	h.envDropDown.MaxWidth = unit.Dp(150)
 	h.workspaceDropDown.MaxWidth = unit.Dp(150)
 	return h
-}
-
-func (h *Header) showError(err error) {
-	h.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
-		h.modal.Hide()
-	}, widgets.ModalOption{Text: "Ok"})
-	h.modal.Show()
 }
 
 func (h *Header) LoadEnvs(data []*domain.Environment) {
@@ -155,16 +145,12 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 			h.envState.SetActiveEnvironment(h.envState.GetEnvironment(id))
 
 			if h.OnSelectedEnvChanged != nil {
-				if err := h.OnSelectedEnvChanged(h.envState.GetEnvironment(id)); err != nil {
-					h.showError(err)
-				}
+				h.OnSelectedEnvChanged(h.envState.GetEnvironment(id))
 			}
 		} else {
 			h.envState.ClearActiveEnvironment()
 			if h.OnSelectedEnvChanged != nil {
-				if err := h.OnSelectedEnvChanged(nil); err != nil {
-					h.showError(err)
-				}
+				h.OnSelectedEnvChanged(nil)
 			}
 		}
 	}
@@ -172,9 +158,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 	if h.themeSwitcherClickable.Clicked(gtx) {
 		h.isDarkMode = !h.isDarkMode
 		if h.OnThemeSwitched != nil {
-			if err := h.OnThemeSwitched(h.isDarkMode); err != nil {
-				h.showError(err)
-			}
+			h.OnThemeSwitched(h.isDarkMode)
 			h.w.Invalidate()
 		}
 	}
@@ -186,9 +170,7 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 		// h.workspacesState.SetActiveWorkspace(ws)
 
 		if h.OnSelectedWorkspaceChanged != nil {
-			if err := h.OnSelectedWorkspaceChanged(ws); err != nil {
-				h.showError(err)
-			}
+			h.OnSelectedWorkspaceChanged(ws)
 		}
 	}
 

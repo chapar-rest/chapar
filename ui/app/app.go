@@ -356,7 +356,7 @@ func (a *App) showError(err error) {
 	}, a.Theme)
 }
 
-func (a *App) onSelectedEnvChanged(env *domain.Environment) error {
+func (a *App) onSelectedEnvChanged(env *domain.Environment) {
 	appState := prefs.GetAppState()
 	if env != nil {
 		if appState.Spec.SelectedEnvironment == nil {
@@ -370,7 +370,8 @@ func (a *App) onSelectedEnvChanged(env *domain.Environment) error {
 	}
 
 	if err := prefs.UpdateAppState(appState); err != nil {
-		return fmt.Errorf("failed to update app state, %w", err)
+		a.showError(err)
+		return
 	}
 
 	if env != nil {
@@ -378,11 +379,9 @@ func (a *App) onSelectedEnvChanged(env *domain.Environment) error {
 	} else {
 		a.EnvironmentsState.ClearActiveEnvironment()
 	}
-
-	return nil
 }
 
-func (a *App) onWorkspaceChanged(ws *domain.Workspace) error {
+func (a *App) onWorkspaceChanged(ws *domain.Workspace) {
 	appState := prefs.GetAppState()
 	appState.Spec.ActiveWorkspace = &domain.ActiveWorkspace{
 		ID:   ws.MetaData.ID,
@@ -390,16 +389,16 @@ func (a *App) onWorkspaceChanged(ws *domain.Workspace) error {
 	}
 
 	if err := prefs.UpdateAppState(appState); err != nil {
-		return fmt.Errorf("failed to update app state, %w", err)
+		a.showError(err)
+		return
 	}
 
 	a.Repository.SetActiveWorkspace(ws.GetName())
 	a.WorkspacesState.SetActiveWorkspace(ws)
 
 	if err := a.loadWorkspace(); err != nil {
-		return fmt.Errorf("failed to load data, %w", err)
+		a.showError(err)
 	}
-	return nil
 }
 
 func (a *App) loadWorkspace() error {
@@ -431,13 +430,12 @@ func (a *App) loadWorkspace() error {
 	return a.RequestsController.LoadData()
 }
 
-func (a *App) onThemeChange(isDark bool) error {
+func (a *App) onThemeChange(isDark bool) {
 	a.Theme.Switch(isDark)
 
 	appState := prefs.GetAppState()
 	appState.Spec.DarkMode = isDark
 	if err := prefs.UpdateAppState(appState); err != nil {
-		return fmt.Errorf("failed to update app state, %w", err)
+		a.showError(err)
 	}
-	return nil
 }

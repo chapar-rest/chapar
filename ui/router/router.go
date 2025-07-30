@@ -1,7 +1,6 @@
 package router
 
 import (
-	"fmt"
 	"time"
 
 	"gioui.org/layout"
@@ -48,8 +47,6 @@ type Router struct {
 func New(headerLayout *header.Header, footerLayout *footer.Footer, th *chapartheme.Theme) *Router {
 	modal := component.NewModal()
 
-	messageDialog := modals.Message{}
-
 	return &Router{
 		pages:      make(map[any]Page),
 		ModalLayer: modal,
@@ -64,7 +61,6 @@ func New(headerLayout *header.Header, footerLayout *footer.Footer, th *chaparthe
 		consoleLayout: console.New(th),
 		header:        headerLayout,
 		footer:        footerLayout,
-		MessageDialog: messageDialog,
 	}
 }
 
@@ -183,15 +179,15 @@ func (r *Router) layoutWithConsole(gtx layout.Context, th *chapartheme.Theme) la
 func (r *Router) Clear() {
 	r.MessageDialog = modals.Message{}
 	r.ModalLayer.Widget = nil
-
-	fmt.Println("Clearing message dialog")
 	r.ModalLayer.VisibilityAnimation.Disappear(time.Now())
 }
 
 func (r *Router) SetMessageDialog(message modals.Message, th *chapartheme.Theme) {
-	r.MessageDialog.Title = message.Title
-	r.MessageDialog.Body = message.Body
-	r.MessageDialog.Type = message.Type
+	r.MessageDialog = message
+	r.MessageDialog.OKBtn = widget.Clickable{}
+	//r.MessageDialog.Title = message.Title
+	//r.MessageDialog.Body = message.Body
+	//r.MessageDialog.Type = message.Type
 
 	// this hack is needed to avoid scrim being disparaged when user is clicking on it
 	r.ModalLayer.Scrim.Clickable = widget.Clickable{}
