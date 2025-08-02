@@ -9,8 +9,10 @@ import (
 	"gioui.org/x/component"
 )
 
+// This file is a copy of the modal layer from the gio component library with some modifications.
+
 // ModalLayer is a widget drawn on top of the normal UI that can be populated
-// by other material components with dismissble modal dialogs. For instance,
+// by other material components modal dialogs. For instance,
 // the App Bar can render its overflow menu within the modal layer, and the
 // modal navigation drawer is entirely within the modal layer.
 type ModalLayer struct {
@@ -26,7 +28,7 @@ func NewModal() *ModalLayer {
 	m := ModalLayer{}
 	m.VisibilityAnimation.State = component.Invisible
 	m.VisibilityAnimation.Duration = defaultModalAnimationDuration
-	m.Scrim.FinalAlpha = 82 //default
+	m.Scrim.FinalAlpha = 82 // default
 	return &m
 }
 
@@ -54,7 +56,7 @@ type ModalState struct {
 }
 
 // ModalStyle describes how to layout a modal.
-// Modal content is layed centered atop a clickable scrim.
+// Modal content is laid centered atop a clickable scrim.
 type ModalStyle struct {
 	*ModalState
 	Scrim component.ScrimStyle

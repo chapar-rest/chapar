@@ -48,7 +48,7 @@ func (m *Message) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dimen
 
 	return layout.N.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.X = gtx.Constraints.Max.X / 3
+			gtx.Constraints.Max.X /= 3
 			return marginTop.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return card.Card{
 					Title: m.Title,

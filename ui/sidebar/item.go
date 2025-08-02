@@ -42,20 +42,22 @@ type AlphaPalette struct {
 
 func (r *renderItem) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dimensions {
 	for {
-		event, ok := gtx.Event(pointer.Filter{
+		ev, ok := gtx.Event(pointer.Filter{
 			Target: r,
 			Kinds:  pointer.Enter | pointer.Leave,
 		})
 		if !ok {
 			break
 		}
-		switch event := event.(type) {
-		case pointer.Event:
-			switch event.Kind {
+
+		if t, ok := ev.(pointer.Event); ok {
+			switch t.Kind {
 			case pointer.Enter:
 				r.hovering = true
 			case pointer.Leave, pointer.Cancel:
 				r.hovering = false
+			default:
+				continue
 			}
 		}
 	}
