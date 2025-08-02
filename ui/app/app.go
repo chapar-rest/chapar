@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -252,8 +251,6 @@ func (a *App) onSelectedEnvChanged(env *domain.Environment) {
 	} else {
 		a.EnvironmentsState.ClearActiveEnvironment()
 	}
-
-	a.showError(errors.New("environment changed"))
 }
 
 func (a *App) onWorkspaceChanged(ws *domain.Workspace) {
