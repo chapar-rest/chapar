@@ -13,9 +13,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
-	"github.com/chapar-rest/chapar/ui/router"
-	"github.com/chapar-rest/chapar/ui/sidebar"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
@@ -27,7 +26,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
-var _ router.Page = &View{}
+var _ navigator.View = &View{}
 
 const (
 	MenuDuplicate      = "Duplicate"
@@ -93,11 +92,11 @@ type View struct {
 	explorer *explorer.Explorer
 }
 
-func (v *View) SideBarItem() sidebar.Item {
-	return sidebar.Item{
-		Tag:  "requests",
-		Name: "Requests",
-		Icon: widgets.SwapHoriz,
+func (v *View) Info() navigator.Info {
+	return navigator.Info{
+		ID:    "requests",
+		Title: "Requests",
+		Icon:  widgets.SwapHoriz,
 	}
 }
 

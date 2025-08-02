@@ -14,12 +14,11 @@ import (
 	"github.com/chapar-rest/chapar/internal/safemap"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/keys"
-	"github.com/chapar-rest/chapar/ui/router"
-	"github.com/chapar-rest/chapar/ui/sidebar"
+	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
-var _ router.Page = &View{}
+var _ navigator.View = &View{}
 
 type View struct {
 	window *app.Window
@@ -50,11 +49,11 @@ type View struct {
 	onLoadDefaults func()
 }
 
-func (v *View) SideBarItem() sidebar.Item {
-	return sidebar.Item{
-		Tag:  "settings",
-		Name: "Settings",
-		Icon: widgets.SettingsIcon,
+func (v *View) Info() navigator.Info {
+	return navigator.Info{
+		ID:    "settings",
+		Title: "Settings",
+		Icon:  widgets.SettingsIcon,
 	}
 }
 

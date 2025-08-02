@@ -69,5 +69,4 @@ func (m *Message) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dimen
 			})
 		})
 	})
-
 }

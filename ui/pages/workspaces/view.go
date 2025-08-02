@@ -13,12 +13,11 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
-	"github.com/chapar-rest/chapar/ui/router"
-	"github.com/chapar-rest/chapar/ui/sidebar"
+	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
-var _ router.Page = &View{}
+var _ navigator.View = &View{}
 
 type View struct {
 	newButton widget.Clickable
@@ -39,11 +38,11 @@ type View struct {
 	onUpdate func(w *domain.Workspace)
 }
 
-func (v *View) SideBarItem() sidebar.Item {
-	return sidebar.Item{
-		Tag:  "workspaces",
-		Name: "Workspaces",
-		Icon: widgets.WorkspacesIcon,
+func (v *View) Info() navigator.Info {
+	return navigator.Info{
+		ID:    "workspaces",
+		Title: "Workspaces",
+		Icon:  widgets.WorkspacesIcon,
 	}
 }
 

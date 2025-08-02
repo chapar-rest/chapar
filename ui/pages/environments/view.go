@@ -13,13 +13,12 @@ import (
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/converter"
 	"github.com/chapar-rest/chapar/ui/keys"
+	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/pages/tips"
-	"github.com/chapar-rest/chapar/ui/router"
-	"github.com/chapar-rest/chapar/ui/sidebar"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
-var _ router.Page = &View{}
+var _ navigator.View = &View{}
 
 const (
 	Duplicate = "Duplicate"
@@ -60,11 +59,11 @@ type View struct {
 	tipsView *tips.Tips
 }
 
-func (v *View) SideBarItem() sidebar.Item {
-	return sidebar.Item{
-		Tag:  "environments",
-		Name: "Envs",
-		Icon: widgets.MenuIcon,
+func (v *View) Info() navigator.Info {
+	return navigator.Info{
+		ID:    "environments",
+		Title: "Envs",
+		Icon:  widgets.MenuIcon,
 	}
 }
 

@@ -48,20 +48,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		// init
-		if err := internal_app.Init(chaparApp); err != nil {
-			if err := showStartupError(&w, err); err != nil {
-				log.Fatal(err)
-			}
-			os.Exit(1)
-		}
-
 		var ops op.Ops
 		for {
 			switch e := chaparApp.Window.Event().(type) {
 			case app.FrameEvent:
 				gtx := app.NewContext(&ops, e)
-				chaparApp.Router.Layout(gtx, chaparApp.Theme)
+				chaparApp.Layout(gtx, chaparApp.Theme)
 				e.Frame(gtx.Ops)
 			case app.DestroyEvent:
 				os.Exit(0)
