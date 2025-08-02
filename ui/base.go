@@ -1,4 +1,4 @@
-package app
+package ui
 
 import (
 	"time"
@@ -21,6 +21,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/fonts"
 	"github.com/chapar-rest/chapar/ui/navigator"
+	"github.com/chapar-rest/chapar/ui/widgets/modallayer"
 )
 
 type Base struct {
@@ -32,7 +33,7 @@ type Base struct {
 	Explorer   *explorer.Explorer
 	// Modal is the modal layer for displaying dialogs and modals.
 	// its in the base because it is used in many places and we want all views to have access to it.
-	Modal *component.ModalLayer
+	Modal *modallayer.ModalLayer
 
 	// TODO state should eventually be removed component should use repo directly.
 	ProtoFilesState   *state.ProtoFiles
@@ -81,7 +82,7 @@ func NewBase(appVersion string, w *app.Window, navi *navigator.Navigator) (*Base
 	restService := rest.New(requestsState, environmentsState, appVersion)
 	egressService := egress.New(requestsState, environmentsState, restService, grpcService, nil)
 
-	modal := component.NewModal()
+	modal := modallayer.NewModal()
 
 	return &Base{
 		Theme:             th,
@@ -99,6 +100,15 @@ func NewBase(appVersion string, w *app.Window, navi *navigator.Navigator) (*Base
 		EgressService:     egressService,
 		Executor:          nil, // scripting executor will be set later,
 	}, nil
+}
+
+func (b *Base) CloseModal() {
+	b.Modal.Widget = nil
+	b.Modal.VisibilityAnimation.Disappear(time.Now())
+}
+
+func (b *Base) RefreshView() {
+	b.Window.Invalidate()
 }
 
 func (b *Base) SetModal(mw func(gtx layout.Context) layout.Dimensions) {

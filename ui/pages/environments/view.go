@@ -10,9 +10,11 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/converter"
 	"github.com/chapar-rest/chapar/ui/keys"
+	"github.com/chapar-rest/chapar/ui/modals"
 	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/pages/tips"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -26,6 +28,8 @@ const (
 )
 
 type View struct {
+	*ui.Base
+
 	window *app.Window
 
 	newEnvButton widget.Clickable
@@ -36,9 +40,6 @@ type View struct {
 
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
-
-	// modal is used to show error and messages to the user
-	modal *widgets.MessageModal
 
 	// callbacks
 	onTitleChanged        func(id, title string)
@@ -67,13 +68,14 @@ func (v *View) Info() navigator.Info {
 	}
 }
 
-func NewView(window *app.Window, theme *chapartheme.Theme) *View {
+func NewView(base *ui.Base) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	search.SetBorderColor(theme.BorderColor)
+	search.SetBorderColor(base.Theme.BorderColor)
 
 	v := &View{
-		window:            window,
+		Base:              base,
+		window:            base.Window,
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
@@ -100,10 +102,13 @@ func NewView(window *app.Window, theme *chapartheme.Theme) *View {
 }
 
 func (v *View) showError(err error) {
-	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
-		v.modal.Hide()
-	}, widgets.ModalOption{Text: "Ok"})
-	v.modal.Show()
+	m := modals.NewError(err)
+	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.OKBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+		return m.Layout(gtx, v.Theme)
+	})
 }
 
 func (v *View) PopulateTreeView(envs []*domain.Environment) {
@@ -374,8 +379,6 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 }
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	v.modal.Layout(gtx, theme)
-
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())

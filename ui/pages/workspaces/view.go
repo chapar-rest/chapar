@@ -12,7 +12,9 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/modals"
 	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -20,11 +22,9 @@ import (
 var _ navigator.View = &View{}
 
 type View struct {
+	*ui.Base
 	newButton widget.Clickable
 	searchBox *widgets.TextField
-
-	// modal is used to show error and messages to the user
-	modal *widgets.MessageModal
 
 	mx            *sync.Mutex
 	filterText    string
@@ -55,10 +55,11 @@ type Item struct {
 	w *domain.Workspace
 }
 
-func NewView() *View {
+func NewView(base *ui.Base) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	v := &View{
+		Base:      base,
 		mx:        &sync.Mutex{},
 		searchBox: search,
 		list: &widget.List{
@@ -81,10 +82,13 @@ func NewView() *View {
 }
 
 func (v *View) showError(err error) {
-	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
-		v.modal.Hide()
-	}, widgets.ModalOption{Text: "Ok"})
-	v.modal.Show()
+	m := modals.NewError(err)
+	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.OKBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+		return m.Layout(gtx, v.Theme)
+	})
 }
 
 func (v *View) SetOnNew(f func()) {
@@ -210,8 +214,6 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	v.modal.Layout(gtx, theme)
-
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems

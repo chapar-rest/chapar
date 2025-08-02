@@ -1,12 +1,12 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"gioui.org/app"
 	"gioui.org/layout"
-	"gioui.org/widget"
 
 	"github.com/chapar-rest/chapar/internal/codegen"
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -14,6 +14,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/state"
+	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/modals"
 	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/notifications"
@@ -23,7 +24,7 @@ import (
 // App is holding the app state and configs.
 type App struct {
 	*app.Window
-	*Base
+	*ui.Base
 	*BaseLayout
 }
 
@@ -32,7 +33,7 @@ func NewApp(w *app.Window, appVersion string) (*App, error) {
 	notifications.New(w)
 
 	navi := navigator.New()
-	base, err := NewBase(appVersion, w, navi)
+	base, err := ui.NewBase(appVersion, w, navi)
 	if err != nil {
 		return nil, err
 	}
@@ -218,12 +219,11 @@ func (a *App) onSelectSearchResult(result *fuzzysearch.SearchResult) {
 }
 
 func (a *App) showError(err error) {
+	m := modals.NewError(err)
+
 	a.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
-		m := &modals.Message{
-			Title: "Error",
-			Body:  err.Error(),
-			Type:  modals.MessageTypeErr,
-			OKBtn: widget.Clickable{},
+		if m.OKBtn.Clicked(gtx) {
+			a.Base.CloseModal()
 		}
 		return m.Layout(gtx, a.Theme)
 	})
@@ -252,6 +252,8 @@ func (a *App) onSelectedEnvChanged(env *domain.Environment) {
 	} else {
 		a.EnvironmentsState.ClearActiveEnvironment()
 	}
+
+	a.showError(errors.New("environment changed"))
 }
 
 func (a *App) onWorkspaceChanged(ws *domain.Workspace) {

@@ -7,6 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/x/component"
 
+	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/console"
 	"github.com/chapar-rest/chapar/ui/footer"
@@ -21,7 +22,7 @@ import (
 )
 
 type BaseLayout struct {
-	base *Base
+	base *ui.Base
 	// views
 	ProtoFilesView   *protofiles.View
 	RequestsView     *requests.View
@@ -44,13 +45,13 @@ type BaseLayout struct {
 	consoleSplit widgets.SplitView
 }
 
-func NewBaseLayout(base *Base) (*BaseLayout, error) {
+func NewBaseLayout(base *ui.Base) (*BaseLayout, error) {
 	// init views
-	workspaceView := workspaces.NewView()
-	protoFilesView := protofiles.NewView()
-	settingsView := settings.NewView(base.Window, base.Theme)
-	environmentsView := environments.NewView(base.Window, base.Theme)
-	requestsView := requests.NewView(base.Window, base.Theme, base.Explorer)
+	workspaceView := workspaces.NewView(base)
+	protoFilesView := protofiles.NewView(base)
+	settingsView := settings.NewView(base)
+	environmentsView := environments.NewView(base)
+	requestsView := requests.NewView(base)
 
 	// init controllers
 	workspacesController := workspaces.NewController(workspaceView, base.WorkspacesState, base.Repository)

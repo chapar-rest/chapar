@@ -45,7 +45,6 @@ func (c Card) Layout(gtx C, th *material.Theme) D {
 	return layout.Stack{}.Layout(
 		gtx,
 		layout.Expanded(func(gtx C) D {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X / 3
 			return widgets.Rect{
 				Color: th.ContrastBg,
 				Size:  layout.FPt(gtx.Constraints.Min),
@@ -126,6 +125,9 @@ func (c Card) Layout(gtx C, th *material.Theme) D {
 										btn.Background = action.Bg
 										return btn.Layout(gtx)
 									}))
+									flex = append(flex, layout.Rigid(func(gtx C) D {
+										return layout.Spacer{Width: unit.Dp(5)}.Layout(gtx)
+									}))
 								}
 								if len(floatRight) > 0 {
 									flex = append(flex, layout.Flexed(1, func(gtx C) D {
@@ -139,6 +141,9 @@ func (c Card) Layout(gtx C, th *material.Theme) D {
 										btn.Color = action.Fg
 										btn.Background = action.Bg
 										return btn.Layout(gtx)
+									}))
+									flex = append(flex, layout.Rigid(func(gtx C) D {
+										return layout.Spacer{Width: unit.Dp(5)}.Layout(gtx)
 									}))
 								}
 								return flex
