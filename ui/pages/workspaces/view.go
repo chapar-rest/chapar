@@ -258,8 +258,9 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Rigid(layout.Spacer{Height: unit.Dp(30)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.List(theme.Material(), v.list).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-					// isActive := activeWorkspace != nil && items[i].w.ID() == activeWorkspace.ID()
-					return v.itemLayout(gtx, theme, items[i], i == len(items)-1, false)
+					activeWorkspace := v.WorkspacesState.GetActiveWorkspace()
+					isActive := activeWorkspace != nil && items[i].w.ID() == activeWorkspace.ID()
+					return v.itemLayout(gtx, theme, items[i], i == len(items)-1, isActive)
 				})
 			}),
 		)
