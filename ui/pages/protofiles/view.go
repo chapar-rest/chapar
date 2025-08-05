@@ -18,11 +18,17 @@ import (
 	"gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/modals"
+	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
+var _ navigator.View = &View{}
+
 type View struct {
+	*ui.Base
 	addButton            widget.Clickable
 	addImportPath        widget.Clickable
 	deleteSelectedButton widget.Clickable
@@ -43,9 +49,14 @@ type View struct {
 	onDelete         func(p *domain.ProtoFile)
 	onDeleteSelected func(ids []string)
 	onAddImportPath  func(path string)
+}
 
-	inputModal          *widgets.InputModal
-	showImportPathModal bool
+func (v *View) Info() navigator.Info {
+	return navigator.Info{
+		ID:    "protofiles",
+		Title: "Proto Files",
+		Icon:  widgets.FileFolderIcon,
+	}
 }
 
 type Item struct {
@@ -60,16 +71,15 @@ type Item struct {
 	p *domain.ProtoFile
 }
 
-func NewView() *View {
+func NewView(base *ui.Base) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 	v := &View{
+		Base:      base,
 		mx:        &sync.Mutex{},
 		searchBox: search,
 
 		Prompt: widgets.NewPrompt("", "", ""),
-
-		inputModal: widgets.NewInputModal("Add Path", "Enter absolute import path"),
 	}
 
 	v.searchBox.SetOnTextChange(func(text string) {
@@ -78,17 +88,6 @@ func NewView() *View {
 		}
 
 		v.Filter(text)
-	})
-
-	v.inputModal.SetOnAdd(func(text string) {
-		v.showImportPathModal = false
-		if v.onAddImportPath != nil {
-			v.onAddImportPath(text)
-		}
-	})
-
-	v.inputModal.SetOnClose(func() {
-		v.showImportPathModal = false
 	})
 
 	return v
@@ -180,6 +179,22 @@ func (v *View) Filter(text string) {
 	v.filteredItems = items
 }
 
+func (v *View) showImportPathInputModal() {
+	m := modals.NewInputText("Add Import Path", "Enter absolute import path")
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.AddBtn.Clicked(gtx) {
+			v.onAddImportPath(m.TextField.GetText())
+			v.Base.CloseModal()
+		}
+
+		if m.CloseBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+
+		return m.Layout(gtx, v.Theme)
+	})
+}
+
 func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if v.onAdd != nil {
 		if v.addButton.Clicked(gtx) {
@@ -188,7 +203,7 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 	}
 
 	if v.addImportPath.Clicked(gtx) {
-		v.showImportPathModal = true
+		v.showImportPathInputModal()
 	}
 
 	shouldShowDeleteSelected := false
@@ -269,10 +284,6 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 var headingText = []string{" ", "Path", "Package", "Services", " "}
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if v.showImportPathModal {
-		v.inputModal.Layout(gtx, theme)
-	}
-
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems

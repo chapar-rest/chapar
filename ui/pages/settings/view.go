@@ -12,21 +12,24 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/keys"
+	"github.com/chapar-rest/chapar/ui/modals"
+	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
+var _ navigator.View = &View{}
+
 type View struct {
+	*ui.Base
 	window *app.Window
 
 	treeViewSearchBox *widgets.TextField
 	treeView          *widgets.TreeView
 
 	split widgets.SplitView
-
-	// modal is used to show error and messages to the user
-	modal *widgets.MessageModal
 
 	settings *safemap.Map[*widgets.Settings]
 
@@ -46,13 +49,22 @@ type View struct {
 	onLoadDefaults func()
 }
 
-func NewView(window *app.Window, theme *chapartheme.Theme) *View {
+func (v *View) Info() navigator.Info {
+	return navigator.Info{
+		ID:    "settings",
+		Title: "Settings",
+		Icon:  widgets.SettingsIcon,
+	}
+}
+
+func NewView(base *ui.Base) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
-	search.SetBorderColor(theme.BorderColor)
+	search.SetBorderColor(base.Theme.BorderColor)
 
 	u := &View{
-		window:            window,
+		Base:              base,
+		window:            base.Window,
 		treeViewSearchBox: search,
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
 		split: widgets.SplitView{
@@ -77,17 +89,23 @@ func NewView(window *app.Window, theme *chapartheme.Theme) *View {
 }
 
 func (v *View) ShowError(err error) {
-	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
-		v.modal.Hide()
-	}, widgets.ModalOption{Text: "Ok"})
-	v.modal.Show()
+	m := modals.NewError(err)
+	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.OKBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+		return m.Layout(gtx, v.Theme)
+	})
 }
 
 func (v *View) ShowInfo(title, message string) {
-	v.modal = widgets.NewMessageModal(title, message, widgets.MessageModalTypeInfo, func(_ string) {
-		v.modal.Hide()
-	}, widgets.ModalOption{Text: "Ok"})
-	v.modal.Show()
+	m := modals.NewInfo(title, message)
+	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.OKBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+		return m.Layout(gtx, v.Theme)
+	})
 }
 
 func (v *View) Refresh() {
@@ -235,8 +253,6 @@ func (v *View) settingsList(gtx layout.Context, theme *chapartheme.Theme) layout
 }
 
 func (v *View) settingDetail(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	v.modal.Layout(gtx, theme)
-
 	if v.selectedSettingIdentifier == "" {
 		v.selectedSettingIdentifier = "general"
 		v.selectedSettingTitle = "General"

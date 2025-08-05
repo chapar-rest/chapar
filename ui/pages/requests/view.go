@@ -12,7 +12,10 @@ import (
 	giox "gioui.org/x/component"
 	"github.com/google/uuid"
 
+	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/modals"
+	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/pages/requests/grpc"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -24,6 +27,8 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/tips"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
+
+var _ navigator.View = &View{}
 
 const (
 	MenuDuplicate      = "Duplicate"
@@ -37,8 +42,7 @@ type View struct {
 	theme  *chapartheme.Theme
 	window *app.Window
 
-	// modal is used to show error and messages to the user
-	modal *widgets.MessageModal
+	*ui.Base
 
 	// add menu
 	newRequestButton     widget.Clickable
@@ -89,13 +93,22 @@ type View struct {
 	explorer *explorer.Explorer
 }
 
-func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explorer) *View {
+func (v *View) Info() navigator.Info {
+	return navigator.Info{
+		ID:    "requests",
+		Title: "Requests",
+		Icon:  widgets.SwapHoriz,
+	}
+}
+
+func NewView(b *ui.Base) *View {
 	search := widgets.NewTextField("", "Search...")
 	search.SetIcon(widgets.SearchIcon, widgets.IconPositionEnd)
 
 	v := &View{
-		window:            w,
-		theme:             theme,
+		Base:              b,
+		window:            b.Window,
+		theme:             b.Theme,
 		treeViewSearchBox: search,
 		tabHeader:         widgets.NewTabs([]*widgets.Tab{}, nil),
 		treeView:          widgets.NewTreeView([]*widgets.TreeNode{}),
@@ -115,7 +128,7 @@ func NewView(w *app.Window, theme *chapartheme.Theme, explorer *explorer.Explore
 		},
 
 		tipsView: tips.New(),
-		explorer: explorer,
+		explorer: b.Explorer,
 	}
 
 	v.tabHeader.SetMaxTitleWidth(20)
@@ -165,10 +178,13 @@ func (v *View) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestI
 }
 
 func (v *View) showError(err error) {
-	v.modal = widgets.NewMessageModal("Error", err.Error(), widgets.MessageModalTypeErr, func(_ string) {
-		v.modal.Hide()
-	}, widgets.ModalOption{Text: "Ok"})
-	v.modal.Show()
+	m := modals.NewError(err)
+	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.OKBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+		return m.Layout(gtx, v.Theme)
+	})
 }
 
 func (v *View) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {
@@ -953,8 +969,6 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 }
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	v.modal.Layout(gtx, theme)
-
 	if v.onSave != nil {
 		keys.OnSaveCommand(gtx, v, func() {
 			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())

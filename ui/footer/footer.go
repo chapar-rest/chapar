@@ -18,6 +18,14 @@ type Footer struct {
 	AppVersion string
 }
 
+func New(appVersion string) *Footer {
+	return &Footer{
+		AppVersion:             appVersion,
+		NotificationsClickable: widget.Clickable{},
+		ConsoleClickable:       widget.Clickable{},
+	}
+}
+
 func (f *Footer) leftLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Inset{Left: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return material.Label(theme.Material(), unit.Sp(12), f.AppVersion).Layout(gtx)

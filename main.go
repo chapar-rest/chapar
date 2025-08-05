@@ -17,14 +17,14 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
-	mainApp "github.com/chapar-rest/chapar/ui/app"
+	internal_app "github.com/chapar-rest/chapar/ui/app"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
 var (
-	serviceVersion = ""
-	enablePprof    = flag.Bool("pprof", false, "enable pprof")
+	appVersion  = ""
+	enablePprof = flag.Bool("pprof", false, "enable pprof")
 )
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 		var w app.Window
 		w.Option(app.Title("Chapar"), app.Size(unit.Dp(1200), unit.Dp(800)))
 
-		mainUI, err := mainApp.New(&w, serviceVersion)
+		chaparApp, err := internal_app.NewApp(&w, appVersion)
 		if err != nil {
 			if err := showStartupError(&w, err); err != nil {
 				log.Fatal(err)
@@ -48,10 +48,17 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err := mainUI.Run(); err != nil {
-			log.Fatal(err)
+		var ops op.Ops
+		for {
+			switch e := chaparApp.Window.Event().(type) {
+			case app.FrameEvent:
+				gtx := app.NewContext(&ops, e)
+				chaparApp.Layout(gtx, chaparApp.Theme)
+				e.Frame(gtx.Ops)
+			case app.DestroyEvent:
+				os.Exit(0)
+			}
 		}
-		os.Exit(0)
 	}()
 
 	app.Main()
