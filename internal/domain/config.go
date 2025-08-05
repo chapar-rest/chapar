@@ -2,7 +2,6 @@ package domain
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -197,7 +196,6 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 
 func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalConfig {
 	if values == nil {
-		fmt.Println("values is nil")
 		return initial
 	}
 

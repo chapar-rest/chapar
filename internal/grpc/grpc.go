@@ -281,7 +281,8 @@ func (s *Service) Invoke(id, activeEnvironmentID string) (*Response, error) {
 
 	var respHeaders, respTrailers metadata.MD
 
-	timeOut := 5000 * time.Millisecond
+	// Set a timeout for the request if not specified, default to 2 hours to have a long enough timeout
+	timeOut := 2 * time.Hour
 	if spec.Settings.TimeoutMilliseconds > 0 {
 		timeOut = time.Duration(spec.Settings.TimeoutMilliseconds) * time.Millisecond
 	}
