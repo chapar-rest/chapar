@@ -26,4 +26,5 @@ type Info struct {
 type View interface {
 	Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dimensions
 	Info() Info
+	OnEnter()
 }

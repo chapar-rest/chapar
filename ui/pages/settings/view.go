@@ -49,6 +49,10 @@ type View struct {
 	onLoadDefaults func()
 }
 
+func (v *View) OnEnter() {
+	v.Load(prefs.GetGlobalConfig())
+}
+
 func (v *View) Info() navigator.Info {
 	return navigator.Info{
 		ID:    "settings",
@@ -172,6 +176,8 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewHeaderItem("Headers"),
 		widgets.NewBoolItem("Send no-cache header", "sendNoCacheHeader", "Add and send no-cache header in http requests", config.Spec.General.SendNoCacheHeader),
 		widgets.NewBoolItem("Send Chapar agent header", "sendChaparAgentHeader", "Add and send Chapar agent header in http requests", config.Spec.General.SendChaparAgentHeader),
+		widgets.NewHeaderItem("User interface"),
+		widgets.NewBoolItem("Use horizontal split for request and response", "useHorizontalSplit", "If enabled, the request and response views are arranged top to bottom.", config.Spec.General.UseHorizontalSplit),
 	})
 	generalSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("general", generalSettings)

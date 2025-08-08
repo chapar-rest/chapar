@@ -42,6 +42,9 @@ func (n *Navigator) SwitchTo(id any) {
 		return
 	}
 	n.current = id
+	if view, ok := n.views[id]; ok {
+		view.OnEnter()
+	}
 }
 
 func (n *Navigator) Current() View {

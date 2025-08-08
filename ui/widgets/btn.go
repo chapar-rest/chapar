@@ -87,6 +87,7 @@ func (b ButtonStyle) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 			if b.Icon != nil {
 				return b.IconInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(unit.Dp(b.IconSize))
+					gtx.Constraints.Max.X = gtx.Dp(unit.Dp(b.IconSize))
 					return b.Icon.Layout(gtx, b.Color)
 				})
 			}
@@ -94,6 +95,7 @@ func (b ButtonStyle) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		})
 		labelDims := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			lb := material.Label(theme.Material(), b.TextSize, b.Text)
+			lb.Font = b.Font
 			lb.Color = b.Color
 			return lb.Layout(gtx)
 		})
