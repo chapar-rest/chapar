@@ -7,6 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/x/component"
 
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/console"
@@ -137,6 +138,11 @@ func (b *BaseLayout) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Di
 
 			if b.FooterLayout.NotificationsClickable.Clicked(gtx) {
 				notifications.ToggleVisibility()
+			}
+
+			if b.FooterLayout.SplitChanged() {
+				useHorizontal := b.FooterLayout.CurrentSplit() == layout.Horizontal
+				_ = prefs.SetUseUseHorizontalSplit(useHorizontal)
 			}
 
 			return b.FooterLayout.Layout(gtx, th)

@@ -6,6 +6,7 @@ import (
 	giox "gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/converter"
 	"github.com/chapar-rest/chapar/ui/explorer"
@@ -45,6 +46,11 @@ func (r *Grpc) SetDataChanged(changed bool) {
 }
 
 func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explorer) *Grpc {
+	splitAxis := layout.Vertical
+	if prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit {
+		splitAxis = layout.Horizontal
+	}
+
 	r := &Grpc{
 		Req:        req,
 		Prompt:     widgets.NewPrompt("", "", ""),
@@ -52,6 +58,7 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 		split: widgets.SplitView{
 			Resize: giox.Resize{
 				Ratio: 0.5,
+				Axis:  splitAxis,
 			},
 			BarWidth: unit.Dp(2),
 		},
@@ -132,6 +139,17 @@ func (r *Grpc) setupHooks() {
 	r.Request.Variables.SetOnChanged(func(items []domain.Variable) {
 		r.Req.Spec.GRPC.Variables = items
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	})
+
+	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
+		isChanged := old.Spec.General.UseHorizontalSplit != updated.Spec.General.UseHorizontalSplit
+		if isChanged {
+			if updated.Spec.General.UseHorizontalSplit {
+				r.split.Axis = layout.Horizontal
+			} else {
+				r.split.Axis = layout.Vertical
+			}
+		}
 	})
 }
 

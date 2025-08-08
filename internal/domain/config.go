@@ -37,6 +37,7 @@ type GeneralConfig struct {
 	RequestTimeoutSec     int    `yaml:"timeoutSec"`
 	ResponseSizeMb        int    `yaml:"responseSizeMb"`
 	SendNoCacheHeader     bool   `yaml:"sendNoCacheHeader"`
+	UseHorizontalSplit    bool   `yaml:"useVerticalSplit"`
 	SendChaparAgentHeader bool   `yaml:"sendChaparAgentHeader"`
 }
 
@@ -45,6 +46,7 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.RequestTimeoutSec != other.RequestTimeoutSec ||
 		g.ResponseSizeMb != other.ResponseSizeMb ||
 		g.SendNoCacheHeader != other.SendNoCacheHeader ||
+		g.UseHorizontalSplit != other.UseHorizontalSplit ||
 		g.SendChaparAgentHeader != other.SendChaparAgentHeader
 }
 
@@ -135,6 +137,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				ResponseSizeMb:        10,
 				SendNoCacheHeader:     true,
 				SendChaparAgentHeader: true,
+				UseHorizontalSplit:    true,
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -168,6 +171,7 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"responseSizeMb":        g.Spec.General.ResponseSizeMb,
 			"sendNoCacheHeader":     g.Spec.General.SendNoCacheHeader,
 			"sendChaparAgentHeader": g.Spec.General.SendChaparAgentHeader,
+			"useHorizontalSplit":    g.Spec.General.UseHorizontalSplit,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -206,6 +210,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.General.ResponseSizeMb = getOrDefault(values, "responseSizeMb", g.Spec.General.ResponseSizeMb).(int)
 	g.Spec.General.SendNoCacheHeader = getOrDefault(values, "sendNoCacheHeader", g.Spec.General.SendNoCacheHeader).(bool)
 	g.Spec.General.SendChaparAgentHeader = getOrDefault(values, "sendChaparAgentHeader", g.Spec.General.SendChaparAgentHeader).(bool)
+	g.Spec.General.UseHorizontalSplit = getOrDefault(values, "useHorizontalSplit", g.Spec.General.UseHorizontalSplit).(bool)
 
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)

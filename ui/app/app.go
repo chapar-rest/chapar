@@ -100,6 +100,11 @@ func NewApp(w *app.Window, appVersion string) (*App, error) {
 func initiateScripting() scripting.Executor {
 	config := prefs.GetGlobalConfig().Spec.Scripting
 
+	if !config.Enabled {
+		logger.Info("Scripting is disabled, skipping executor initialization")
+		return nil
+	}
+
 	executor, err := scripting.GetExecutor(config.Language, config)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to get scripting executor: %v", err))

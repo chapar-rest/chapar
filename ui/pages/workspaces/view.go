@@ -38,6 +38,9 @@ type View struct {
 	onUpdate func(w *domain.Workspace)
 }
 
+func (v *View) OnEnter() {
+}
+
 func (v *View) Info() navigator.Info {
 	return navigator.Info{
 		ID:    "workspaces",
