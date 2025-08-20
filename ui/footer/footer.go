@@ -34,18 +34,26 @@ func New(appVersion string) *Footer {
 		currentSplit: layout.Horizontal,
 	}
 
+	// Initialize the split based on the global configuration
+	globalConfig := prefs.GetGlobalConfig()
+	f.SetSplit(globalConfig.Spec.General.UseHorizontalSplit)
+
 	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
 		isChanged := old.Spec.General.UseHorizontalSplit != updated.Spec.General.UseHorizontalSplit
 		if isChanged {
-			if updated.Spec.General.UseHorizontalSplit {
-				f.currentSplit = layout.Horizontal
-			} else {
-				f.currentSplit = layout.Vertical
-			}
+			f.SetSplit(updated.Spec.General.UseHorizontalSplit)
 		}
 	})
 
 	return f
+}
+
+func (f *Footer) SetSplit(horizontalSplit bool) {
+	if horizontalSplit {
+		f.currentSplit = layout.Horizontal
+	} else {
+		f.currentSplit = layout.Vertical
+	}
 }
 
 func (f *Footer) leftLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
