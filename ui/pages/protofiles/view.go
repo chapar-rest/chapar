@@ -51,6 +51,9 @@ type View struct {
 	onAddImportPath  func(path string)
 }
 
+func (v *View) OnEnter() {
+}
+
 func (v *View) Info() navigator.Info {
 	return navigator.Info{
 		ID:    "protofiles",

@@ -60,6 +60,9 @@ type View struct {
 	tipsView *tips.Tips
 }
 
+func (v *View) OnEnter() {
+}
+
 func (v *View) Info() navigator.Info {
 	return navigator.Info{
 		ID:    "environments",
