@@ -1,10 +1,7 @@
 package tips
 
 import (
-	"image"
-
 	"gioui.org/layout"
-	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -15,10 +12,7 @@ import (
 
 type Tips struct {
 	messages []string
-
-	chaparImage image.Image
-	imageOp     paint.ImageOp
-	items       []layout.FlexChild
+	items    []layout.FlexChild
 }
 
 func New() *Tips {
@@ -33,13 +27,6 @@ func New() *Tips {
 		},
 	}
 
-	data, err := assets.LoadImage("chapar.png")
-	if err != nil {
-		panic(err)
-	}
-
-	tips.chaparImage = data
-	tips.imageOp = paint.NewImageOp(tips.chaparImage)
 	tips.items = make([]layout.FlexChild, 0)
 
 	return tips
@@ -50,7 +37,7 @@ func (t *Tips) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 		t.items = append(t.items,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return widget.Image{
-					Src:      t.imageOp,
+					Src:      assets.ChaparImage,
 					Fit:      widget.Unscaled,
 					Position: layout.Center,
 					Scale:    1.0,

@@ -71,6 +71,9 @@ func (c Card) Layout(gtx C, th *material.Theme) D {
 							}.Layout(
 								gtx,
 								layout.Rigid(func(gtx C) D {
+									if c.Title == "" {
+										return D{}
+									}
 									return material.H5(th, c.Title).Layout(gtx)
 								}),
 								layout.Rigid(func(gtx C) D {
