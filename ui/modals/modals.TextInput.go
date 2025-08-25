@@ -24,8 +24,6 @@ func NewInputText(title, placeholder string) *InputText {
 	return &InputText{
 		TextField: ed,
 		Title:     title,
-		AddBtn:    widget.Clickable{},
-		CloseBtn:  widget.Clickable{},
 	}
 }
 

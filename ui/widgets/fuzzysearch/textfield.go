@@ -101,8 +101,6 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		CornerRadius: cornerRadius,
 	}
 
-	leftPadding := unit.Dp(8)
-
 	for {
 		event, ok := t.textEditor.Update(gtx)
 		if !ok {
@@ -124,7 +122,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		return layout.Inset{
 			Top:    4,
 			Bottom: 4,
-			Left:   leftPadding,
+			Left:   4,
 			Right:  4,
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			inputLayout := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

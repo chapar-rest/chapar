@@ -1,17 +1,14 @@
 package requests
 
 import (
-	"image"
-
 	"gioui.org/app"
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/x/component"
 	giox "gioui.org/x/component"
 	"github.com/google/uuid"
 
+	"github.com/chapar-rest/chapar/assets"
 	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/modals"
@@ -28,7 +25,13 @@ import (
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
 
-var _ navigator.View = &View{}
+var (
+	_ navigator.View = &View{}
+
+	newGRPCRequest = modals.NewCreateItem(domain.RequestTypeGRPC, assets.GRPCImage, "GRPC Request")
+	newHTTPRequest = modals.NewCreateItem(domain.RequestTypeHTTP, assets.HTTPImage, "HTTP Request")
+	newHCollection = modals.NewCreateItem(domain.KindCollection, assets.CollectionImage, "Collection")
+)
 
 const (
 	MenuDuplicate      = "Duplicate"
@@ -45,14 +48,8 @@ type View struct {
 	*ui.Base
 
 	// add menu
-	newRequestButton     widget.Clickable
-	importButton         widget.Clickable
-	newMenuContextArea   giox.ContextArea
-	newMenu              giox.MenuState
-	menuInit             bool
-	newHttpRequestButton widget.Clickable
-	newGrpcRequestButton widget.Clickable
-	newCollectionButton  widget.Clickable
+	newRequestButton widget.Clickable
+	importButton     widget.Clickable
 
 	treeViewSearchBox *widgets.TextField
 	treeView          *widgets.TreeView
@@ -125,13 +122,8 @@ func NewView(b *ui.Base) *View {
 		containers:    safemap.New[Container](),
 		treeViewNodes: safemap.New[*widgets.TreeNode](),
 		openTabs:      safemap.New[*widgets.Tab](),
-		newMenuContextArea: component.ContextArea{
-			Activation:       pointer.ButtonPrimary,
-			AbsolutePosition: true,
-		},
-
-		tipsView: tips.New(),
-		explorer: b.Explorer,
+		tipsView:      tips.New(),
+		explorer:      b.Explorer,
 	}
 
 	v.tabHeader.SetMaxTitleWidth(20)
@@ -884,34 +876,8 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 }
 
 func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if !v.menuInit {
-		v.menuInit = true
-		v.newMenu = component.MenuState{
-			Options: []func(gtx layout.Context) layout.Dimensions{
-				component.MenuItem(theme.Material(), &v.newHttpRequestButton, "Restful Request").Layout,
-				component.MenuItem(theme.Material(), &v.newGrpcRequestButton, "GRPC Request").Layout,
-				component.Divider(theme.Material()).Layout,
-				component.MenuItem(theme.Material(), &v.newCollectionButton, "Collection").Layout,
-			},
-		}
-	}
-
-	if v.newHttpRequestButton.Clicked(gtx) {
-		if v.onNewRequest != nil {
-			v.onNewRequest(domain.RequestTypeHTTP)
-		}
-	}
-
-	if v.newGrpcRequestButton.Clicked(gtx) {
-		if v.onNewRequest != nil {
-			v.onNewRequest(domain.RequestTypeGRPC)
-		}
-	}
-
-	if v.newCollectionButton.Clicked(gtx) {
-		if v.onNewCollection != nil {
-			v.onNewCollection()
-		}
+	if v.newRequestButton.Clicked(gtx) {
+		v.showCreateNewModal()
 	}
 
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -933,26 +899,7 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							newBtn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
 							newBtn.Color = theme.ButtonTextColor
-							newBtnDims := newBtn.Layout(gtx, theme)
-							return layout.Stack{}.Layout(gtx,
-								layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-									return newBtnDims
-								}),
-								layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-									return v.newMenuContextArea.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-										offset := layout.Inset{
-											Top:  unit.Dp(float32(newBtnDims.Size.Y)/gtx.Metric.PxPerDp + 1),
-											Left: unit.Dp(1),
-										}
-										return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-											gtx.Constraints.Min = image.Point{}
-											m := component.Menu(theme.Material(), &v.newMenu)
-											m.SurfaceStyle.Fill = theme.MenuBgColor
-											return m.Layout(gtx)
-										})
-									})
-								}),
-							)
+							return newBtn.Layout(gtx, theme)
 						}),
 					)
 				})
@@ -969,6 +916,41 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 			}),
 		)
 	})
+}
+
+func (v *View) showCreateNewModal() {
+	items := []*modals.CreateItem{newGRPCRequest, newHTTPRequest, newHCollection}
+
+	m := modals.NewCreateModal(items)
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.CloseBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+
+		for _, item := range items {
+			if item.Clickable.Clicked(gtx) {
+				v.Base.CloseModal()
+				v.createNew(item.Key)
+			}
+		}
+
+		return m.Layout(gtx, v.Theme)
+	})
+}
+
+func (v *View) createNew(itemType string) {
+	if v.onNewRequest == nil || v.onNewCollection == nil {
+		return
+	}
+
+	switch itemType {
+	case domain.RequestTypeGRPC:
+		v.onNewRequest(domain.RequestTypeGRPC)
+	case domain.RequestTypeHTTP:
+		v.onNewRequest(domain.RequestTypeHTTP)
+	case domain.KindCollection:
+		v.onNewCollection()
+	}
 }
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

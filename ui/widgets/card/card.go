@@ -45,11 +45,21 @@ func (c Card) Layout(gtx C, th *material.Theme) D {
 	return layout.Stack{}.Layout(
 		gtx,
 		layout.Expanded(func(gtx C) D {
-			return widgets.Rect{
-				Color: th.ContrastBg,
-				Size:  layout.FPt(gtx.Constraints.Min),
-				Radii: 8,
-			}.Layout(gtx)
+
+			border := widget.Border{
+				Color:        widgets.MulAlpha(th.Fg, 60),
+				CornerRadius: unit.Dp(4),
+				Width:        unit.Dp(1),
+			}
+
+			return border.Layout(gtx, func(gtx C) D {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return widgets.Rect{
+					Color: th.Bg,
+					Size:  layout.FPt(gtx.Constraints.Min),
+					Radii: 8,
+				}.Layout(gtx)
+			})
 		}),
 		layout.Stacked(func(gtx C) D {
 			return layout.Inset{
@@ -71,6 +81,9 @@ func (c Card) Layout(gtx C, th *material.Theme) D {
 							}.Layout(
 								gtx,
 								layout.Rigid(func(gtx C) D {
+									if c.Title == "" {
+										return D{}
+									}
 									return material.H5(th, c.Title).Layout(gtx)
 								}),
 								layout.Rigid(func(gtx C) D {
