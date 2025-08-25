@@ -167,8 +167,6 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 	if selectedWorkspace != h.selectedWorkspace {
 		h.selectedWorkspace = selectedWorkspace
 		ws := h.workspacesState.GetWorkspace(selectedWorkspace)
-		// h.workspacesState.SetActiveWorkspace(ws)
-
 		if h.OnSelectedWorkspaceChanged != nil {
 			h.OnSelectedWorkspaceChanged(ws)
 		}
