@@ -78,10 +78,10 @@ func MustGetCodeEditorFont() font.FontFace {
 		panic(err)
 	}
 
-	monoFont, err := opentype.Parse(data)
+	monoFont, err := opentype.ParseCollection(data)
 	if err != nil {
 		panic(err)
 	}
 
-	return font.FontFace{Font: font.Font{}, Face: monoFont}
+	return font.FontFace{Font: monoFont[0].Font, Face: monoFont[0].Face}
 }
