@@ -11,6 +11,7 @@ require (
 	github.com/docker/docker v28.2.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/dustin/go-humanize v1.0.1
+	github.com/flopp/go-findfont v0.1.0
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
 	github.com/oligo/gioview v0.8.2

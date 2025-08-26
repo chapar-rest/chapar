@@ -3,8 +3,11 @@ package codeeditor
 import (
 	"image"
 	"image/color"
+	"os"
+	"strings"
 
 	"gioui.org/font"
+	"gioui.org/font/opentype"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
@@ -13,6 +16,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/flopp/go-findfont"
 	gvcolor "github.com/oligo/gvcode/color"
 	"github.com/oligo/gvcode/textstyle/syntax"
 	wg "github.com/oligo/gvcode/widget"
@@ -72,15 +76,14 @@ type CodeEditor struct {
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
-	fff := fonts.MustGetCodeEditorFont()
-
 	globalConfig := prefs.GetGlobalConfig()
+	editorFont := getEditorFont()
 
 	c := &CodeEditor{
 		theme:        theme,
 		editor:       wg.NewEditor(theme.Material()),
 		code:         code,
-		font:         fff,
+		font:         editorFont,
 		lang:         lang,
 		editorConfig: globalConfig.Spec.Editor,
 	}
@@ -105,6 +108,34 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 	return c
 }
 
+func getEditorFont() font.FontFace {
+	fontFamilyName := prefs.GetGlobalConfig().Spec.Editor.FontFamily
+	fontFamilyName = strings.ReplaceAll(fontFamilyName, " ", "")
+
+	if "JetBrainsMono" == fontFamilyName {
+		return fonts.MustGetCodeEditorFont()
+	}
+
+	fontPath, err := findfont.Find(fontFamilyName)
+	if err != nil {
+		// fallback to default font
+		return fonts.MustGetCodeEditorFont()
+	}
+
+	data, err := os.ReadFile(fontPath)
+	if err != nil {
+		// fallback to default font
+		return fonts.MustGetCodeEditorFont()
+	}
+
+	monoFont, err := opentype.ParseCollection(data)
+	if err != nil {
+		panic(err)
+	}
+
+	return font.FontFace{Font: monoFont[0].Font, Face: monoFont[0].Face}
+}
+
 func (c *CodeEditor) updateEditorOptions(old, updated domain.EditorConfig) {
 	switch {
 	case old.AutoCloseBrackets != updated.AutoCloseBrackets:
@@ -117,6 +148,7 @@ func (c *CodeEditor) updateEditorOptions(old, updated domain.EditorConfig) {
 		}
 	case old.FontFamily != updated.FontFamily:
 		if updated.FontFamily != "" {
+			c.font = getEditorFont()
 			c.editor.WithOptions(gvcode.WithFont(c.font.Font))
 		}
 	case old.FontSize != updated.FontSize:

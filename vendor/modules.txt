@@ -141,6 +141,9 @@ github.com/dustin/go-humanize
 # github.com/felixge/httpsnoop v1.0.4
 ## explicit; go 1.13
 github.com/felixge/httpsnoop
+# github.com/flopp/go-findfont v0.1.0
+## explicit; go 1.13
+github.com/flopp/go-findfont
 # github.com/go-logr/logr v1.4.2
 ## explicit; go 1.18
 github.com/go-logr/logr
