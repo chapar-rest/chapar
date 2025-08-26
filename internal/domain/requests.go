@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	RequestTypeHTTP = "http"
-	RequestTypeGRPC = "grpc"
+	RequestTypeHTTP      = "http"
+	RequestTypeGRPC      = "grpc"
+	RequestTypeWebSocket = "webSocket"
 
 	RequestMethodGET     = "GET"
 	RequestMethodPOST    = "POST"
@@ -93,8 +94,9 @@ type RequestMeta struct {
 }
 
 type RequestSpec struct {
-	GRPC *GRPCRequestSpec `yaml:"grpc,omitempty"`
-	HTTP *HTTPRequestSpec `yaml:"http,omitempty"`
+	GRPC      *GRPCRequestSpec `yaml:"grpc,omitempty"`
+	HTTP      *HTTPRequestSpec `yaml:"http,omitempty"`
+	WebSocket *WebSocketSpec   `yaml:"webSocket,omitempty"`
 }
 
 func (r *RequestSpec) GetGRPC() *GRPCRequestSpec {
