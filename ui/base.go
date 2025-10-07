@@ -20,6 +20,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/explorer"
 	"github.com/chapar-rest/chapar/ui/fonts"
+	"github.com/chapar-rest/chapar/ui/modals"
 	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/widgets/modallayer"
 )
@@ -124,4 +125,14 @@ func (b *Base) SetModal(mw func(gtx layout.Context) layout.Dimensions) {
 	}
 
 	b.Modal.VisibilityAnimation.Appear(time.Now())
+}
+
+func (b *Base) ShowError(err error) {
+	m := modals.NewError(err)
+	b.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.OKBtn.Clicked(gtx) {
+			b.CloseModal()
+		}
+		return m.Layout(gtx, b.Theme)
+	})
 }

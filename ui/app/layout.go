@@ -24,6 +24,9 @@ import (
 
 type BaseLayout struct {
 	base *ui.Base
+
+	RequestBase *requests.BaseView
+
 	// views
 	ProtoFilesView   *protofiles.View
 	RequestsView     *requests.View
@@ -54,6 +57,8 @@ func NewBaseLayout(base *ui.Base) (*BaseLayout, error) {
 	environmentsView := environments.NewView(base)
 	requestsView := requests.NewView(base)
 
+	requestsBaseView := requests.NewBaseView(base)
+
 	// init controllers
 	workspacesController := workspaces.NewController(workspaceView, base.WorkspacesState, base.Repository)
 	if err := workspacesController.LoadData(); err != nil {
@@ -81,6 +86,7 @@ func NewBaseLayout(base *ui.Base) (*BaseLayout, error) {
 	return &BaseLayout{
 		base:                   base,
 		ProtoFilesView:         protoFilesView,
+		RequestBase:            requestsBaseView,
 		RequestsView:           requestsView,
 		EnvironmentsView:       environmentsView,
 		WorkspaceView:          workspaceView,

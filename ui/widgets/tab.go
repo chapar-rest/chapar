@@ -22,6 +22,9 @@ type Tabs struct {
 	tabs     []*Tab
 	selected int
 
+	tabClosed   bool
+	closedTabId string
+
 	// number of characters to show in the tab title
 	maxTitleWidth    int
 	onSelectedChange func(int)
@@ -101,17 +104,36 @@ func (tabs *Tabs) findTabByID(id string) *Tab {
 	return nil
 }
 
+func (tabs *Tabs) TabClosed() (string, bool) {
+	closed := tabs.tabClosed
+	id := tabs.closedTabId
+	tabs.tabClosed = false
+	tabs.closedTabId = ""
+	return id, closed
+}
+
+func (tabs *Tabs) SetDataChanged(id string, changed bool) {
+	tab := tabs.findTabByID(id)
+	if tab == nil {
+		return
+	}
+
+	tab.isDataChanged = changed
+}
+
 func (tabs *Tabs) SetSelected(index int) {
 	tabs.selected = index
 }
 
-func (tabs *Tabs) SetSelectedByID(id string) {
+func (tabs *Tabs) SetSelectedByID(id string) bool {
 	for i, t := range tabs.tabs {
 		if t.Identifier == id {
 			tabs.selected = i
-			return
+			return true
 		}
 	}
+
+	return false
 }
 
 func (tabs *Tabs) SetTabs(items []*Tab) {
@@ -158,8 +180,15 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		}
 
 		t := tabs.tabs[tabIdx]
-		if t.Closable && t.onClose != nil && t.CloseClickable.Clicked(gtx) {
-			t.onClose(t)
+		if t.Closable && t.CloseClickable.Clicked(gtx) {
+			if t.onClose != nil {
+
+				t.onClose(t)
+			}
+
+			tabs.tabClosed = true
+			tabs.closedTabId = t.Identifier
+
 			gtx.Execute(op.InvalidateCmd{})
 		}
 

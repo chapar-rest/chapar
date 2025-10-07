@@ -35,6 +35,9 @@ type TreeView struct {
 	onNodeClick       func(tr *TreeNode)
 
 	selectedOnClick bool
+
+	nodeClicked   bool
+	clickedNodeId string
 }
 
 type TreeNode struct {
@@ -76,6 +79,21 @@ func NewTreeView(nodes []*TreeNode) *TreeView {
 		nodes: nodes,
 	}
 }
+func (t *TreeView) GetNodeById(id string) *TreeNode {
+	for _, n := range t.nodes {
+		if n.Identifier == id {
+			return n
+		}
+
+		for _, c := range n.Children {
+			if c.Identifier == id {
+				return c
+			}
+		}
+	}
+	return nil
+}
+
 func (t *TreeView) SetSelectedOnClick(i bool) {
 	t.selectedOnClick = i
 }
@@ -147,6 +165,14 @@ func (t *TreeView) RemoveNode(identifier string) {
 			}
 		}
 	}
+}
+
+func (t *TreeView) NodeClicked() (string, bool) {
+	if t.nodeClicked {
+		t.nodeClicked = false
+		return t.clickedNodeId, true
+	}
+	return "", false
 }
 
 func (t *TreeView) Filter(text string) {
@@ -230,13 +256,17 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		}
 		switch click.NumClicks {
 		case 1:
+			// single click
+			t.nodeClicked = true
+			t.clickedNodeId = node.Identifier
+
 			if t.onNodeClick != nil {
 				go t.onNodeClick(node)
 				if t.selectedOnClick {
 					t.setNodeSelected(node)
 				}
-				gtx.Execute(op.InvalidateCmd{})
 			}
+			gtx.Execute(op.InvalidateCmd{})
 		case 2:
 			if t.onNodeDoubleClick != nil {
 				go t.onNodeDoubleClick(node)
