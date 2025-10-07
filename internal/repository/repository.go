@@ -22,6 +22,7 @@ type RepositoryV2 interface {
 	UpdateRequest(request *domain.Request, collection *domain.Collection) error
 	DeleteRequest(request *domain.Request, collection *domain.Collection) error
 
+	GetCollectionByID(id string) (*domain.Collection, error)
 	LoadCollections() ([]*domain.Collection, error)
 	CreateCollection(collection *domain.Collection) error
 	UpdateCollection(collection *domain.Collection) error

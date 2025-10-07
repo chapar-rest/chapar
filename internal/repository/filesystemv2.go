@@ -201,6 +201,10 @@ func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain
 	return nil
 }
 
+func (f *FilesystemV2) GetCollectionByID(id string) (*domain.Collection, error) {
+	return getById(f.LoadCollections, id)
+}
+
 func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 	path, err := f.EntityPath(domain.KindCollection)
 	if err != nil {
@@ -729,4 +733,21 @@ func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 	}
 
 	return out, nil
+}
+
+func getById[T Entity](list func() ([]T, error), id string) (T, error) {
+	items, err := list()
+	var zero T
+
+	if err != nil {
+		return zero, err
+	}
+
+	for _, item := range items {
+		if item.ID() == id {
+			return item, nil
+		}
+	}
+
+	return zero, fmt.Errorf("item with ID %s not found", id)
 }

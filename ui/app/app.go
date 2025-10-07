@@ -41,11 +41,14 @@ func NewApp(w *app.Window, appVersion string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	navi.Register(baseLayout.RequestsView)
+	navi.Register(baseLayout.RequestBase)
 	navi.Register(baseLayout.EnvironmentsView)
 	navi.Register(baseLayout.ProtoFilesView)
 	navi.Register(baseLayout.WorkspaceView)
 	navi.Register(baseLayout.SettingsView)
+
+	// set initial page, it will also trigger the OnEnter of the page
+	navi.SwitchTo(navigator.RequestsPageId)
 
 	out := &App{
 		Window:     w,
