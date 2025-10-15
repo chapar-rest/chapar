@@ -100,11 +100,28 @@ func (s ScriptingConfig) Changed(other ScriptingConfig) bool {
 }
 
 type DataConfig struct {
-	WorkspacePath string `yaml:"workspacePath"`
+	WorkspacePath string    `yaml:"workspacePath"`
+	Git           GitConfig `yaml:"git"`
 }
 
 func (d DataConfig) Changed(other DataConfig) bool {
-	return d.WorkspacePath != other.WorkspacePath
+	return d.WorkspacePath != other.WorkspacePath || d.Git.Changed(other.Git)
+}
+
+type GitConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	RemoteURL string `yaml:"remoteUrl"`
+	Username  string `yaml:"username"`
+	Token     string `yaml:"token"`
+	Branch    string `yaml:"branch"`
+}
+
+func (g GitConfig) Changed(other GitConfig) bool {
+	return g.Enabled != other.Enabled ||
+		g.RemoteURL != other.RemoteURL ||
+		g.Username != other.Username ||
+		g.Token != other.Token ||
+		g.Branch != other.Branch
 }
 
 type AppState struct {
@@ -158,6 +175,10 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 			},
 			Data: DataConfig{
 				WorkspacePath: dataDir,
+				Git: GitConfig{
+					Enabled: false,
+					Branch:  "main",
+				},
 			},
 		},
 	}
@@ -230,6 +251,11 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.Scripting.Port = getOrDefault(values, "port", g.Spec.Scripting.Port).(int)
 
 	g.Spec.Data.WorkspacePath = getOrDefault(values, "workspacePath", g.Spec.Data.WorkspacePath).(string)
+	g.Spec.Data.Git.Enabled = getOrDefault(values, "gitEnabled", g.Spec.Data.Git.Enabled).(bool)
+	g.Spec.Data.Git.RemoteURL = getOrDefault(values, "gitRemoteUrl", g.Spec.Data.Git.RemoteURL).(string)
+	g.Spec.Data.Git.Username = getOrDefault(values, "gitUsername", g.Spec.Data.Git.Username).(string)
+	g.Spec.Data.Git.Token = getOrDefault(values, "gitToken", g.Spec.Data.Git.Token).(string)
+	g.Spec.Data.Git.Branch = getOrDefault(values, "gitBranch", g.Spec.Data.Git.Branch).(string)
 
 	return g
 }

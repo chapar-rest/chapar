@@ -62,10 +62,28 @@ func NewBase(appVersion string, w *app.Window, navi *navigator.Navigator) (*Base
 	th := chapartheme.New(theme, appState.Spec.DarkMode)
 	explorerController := explorer.NewExplorer(w)
 
-	// create file storage in user's home directory
-	repo, err := repository.NewFilesystemV2(prefs.GetWorkspacePath(), appState.Spec.ActiveWorkspace.Name)
-	if err != nil {
-		return nil, err
+	// create repository based on configuration
+	var repo repository.RepositoryV2
+	globalConfig := prefs.GetGlobalConfig()
+	
+	if globalConfig.Spec.Data.Git.Enabled {
+		// Use Git repository
+		gitConfig := &repository.GitConfig{
+			RemoteURL: globalConfig.Spec.Data.Git.RemoteURL,
+			Username:  globalConfig.Spec.Data.Git.Username,
+			Token:     globalConfig.Spec.Data.Git.Token,
+			Branch:    globalConfig.Spec.Data.Git.Branch,
+		}
+		repo, err = repository.NewGitRepositoryV2(prefs.GetWorkspacePath(), appState.Spec.ActiveWorkspace.Name, gitConfig)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Use filesystem repository
+		repo, err = repository.NewFilesystemV2(prefs.GetWorkspacePath(), appState.Spec.ActiveWorkspace.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// init state
