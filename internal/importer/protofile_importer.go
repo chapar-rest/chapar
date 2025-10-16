@@ -57,10 +57,7 @@ func ImportProtoFile(data []byte, repo repository.RepositoryV2, filePath ...stri
 	}
 
 	// Parse services from registry files
-	services, err := parseServicesFromRegistry(registryFiles)
-	if err != nil {
-		return fmt.Errorf("error parsing services: %w", err)
-	}
+	services := parseServicesFromRegistry(registryFiles)
 
 	// Determine collection name based on number of services
 	var collectionName string
@@ -168,7 +165,7 @@ func convertToRegistryFiles(descriptors []*desc.FileDescriptor) (*protoregistry.
 }
 
 // parseServicesFromRegistry parses services from protoregistry.Files
-func parseServicesFromRegistry(registryFiles *protoregistry.Files) ([]domain.GRPCService, error) {
+func parseServicesFromRegistry(registryFiles *protoregistry.Files) []domain.GRPCService {
 	services := make([]domain.GRPCService, 0)
 
 	registryFiles.RangeFiles(func(ds protoreflect.FileDescriptor) bool {
@@ -195,7 +192,7 @@ func parseServicesFromRegistry(registryFiles *protoregistry.Files) ([]domain.GRP
 		return true
 	})
 
-	return services, nil
+	return services
 }
 
 // generateExampleBodyFromMethodDescriptor generates a JSON example body from a method descriptor
