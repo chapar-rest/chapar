@@ -3,6 +3,7 @@ package buffer
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -61,7 +62,8 @@ type PieceTable struct {
 
 	// Index of the slice saves the continuous line number starting from zero.
 	// The value contains the rune length of the line.
-	lines []lineInfo
+	lines   []lineInfo
+	markers []*Marker
 }
 
 func NewPieceTable(text []byte) *PieceTable {
@@ -93,7 +95,7 @@ func (pt *PieceTable) SetText(text []byte) {
 	pt.lastInsertPiece = nil
 	pt.changed = false
 	pt.currentBatch = nil
-
+	pt.markers = pt.markers[:0]
 	pt.init(text)
 }
 
@@ -230,6 +232,8 @@ func (pt *PieceTable) insertAtBoundary(runeIndex int, text string, oldPiece *pie
 
 	newPieces := &pieceRange{}
 	newPieces.Append(newPiece)
+	pt.updateMarkersOnSplit(oldPiece, 0, oldPiece.prev, oldPiece)
+
 	// swap link the new piece into the sequence
 	pt.push2UndoStack(oldPieces, newPieces)
 	pt.seqLength += textRunes
@@ -258,29 +262,32 @@ func (pt *PieceTable) insertInMiddle(runeIndex int, text string, oldPiece *piece
 	// spilt the old piece into 2 new pieces, and insert the newly added text.
 	newPieces := &pieceRange{}
 
-	// Append the left part of the old piece.
 	byteLen := pt.getBuf(oldPiece.source).bytesForRange(oldPiece.offset, inRuneOff)
-	newPieces.Append(&piece{
+	leftPiece := &piece{
 		source:     oldPiece.source,
 		offset:     oldPiece.offset,
 		length:     inRuneOff,
 		byteOff:    oldPiece.byteOff,
 		byteLength: byteLen,
-	})
+	}
 
+	// Append the left part of the old piece.
+	newPieces.Append(leftPiece)
 	// Then the newly added piece.
 	newPieces.Append(newPiece)
 
 	//  And the right part of the old piece.
 	byteOff := pt.getBuf(oldPiece.source).RuneOffset(oldPiece.offset + inRuneOff)
 	byteLen = pt.getBuf(oldPiece.source).bytesForRange(oldPiece.offset+inRuneOff, oldPiece.length-inRuneOff)
-	newPieces.Append(&piece{
+	rightPiece := &piece{
 		source:     oldPiece.source,
 		offset:     oldPiece.offset + inRuneOff,
 		length:     oldPiece.length - inRuneOff,
 		byteOff:    byteOff,
 		byteLength: byteLen,
-	})
+	}
+	newPieces.Append(rightPiece)
+	pt.updateMarkersOnSplit(oldPiece, inRuneOff, leftPiece, rightPiece)
 
 	pt.push2UndoStack(oldPieces, newPieces)
 	pt.seqLength += textRunes
@@ -369,24 +376,28 @@ func (pt *PieceTable) erase(startOff, endOff int) bool {
 
 		rightByteLen := pt.getBuf(startPiece.source).bytesForRange(startPiece.offset+inRuneOff+endOff-startOff, startPiece.length-inRuneOff-(endOff-startOff))
 		rightByteOff := pt.getBuf(startPiece.source).RuneOffset(startPiece.offset + inRuneOff + endOff - startOff)
-		newPieces.Append(&piece{
+		leftPiece := &piece{
 			source:     startPiece.source,
 			offset:     startPiece.offset,
 			length:     inRuneOff,
 			byteOff:    startPiece.byteOff,
 			byteLength: leftByteLen,
-		})
+		}
+		newPieces.Append(leftPiece)
 
+		var rightPiece *piece
 		if rightByteLen > 0 {
-			newPieces.Append(&piece{
+			rightPiece = &piece{
 				source:     startPiece.source,
 				offset:     startPiece.offset + inRuneOff + endOff - startOff,
 				length:     startPiece.length - inRuneOff - (endOff - startOff),
 				byteOff:    rightByteOff,
 				byteLength: rightByteLen,
-			})
+			}
+			newPieces.Append(rightPiece)
 		}
 		bytesErased += startPiece.byteLength - leftByteLen - rightByteLen
+		pt.updateMarkersOnErase(oldPieces, newPieces)
 		pt.push2UndoStack(oldPieces, newPieces)
 		pt.seqLength -= endOff - startOff
 		pt.seqBytes -= bytesErased
@@ -400,13 +411,14 @@ func (pt *PieceTable) erase(startOff, endOff int) bool {
 	if inRuneOff > 0 {
 		leftByteLen := pt.getBuf(startPiece.source).bytesForRange(startPiece.offset, inRuneOff)
 
-		newPieces.Append(&piece{
+		leftPiece := &piece{
 			source:     startPiece.source,
 			offset:     startPiece.offset,
 			length:     inRuneOff,
 			byteOff:    startPiece.byteOff,
 			byteLength: leftByteLen,
-		})
+		}
+		newPieces.Append(leftPiece)
 		bytesErased += startPiece.byteLength - leftByteLen
 		n = startPiece.next
 		offset += startPiece.length - inRuneOff
@@ -423,13 +435,14 @@ func (pt *PieceTable) erase(startOff, endOff int) bool {
 			byteLen := pt.getBuf(n.source).bytesForRange(n.offset+endOff-offset, n.length-(endOff-offset))
 			byteOff := pt.getBuf(n.source).RuneOffset(n.offset + endOff - offset)
 
-			newPieces.Append(&piece{
+			rightPiece := &piece{
 				source:     n.source,
 				offset:     n.offset + endOff - offset,
 				length:     n.length - (endOff - offset),
 				byteOff:    byteOff,
 				byteLength: byteLen,
-			})
+			}
+			newPieces.Append(rightPiece)
 			bytesErased += n.byteLength - byteLen
 		} else {
 			bytesErased += n.byteLength
@@ -447,6 +460,7 @@ func (pt *PieceTable) erase(startOff, endOff int) bool {
 		newPieces.AsBoundary(n)
 	}
 
+	pt.updateMarkersOnErase(oldPieces, newPieces)
 	// swap link the new piece into the sequence
 	pt.push2UndoStack(oldPieces, newPieces)
 	pt.seqLength -= endOff - startOff
@@ -465,6 +479,8 @@ func (pt *PieceTable) Replace(startOff, endOff int, text string) bool {
 	if endOff > pt.seqLength {
 		endOff = pt.seqLength
 	}
+
+	defer pt.syncMarkerOffset(nil)
 
 	if startOff == endOff && text != "" {
 		return pt.insert(startOff, text)
@@ -596,6 +612,190 @@ func (pt *PieceTable) ReadAt(p []byte, offset int64) (total int, err error) {
 	}
 
 	return
+}
+
+func (pt *PieceTable) CreateMarker(runeOff int, bais MarkerBias) (*Marker, error) {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	p, inRuneOff := pt.pieces.FindPiece(runeOff)
+	if p == pt.pieces.tail {
+		p = pt.pieces.Tail()
+		inRuneOff = p.length
+	}
+	marker := newMarker(p, inRuneOff, bais)
+	pt.markers = append(pt.markers, marker)
+	pt.syncMarkerOffset(marker)
+	return marker, nil
+}
+
+// updateMarkersOnSplit update any markers that were in the piece being split.
+// oldPiece is the piece being split, leftPiece and rightPiece are splitted result
+// of the oldPiece. splitOffset specifies the splitting offset in runes in oldPiece.
+func (pt *PieceTable) updateMarkersOnSplit(oldPiece *piece, splitOffset int, leftPiece, rightPiece *piece) {
+	// Update any markers that were in the piece being split.
+	for _, marker := range pt.markers {
+		if marker.piece != oldPiece {
+			continue
+		}
+
+		if marker.pieceOffset < splitOffset {
+			// Marker is in the left part, update its piece.
+			marker.update(leftPiece, marker.pieceOffset)
+		} else if marker.pieceOffset > splitOffset {
+			// Marker is in the right part, update its piece and relative offset.
+			marker.update(rightPiece, marker.pieceOffset-splitOffset)
+		} else {
+			// Marker is exactly at the split point, use bias.
+			switch marker.bias {
+			case BiasBackward:
+				marker.update(leftPiece, leftPiece.length)
+			case BiasForward:
+				// bais is forward
+				marker.update(rightPiece, 0)
+			}
+		}
+	}
+
+}
+
+func (pt *PieceTable) updateMarkersOnErase(oldPieces *pieceRange, newPieces *pieceRange) {
+	var start, end, head, tail *piece
+
+	leftovers := newPieces.Pieces()
+	originals := oldPieces.Pieces()
+	if len(originals) == 0 {
+		return
+	}
+	start = originals[0]
+	end = originals[len(originals)-1]
+
+	switch len(leftovers) {
+	case 0:
+		// nothing to do.
+	case 1:
+		if start.offset == leftovers[0].offset {
+			head = leftovers[0]
+		} else {
+			tail = leftovers[0]
+		}
+	case 2:
+		head = leftovers[0]
+		tail = leftovers[1]
+	default:
+		panic("invalid left over pieces after erase")
+	}
+
+	wholePieceRemoved := func(idx int, p *piece) bool {
+		if len(originals) == 1 {
+			return head == nil && tail == nil
+		}
+
+		if idx > 0 && idx < len(originals)-1 {
+			return true
+		}
+
+		return (idx == 0 && head == nil) || (idx == len(originals)-1 && tail == nil)
+	}
+
+	for idx, old := range originals {
+		pieceRemoved := wholePieceRemoved(idx, old)
+		for _, marker := range pt.markers {
+			if marker.piece != old {
+				continue
+			}
+
+			if pieceRemoved {
+				if marker.bias == BiasBackward {
+					if head == nil {
+						marker.update(start.prev, start.prev.length)
+					} else {
+						marker.update(head, head.length)
+					}
+				} else {
+					// forward bais
+					if tail == nil {
+						marker.update(end.next, 0)
+					} else {
+						marker.update(tail, 0)
+					}
+				}
+				continue
+			}
+			// else only part of the current piece is removed.
+
+			// update markers in start or end pieces
+			var headLen, tailLen int
+			if head != nil {
+				headLen = head.length
+			}
+			if tail != nil {
+				tailLen = tail.length
+			}
+
+			if idx == 0 {
+				if marker.pieceOffset > headLen && marker.pieceOffset < start.length-tailLen {
+					if head != nil {
+						marker.update(head, head.length)
+					} else {
+						marker.update(tail, 0)
+					}
+				} else if marker.pieceOffset <= headLen {
+					if head != nil {
+						marker.update(head, marker.pieceOffset)
+					} else {
+						marker.update(tail, 0)
+					}
+				} else if marker.pieceOffset >= start.length-tailLen {
+					if tail != nil {
+						marker.update(tail, marker.pieceOffset-(start.length-tailLen))
+					} else {
+						marker.update(head, headLen)
+					}
+				}
+				continue
+			} else {
+				// the last piece
+				if marker.pieceOffset >= end.length-tailLen {
+					if tail != nil {
+						marker.update(tail, marker.pieceOffset-(end.length-tailLen))
+					} else {
+						marker.update(end.next, 0)
+					}
+				} else {
+					marker.update(tail, 0)
+				}
+
+			}
+		}
+	}
+}
+
+// getMarkerOffset returns the rune offset of the marker in the document.
+func (pt *PieceTable) syncMarkerOffset(marker *Marker) {
+	absOff := 0
+
+	for n := pt.pieces.Head(); n != pt.pieces.tail; n = n.next {
+		if marker == nil {
+			for _, m := range pt.markers {
+				if m.piece == n {
+					m.offset = absOff + m.pieceOffset
+				}
+			}
+		} else {
+			if marker.piece == n {
+				marker.offset = absOff + marker.pieceOffset
+			}
+		}
+
+		absOff += n.length
+	}
+}
+
+func (pt *PieceTable) RemoveMarker(m *Marker) {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+	pt.markers = slices.DeleteFunc(pt.markers, func(e *Marker) bool { return e == m })
 }
 
 // inspect prints the internal of the piece table. For debug purpose only.

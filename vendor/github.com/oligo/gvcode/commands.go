@@ -98,7 +98,7 @@ func (e *Editor) buildBuiltinCommands() {
 	// half is in Editor.processKey() under clipboard.Event.
 	registerCommand(key.Filter{Focus: e, Name: "V", Required: key.ModShortcut},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			if !e.readOnly {
+			if e.mode != ModeReadOnly {
 				gtx.Execute(clipboard.ReadCmd{Tag: e})
 			}
 			return nil
@@ -111,7 +111,7 @@ func (e *Editor) buildBuiltinCommands() {
 
 	registerCommand(key.Filter{Focus: e, Name: "Z", Required: key.ModShortcut, Optional: key.ModShift},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			if !e.readOnly {
+			if e.mode != ModeReadOnly {
 				if evt.Modifiers.Contain(key.ModShift) {
 					if ev, ok := e.redo(); ok {
 						return ev
@@ -167,7 +167,7 @@ func (e *Editor) buildBuiltinCommands() {
 
 	registerCommand(key.Filter{Focus: e, Name: key.NameDeleteBackward, Optional: key.ModShortcutAlt | key.ModShift},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			if !e.readOnly {
+			if e.mode != ModeReadOnly {
 				moveByWord := evt.Modifiers.Contain(key.ModShortcutAlt)
 
 				if moveByWord {
@@ -176,7 +176,6 @@ func (e *Editor) buildBuiltinCommands() {
 					}
 				} else {
 					if e.Delete(-1) != 0 {
-						e.updateCompletor("", true)
 						return ChangeEvent{}
 					}
 				}
@@ -186,7 +185,7 @@ func (e *Editor) buildBuiltinCommands() {
 
 	registerCommand(key.Filter{Focus: e, Name: key.NameDeleteForward, Optional: key.ModShortcutAlt | key.ModShift},
 		func(gtx layout.Context, evt key.Event) EditorEvent {
-			if !e.readOnly {
+			if e.mode != ModeReadOnly {
 				moveByWord := evt.Modifiers.Contain(key.ModShortcutAlt)
 				if moveByWord {
 					if e.deleteWord(1) != 0 {
@@ -339,6 +338,9 @@ func (e *Editor) processCommands(gtx layout.Context) EditorEvent {
 				}
 				e.scrollCaret = true
 				e.scroller.Stop()
+				if cmd.tag == nil || cmd.tag == e {
+					e.cancelCompletor()
+				}
 
 				if !ke.Modifiers.Contain(cmd.filter.Required) {
 					break

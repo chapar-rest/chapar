@@ -16,9 +16,9 @@ type TextRange struct {
 	End int
 }
 
-func (e *Editor) AddDecorations(styles ...decoration.Decoration) {
+func (e *Editor) AddDecorations(styles ...decoration.Decoration) error {
 	e.initBuffer()
-	e.text.AddDecorations(styles...)
+	return e.text.AddDecorations(styles...)
 }
 
 func (e *Editor) ClearDecorations(source string) {

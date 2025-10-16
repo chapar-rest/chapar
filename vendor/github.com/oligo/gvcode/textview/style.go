@@ -5,23 +5,23 @@ import (
 	"github.com/oligo/gvcode/textstyle/syntax"
 )
 
-func (e *TextView) AddDecorations(styles ...decoration.Decoration) {
+func (e *TextView) AddDecorations(styles ...decoration.Decoration) error {
 	if e.decorations == nil {
-		panic("TextView is not properly  initialized.")
+		panic("TextView is not properly initialized.")
 	}
 
-	e.decorations.Insert(styles...)
+	return e.decorations.Insert(styles...)
 }
 
-func (e *TextView) ClearDecorations(source string) {
+func (e *TextView) ClearDecorations(source string) error {
 	if e.decorations == nil {
-		panic("TextView is not properly  initialized.")
+		panic("TextView is not properly initialized.")
 	}
 
 	if source == "" {
-		e.decorations.RemoveAll()
+		return e.decorations.RemoveAll()
 	} else {
-		e.decorations.RemoveBySource(source)
+		return e.decorations.RemoveBySource(source)
 	}
 }
 

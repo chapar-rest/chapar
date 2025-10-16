@@ -12,10 +12,11 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/flopp/go-findfont v0.1.0
+	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
 	github.com/oligo/gioview v0.8.2
-	github.com/oligo/gvcode v0.3.0
+	github.com/oligo/gvcode v0.4.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/pretty v1.2.1
 	golang.org/x/exp/shiny v0.0.0-20250711185948-6ae5c78190dc
@@ -40,7 +41,6 @@ require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect

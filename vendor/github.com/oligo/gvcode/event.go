@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 	"strings"
+	"unicode/utf8"
 
 	"gioui.org/gesture"
 	"gioui.org/io/clipboard"
@@ -128,7 +129,7 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 				Y: int(math.Round(float64(evt.Position.Y))),
 			})
 			gtx.Execute(key.FocusCmd{Tag: e})
-			if !e.readOnly {
+			if e.mode != ModeReadOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
 			if e.scroller.State() != gestureExt.StateFlinging {
@@ -161,6 +162,10 @@ func (e *Editor) processPointerEvent(gtx layout.Context, ev event.Event) (Editor
 
 			if e.completor != nil {
 				e.completor.Cancel()
+			}
+			// switch to normal mode when clicked.
+			if e.mode == ModeSnippet {
+				e.setMode(ModeNormal)
 			}
 		}
 	case pointer.Event:
@@ -225,7 +230,7 @@ func (e *Editor) processEditEvents(gtx layout.Context) EditorEvent {
 		case key.FocusEvent:
 			// Reset IME state.
 			e.ime.imeState = imeState{}
-			if ke.Focus && !e.readOnly {
+			if ke.Focus && e.mode != ModeReadOnly {
 				gtx.Execute(key.SoftKeyboardCmd{Show: true})
 			}
 		case key.SnippetEvent:
@@ -309,7 +314,7 @@ func (e *Editor) onCopyCut(gtx layout.Context, k key.Event) EditorEvent {
 
 	if text := string(e.scratch); text != "" {
 		gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: io.NopCloser(strings.NewReader(text))})
-		if k.Name == "X" && !e.readOnly {
+		if k.Name == "X" && e.mode != ModeReadOnly {
 			if !lineOp {
 				if e.Delete(1) != 0 {
 					return ChangeEvent{}
@@ -329,11 +334,22 @@ func (e *Editor) onCopyCut(gtx layout.Context, k key.Event) EditorEvent {
 // at position of the cursor, else indent or unindent the selected lines, depending on if
 // the event contains the shift modifier.
 func (e *Editor) onTab(k key.Event) EditorEvent {
-	if e.readOnly {
+	if e.mode == ModeReadOnly {
 		return nil
 	}
 
-	if e.text.IndentLines(k.Modifiers.Contain(key.ModShift)) > 0 {
+	shiftPressed := k.Modifiers.Contain(key.ModShift)
+
+	if e.mode == ModeSnippet {
+		if shiftPressed {
+			e.snippetCtx.PrevTabStop()
+		} else {
+			e.snippetCtx.NextTabStop()
+		}
+		return nil
+	}
+
+	if e.text.IndentLines(shiftPressed) > 0 {
 		// Reset xoff.
 		e.text.MoveCaret(0, 0)
 		e.scrollCaret = true
@@ -345,7 +361,7 @@ func (e *Editor) onTab(k key.Event) EditorEvent {
 }
 
 func (e *Editor) onTextInput(ke key.EditEvent) {
-	if e.readOnly || len(ke.Text) <= 0 {
+	if e.mode == ModeReadOnly || len(ke.Text) <= 0 {
 		return
 	}
 
@@ -386,45 +402,64 @@ func (e *Editor) onTextInput(ke key.EditEvent) {
 	e.scroller.Stop()
 	// Reset caret xoff.
 	e.text.MoveCaret(0, 0)
-	// start to auto-complete, if there is a configured Completion.
-	e.updateCompletor(ke.Text, false)
+	// record lastInput for auto-complete.
+	e.lastInput = &ke
+
+	// If there is an ongoing snippet context, check if the edit is inside of
+	// a tabstop.
+	finalStart, finalEnd := e.Selection()
+	e.snippetCtx.OnInsertAt(finalStart, finalEnd)
+
 }
 
-func (e *Editor) updateCompletor(input string, cancel bool) {
+func (e *Editor) cancelCompletor() {
 	if e.completor == nil {
 		return
 	}
 
-	if cancel {
-		e.completor.Cancel()
-		return
-	}
-
-	e.completor.OnText(e.currentCompletionCtx(input))
+	e.completor.Cancel()
 }
 
-func (e *Editor) currentCompletionCtx(input string) CompletionContext {
+func (e *Editor) currentCompletionCtx() CompletionContext {
+	_, end := e.text.Selection()
+	input := ""
+	if e.lastInput != nil && e.lastInput.Range.End+utf8.RuneCountInString(e.lastInput.Text) == end {
+		input = e.lastInput.Text
+	}
+
 	ctx := CompletionContext{Input: input}
 	ctx.Position.Line, ctx.Position.Column = e.text.CaretPos()
 	// scroll off will change after we update the position, so we use doc
 	// view position instead of viewport position.
 	ctx.Coords = e.text.CaretCoords().Round().Add(e.text.ScrollOff())
-
-	// start and end should be the same, but there's a bug in text.MoveCaret
-	//  that makes start and end unequal, so we use end here.
-	_, end := e.text.Selection()
 	ctx.Position.Runes = end
+	e.lastInput = nil
 	return ctx
 }
 
 // GetCompletionContext returns a context from the current caret position.
 // This is usually used in the condition of a key triggered completion.
 func (e *Editor) GetCompletionContext() CompletionContext {
-	return e.currentCompletionCtx("")
+	return e.currentCompletionCtx()
+}
+
+// OnTextEdit should be called after normal keyboard input to update the
+// auto completion engine, usually when received a ChangeEvent.
+func (e *Editor) OnTextEdit() {
+	if e.completor == nil {
+		return
+	}
+
+	ctx := e.currentCompletionCtx()
+	if ctx == (CompletionContext{}) {
+		return
+	}
+
+	e.completor.OnText(ctx)
 }
 
 func (e *Editor) onPasteEvent(ke transfer.DataEvent) EditorEvent {
-	if e.readOnly {
+	if e.mode == ModeReadOnly {
 		return nil
 	}
 
@@ -455,7 +490,7 @@ func (e *Editor) onPasteEvent(ke transfer.DataEvent) EditorEvent {
 }
 
 func (e *Editor) onInsertLineBreak(ke key.Event) EditorEvent {
-	if e.readOnly {
+	if e.mode == ModeReadOnly {
 		return nil
 	}
 
@@ -471,7 +506,7 @@ func (e *Editor) onInsertLineBreak(ke key.Event) EditorEvent {
 // an auto inserted bracket/quote pair.
 func (e *Editor) onDeleteBackward() {
 	start, end := e.Selection()
-	if start != end {
+	if start != end || start <= 0 {
 		return
 	}
 
@@ -513,7 +548,7 @@ func (e *Editor) onDeleteBackward() {
 		if inserted, exists := e.autoInsertions[start]; exists {
 			defer delete(e.autoInsertions, start)
 			counterpart, isOpening := e.text.BracketsQuotes.GetCounterpart(inserted)
-			if !isOpening && counterpart > 0 {
+			if !isOpening && counterpart > 0 || inserted == counterpart {
 				if prev == counterpart {
 					e.text.MoveCaret(-1, 1)
 				}

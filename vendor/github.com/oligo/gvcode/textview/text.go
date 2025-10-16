@@ -116,7 +116,7 @@ func (e *TextView) setSource(source buffer.TextSource) {
 	e.src = source
 	e.layouter = lt.NewTextLayout(e.src)
 	e.BracketsQuotes = &bracketsQuotes{}
-	e.decorations = decoration.NewDecorationTree()
+	e.decorations = decoration.NewDecorationTree(e.src)
 	e.invalidate()
 }
 
