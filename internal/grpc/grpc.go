@@ -137,7 +137,7 @@ func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
 		return "", err
 	}
 
-	jsonBytes, err := json.MarshalIndent(generateExampleJSON(md.Input()), "", "  ")
+	jsonBytes, err := json.MarshalIndent(GenerateExampleJSON(md.Input()), "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal to JSON: %w", err)
 	}
@@ -145,7 +145,7 @@ func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
 	return string(jsonBytes), nil
 }
 
-func generateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[string]interface{} {
+func GenerateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[string]interface{} {
 	out := make(map[string]interface{})
 
 	fields := messageDescriptor.Fields()
@@ -171,7 +171,7 @@ func generateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[s
 			out = true
 		case protoreflect.MessageKind:
 			nestedMessageDescriptor := field.Message()
-			out = generateExampleJSON(nestedMessageDescriptor)
+			out = GenerateExampleJSON(nestedMessageDescriptor)
 		default:
 			out = "string"
 		}
