@@ -249,3 +249,6 @@ func replaceVariables(input []byte) []byte {
 
 	return input
 }
+
+// OpenAPI import functionality moved to openapi_importer.go using kin-openapi library
+// Protofile import functionality moved to protofile_importer.go using protoreflect library

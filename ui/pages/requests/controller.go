@@ -716,7 +716,29 @@ func (c *Controller) onNewRequest(requestType string) {
 	c.view.SwitchToTab(req.MetaData.ID)
 }
 
-func (c *Controller) onImport() {
+func (c *Controller) onImport(importType string) {
+	var fileExtension string
+	var importFunc func([]byte, repository.RepositoryV2, ...string) error
+
+	switch importType {
+	case "postman":
+		fileExtension = "json"
+		importFunc = func(data []byte, repo repository.RepositoryV2, _ ...string) error {
+			return importer.ImportPostmanCollection(data, repo)
+		}
+	case "openapi":
+		fileExtension = "json,yaml,yml"
+		importFunc = func(data []byte, repo repository.RepositoryV2, _ ...string) error {
+			return importer.ImportOpenAPISpec(data, repo)
+		}
+	case "protofile":
+		fileExtension = "proto"
+		importFunc = importer.ImportProtoFile
+	default:
+		c.view.showError(fmt.Errorf("unsupported import type: %s", importType))
+		return
+	}
+
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Declined {
 			return
@@ -727,8 +749,8 @@ func (c *Controller) onImport() {
 			return
 		}
 
-		if err := importer.ImportPostmanCollection(result.Data, c.repo); err != nil {
-			c.view.showError(fmt.Errorf("failed to import postman collection, %w", err))
+		if err := importFunc(result.Data, c.repo, result.FilePath); err != nil {
+			c.view.showError(fmt.Errorf("failed to import %s, %w", importType, err))
 			return
 		}
 
@@ -737,7 +759,7 @@ func (c *Controller) onImport() {
 			return
 		}
 
-	}, "json")
+	}, fileExtension)
 }
 
 func (c *Controller) onNewCollection() {

@@ -60,7 +60,7 @@ type View struct {
 	// callbacks
 	onTitleChanged                 func(id, title, containerType string)
 	onNewRequest                   func(requestType string)
-	onImport                       func()
+	onImport                       func(importType string)
 	onNewCollection                func()
 	onTabClose                     func(id string)
 	onTreeViewNodeDoubleClicked    func(id string)
@@ -330,7 +330,7 @@ func (v *View) SetOnSubmit(f func(id, containerType string)) {
 	v.onSubmit = f
 }
 
-func (v *View) SetOnImport(f func()) {
+func (v *View) SetOnImport(f func(importType string)) {
 	v.onImport = f
 }
 
@@ -887,9 +887,7 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if v.importButton.Clicked(gtx) {
-								if v.onImport != nil {
-									v.onImport()
-								}
+								v.showImportModal()
 							}
 							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
 							btn.Color = theme.ButtonTextColor
@@ -931,6 +929,26 @@ func (v *View) showCreateNewModal() {
 			if item.Clickable.Clicked(gtx) {
 				v.Base.CloseModal()
 				v.createNew(item.Key)
+			}
+		}
+
+		return m.Layout(gtx, v.Theme)
+	})
+}
+
+func (v *View) showImportModal() {
+	m := modals.NewImportModal()
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.CloseBtn.Clicked(gtx) {
+			v.Base.CloseModal()
+		}
+
+		for _, item := range m.Items {
+			if item.Clickable.Clicked(gtx) {
+				v.Base.CloseModal()
+				if v.onImport != nil {
+					v.onImport(item.Key)
+				}
 			}
 		}
 
