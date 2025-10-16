@@ -67,11 +67,7 @@ func ImportProtoFile(data []byte, repo repository.RepositoryV2, filePath ...stri
 	if len(services) == 1 {
 		// Single service: use service name as collection name
 		collectionName = services[0].Name
-	} else if len(services) > 1 {
-		// Multiple services: use generic name
-		collectionName = "ProtoCollection"
 	} else {
-		// No services found: use generic name
 		collectionName = "ProtoCollection"
 	}
 
