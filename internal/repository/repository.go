@@ -2,11 +2,24 @@ package repository
 
 import (
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
+
+// SyncStatus represents the current sync status for any storage backend
+type SyncStatus struct {
+	IsEnabled         bool
+	IsSyncing         bool
+	LastSyncTime      *time.Time
+	HasRemote         bool
+	UncommittedChanges bool
+	// Backend-specific information
+	BackendType       string
+	BackendInfo       map[string]interface{}
+}
 
 // RepositoryV2 defines the main storage interface
 type RepositoryV2 interface {
@@ -36,6 +49,9 @@ type RepositoryV2 interface {
 	CreateWorkspace(workspace *domain.Workspace) error
 	UpdateWorkspace(workspace *domain.Workspace) error
 	DeleteWorkspace(workspace *domain.Workspace) error
+
+	// Sync status methods
+	GetSyncStatus() *SyncStatus
 }
 
 func LoadFromYaml[T any](filename string) (*T, error) {

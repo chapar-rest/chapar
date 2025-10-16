@@ -653,6 +653,18 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 	return path, nil
 }
 
+// GetSyncStatus returns the current sync status (always disabled for filesystem)
+func (f *FilesystemV2) GetSyncStatus() *SyncStatus {
+	return &SyncStatus{
+		IsEnabled:   false,
+		BackendType: "filesystem",
+		BackendInfo: map[string]interface{}{
+			"dataDir":       f.dataDir,
+			"workspaceName": f.workspaceName,
+		},
+	}
+}
+
 // GetLegacyConfig gets the legacy config from the filesystem.
 func (f *FilesystemV2) GetLegacyConfig() (*domain.Config, error) {
 	filePath := filepath.Join(f.dataDir, "config.yaml")

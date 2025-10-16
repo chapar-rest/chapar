@@ -223,8 +223,19 @@ func (v *View) Load(config domain.GlobalConfig) {
 	editorSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("editor", editorSettings)
 
+	gitVisibility := func(values map[string]any) bool {
+		return values["gitEnabled"].(bool)
+	}
+
 	dataSettings := widgets.NewSettings([]*widgets.SettingItem{
 		widgets.NewTextItem("Workspace path", "workspacePath", "The absolute path to the workspace folder", config.Spec.Data.WorkspacePath).MinWidth(unit.Dp(400)).TextAlignment(text.Start),
+		widgets.NewHeaderItem("Version Control"),
+		widgets.NewBoolItem("Enable Git", "gitEnabled", "Enable Git version control for your workspace data", config.Spec.Data.Git.Enabled),
+		widgets.NewTextItem("Remote URL", "gitRemoteUrl", "Git remote repository URL (e.g., https://github.com/username/repo.git)", config.Spec.Data.Git.RemoteURL).MinWidth(unit.Dp(400)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
+		widgets.NewTextItem("Username", "gitUsername", "Git username for authentication", config.Spec.Data.Git.Username).MinWidth(unit.Dp(300)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
+		widgets.NewTextItem("Token", "gitToken", "Git token or password for authentication", config.Spec.Data.Git.Token).MinWidth(unit.Dp(300)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
+		widgets.NewTextItem("Branch", "gitBranch", "Git branch to use (default: main)", config.Spec.Data.Git.Branch).MinWidth(unit.Dp(200)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
+		widgets.NewNumberItem("Sync delay", "gitSyncDelay", "Delay in seconds before auto-sync after changes", config.Spec.Data.Git.SyncDelay).MinWidth(unit.Dp(200)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
 	})
 	dataSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("data", dataSettings)

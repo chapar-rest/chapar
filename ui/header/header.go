@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
@@ -35,6 +36,9 @@ type Header struct {
 	iconDarkMode  material.LabelStyle
 	iconLightMode material.LabelStyle
 
+	// Git status widget
+	gitStatusWidget *widgets.GitStatusWidget
+
 	OnSelectedEnvChanged       func(env *domain.Environment)
 	OnSelectedWorkspaceChanged func(env *domain.Workspace)
 	OnThemeSwitched            func(isDark bool)
@@ -45,7 +49,7 @@ const (
 	noEnvironment = "No Environment"
 )
 
-func NewHeader(w *app.Window, envState *state.Environments, workspacesState *state.Workspaces, theme *chapartheme.Theme) *Header {
+func NewHeader(w *app.Window, envState *state.Environments, workspacesState *state.Workspaces, theme *chapartheme.Theme, repo repository.RepositoryV2) *Header {
 	h := &Header{
 		w:               w,
 		theme:           theme,
@@ -63,6 +67,10 @@ func NewHeader(w *app.Window, envState *state.Environments, workspacesState *sta
 	h.workspaceDropDown.SetSelectedByIdentifier(domain.DefaultWorkspaceName)
 	h.envDropDown.MaxWidth = unit.Dp(150)
 	h.workspaceDropDown.MaxWidth = unit.Dp(150)
+
+	// Initialize git status widget
+	h.gitStatusWidget = widgets.NewGitStatusWidget(theme, repo)
+
 	return h
 }
 
@@ -123,6 +131,12 @@ func (h *Header) SetSelectedEnvironment(env *domain.Environment) {
 
 func (h *Header) SetTheme(isDark bool) {
 	h.isDarkMode = isDark
+}
+
+func (h *Header) RefreshGitStatus() {
+	if h.gitStatusWidget != nil {
+		h.gitStatusWidget.RefreshStatus()
+	}
 }
 
 func (h *Header) themeSwitchIcon() material.LabelStyle {
@@ -195,6 +209,9 @@ func (h *Header) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return h.gitStatusWidget.Layout(gtx)
+						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return widgets.Clickable(gtx, &h.themeSwitcherClickable, unit.Dp(4), h.themeSwitchIcon().Layout)
 						}),
