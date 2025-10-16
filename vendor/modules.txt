@@ -1,6 +1,3 @@
-# dario.cat/mergo v1.0.0
-## explicit; go 1.13
-dario.cat/mergo
 # gioui.org v0.8.0
 ## explicit; go 1.21
 gioui.org/app
@@ -71,8 +68,8 @@ github.com/PaesslerAG/gval
 # github.com/PaesslerAG/jsonpath v0.1.1
 ## explicit
 github.com/PaesslerAG/jsonpath
-# github.com/ProtonMail/go-crypto v1.1.6
-## explicit; go 1.17
+# github.com/ProtonMail/go-crypto v1.3.0
+## explicit; go 1.22.0
 github.com/ProtonMail/go-crypto/bitcurves
 github.com/ProtonMail/go-crypto/brainpool
 github.com/ProtonMail/go-crypto/eax
@@ -199,68 +196,71 @@ github.com/felixge/httpsnoop
 # github.com/flopp/go-findfont v0.1.0
 ## explicit; go 1.13
 github.com/flopp/go-findfont
-# github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376
-## explicit; go 1.13
-github.com/go-git/gcfg
-github.com/go-git/gcfg/scanner
-github.com/go-git/gcfg/token
-github.com/go-git/gcfg/types
-# github.com/go-git/go-billy/v5 v5.6.2
+# github.com/go-git/gcfg/v2 v2.0.2
 ## explicit; go 1.21
-github.com/go-git/go-billy/v5
-github.com/go-git/go-billy/v5/helper/chroot
-github.com/go-git/go-billy/v5/helper/polyfill
-github.com/go-git/go-billy/v5/memfs
-github.com/go-git/go-billy/v5/osfs
-github.com/go-git/go-billy/v5/util
-# github.com/go-git/go-git/v5 v5.16.3
+github.com/go-git/gcfg/v2
+github.com/go-git/gcfg/v2/scanner
+github.com/go-git/gcfg/v2/token
+github.com/go-git/gcfg/v2/types
+# github.com/go-git/go-billy/v6 v6.0.0-20250627091229-31e2a16eef30
 ## explicit; go 1.23.0
-github.com/go-git/go-git/v5
-github.com/go-git/go-git/v5/config
-github.com/go-git/go-git/v5/internal/path_util
-github.com/go-git/go-git/v5/internal/revision
-github.com/go-git/go-git/v5/internal/url
-github.com/go-git/go-git/v5/plumbing
-github.com/go-git/go-git/v5/plumbing/cache
-github.com/go-git/go-git/v5/plumbing/color
-github.com/go-git/go-git/v5/plumbing/filemode
-github.com/go-git/go-git/v5/plumbing/format/config
-github.com/go-git/go-git/v5/plumbing/format/diff
-github.com/go-git/go-git/v5/plumbing/format/gitignore
-github.com/go-git/go-git/v5/plumbing/format/idxfile
-github.com/go-git/go-git/v5/plumbing/format/index
-github.com/go-git/go-git/v5/plumbing/format/objfile
-github.com/go-git/go-git/v5/plumbing/format/packfile
-github.com/go-git/go-git/v5/plumbing/format/pktline
-github.com/go-git/go-git/v5/plumbing/hash
-github.com/go-git/go-git/v5/plumbing/object
-github.com/go-git/go-git/v5/plumbing/protocol/packp
-github.com/go-git/go-git/v5/plumbing/protocol/packp/capability
-github.com/go-git/go-git/v5/plumbing/protocol/packp/sideband
-github.com/go-git/go-git/v5/plumbing/revlist
-github.com/go-git/go-git/v5/plumbing/storer
-github.com/go-git/go-git/v5/plumbing/transport
-github.com/go-git/go-git/v5/plumbing/transport/client
-github.com/go-git/go-git/v5/plumbing/transport/file
-github.com/go-git/go-git/v5/plumbing/transport/git
-github.com/go-git/go-git/v5/plumbing/transport/http
-github.com/go-git/go-git/v5/plumbing/transport/internal/common
-github.com/go-git/go-git/v5/plumbing/transport/server
-github.com/go-git/go-git/v5/plumbing/transport/ssh
-github.com/go-git/go-git/v5/storage
-github.com/go-git/go-git/v5/storage/filesystem
-github.com/go-git/go-git/v5/storage/filesystem/dotgit
-github.com/go-git/go-git/v5/storage/memory
-github.com/go-git/go-git/v5/utils/binary
-github.com/go-git/go-git/v5/utils/diff
-github.com/go-git/go-git/v5/utils/ioutil
-github.com/go-git/go-git/v5/utils/merkletrie
-github.com/go-git/go-git/v5/utils/merkletrie/filesystem
-github.com/go-git/go-git/v5/utils/merkletrie/index
-github.com/go-git/go-git/v5/utils/merkletrie/internal/frame
-github.com/go-git/go-git/v5/utils/merkletrie/noder
-github.com/go-git/go-git/v5/utils/sync
-github.com/go-git/go-git/v5/utils/trace
+github.com/go-git/go-billy/v6
+github.com/go-git/go-billy/v6/helper/chroot
+github.com/go-git/go-billy/v6/helper/polyfill
+github.com/go-git/go-billy/v6/memfs
+github.com/go-git/go-billy/v6/osfs
+github.com/go-git/go-billy/v6/util
+# github.com/go-git/go-git/v6 v6.0.0-20251013144902-80b2f284a779
+## explicit; go 1.24.0
+github.com/go-git/go-git/v6
+github.com/go-git/go-git/v6/config
+github.com/go-git/go-git/v6/internal/path_util
+github.com/go-git/go-git/v6/internal/reference
+github.com/go-git/go-git/v6/internal/repository
+github.com/go-git/go-git/v6/internal/revision
+github.com/go-git/go-git/v6/internal/url
+github.com/go-git/go-git/v6/plumbing
+github.com/go-git/go-git/v6/plumbing/cache
+github.com/go-git/go-git/v6/plumbing/color
+github.com/go-git/go-git/v6/plumbing/filemode
+github.com/go-git/go-git/v6/plumbing/format/config
+github.com/go-git/go-git/v6/plumbing/format/diff
+github.com/go-git/go-git/v6/plumbing/format/gitignore
+github.com/go-git/go-git/v6/plumbing/format/idxfile
+github.com/go-git/go-git/v6/plumbing/format/index
+github.com/go-git/go-git/v6/plumbing/format/objfile
+github.com/go-git/go-git/v6/plumbing/format/packfile
+github.com/go-git/go-git/v6/plumbing/format/pktline
+github.com/go-git/go-git/v6/plumbing/hash
+github.com/go-git/go-git/v6/plumbing/object
+github.com/go-git/go-git/v6/plumbing/protocol
+github.com/go-git/go-git/v6/plumbing/protocol/packp
+github.com/go-git/go-git/v6/plumbing/protocol/packp/capability
+github.com/go-git/go-git/v6/plumbing/protocol/packp/sideband
+github.com/go-git/go-git/v6/plumbing/revlist
+github.com/go-git/go-git/v6/plumbing/storer
+github.com/go-git/go-git/v6/plumbing/transport
+github.com/go-git/go-git/v6/plumbing/transport/file
+github.com/go-git/go-git/v6/plumbing/transport/git
+github.com/go-git/go-git/v6/plumbing/transport/http
+github.com/go-git/go-git/v6/plumbing/transport/ssh
+github.com/go-git/go-git/v6/plumbing/transport/ssh/knownhosts
+github.com/go-git/go-git/v6/plumbing/transport/ssh/sshagent
+github.com/go-git/go-git/v6/storage
+github.com/go-git/go-git/v6/storage/filesystem
+github.com/go-git/go-git/v6/storage/filesystem/dotgit
+github.com/go-git/go-git/v6/storage/memory
+github.com/go-git/go-git/v6/utils/binary
+github.com/go-git/go-git/v6/utils/convert
+github.com/go-git/go-git/v6/utils/diff
+github.com/go-git/go-git/v6/utils/ioutil
+github.com/go-git/go-git/v6/utils/merkletrie
+github.com/go-git/go-git/v6/utils/merkletrie/filesystem
+github.com/go-git/go-git/v6/utils/merkletrie/index
+github.com/go-git/go-git/v6/utils/merkletrie/internal/frame
+github.com/go-git/go-git/v6/utils/merkletrie/noder
+github.com/go-git/go-git/v6/utils/sync
+github.com/go-git/go-git/v6/utils/trace
 # github.com/go-logr/logr v1.4.2
 ## explicit; go 1.18
 github.com/go-logr/logr
@@ -297,9 +297,6 @@ github.com/golang/protobuf/proto
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99
-## explicit
-github.com/jbenet/go-context/io
 # github.com/jhump/protoreflect v1.16.0
 ## explicit; go 1.19
 github.com/jhump/protoreflect/desc
@@ -309,9 +306,12 @@ github.com/jhump/protoreflect/desc/protoparse/ast
 github.com/jhump/protoreflect/desc/sourceinfo
 github.com/jhump/protoreflect/grpcreflect
 github.com/jhump/protoreflect/internal
-# github.com/kevinburke/ssh_config v1.2.0
-## explicit
+# github.com/kevinburke/ssh_config v1.4.0
+## explicit; go 1.18
 github.com/kevinburke/ssh_config
+# github.com/klauspost/cpuid/v2 v2.3.0
+## explicit; go 1.22
+github.com/klauspost/cpuid/v2
 # github.com/moby/docker-image-spec v1.3.1
 ## explicit; go 1.18
 github.com/moby/docker-image-spec/specs-go/v1
@@ -346,8 +346,8 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/pjbgf/sha1cd v0.3.2
-## explicit; go 1.21
+# github.com/pjbgf/sha1cd v0.5.0
+## explicit; go 1.22
 github.com/pjbgf/sha1cd
 github.com/pjbgf/sha1cd/internal
 github.com/pjbgf/sha1cd/ubc
@@ -360,25 +360,19 @@ github.com/pmezard/go-difflib/difflib
 # github.com/rdleal/intervalst v1.4.1
 ## explicit; go 1.19
 github.com/rdleal/intervalst/interval
-# github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3
+# github.com/sergi/go-diff v1.4.0
 ## explicit; go 1.13
 github.com/sergi/go-diff/diffmatchpatch
 # github.com/shopspring/decimal v1.3.1
 ## explicit; go 1.13
 github.com/shopspring/decimal
-# github.com/skeema/knownhosts v1.3.1
-## explicit; go 1.22
-github.com/skeema/knownhosts
-# github.com/stretchr/testify v1.10.0
+# github.com/stretchr/testify v1.11.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 # github.com/tidwall/pretty v1.2.1
 ## explicit; go 1.16
 github.com/tidwall/pretty
-# github.com/xanzy/ssh-agent v0.3.3
-## explicit; go 1.16
-github.com/xanzy/ssh-agent
 # go.opentelemetry.io/auto/sdk v1.1.0
 ## explicit; go 1.22.0
 go.opentelemetry.io/auto/sdk
@@ -414,8 +408,8 @@ go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 go.opentelemetry.io/otel/trace/internal/telemetry
 go.opentelemetry.io/otel/trace/noop
-# golang.org/x/crypto v0.40.0
-## explicit; go 1.23.0
+# golang.org/x/crypto v0.43.0
+## explicit; go 1.24.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/blowfish
@@ -462,9 +456,8 @@ golang.org/x/image/math/fixed
 golang.org/x/image/tiff
 golang.org/x/image/tiff/lzw
 golang.org/x/image/vector
-# golang.org/x/net v0.42.0
-## explicit; go 1.23.0
-golang.org/x/net/context
+# golang.org/x/net v0.46.0
+## explicit; go 1.24.0
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
@@ -474,18 +467,17 @@ golang.org/x/net/internal/socks
 golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
-# golang.org/x/sync v0.16.0
-## explicit; go 1.23.0
+# golang.org/x/sync v0.17.0
+## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.34.0
-## explicit; go 1.23.0
+# golang.org/x/sys v0.37.0
+## explicit; go 1.24.0
 golang.org/x/sys/cpu
-golang.org/x/sys/execabs
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.27.0
-## explicit; go 1.23.0
+# golang.org/x/text v0.30.0
+## explicit; go 1.24.0
 golang.org/x/text/cases
 golang.org/x/text/internal
 golang.org/x/text/internal/language
@@ -616,9 +608,6 @@ google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/typepb
 google.golang.org/protobuf/types/known/wrapperspb
 google.golang.org/protobuf/types/pluginpb
-# gopkg.in/warnings.v0 v0.1.2
-## explicit
-gopkg.in/warnings.v0
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2

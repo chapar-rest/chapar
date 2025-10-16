@@ -65,7 +65,7 @@ func NewBase(appVersion string, w *app.Window, navi *navigator.Navigator) (*Base
 	// create repository based on configuration
 	var repo repository.RepositoryV2
 	globalConfig := prefs.GetGlobalConfig()
-	
+
 	if globalConfig.Spec.Data.Git.Enabled {
 		// Use Git repository
 		gitConfig := &repository.GitConfig{
@@ -73,6 +73,7 @@ func NewBase(appVersion string, w *app.Window, navi *navigator.Navigator) (*Base
 			Username:  globalConfig.Spec.Data.Git.Username,
 			Token:     globalConfig.Spec.Data.Git.Token,
 			Branch:    globalConfig.Spec.Data.Git.Branch,
+			SyncDelay: globalConfig.Spec.Data.Git.SyncDelay,
 		}
 		repo, err = repository.NewGitRepositoryV2(prefs.GetWorkspacePath(), appState.Spec.ActiveWorkspace.Name, gitConfig)
 		if err != nil {

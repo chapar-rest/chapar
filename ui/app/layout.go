@@ -74,7 +74,7 @@ func NewBaseLayout(base *ui.Base) (*BaseLayout, error) {
 	// init environments controller
 	environmentsController := environments.NewController(environmentsView, base.Repository, base.EnvironmentsState, base.Explorer)
 
-	headerLayout := header.NewHeader(base.Window, base.EnvironmentsState, base.WorkspacesState, base.Theme)
+	headerLayout := header.NewHeader(base.Window, base.EnvironmentsState, base.WorkspacesState, base.Theme, base.Repository)
 	footerLayout := footer.New("")
 	consoleLayout := console.New(base.Theme)
 

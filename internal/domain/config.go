@@ -114,6 +114,7 @@ type GitConfig struct {
 	Username  string `yaml:"username"`
 	Token     string `yaml:"token"`
 	Branch    string `yaml:"branch"`
+	SyncDelay int    `yaml:"syncDelay"`
 }
 
 func (g GitConfig) Changed(other GitConfig) bool {
@@ -121,7 +122,8 @@ func (g GitConfig) Changed(other GitConfig) bool {
 		g.RemoteURL != other.RemoteURL ||
 		g.Username != other.Username ||
 		g.Token != other.Token ||
-		g.Branch != other.Branch
+		g.Branch != other.Branch ||
+		g.SyncDelay != other.SyncDelay
 }
 
 type AppState struct {
@@ -176,8 +178,9 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 			Data: DataConfig{
 				WorkspacePath: dataDir,
 				Git: GitConfig{
-					Enabled: false,
-					Branch:  "main",
+					Enabled:   false,
+					Branch:    "main",
+					SyncDelay: 30,
 				},
 			},
 		},
@@ -215,6 +218,14 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 		},
 		"data": map[string]any{
 			"workspacePath": g.Spec.Data.WorkspacePath,
+			"git": map[string]any{
+				"enabled":   g.Spec.Data.Git.Enabled,
+				"remoteUrl": g.Spec.Data.Git.RemoteURL,
+				"username":  g.Spec.Data.Git.Username,
+				"token":     g.Spec.Data.Git.Token,
+				"branch":    g.Spec.Data.Git.Branch,
+				"syncDelay": g.Spec.Data.Git.SyncDelay,
+			},
 		},
 	}
 }
@@ -256,7 +267,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.Data.Git.Username = getOrDefault(values, "gitUsername", g.Spec.Data.Git.Username).(string)
 	g.Spec.Data.Git.Token = getOrDefault(values, "gitToken", g.Spec.Data.Git.Token).(string)
 	g.Spec.Data.Git.Branch = getOrDefault(values, "gitBranch", g.Spec.Data.Git.Branch).(string)
-
+	g.Spec.Data.Git.SyncDelay = getOrDefault(values, "gitSyncDelay", g.Spec.Data.Git.SyncDelay).(int)
 	return g
 }
 

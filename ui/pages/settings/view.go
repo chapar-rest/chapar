@@ -235,6 +235,7 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewTextItem("Username", "gitUsername", "Git username for authentication", config.Spec.Data.Git.Username).MinWidth(unit.Dp(300)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
 		widgets.NewTextItem("Token", "gitToken", "Git token or password for authentication", config.Spec.Data.Git.Token).MinWidth(unit.Dp(300)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
 		widgets.NewTextItem("Branch", "gitBranch", "Git branch to use (default: main)", config.Spec.Data.Git.Branch).MinWidth(unit.Dp(200)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
+		widgets.NewNumberItem("Sync delay", "gitSyncDelay", "Delay in seconds before auto-sync after changes", config.Spec.Data.Git.SyncDelay).MinWidth(unit.Dp(200)).TextAlignment(text.Start).SetVisibleWhen(gitVisibility),
 	})
 	dataSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("data", dataSettings)

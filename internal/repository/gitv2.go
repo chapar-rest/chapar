@@ -1,29 +1,46 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/object"
+	"github.com/go-git/go-git/v6/plumbing/transport"
+	"github.com/go-git/go-git/v6/plumbing/transport/http"
 )
 
 type GitRepositoryV2 struct {
-	repo         *git.Repository
-	workTree     *git.Worktree
-	dataDir      string
+	repo          *git.Repository
+	workTree      *git.Worktree
+	dataDir       string
 	workspaceName string
-	remoteURL    string
-	username     string
-	token        string
-	
+	remoteURL     string
+	username      string
+	token         string
+	branch        string
 	// entities is a map to hold loaded entities so git can track name changes
 	entities map[string]string
+
+	// Smart sync tracking
+	hasUncommittedChanges bool
+	lastCommitTime        *time.Time
+
+	// sync status tracking
+	isSyncing    bool
+	lastSyncTime *time.Time
+
+	// sync control
+	syncMutex sync.Mutex
+	syncTimer *time.Timer
+	syncDelay time.Duration
 }
 
 type GitConfig struct {
@@ -31,6 +48,7 @@ type GitConfig struct {
 	Username  string
 	Token     string
 	Branch    string
+	SyncDelay int // Delay in seconds before auto-sync after changes
 }
 
 func NewGitRepositoryV2(dataDir, workspaceName string, gitConfig *GitConfig) (*GitRepositoryV2, error) {
@@ -38,12 +56,18 @@ func NewGitRepositoryV2(dataDir, workspaceName string, gitConfig *GitConfig) (*G
 		dataDir:       dataDir,
 		workspaceName: workspaceName,
 		entities:      make(map[string]string),
+		branch:        "main",
+		syncDelay:     30 * time.Second, // Default 30 seconds delay
 	}
 
 	if gitConfig != nil {
 		gr.remoteURL = gitConfig.RemoteURL
 		gr.username = gitConfig.Username
 		gr.token = gitConfig.Token
+		gr.branch = gitConfig.Branch
+		if gitConfig.SyncDelay > 0 {
+			gr.syncDelay = time.Duration(gitConfig.SyncDelay) * time.Second
+		}
 	}
 
 	// Ensure the data directory exists
@@ -71,6 +95,9 @@ func NewGitRepositoryV2(dataDir, workspaceName string, gitConfig *GitConfig) (*G
 		}
 	}
 
+	// Initialize smart sync system
+	gr.scheduleSmartSync()
+
 	return gr, nil
 }
 
@@ -81,7 +108,7 @@ func (g *GitRepositoryV2) initOrOpenRepo() (*git.Repository, error) {
 	}
 
 	// Initialize new repository
-	repo, err := git.PlainInit(g.dataDir, false)
+	repo, err := git.PlainInit(g.dataDir, false, git.WithDefaultBranch(plumbing.ReferenceName("refs/heads/"+g.branch)))
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +129,61 @@ func (g *GitRepositoryV2) initOrOpenRepo() (*git.Repository, error) {
 
 func (g *GitRepositoryV2) SetActiveWorkspace(workspaceName string) {
 	g.workspaceName = workspaceName
+}
+
+// scheduleSmartSync schedules a sync operation after the configured delay
+func (g *GitRepositoryV2) scheduleSmartSync() {
+	g.syncMutex.Lock()
+	defer g.syncMutex.Unlock()
+
+	// Cancel any existing timer
+	if g.syncTimer != nil {
+		g.syncTimer.Stop()
+	}
+
+	// Only schedule if we have a remote configured
+	if g.remoteURL == "" || g.token == "" {
+		return
+	}
+
+	// Schedule sync after delay
+	g.syncTimer = time.AfterFunc(g.syncDelay, func() {
+		g.performSmartSync()
+	})
+}
+
+// performSmartSync performs the actual sync operation
+func (g *GitRepositoryV2) performSmartSync() {
+	g.syncMutex.Lock()
+	defer g.syncMutex.Unlock()
+
+	// Check if we have uncommitted changes
+	if !g.hasUncommittedChanges {
+		return
+	}
+
+	fmt.Println("Performing smart sync...")
+	g.isSyncing = true
+
+	if err := g.pushChanges(); err != nil {
+		fmt.Printf("failed to push changes: %v\n", err)
+	} else {
+		now := time.Now()
+		g.lastSyncTime = &now
+		g.hasUncommittedChanges = false
+	}
+
+	g.isSyncing = false
+}
+
+// markChangesMade is called whenever changes are made to trigger smart sync
+func (g *GitRepositoryV2) markChangesMade() {
+	g.syncMutex.Lock()
+	g.hasUncommittedChanges = true
+	g.syncMutex.Unlock()
+
+	// Reschedule sync
+	g.scheduleSmartSync()
 }
 
 func (g *GitRepositoryV2) commitChanges(message string) error {
@@ -133,6 +215,11 @@ func (g *GitRepositoryV2) commitChanges(message string) error {
 		return fmt.Errorf("failed to commit changes: %w", err)
 	}
 
+	// Mark that changes were made and schedule sync
+	now := time.Now()
+	g.lastCommitTime = &now
+	g.markChangesMade()
+
 	return nil
 }
 
@@ -149,10 +236,15 @@ func (g *GitRepositoryV2) pushChanges() error {
 	err := g.repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
+		RefSpecs:   []config.RefSpec{config.RefSpec("refs/heads/" + g.branch + ":refs/heads/" + g.branch)},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to push changes: %w", err)
 	}
+
+	// Update last sync time on successful push
+	now := time.Now()
+	g.lastSyncTime = &now
 
 	return nil
 }
@@ -168,9 +260,14 @@ func (g *GitRepositoryV2) pullChanges() error {
 	}
 
 	err := g.workTree.Pull(&git.PullOptions{
-		RemoteName: "origin",
-		Auth:       auth,
+		RemoteName:    "origin",
+		Auth:          auth,
+		ReferenceName: plumbing.ReferenceName("refs/heads/" + g.branch),
 	})
+	if errors.Is(err, transport.ErrEmptyRemoteRepository) {
+		return nil
+	}
+
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return fmt.Errorf("failed to pull changes: %w", err)
 	}
@@ -197,7 +294,7 @@ func (g *GitRepositoryV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 
 func (g *GitRepositoryV2) CreateProtoFile(protoFile *domain.ProtoFile) error {
 	g.entities[protoFile.ID()] = protoFile.GetName()
-	
+
 	if err := g.writeProtoFile(protoFile, false); err != nil {
 		return err
 	}
@@ -257,7 +354,7 @@ func (g *GitRepositoryV2) DeleteProtoFile(protoFile *domain.ProtoFile) error {
 
 	// Remove the proto file from the entities map
 	delete(g.entities, protoFile.ID())
-	
+
 	// Commit the changes
 	return g.commitChanges(fmt.Sprintf("Delete proto file: %s", protoFile.GetName()))
 }
@@ -282,7 +379,7 @@ func (g *GitRepositoryV2) LoadRequests() ([]*domain.Request, error) {
 func (g *GitRepositoryV2) CreateRequest(request *domain.Request, collection *domain.Collection) error {
 	// add the request to the entities map but break the pointer to avoid sharing the same object
 	g.entities[request.ID()] = request.GetName()
-	
+
 	if err := g.writeStandaloneRequest(request, collection, false); err != nil {
 		return err
 	}
@@ -360,7 +457,7 @@ func (g *GitRepositoryV2) DeleteRequest(request *domain.Request, collection *dom
 
 	// Remove the request from the entities map
 	delete(g.entities, request.ID())
-	
+
 	// Commit the changes
 	return g.commitChanges(fmt.Sprintf("Delete request: %s", request.GetName()))
 }
@@ -423,7 +520,7 @@ func (g *GitRepositoryV2) loadCollectionRequests(path string) ([]*domain.Request
 
 func (g *GitRepositoryV2) CreateCollection(collection *domain.Collection) error {
 	g.entities[collection.ID()] = collection.GetName()
-	
+
 	if err := g.writeCollection(collection, false); err != nil {
 		return err
 	}
@@ -489,7 +586,7 @@ func (g *GitRepositoryV2) DeleteCollection(collection *domain.Collection) error 
 
 	// Remove the collection from the entities map
 	delete(g.entities, collection.ID())
-	
+
 	// Commit the changes
 	return g.commitChanges(fmt.Sprintf("Delete collection: %s", collection.GetName()))
 }
@@ -512,7 +609,7 @@ func (g *GitRepositoryV2) LoadEnvironments() ([]*domain.Environment, error) {
 
 func (g *GitRepositoryV2) CreateEnvironment(environment *domain.Environment) error {
 	g.entities[environment.ID()] = environment.GetName()
-	
+
 	if err := g.writeEnvironmentFile(environment, false); err != nil {
 		return err
 	}
@@ -571,7 +668,7 @@ func (g *GitRepositoryV2) DeleteEnvironment(environment *domain.Environment) err
 
 	// Remove the environment from the entities map
 	delete(g.entities, environment.ID())
-	
+
 	// Commit the changes
 	return g.commitChanges(fmt.Sprintf("Delete environment: %s", environment.GetName()))
 }
@@ -624,7 +721,7 @@ func (g *GitRepositoryV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 // CreateWorkspace creates a new workspace and writes it to the Git repository
 func (g *GitRepositoryV2) CreateWorkspace(workspace *domain.Workspace) error {
 	g.entities[workspace.ID()] = workspace.GetName()
-	
+
 	if err := g.writeWorkspace(workspace, false); err != nil {
 		return err
 	}
@@ -676,7 +773,7 @@ func (g *GitRepositoryV2) DeleteWorkspace(workspace *domain.Workspace) error {
 
 	// Remove the workspace from the entities map
 	delete(g.entities, workspace.ID())
-	
+
 	// Commit the changes
 	return g.commitChanges(fmt.Sprintf("Delete workspace: %s", workspace.GetName()))
 }
@@ -911,26 +1008,35 @@ func (g *GitRepositoryV2) EntityPath(kind string) (string, error) {
 	return path, nil
 }
 
-// GetLegacyConfig gets the legacy config from the Git repository
-func (g *GitRepositoryV2) GetLegacyConfig() (*domain.Config, error) {
-	filePath := filepath.Join(g.dataDir, "config.yaml")
-
-	// if config file does not exist, create it
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		config := domain.NewConfig()
-		if err := SaveToYaml(filePath, config); err != nil {
-			return nil, err
-		}
-
-		return config, nil
+// GetSyncStatus returns the current sync status
+func (g *GitRepositoryV2) GetSyncStatus() *SyncStatus {
+	status := &SyncStatus{
+		IsEnabled:    true,
+		IsSyncing:    g.isSyncing,
+		LastSyncTime: g.lastSyncTime,
+		HasRemote:    g.remoteURL != "",
+		BackendType:  "git",
+		BackendInfo: map[string]interface{}{
+			"branch": g.branch,
+		},
 	}
 
-	return LoadFromYaml[domain.Config](filePath)
+	// Check if there are uncommitted changes
+	if g.workTree != nil {
+		if workTreeStatus, err := g.workTree.Status(); err == nil {
+			status.UncommittedChanges = !workTreeStatus.IsClean()
+		}
+	}
+
+	return status
+}
+
+// GetLegacyConfig gets the legacy config from the Git repository
+func (g *GitRepositoryV2) GetLegacyConfig() (*domain.Config, error) {
+	return nil, nil
 }
 
 // ReadLegacyPreferences reads the preferences
 func (g *GitRepositoryV2) ReadLegacyPreferences() (*domain.Preferences, error) {
-	pdir := filepath.Join(g.dataDir, g.workspaceName, "preferences")
-	filePath := filepath.Join(pdir, "preferences.yaml")
-	return LoadFromYaml[domain.Preferences](filePath)
+	return nil, nil
 }
