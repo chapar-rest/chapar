@@ -23,11 +23,6 @@ func ImportOpenAPISpec(data []byte, repo repository.RepositoryV2) error {
 		return fmt.Errorf("failed to parse OpenAPI spec: %w", err)
 	}
 
-	// Validate the spec
-	if err := doc.Validate(loader.Context); err != nil {
-		return fmt.Errorf("invalid OpenAPI spec: %w", err)
-	}
-
 	// Create collection from OpenAPI spec
 	collectionName := doc.Info.Title
 	if collectionName == "" {
@@ -59,14 +54,25 @@ func ImportOpenAPISpec(data []byte, repo repository.RepositoryV2) error {
 			{"PATCH", pathItem.Patch},
 		}
 
-		for _, op := range operations {
+		for i, op := range operations {
 			if op.op == nil {
 				continue
 			}
 
-			requestName := op.op.Summary
+			requestName := op.op.OperationID
 			if requestName == "" {
-				requestName = fmt.Sprintf("%s %s", op.method, path)
+				requestName = op.op.Summary
+			}
+			if requestName == "" {
+				parts := strings.Split(path, "/")
+				if len(parts) > 1 {
+					requestName = op.method + " " + parts[len(parts)-1]
+				}
+			}
+
+			// if we still don't have a name, use the index
+			if requestName == "" {
+				requestName = fmt.Sprintf("Request %d", i+1)
 			}
 
 			req := &domain.Request{
@@ -99,31 +105,42 @@ func ImportOpenAPISpec(data []byte, repo repository.RepositoryV2) error {
 				if param.Value == nil {
 					continue
 				}
-
 				paramValue := param.Value
+
+				example := ""
+				if paramValue.Example != nil {
+					example = fmt.Sprintf("%v", paramValue.Example)
+				}
+
 				switch paramValue.In {
 				case "header":
+
 					req.Spec.HTTP.Request.Headers = append(req.Spec.HTTP.Request.Headers, domain.KeyValue{
 						ID:     uuid.NewString(),
 						Key:    paramValue.Name,
-						Value:  "",
+						Value:  example,
 						Enable: paramValue.Required,
 					})
 				case "query":
 					req.Spec.HTTP.Request.QueryParams = append(req.Spec.HTTP.Request.QueryParams, domain.KeyValue{
 						ID:     uuid.NewString(),
 						Key:    paramValue.Name,
-						Value:  "",
+						Value:  example,
 						Enable: paramValue.Required,
 					})
 				case "path":
 					req.Spec.HTTP.Request.PathParams = append(req.Spec.HTTP.Request.PathParams, domain.KeyValue{
 						ID:     uuid.NewString(),
 						Key:    paramValue.Name,
-						Value:  "",
+						Value:  example,
 						Enable: paramValue.Required,
 					})
 				}
+			}
+
+			// update the url with the query params
+			if len(req.Spec.HTTP.Request.QueryParams) > 0 {
+				req.Spec.HTTP.URL = baseURL + path + "?" + domain.EncodeQueryParams(req.Spec.HTTP.Request.QueryParams)
 			}
 
 			// Add request body if present
@@ -198,6 +215,27 @@ func ImportOpenAPISpec(data []byte, repo repository.RepositoryV2) error {
 	}
 
 	return nil
+}
+
+func encodeQueryParams(params []domain.KeyValue) string {
+	if len(params) == 0 {
+		return ""
+	}
+
+	out := make([]string, 0, len(params))
+	for _, p := range params {
+		if !p.Enable {
+			continue
+		}
+
+		if p.Key == "" {
+			continue
+		}
+
+		out = append(out, p.Key)
+	}
+
+	return strings.Join(out, "&")
 }
 
 // determineBodyType maps OpenAPI content types to Chapar body types
