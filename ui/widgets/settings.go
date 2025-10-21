@@ -314,7 +314,7 @@ func (i *SettingItem) switchLayout(gtx layout.Context, theme *chapartheme.Theme)
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			s := material.Switch(theme.Material(), i.boolState, "")
 			s.Color.Enabled = theme.SwitchBgColor
-			s.Color.Disabled = theme.Palette.Fg
+			s.Color.Disabled = theme.Material().Palette.Fg
 			return s.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),

@@ -69,7 +69,7 @@ func (c *Console) SetVisible(visible bool) {
 }
 
 func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *domain.Log) layout.Dimensions {
-	textColor := theme.Palette.Fg
+	textColor := theme.Material().Palette.Fg
 	switch log.Level {
 	case "info":
 		textColor = chapartheme.LightGreen
@@ -137,7 +137,7 @@ func (c *Console) titleLayout(gtx layout.Context, theme *chapartheme.Theme) layo
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(12)
 					return layout.Inset{Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return widgets.ConsoleIcon.Layout(gtx, theme.Palette.ContrastFg)
+						return widgets.ConsoleIcon.Layout(gtx, theme.Material().Palette.ContrastFg)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

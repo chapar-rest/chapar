@@ -120,7 +120,7 @@ func (c *SearchDropDown) resultItemLayout(gtx layout.Context, theme *chapartheme
 			return layout.Flex{}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Max.X = gtx.Dp(18)
-					return item.Icon.Layout(gtx, theme.Palette.ContrastFg)
+					return item.Icon.Layout(gtx, theme.Material().Palette.ContrastFg)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

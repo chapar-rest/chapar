@@ -47,7 +47,7 @@ func (c Card) Layout(gtx C, th *material.Theme) D {
 		layout.Expanded(func(gtx C) D {
 
 			border := widget.Border{
-				Color:        widgets.MulAlpha(th.Fg, 60),
+				Color:        widgets.MulAlpha(th.Fg, 120), // Darker border for better visibility
 				CornerRadius: unit.Dp(4),
 				Width:        unit.Dp(1),
 			}

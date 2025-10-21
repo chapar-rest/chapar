@@ -25,7 +25,7 @@ func SaveButtonLayout(gtx layout.Context, theme *chapartheme.Theme, clickable *w
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									gtx.Constraints.Max.X = gtx.Dp(16)
-									return SaveIcon.Layout(gtx, theme.Palette.ContrastFg)
+									return SaveIcon.Layout(gtx, theme.Material().Palette.ContrastFg)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return material.Body1(theme.Material(), "Save").Layout(gtx)

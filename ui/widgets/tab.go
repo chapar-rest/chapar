@@ -172,7 +172,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		}
 
 		if t.btn.Hovered() {
-			paint.FillShape(gtx.Ops, theme.Palette.ContrastBg, clip.Rect{Max: gtx.Constraints.Min}.Op())
+			paint.FillShape(gtx.Ops, theme.Material().Palette.ContrastBg, clip.Rect{Max: gtx.Constraints.Min}.Op())
 		}
 
 		var tabWidth int

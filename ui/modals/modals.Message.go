@@ -34,7 +34,7 @@ type Message struct {
 }
 
 func (m *Message) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dimensions {
-	textColor := th.Palette.Fg
+	textColor := th.Material().Palette.Fg
 	switch m.Type {
 	case MessageTypeErr:
 		textColor = color.NRGBA{R: 0xD1, G: 0x1E, B: 0x35, A: 0xFF}

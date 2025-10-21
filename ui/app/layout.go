@@ -108,7 +108,7 @@ func (b *BaseLayout) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Di
 	b.base.Navigator.Update()
 
 	// Paint the background
-	paint.Fill(gtx.Ops, th.Palette.Bg)
+	paint.Fill(gtx.Ops, th.Material().Palette.Bg)
 
 	layout.Flex{Axis: layout.Vertical, Spacing: 0}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

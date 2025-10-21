@@ -118,9 +118,9 @@ func (r *renderItem) layoutBackground(gtx layout.Context, th *chapartheme.Theme)
 	}
 	var fill color.NRGBA
 	if r.hovering {
-		fill = WithAlpha(th.Palette.Fg, r.AlphaPalette.Hover)
+		fill = WithAlpha(th.Material().Palette.Fg, r.AlphaPalette.Hover)
 	} else if r.selected {
-		fill = WithAlpha(th.Palette.ContrastBg, r.AlphaPalette.Selected)
+		fill = WithAlpha(th.Material().Palette.ContrastBg, r.AlphaPalette.Selected)
 	}
 	rr := gtx.Dp(unit.Dp(5))
 	defer clip.RRect{

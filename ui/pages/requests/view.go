@@ -1,8 +1,12 @@
 package requests
 
 import (
+	"image"
+
 	"gioui.org/app"
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	giox "gioui.org/x/component"
@@ -880,40 +884,48 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 		v.showCreateNewModal()
 	}
 
-	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if v.importButton.Clicked(gtx) {
-								v.showImportModal()
-							}
-							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
-							btn.Color = theme.ButtonTextColor
-							return btn.Layout(gtx, theme)
-						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							newBtn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
-							newBtn.Color = theme.ButtonTextColor
-							return newBtn.Layout(gtx, theme)
-						}),
-					)
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(10), Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return v.treeViewSearchBox.Layout(gtx, theme)
-				})
-			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(10), Right: 0}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return v.treeView.Layout(gtx, theme)
-				})
-			}),
-		)
-	})
+	return layout.Background{}.Layout(gtx,
+		func(gtx layout.Context) layout.Dimensions {
+			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
+			paint.Fill(gtx.Ops, theme.TreeViewBgColor)
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									if v.importButton.Clicked(gtx) {
+										v.showImportModal()
+									}
+									btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
+									btn.Color = theme.ButtonTextColor
+									return btn.Layout(gtx, theme)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									newBtn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
+									newBtn.Color = theme.ButtonTextColor
+									return newBtn.Layout(gtx, theme)
+								}),
+							)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: unit.Dp(10), Left: unit.Dp(10), Right: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return v.treeViewSearchBox.Layout(gtx, theme)
+						})
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: unit.Dp(10), Right: 0}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return v.treeView.Layout(gtx, theme)
+						})
+					}),
+				)
+			})
+		})
 }
 
 func (v *View) showCreateNewModal() {

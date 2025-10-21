@@ -30,7 +30,7 @@ type IconButton struct {
 
 func (ib *IconButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if ib.BackgroundColor == (color.NRGBA{}) {
-		ib.BackgroundColor = theme.Palette.Bg
+		ib.BackgroundColor = theme.Material().Palette.Bg
 	}
 
 	if ib.BackgroundColorHover == (color.NRGBA{}) {

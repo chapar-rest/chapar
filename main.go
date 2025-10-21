@@ -103,7 +103,7 @@ func errorLayout(gtx layout.Context, closeBtn *widget.Clickable, err error) {
 			Y: gtx.Constraints.Max.Y,
 		},
 	}
-	paint.FillShape(gtx.Ops, theme.Palette.Bg, clip.Rect(rect).Op())
+	paint.FillShape(gtx.Ops, theme.Material().Palette.Bg, clip.Rect(rect).Op())
 	background := macro.Stop()
 	background.Add(gtx.Ops)
 

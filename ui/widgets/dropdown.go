@@ -238,7 +238,7 @@ func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(16)
-					return ExpandIcon.Layout(gtx, theme.Palette.Fg)
+					return ExpandIcon.Layout(gtx, theme.Material().Palette.Fg)
 				}),
 			)
 		})
@@ -338,7 +338,7 @@ func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
 				itm.IconSize = opt.IconSize
 			}
 
-			itm.Label.Color = chapartheme.White
+			itm.Label.Color = theme.TextColor
 			return itm.Layout(gtx)
 		})
 	}

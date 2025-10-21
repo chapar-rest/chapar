@@ -313,7 +313,7 @@ func (b *button) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 		bt.Color = theme.ButtonTextColor
 		bt.Background = theme.ActionButtonBgColor
 	} else {
-		bt.Color = widgets.Disabled(theme.Palette.ContrastFg)
+		bt.Color = widgets.Disabled(theme.Material().Palette.ContrastFg)
 	}
 
 	return bt.Layout(gtx, theme)

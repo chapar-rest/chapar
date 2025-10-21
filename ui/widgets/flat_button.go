@@ -48,11 +48,11 @@ func (f *FlatButton) SetIcon(icon *widget.Icon, position int, spaceBetween unit.
 
 func (f *FlatButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if f.BackgroundColor == (color.NRGBA{}) {
-		f.BackgroundColor = theme.Palette.ContrastBg
+		f.BackgroundColor = theme.Material().Palette.ContrastBg
 	}
 
 	if f.TextColor == (color.NRGBA{}) {
-		f.TextColor = theme.Palette.ContrastFg
+		f.TextColor = theme.Material().Palette.ContrastFg
 	}
 
 	axis := layout.Horizontal
