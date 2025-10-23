@@ -38,6 +38,7 @@ func (e *TextView) PaintText(gtx layout.Context, material op.CallOp) {
 	}
 
 	e.textPainter.SetViewport(viewport, e.scrollOff)
+	e.decorations.Refresh()
 	e.textPainter.Paint(gtx, e.shaper, e.layouter.Lines, material, e.syntaxStyles, e.decorations)
 }
 

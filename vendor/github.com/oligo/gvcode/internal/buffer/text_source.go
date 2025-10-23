@@ -31,6 +31,13 @@ type TextSource interface {
 	// Replace replace text from startOff to endOff(exclusive) with text.
 	Replace(startOff, endOff int, text string) bool
 
+	// CreateMarker adds a new marker at position runeOff, with the specified bais. A bais
+	// controlls how the markers move when the insertion/deletion happens at the boundary location
+	// of the marker.
+	CreateMarker(runeOff int, bais MarkerBias) (*Marker, error)
+	// RemoveMarker removes a marker from the text source.
+	RemoveMarker(m *Marker)
+
 	// Undo the last insert, erase, or replace, or a group of operations.
 	// It returns all the cursor positions after undo.
 	Undo() ([]CursorPos, bool)

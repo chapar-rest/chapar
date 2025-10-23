@@ -13,6 +13,8 @@ import (
 )
 
 // ImportOpenAPISpec imports an OpenAPI 3.0 specification using kin-openapi library
+//
+//nolint:gocognit,gocyclo
 func ImportOpenAPISpec(data []byte, repo repository.RepositoryV2) error {
 	// Create a loader
 	loader := openapi3.NewLoader()

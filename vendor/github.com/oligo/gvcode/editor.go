@@ -26,16 +26,14 @@ import (
 
 // Editor implements an editable and scrollable text area.
 type Editor struct {
-	// readOnly controls whether the contents of the editor can be altered by
-	// user interaction. If set to true, the editor will allow selecting text
-	// and copying it interactively, but not modifying it.
-	readOnly bool
+	// mode sets the mode of the editor to work in.
+	mode EditorMode
 
 	// text manages the text buffer and provides shaping and cursor positioning
 	// services.
-	text   *textview.TextView
-	buffer buffer.TextSource
-
+	text       *textview.TextView
+	buffer     buffer.TextSource
+	snippetCtx *snippetContext
 	// colorPalette configures the color scheme used for syntax highlighting.
 	colorPalette *color.ColorPalette
 	// LineNumberGutterGap specifies the right inset between the line number and the
@@ -45,6 +43,9 @@ type Editor struct {
 	// hooks
 	onPaste   BeforePasteHook
 	completor Completion
+	// last input when the editor received an EditEvent.
+	lastInput *key.EditEvent
+
 	// scratch is a byte buffer that is reused to efficiently read portions of text
 	// from the textView.
 	scratch    []byte
@@ -288,7 +289,7 @@ func (e *Editor) paintText(gtx layout.Context, material color.Color) {
 // of the caret rectangle.
 func (e *Editor) paintCaret(gtx layout.Context, material color.Color) {
 	e.initBuffer()
-	if !e.showCaret || e.readOnly {
+	if !e.showCaret || e.mode == ModeReadOnly {
 		return
 	}
 	e.text.PaintCaret(gtx, material.Op(gtx.Ops))
@@ -689,8 +690,13 @@ func (e *Editor) GutterWidth() int {
 	return e.gutterWidth
 }
 
+// Deprecated: use Mode() method please.
 func (e *Editor) ReadOnly() bool {
-	return e.readOnly
+	return e.mode == ModeReadOnly
+}
+
+func (e *Editor) Mode() EditorMode {
+	return e.mode
 }
 
 func (e *Editor) TabStyle() (TabStyle, int) {
