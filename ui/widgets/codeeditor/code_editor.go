@@ -252,7 +252,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 
 	scrollIndicatorColor := gvcolor.MakeColor(theme.Material().Fg).MulAlpha(0x30)
 
-	if !c.editor.ReadOnly() {
+	if c.editor.Mode() != gvcode.ModeReadOnly {
 		if ev, ok := c.editor.Update(gtx); ok {
 			if _, ok := ev.(gvcode.ChangeEvent); ok {
 				st := c.stylingText(c.editor.Text())
