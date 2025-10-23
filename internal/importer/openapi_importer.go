@@ -219,27 +219,6 @@ func ImportOpenAPISpec(data []byte, repo repository.RepositoryV2) error {
 	return nil
 }
 
-func encodeQueryParams(params []domain.KeyValue) string {
-	if len(params) == 0 {
-		return ""
-	}
-
-	out := make([]string, 0, len(params))
-	for _, p := range params {
-		if !p.Enable {
-			continue
-		}
-
-		if p.Key == "" {
-			continue
-		}
-
-		out = append(out, p.Key)
-	}
-
-	return strings.Join(out, "&")
-}
-
 // determineBodyType maps OpenAPI content types to Chapar body types
 func determineBodyType(contentType string) string {
 	switch {
