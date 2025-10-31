@@ -56,6 +56,7 @@ func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Expl
 	}
 
 	b.script.SetCode(body.Data)
+	b.script.SetLanguage(body.Type)
 	b.DropDown.SetSelectedByValue(body.Type)
 	b.DropDown.MaxWidth = unit.Dp(150)
 
