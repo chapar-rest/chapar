@@ -45,11 +45,14 @@ func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Expl
 	}
 
 	b.script.WithBeautifier(true)
-
 	b.FormData.SetValues(body.FormData.Fields)
 
 	if body.Type == domain.RequestBodyTypeBinary {
 		b.BinaryFile.SetFileName(body.BinaryFilePath)
+	}
+
+	if len(body.URLEncoded) > 0 {
+		b.urlencoded.SetItems(converter.WidgetItemsFromKeyValue(body.URLEncoded))
 	}
 
 	b.script.SetCode(body.Data)
