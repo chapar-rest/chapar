@@ -84,6 +84,9 @@ func (c *CodeModal) onLangSelected(lang string) {
 	case "ruby-net":
 		c.lang = codeeditor.CodeLanguageRuby
 		code, err = codegen.DefaultService.GenerateRubyNetHttpCommand(c.req.Spec.HTTP)
+	case "dot-net":
+		c.lang = codeeditor.CodeLanguageDotNet
+		code, err = codegen.DefaultService.GenerateDotNetHttpClientCommand(c.req.Spec.HTTP)
 	}
 
 	if err != nil {
