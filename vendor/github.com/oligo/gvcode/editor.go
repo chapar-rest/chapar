@@ -254,10 +254,10 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	if e.Len() > 0 {
-		e.paintSelection(gtx, selectColor)
+		e.paintText(gtx, textMaterial)
 		e.paintLineHighlight(gtx, lineColor)
 		e.text.HighlightMatchingBrackets(gtx, selectColor.Op(gtx.Ops))
-		e.paintText(gtx, textMaterial)
+		e.paintSelection(gtx, selectColor)
 	}
 	if gtx.Enabled() {
 		e.paintCaret(gtx, textMaterial)

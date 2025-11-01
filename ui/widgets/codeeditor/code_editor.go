@@ -136,6 +136,9 @@ func getEditorFont() font.FontFace {
 	return font.FontFace{Font: monoFont[0].Font, Face: monoFont[0].Face}
 }
 
+func (c *CodeEditor) updateTheme(theme *chapartheme.Theme) {
+}
+
 func (c *CodeEditor) updateEditorOptions(old, updated domain.EditorConfig) {
 	switch {
 	case old.AutoCloseBrackets != updated.AutoCloseBrackets:
@@ -169,16 +172,28 @@ func (c *CodeEditor) updateEditorOptions(old, updated domain.EditorConfig) {
 func (c *CodeEditor) setEditorOptions() {
 	// color scheme
 	colorScheme := syntax.ColorScheme{}
-	colorScheme.Foreground = gvcolor.MakeColor(c.theme.Fg)
 	colorScheme.SelectColor = gvcolor.MakeColor(c.theme.TextSelectionColor)
-	colorScheme.LineColor = gvcolor.MakeColor(c.theme.ContrastBg).MulAlpha(0x30)
+	colorScheme.LineColor = gvcolor.MakeColor(c.theme.ContrastBg).MulAlpha(0x80)
 	colorScheme.LineNumberColor = gvcolor.MakeColor(c.theme.ContrastFg).MulAlpha(0xb6)
 
-	// TODO make the color scheme configurable
-	syntaxStyles := getColorStyles("dracula", c.theme)
-	for _, style := range syntaxStyles {
-		colorScheme.AddStyle(style.scope, style.textStyle, style.color, gvcolor.Color{})
+	var styleName string
+	if c.theme.IsDark() {
+		styleName = "dracula"
+	} else {
+		styleName = "autumn"
 	}
+
+	// TODO make the color scheme configurable
+	syntaxStyles, _ := extractStylesFromChroma(styleName)
+	var bg gvcolor.Color
+	for _, style := range syntaxStyles {
+		colorScheme.AddStyle(style.scope, style.textStyle, style.color, style.bg)
+		bg = style.bg
+
+		colorScheme.SelectColor = gvcolor.MakeColor(c.theme.TextSelectionColor).MulAlpha(0x35)
+	}
+
+	colorScheme.Background = bg
 
 	editorOptions := []gvcode.EditorOption{
 		gvcode.WithFont(c.font.Font),
@@ -190,6 +205,7 @@ func (c *CodeEditor) setEditorOptions() {
 		gvcode.WrapLine(c.editorConfig.WrapLines),
 		gvcode.WithLineNumber(c.editorConfig.ShowLineNumbers),
 		gvcode.WithColorScheme(colorScheme),
+		gvcode.WithLineNumberGutterGap(unit.Dp(8)),
 	}
 
 	if !c.editorConfig.AutoCloseBrackets {
@@ -311,10 +327,10 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 				return flexH.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{
-							Top:    unit.Dp(4),
-							Bottom: unit.Dp(4),
-							Left:   unit.Dp(8),
-							Right:  unit.Dp(4),
+							Top:    unit.Dp(0),
+							Bottom: unit.Dp(0),
+							Left:   unit.Dp(0),
+							Right:  unit.Dp(0),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							dims := c.editor.Layout(gtx, theme.Material().Shaper)
 
@@ -406,13 +422,4 @@ func (c *CodeEditor) stylingText(text string) []syntax.Token {
 	c.tokens = tokens
 
 	return tokens
-}
-
-func chromaColorToNRGBA(textColor chroma.Colour) color.NRGBA {
-	return color.NRGBA{
-		R: textColor.Red(),
-		G: textColor.Green(),
-		B: textColor.Blue(),
-		A: 0xff,
-	}
 }
