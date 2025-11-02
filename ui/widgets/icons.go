@@ -1,13 +1,26 @@
 package widgets
 
 import (
+	"embed"
+	"fmt"
+	"image/color"
+
+	"gioui.org/layout"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+
+	"github.com/inkeliz/giosvg"
+
+	_ "embed"
 )
+
+//go:embed icons
+var svgIcons embed.FS
 
 func MaterialIcons(name string, theme *chapartheme.Theme) material.LabelStyle {
 	l := material.Label(theme.Material(), unit.Sp(24), "")
@@ -185,3 +198,31 @@ var Notifications *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.SocialNotifications)
 	return icon
 }()
+
+var HorizontalSplitIcon *SvgIcon = loadSvgIcon("splitscreen_h")
+var VerticalSplitIcon *SvgIcon = loadSvgIcon("splitscreen_v")
+
+type SvgIcon struct {
+	icon *giosvg.Icon
+}
+
+func (s *SvgIcon) Layout(gtx layout.Context, color color.NRGBA) layout.Dimensions {
+	paint.ColorOp{Color: color}.Add(gtx.Ops)
+	return s.icon.Layout(gtx)
+}
+
+func loadSvgIcon(name string) *SvgIcon {
+	iconFile, err := svgIcons.ReadFile(fmt.Sprintf("icons/%s.svg", name))
+	if err != nil {
+		panic(err)
+	}
+
+	vector, err := giosvg.NewVector(iconFile)
+	if err != nil {
+		panic(err)
+	}
+
+	return &SvgIcon{
+		icon: giosvg.NewIcon(vector),
+	}
+}

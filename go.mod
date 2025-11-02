@@ -14,6 +14,7 @@ require (
 	github.com/flopp/go-findfont v0.1.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
+	github.com/inkeliz/giosvg v0.0.0-20240821232107-3208d4350d55
 	github.com/jhump/protoreflect v1.16.0
 	github.com/oligo/gioview v0.8.2
 	github.com/oligo/gvcode v0.4.0

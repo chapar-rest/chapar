@@ -136,9 +136,6 @@ func getEditorFont() font.FontFace {
 	return font.FontFace{Font: monoFont[0].Font, Face: monoFont[0].Face}
 }
 
-func (c *CodeEditor) updateTheme(theme *chapartheme.Theme) {
-}
-
 func (c *CodeEditor) updateEditorOptions(old, updated domain.EditorConfig) {
 	switch {
 	case old.AutoCloseBrackets != updated.AutoCloseBrackets:
@@ -180,7 +177,7 @@ func (c *CodeEditor) setEditorOptions() {
 	if c.theme.IsDark() {
 		styleName = "dracula"
 	} else {
-		styleName = "autumn"
+		styleName = "tango"
 	}
 
 	// TODO make the color scheme configurable
@@ -327,9 +324,9 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 				return flexH.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{
-							Top:    unit.Dp(0),
+							Top:    unit.Dp(8),
 							Bottom: unit.Dp(0),
-							Left:   unit.Dp(0),
+							Left:   unit.Dp(8),
 							Right:  unit.Dp(0),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							dims := c.editor.Layout(gtx, theme.Material().Shaper)

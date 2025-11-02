@@ -31,7 +31,7 @@ func extractStylesFromChroma(styleName string) ([]colorStyle, error) {
 		return nil, fmt.Errorf("style %s not found", styleName)
 	}
 
-	var customStyles []colorStyle
+	var customStyles = make([]colorStyle, 0, len(chromaStyle.Types()))
 
 	// Iterate through all style entries
 	for _, tokenType := range chromaStyle.Types() {
@@ -40,7 +40,8 @@ func extractStylesFromChroma(styleName string) ([]colorStyle, error) {
 			scope:     syntax.StyleScope(tokenType.String()),
 			textStyle: extractTextStyle(entry),
 			color:     extractColor(entry.Colour),
-			bg:        extractColor(entry.Background),
+			//bg:        extractColor(entry.Background),
+			bg: gvcolor.Color{},
 		}
 
 		customStyles = append(customStyles, custom)
@@ -53,16 +54,16 @@ func extractStylesFromChroma(styleName string) ([]colorStyle, error) {
 func extractTextStyle(entry chroma.StyleEntry) syntax.TextStyle {
 	var textStyle syntax.TextStyle = 0
 	if entry.Bold == chroma.Yes {
-		textStyle.HasStyle(syntax.Bold)
+		textStyle |= syntax.Bold
 	}
 	if entry.Italic == chroma.Yes {
-		textStyle.HasStyle(syntax.Italic)
+		textStyle |= syntax.Italic
 	}
 	if entry.Underline == chroma.Yes {
-		textStyle.HasStyle(syntax.Underline)
+		textStyle |= syntax.Underline
 	}
 	if entry.Border.IsSet() {
-		textStyle.HasStyle(syntax.Border)
+		textStyle |= syntax.Border
 	}
 
 	return textStyle
