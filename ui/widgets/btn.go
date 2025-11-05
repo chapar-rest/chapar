@@ -21,7 +21,7 @@ import (
 
 type ButtonStyle struct {
 	Text         string
-	Icon         *widget.Icon
+	Icon         Icon
 	IconPosition int
 	// Color is the text color.
 	Color        color.NRGBA
@@ -47,7 +47,7 @@ type IconButtonStyle struct {
 	Background color.NRGBA
 	// Color is the icon color.
 	Color color.NRGBA
-	Icon  *widget.Icon
+	Icon  Icon
 	// Size is the icon size.
 	Size        unit.Dp
 	Inset       layout.Inset
@@ -55,7 +55,11 @@ type IconButtonStyle struct {
 	Description string
 }
 
-func Button(th *material.Theme, button *widget.Clickable, icon *widget.Icon, iconPosition int, txt string) ButtonStyle {
+type Icon interface {
+	Layout(gtx layout.Context, color color.NRGBA) layout.Dimensions
+}
+
+func Button(th *material.Theme, button *widget.Clickable, icon Icon, iconPosition int, txt string) ButtonStyle {
 	b := ButtonStyle{
 		Text:         txt,
 		Icon:         icon,

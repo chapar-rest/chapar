@@ -51,9 +51,9 @@ type Theme struct {
 
 func New(material *material.Theme, isDark bool) *Theme {
 	t := &Theme{
-		Theme:            material,
-		SideBarBgColor:   rgb(0x202224),
-		SideBarTextColor: rgb(0xffffff),
+		Theme: material,
+		//SideBarBgColor:   rgb(0x202224),
+		//SideBarTextColor: rgb(0xffffff),
 	}
 
 	t.Theme.TextSize = unit.Sp(14)
@@ -97,24 +97,25 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.WarningColor = rgb(0xffe073)
 		t.BadgeBgColor = rgb(0x2b2d31)
 		t.DeleteButtonBgColor = rgb(0xff7373)
+		t.SideBarTextColor = rgb(0xffffff)
 	} else {
 		t.LoaderColor = rgb(0x000000)
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
-		t.Theme.Palette.ContrastBg = rgb(0x4589f5)
+		t.Theme.Palette.ContrastBg = rgb(0xd4d7d9)
 		t.Theme.Palette.ContrastFg = rgb(0x000000)
+		t.TextColor = rgb(0x8b8e95)
 		t.BorderColorFocused = rgb(0x4589f5)
 		t.BorderColor = rgb(0x6c6f76)
 		t.TabInactiveColor = rgb(0x4589f5)
-		t.ActionButtonBgColor = rgb(0x4589f5)
+		t.ActionButtonBgColor = rgb(0xd4d7d9)
 		t.SwitchBgColor = rgb(0x4589f5)
-		t.TextColor = rgb(0x000000)
-		t.ButtonTextColor = rgb(0xffffff)
-		t.SeparatorColor = rgb(0x9c9c9c)
+		t.ButtonTextColor = rgb(0x000000)
+		t.SeparatorColor = rgb(0xbcbebf)
 		t.TableBorderColor = rgb(0xb0b3b8)
-		t.CheckBoxColor = rgb(0x4589f5)
+		t.CheckBoxColor = rgb(0x80878c)
 		t.RequestMethodColor = rgb(0x007518)
-		t.DropDownMenuBgColor = rgb(0x2b2d31)
+		t.DropDownMenuBgColor = rgb(0x696969)
 		t.MenuBgColor = rgb(0x2b2d31)
 		t.TextSelectionColor = rgb(0xccd3de)
 		t.NotificationBgColor = rgb(0x4589f5)
@@ -124,6 +125,7 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.WarningColor = rgb(0xffe073)
 		t.BadgeBgColor = rgb(0x2b2d31)
 		t.DeleteButtonBgColor = rgb(0xff7373)
+		t.SideBarTextColor = rgb(0x000000)
 	}
 
 	return t.Theme

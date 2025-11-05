@@ -83,7 +83,7 @@ func (r *renderItem) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Di
 
 func (r *renderItem) layoutContent(gtx layout.Context, th *chapartheme.Theme) layout.Dimensions {
 	gtx.Constraints.Min = gtx.Constraints.Max
-	contentColor := widgets.Disabled(th.SideBarTextColor)
+	contentColor := widgets.MulAlpha(th.SideBarTextColor, 200)
 	if r.selected {
 		contentColor = th.SideBarTextColor
 	}
