@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/safemap"
 )
 
 type Entity interface {
@@ -21,14 +22,14 @@ type FilesystemV2 struct {
 	workspaceName string
 
 	// entities is a map to hold loaded entities so filesystem can name changes
-	entities map[string]string
+	entities *safemap.Map[string]
 }
 
 func NewFilesystemV2(dataDir, workspaceName string) (*FilesystemV2, error) {
 	fs := &FilesystemV2{
 		dataDir:       dataDir,
 		workspaceName: workspaceName,
-		entities:      make(map[string]string),
+		entities:      safemap.New[string](),
 	}
 
 	// Ensure the data directory exists
@@ -58,17 +59,17 @@ func (f *FilesystemV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
 	}
 
 	return loadList[domain.ProtoFile](dir, func(n *domain.ProtoFile) {
-		f.entities[n.ID()] = n.GetName()
+		f.entities.Set(n.ID(), n.GetName())
 	})
 }
 
 func (f *FilesystemV2) CreateProtoFile(protoFile *domain.ProtoFile) error {
-	f.entities[protoFile.ID()] = protoFile.GetName()
+	f.entities.Set(protoFile.ID(), protoFile.GetName())
 	return f.writeProtoFile(protoFile, false)
 }
 
 func (f *FilesystemV2) UpdateProtoFile(protoFile *domain.ProtoFile) error {
-	oldEntityName, ok := f.entities[protoFile.ID()]
+	oldEntityName, ok := f.entities.Get(protoFile.ID())
 	if !ok {
 		return fmt.Errorf("proto file with ID %s not found", protoFile.ID())
 	}
@@ -95,7 +96,7 @@ func (f *FilesystemV2) UpdateProtoFile(protoFile *domain.ProtoFile) error {
 		}
 
 		// Update the name in the entities map
-		f.entities[protoFile.ID()] = protoFile.GetName()
+		f.entities.Set(protoFile.ID(), protoFile.GetName())
 	}
 
 	return f.writeProtoFile(protoFile, true)
@@ -112,7 +113,7 @@ func (f *FilesystemV2) DeleteProtoFile(protoFile *domain.ProtoFile) error {
 	}
 
 	// Remove the proto file from the entities map
-	delete(f.entities, protoFile.ID())
+	f.entities.Delete(protoFile.ID())
 	return nil
 }
 
@@ -124,18 +125,18 @@ func (f *FilesystemV2) LoadRequests() ([]*domain.Request, error) {
 	}
 
 	return loadList[domain.Request](dir, func(n *domain.Request) {
-		f.entities[n.ID()] = n.GetName()
+		f.entities.Set(n.ID(), n.GetName())
 	})
 }
 
 func (f *FilesystemV2) CreateRequest(request *domain.Request, collection *domain.Collection) error {
 	// add the request to the entities map but break the pointer to avoid sharing the same object
-	f.entities[request.ID()] = request.GetName()
+	f.entities.Set(request.ID(), request.GetName())
 	return f.writeStandaloneRequest(request, collection, false)
 }
 
 func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain.Collection) error {
-	oldEntityName, ok := f.entities[request.ID()]
+	oldEntityName, ok := f.entities.Get(request.ID())
 	if !ok {
 		return fmt.Errorf("request with ID %s not found", request.ID())
 	}
@@ -170,7 +171,7 @@ func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain
 		}
 
 		// Update the name in the entities map
-		f.entities[request.ID()] = request.GetName()
+		f.entities.Set(request.ID(), request.GetName())
 	}
 
 	return f.writeStandaloneRequest(request, collection, true)
@@ -197,7 +198,7 @@ func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain
 	}
 
 	// Remove the request from the entities map
-	delete(f.entities, request.ID())
+	f.entities.Delete(request.ID())
 	return nil
 }
 
@@ -238,22 +239,22 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 		collection.Spec.Requests = requests
 
 		collections = append(collections, collection)
-		f.entities[collection.ID()] = collection.GetName()
+		f.entities.Set(collection.ID(), collection.GetName())
 	}
 
 	return collections, nil
 }
 
 func (f *FilesystemV2) loadCollectionRequests(path string) ([]*domain.Request, error) {
-	return loadList[domain.Request](path, func(n *domain.Request) {
+	return loadList(path, func(n *domain.Request) {
 		// set request default values
 		n.SetDefaultValues()
-		f.entities[n.ID()] = n.GetName()
+		f.entities.Set(n.ID(), n.GetName())
 	})
 }
 
 func (f *FilesystemV2) CreateCollection(collection *domain.Collection) error {
-	f.entities[collection.ID()] = collection.GetName()
+	f.entities.Set(collection.ID(), collection.GetName())
 	return f.writeCollection(collection, false)
 }
 
@@ -265,7 +266,7 @@ func (f *FilesystemV2) UpdateCollection(collection *domain.Collection) error {
 	}
 
 	// Check if the collection name has changed
-	oldEntityName, ok := f.entities[collection.ID()]
+	oldEntityName, ok := f.entities.Get(collection.ID())
 	if ok && oldEntityName != collection.GetName() {
 		potentialExistingCollectionPath := filepath.Join(path, collection.GetName(), "_collection.yaml")
 		anotherFileExists, err := doesFileNameExistWithDifferentID(potentialExistingCollectionPath, collection.ID())
@@ -282,7 +283,7 @@ func (f *FilesystemV2) UpdateCollection(collection *domain.Collection) error {
 		}
 
 		// Update the name in the entities map
-		f.entities[collection.ID()] = collection.GetName()
+		f.entities.Set(collection.ID(), collection.GetName())
 	}
 
 	collectionPath := filepath.Join(path, collection.GetName())
@@ -306,7 +307,7 @@ func (f *FilesystemV2) DeleteCollection(collection *domain.Collection) error {
 	}
 
 	// Remove the collection from the entities map
-	delete(f.entities, collection.ID())
+	f.entities.Delete(collection.ID())
 	return nil
 }
 
@@ -317,17 +318,17 @@ func (f *FilesystemV2) LoadEnvironments() ([]*domain.Environment, error) {
 	}
 
 	return loadList[domain.Environment](path, func(n *domain.Environment) {
-		f.entities[n.ID()] = n.GetName()
+		f.entities.Set(n.ID(), n.GetName())
 	})
 }
 
 func (f *FilesystemV2) CreateEnvironment(environment *domain.Environment) error {
-	f.entities[environment.ID()] = environment.GetName()
+	f.entities.Set(environment.ID(), environment.GetName())
 	return f.writeEnvironmentFile(environment, false)
 }
 
 func (f *FilesystemV2) UpdateEnvironment(environment *domain.Environment) error {
-	oldEntityName, ok := f.entities[environment.ID()]
+	oldEntityName, ok := f.entities.Get(environment.ID())
 	if !ok {
 		return fmt.Errorf("environment with ID %s not found", environment.ID())
 	}
@@ -353,7 +354,7 @@ func (f *FilesystemV2) UpdateEnvironment(environment *domain.Environment) error 
 		}
 
 		// Update the name in the entities map
-		f.entities[environment.ID()] = environment.GetName()
+		f.entities.Set(environment.ID(), environment.GetName())
 	}
 
 	return f.writeEnvironmentFile(environment, true)
@@ -370,7 +371,7 @@ func (f *FilesystemV2) DeleteEnvironment(environment *domain.Environment) error 
 	}
 
 	// Remove the environment from the entities map
-	delete(f.entities, environment.ID())
+	f.entities.Delete(environment.ID())
 	return nil
 }
 
@@ -403,7 +404,7 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 		}
 
 		workspaces = append(workspaces, workspace)
-		f.entities[workspace.ID()] = workspace.GetName()
+		f.entities.Set(workspace.ID(), workspace.GetName())
 	}
 
 	return workspaces, nil
@@ -411,13 +412,13 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 
 // CreateWorkspace creates a new workspace and writes it to the filesystem.
 func (f *FilesystemV2) CreateWorkspace(workspace *domain.Workspace) error {
-	f.entities[workspace.ID()] = workspace.GetName()
+	f.entities.Set(workspace.ID(), workspace.GetName())
 	return f.writeWorkspace(workspace, false)
 }
 
 // UpdateWorkspace updates an existing workspace and writes it to the filesystem.
 func (f *FilesystemV2) UpdateWorkspace(workspace *domain.Workspace) error {
-	oldEntityName, ok := f.entities[workspace.ID()]
+	oldEntityName, ok := f.entities.Get(workspace.ID())
 	if !ok {
 		return fmt.Errorf("workspace with ID %s not found", workspace.ID())
 	}
@@ -439,7 +440,7 @@ func (f *FilesystemV2) UpdateWorkspace(workspace *domain.Workspace) error {
 		}
 
 		// Update the name in the entities map
-		f.entities[workspace.ID()] = workspace.GetName()
+		f.entities.Set(workspace.ID(), workspace.GetName())
 	}
 
 	return f.writeWorkspace(workspace, true)
@@ -452,7 +453,7 @@ func (f *FilesystemV2) DeleteWorkspace(workspace *domain.Workspace) error {
 	}
 
 	// Remove the workspace from the entities map
-	delete(f.entities, workspace.ID())
+	f.entities.Delete(workspace.ID())
 	return nil
 }
 
@@ -484,7 +485,7 @@ func (f *FilesystemV2) writeWorkspace(workspace *domain.Workspace, override bool
 		return err
 	}
 
-	f.entities[workspace.ID()] = workspace.GetName()
+	f.entities.Set(workspace.ID(), workspace.GetName())
 	return nil
 }
 

@@ -93,6 +93,7 @@ func New(collection *domain.Collection, theme *chapartheme.Theme) *Collection {
 		widgets.NewDropDownOption("Token").WithValue(domain.AuthTypeToken),
 		widgets.NewDropDownOption("API Key").WithValue(domain.AuthTypeAPIKey),
 	)
+	c.Auth.SetAuth(collection.Spec.Auth)
 
 	c.notesEditor.SingleLine = false
 	c.notesEditor.SetText(collection.Spec.Notes)
