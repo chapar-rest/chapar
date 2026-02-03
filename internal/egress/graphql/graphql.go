@@ -72,6 +72,7 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*egress.Re
 	return response, nil
 }
 
+// nolint: gocyclo
 func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environment) (*egress.Response, error) {
 	// prepare request
 	// - apply environment
