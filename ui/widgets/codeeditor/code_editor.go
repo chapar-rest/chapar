@@ -243,8 +243,14 @@ func (c *CodeEditor) SetOnLoadExample(f func()) {
 }
 
 func (c *CodeEditor) SetCode(code string) {
-	c.editor.SetText(code)
 	c.code = code
+	// Avoid passing empty string to the editor: harfbuzz (used by the text shaper)
+	// panics when shaping an empty buffer (index out of range [0] with length 0).
+	display := code
+	if display == "" {
+		display = "\n"
+	}
+	c.editor.SetText(display)
 	c.editor.SetSyntaxTokens(c.stylingText(c.editor.Text())...)
 }
 

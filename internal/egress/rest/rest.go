@@ -166,6 +166,11 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 			MaxResponseHeaderBytes: int64(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
 		},
 	}
+	if !globalConfig.Spec.General.FollowRedirects {
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
 
 	if globalConfig.Spec.General.HTTPVersion == "http/2" {
 		client.Transport = &http2.Transport{
@@ -182,7 +187,7 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 		httpReq.Header.Add("User-Agent", version.GetAgentName())
 	}
 
-	res, err := http.DefaultClient.Do(httpReq)
+	res, err := client.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +238,11 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 	switch req.Request.Body.Type {
 	case domain.RequestBodyTypeJSON, domain.RequestBodyTypeXML, domain.RequestBodyTypeText:
 		if req.Request.Body.Data != "" {
-			httpReq.Body = io.NopCloser(strings.NewReader(req.Request.Body.Data))
+			bodyBytes := []byte(req.Request.Body.Data)
+			httpReq.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			httpReq.GetBody = func() (io.ReadCloser, error) {
+				return io.NopCloser(bytes.NewReader(bodyBytes)), nil
+			}
 		}
 
 	case domain.RequestBodyTypeBinary:
@@ -245,6 +254,9 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 			}
 
 			httpReq.Body = io.NopCloser(bytes.NewReader(file))
+			httpReq.GetBody = func() (io.ReadCloser, error) {
+				return io.NopCloser(bytes.NewReader(file)), nil
+			}
 			httpReq.ContentLength = int64(len(file))
 			httpReq.Header.Add("Content-Type", "application/octet-stream")
 			httpReq.Header.Add("Content-Disposition", "attachment; filename="+req.Request.Body.BinaryFilePath)
@@ -296,11 +308,16 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 				return err
 			}
 
-			httpReq.Body = io.NopCloser(&b)
+			formDataBytes := make([]byte, b.Len())
+			copy(formDataBytes, b.Bytes())
+			httpReq.Body = io.NopCloser(bytes.NewReader(formDataBytes))
+			httpReq.GetBody = func() (io.ReadCloser, error) {
+				return io.NopCloser(bytes.NewReader(formDataBytes)), nil
+			}
 			httpReq.Header.Set("Content-Type", w.FormDataContentType())
 			httpReq.Header.Add("Connection", "Keep-Alive")
-			httpReq.Header.Add("Content-Length", strconv.Itoa(b.Len()))
-			httpReq.ContentLength = int64(b.Len())
+			httpReq.Header.Add("Content-Length", strconv.Itoa(len(formDataBytes)))
+			httpReq.ContentLength = int64(len(formDataBytes))
 		}
 
 	case domain.RequestBodyTypeUrlencoded:
@@ -316,8 +333,11 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 			}
 			// Convert form to encoded string
 			encodedData := form.Encode()
-			// Set the request body with the encoded data
-			httpReq.Body = io.NopCloser(strings.NewReader(encodedData))
+			encodedBytes := []byte(encodedData)
+			httpReq.Body = io.NopCloser(bytes.NewReader(encodedBytes))
+			httpReq.GetBody = func() (io.ReadCloser, error) {
+				return io.NopCloser(bytes.NewReader(encodedBytes)), nil
+			}
 			// Set the content type
 			httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}

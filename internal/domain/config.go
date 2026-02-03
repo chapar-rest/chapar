@@ -39,6 +39,7 @@ type GeneralConfig struct {
 	SendNoCacheHeader     bool   `yaml:"sendNoCacheHeader"`
 	UseHorizontalSplit    bool   `yaml:"useVerticalSplit"`
 	SendChaparAgentHeader bool   `yaml:"sendChaparAgentHeader"`
+	FollowRedirects       bool   `yaml:"followRedirects"`
 }
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
@@ -47,7 +48,8 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.ResponseSizeMb != other.ResponseSizeMb ||
 		g.SendNoCacheHeader != other.SendNoCacheHeader ||
 		g.UseHorizontalSplit != other.UseHorizontalSplit ||
-		g.SendChaparAgentHeader != other.SendChaparAgentHeader
+		g.SendChaparAgentHeader != other.SendChaparAgentHeader ||
+		g.FollowRedirects != other.FollowRedirects
 }
 
 const (
@@ -138,6 +140,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				SendNoCacheHeader:     true,
 				SendChaparAgentHeader: true,
 				UseHorizontalSplit:    true,
+				FollowRedirects:       true,
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -172,6 +175,7 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"sendNoCacheHeader":     g.Spec.General.SendNoCacheHeader,
 			"sendChaparAgentHeader": g.Spec.General.SendChaparAgentHeader,
 			"useHorizontalSplit":    g.Spec.General.UseHorizontalSplit,
+			"followRedirects":       g.Spec.General.FollowRedirects,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -211,6 +215,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.General.SendNoCacheHeader = getOrDefault(values, "sendNoCacheHeader", g.Spec.General.SendNoCacheHeader).(bool)
 	g.Spec.General.SendChaparAgentHeader = getOrDefault(values, "sendChaparAgentHeader", g.Spec.General.SendChaparAgentHeader).(bool)
 	g.Spec.General.UseHorizontalSplit = getOrDefault(values, "useHorizontalSplit", g.Spec.General.UseHorizontalSplit).(bool)
+	g.Spec.General.FollowRedirects = getOrDefault(values, "followRedirects", g.Spec.General.FollowRedirects).(bool)
 
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)
