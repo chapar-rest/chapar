@@ -173,6 +173,7 @@ func (v *View) Load(config domain.GlobalConfig) {
 		),
 		widgets.NewNumberItem("Request timeout Seconds", "requestTimeoutSec", "Set how long a request need to wait for the response before timeout, zero means never", config.Spec.General.RequestTimeoutSec),
 		widgets.NewNumberItem("Response Size MB", "responseSizeMb", "Maximum size of the response to download. zero mean unlimited", config.Spec.General.ResponseSizeMb),
+		widgets.NewBoolItem("Follow redirects", "followRedirects", "When enabled, the HTTP client follows 3xx redirects (e.g. 307). When disabled, the first response is returned.", config.Spec.General.FollowRedirects),
 		widgets.NewHeaderItem("Headers"),
 		widgets.NewBoolItem("Send no-cache header", "sendNoCacheHeader", "Add and send no-cache header in http requests", config.Spec.General.SendNoCacheHeader),
 		widgets.NewBoolItem("Send Chapar agent header", "sendChaparAgentHeader", "Add and send Chapar agent header in http requests", config.Spec.General.SendChaparAgentHeader),

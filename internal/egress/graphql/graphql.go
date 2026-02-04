@@ -72,6 +72,7 @@ func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*egress.Re
 	return response, nil
 }
 
+// nolint: gocyclo
 func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environment) (*egress.Response, error) {
 	// prepare request
 	// - apply environment
@@ -153,6 +154,11 @@ func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environm
 			MaxIdleConns:           10,
 			MaxResponseHeaderBytes: int64(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
 		},
+	}
+	if !globalConfig.Spec.General.FollowRedirects {
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
 	}
 
 	if globalConfig.Spec.General.HTTPVersion == "http/2" {
