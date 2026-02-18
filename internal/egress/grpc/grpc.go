@@ -580,11 +580,21 @@ func GetImportPaths(protoFiles []*domain.ProtoFile, files []string) ([]string, [
 	return importPaths, fileNames
 }
 
+// isReflectionService returns true for the built-in gRPC reflection service(s),
+// which should be hidden from the user's method list and collections.
+func isReflectionService(svc protoreflect.ServiceDescriptor) bool {
+	fullName := string(svc.FullName())
+	return strings.HasPrefix(fullName, "grpc.reflection.")
+}
+
 func (s *Service) parseRegistryFiles(in *protoregistry.Files) ([]domain.GRPCService, error) {
 	services := make([]domain.GRPCService, 0)
 	in.RangeFiles(func(ds protoreflect.FileDescriptor) bool {
 		for i := 0; i < ds.Services().Len(); i++ {
 			svc := ds.Services().Get(i)
+			if isReflectionService(svc) {
+				continue
+			}
 			srv := domain.GRPCService{
 				Name:    string(svc.Name()),
 				Methods: make([]domain.GRPCMethod, 0, svc.Methods().Len()),

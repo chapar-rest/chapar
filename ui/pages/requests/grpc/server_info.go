@@ -15,13 +15,14 @@ import (
 type ServerInfo struct {
 	definitionFrom *widget.Enum
 
-	ReloadButton *widget.Clickable
-	FileSelector *widgets.FileSelector
-
-	IsLoading bool
-	onReload  func()
-
-	onChanged func()
+	ReloadButton        *widget.Clickable
+	FileSelector        *widgets.FileSelector
+	CreateCollectionBtn *widget.Clickable
+	HasMethods          bool
+	IsLoading           bool
+	onReload            func()
+	onCreateCollection  func()
+	onChanged           func()
 }
 
 func NewServerInfo(explorer *explorer.Explorer, info domain.ServerInfo) *ServerInfo {
@@ -32,10 +33,11 @@ func NewServerInfo(explorer *explorer.Explorer, info domain.ServerInfo) *ServerI
 	}
 
 	s := &ServerInfo{
-		definitionFrom: new(widget.Enum),
-		FileSelector:   widgets.NewFileSelector(fileName, explorer, ".proto"),
-		ReloadButton:   new(widget.Clickable),
-		IsLoading:      false,
+		definitionFrom:      new(widget.Enum),
+		FileSelector:        widgets.NewFileSelector(fileName, explorer, ".proto"),
+		ReloadButton:        new(widget.Clickable),
+		CreateCollectionBtn: new(widget.Clickable),
+		IsLoading:           false,
 	}
 
 	if info.ServerReflection {
@@ -53,6 +55,14 @@ func (s *ServerInfo) SetOnChanged(f func()) {
 
 func (s *ServerInfo) SetOnReload(f func()) {
 	s.onReload = f
+}
+
+func (s *ServerInfo) SetHasMethods(has bool) {
+	s.HasMethods = has
+}
+
+func (s *ServerInfo) SetOnCreateCollection(f func()) {
+	s.onCreateCollection = f
 }
 
 func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -158,6 +168,23 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 					})
 				}
 				return layout.Dimensions{}
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if !s.HasMethods || s.IsLoading || s.onCreateCollection == nil {
+					return layout.Dimensions{}
+				}
+				if s.CreateCollectionBtn.Clicked(gtx) {
+					s.onCreateCollection()
+				}
+
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						btn := widgets.Button(theme.Material(), s.CreateCollectionBtn, widgets.PlusIcon, widgets.IconPositionStart, "Create collection from methods")
+						btn.Color = theme.ButtonTextColor
+						btn.Inset = layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(4), Right: unit.Dp(4)}
+						return btn.Layout(gtx, theme)
+					}),
+				)
 			}),
 		)
 	})
