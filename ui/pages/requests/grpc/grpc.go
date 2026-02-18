@@ -28,9 +28,10 @@ type Grpc struct {
 
 	split widgets.SplitView
 
-	onSave        func(id string)
-	onDataChanged func(id string, data any)
-	onInvoke      func(id string)
+	onSave                        func(id string)
+	onDataChanged                 func(id string, data any)
+	onInvoke                      func(id string)
+	onCreateCollectionFromMethods func()
 }
 
 func (r *Grpc) SetOnTitleChanged(f func(title string)) {
@@ -69,6 +70,10 @@ func New(req *domain.Request, theme *chapartheme.Theme, explorer *explorer.Explo
 	}
 
 	r.setupHooks()
+
+	if len(req.Spec.GRPC.Services) > 0 {
+		r.Request.ServerInfo.SetHasMethods(grpcMethodCount(req.Spec.GRPC.Services) > 0)
+	}
 
 	return r
 }
@@ -325,6 +330,24 @@ func (r *Grpc) SetServices(services []domain.GRPCService) {
 	// if last selected method is still in the list, select it
 	if r.Req.Spec.GRPC.LasSelectedMethod != "" && r.Req.Spec.GRPC.HasMethod(r.Req.Spec.GRPC.LasSelectedMethod) {
 		r.AddressBar.SetSelectedMethod(r.Req.Spec.GRPC.LasSelectedMethod)
+	}
+
+	hasMethods := grpcMethodCount(services) > 0
+	r.Request.ServerInfo.SetHasMethods(hasMethods)
+}
+
+func grpcMethodCount(services []domain.GRPCService) int {
+	n := 0
+	for _, s := range services {
+		n += len(s.Methods)
+	}
+	return n
+}
+
+func (r *Grpc) SetOnCreateCollectionFromMethods(f func()) {
+	r.onCreateCollectionFromMethods = f
+	if r.Request.ServerInfo != nil {
+		r.Request.ServerInfo.SetOnCreateCollection(f)
 	}
 }
 

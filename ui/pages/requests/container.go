@@ -46,6 +46,7 @@ type GrpcContainer interface {
 	SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string))
 	SetPostRequestSetPreview(preview string)
 	SetOnRequestTabChange(f func(id, tab string))
+	SetOnCreateCollectionFromMethods(f func())
 }
 
 type RestContainer interface {

@@ -81,6 +81,7 @@ type View struct {
 	onGrpcInvoke                   func(id string)
 	onGrpcLoadRequestExample       func(id string)
 	onRequestTabChanged            func(id string, tab string)
+	onCreateCollectionFromMethods  func(requestID string)
 
 	// state
 	containers    *safemap.Map[Container]
@@ -142,6 +143,10 @@ func NewView(b *ui.Base) *View {
 
 func (v *View) SetOnRequestTabChange(f func(id string, tab string)) {
 	v.onRequestTabChanged = f
+}
+
+func (v *View) SetOnCreateCollectionFromMethods(f func(requestID string)) {
+	v.onCreateCollectionFromMethods = f
 }
 
 func (v *View) SetPreRequestCollections(id string, collections []*domain.Collection, selectedID string) {
@@ -573,6 +578,12 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 	ct.SetOnRequestTabChange(func(id, tab string) {
 		if v.onRequestTabChanged != nil {
 			v.onRequestTabChanged(id, tab)
+		}
+	})
+
+	ct.SetOnCreateCollectionFromMethods(func() {
+		if v.onCreateCollectionFromMethods != nil {
+			v.onCreateCollectionFromMethods(req.MetaData.ID)
 		}
 	})
 

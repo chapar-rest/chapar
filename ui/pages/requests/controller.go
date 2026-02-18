@@ -10,6 +10,8 @@ import (
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 
+	"github.com/google/uuid"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/egress/grpc"
@@ -18,6 +20,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/ui/explorer"
+	"github.com/chapar-rest/chapar/ui/modals"
 	"github.com/chapar-rest/chapar/ui/notifications"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -68,6 +71,7 @@ func NewController(view *View, repo repository.RepositoryV2, model *state.Reques
 	view.SetOnGrpcLoadRequestExample(c.onLoadRequestExample)
 	view.SetOnSetOnTriggerRequestChanged(c.onSetOnTriggerRequestChanged)
 	view.SetOnRequestTabChange(c.onRequestTabChange)
+	view.SetOnCreateCollectionFromMethods(c.showCreateCollectionFromGRPCMethodsDialog)
 	return c
 }
 
@@ -143,6 +147,97 @@ func (c *Controller) onServerInfoReload(id string) {
 
 	c.view.HideGRPCRequestError(id)
 	c.view.SetGRPCServices(id, res)
+}
+
+func (c *Controller) showCreateCollectionFromGRPCMethodsDialog(requestID string) {
+	req := c.model.GetRequest(requestID)
+	if req == nil || req.Spec.GRPC == nil {
+		return
+	}
+	methodCount := 0
+	for _, s := range req.Spec.GRPC.Services {
+		methodCount += len(s.Methods)
+	}
+	if methodCount == 0 {
+		c.view.showError(fmt.Errorf("no methods loaded; load methods via reflection or proto file first"))
+		return
+	}
+	m := modals.NewInputText("Collection name", "Enter collection name")
+	c.view.SetModal(func(gtx layout.Context) layout.Dimensions {
+		if m.CloseBtn.Clicked(gtx) {
+			c.view.CloseModal()
+		}
+		if m.AddBtn.Clicked(gtx) {
+			name := strings.TrimSpace(m.TextField.GetText())
+			if name == "" {
+				name = "New Collection"
+			}
+			c.doCreateCollectionFromGRPCMethods(requestID, name)
+			c.view.CloseModal()
+		}
+		return m.Layout(gtx, c.view.Theme)
+	})
+}
+
+func (c *Controller) doCreateCollectionFromGRPCMethods(requestID, collectionName string) {
+	req := c.model.GetRequest(requestID)
+	if req == nil || req.Spec.GRPC == nil {
+		return
+	}
+	col := domain.NewCollection(collectionName)
+	if err := c.repo.CreateCollection(col); err != nil {
+		c.view.showError(fmt.Errorf("failed to create collection: %w", err))
+		return
+	}
+	c.model.AddCollection(col)
+	c.view.AddCollectionTreeViewNode(col)
+
+	spec := req.Spec.GRPC
+	for _, service := range spec.Services {
+		for _, method := range service.Methods {
+			requestName := method.Name
+			if len(spec.Services) > 1 {
+				requestName = service.Name + "." + method.Name
+			}
+			newReq := &domain.Request{
+				ApiVersion: domain.ApiVersion,
+				Kind:       domain.KindRequest,
+				MetaData: domain.RequestMeta{
+					ID:   uuid.NewString(),
+					Name: requestName,
+					Type: domain.RequestTypeGRPC,
+				},
+				Spec: domain.RequestSpec{
+					GRPC: &domain.GRPCRequestSpec{
+						LasSelectedMethod: method.FullName,
+						Metadata:          spec.Metadata,
+						Auth:              spec.Auth,
+						ServerInfo:        spec.ServerInfo,
+						Settings:          spec.Settings,
+						Body:              "{}",
+						Services:          spec.Services,
+						Variables:         spec.Variables,
+						PreRequest:        spec.PreRequest,
+						PostRequest:       spec.PostRequest,
+					},
+				},
+				CollectionID:   col.MetaData.ID,
+				CollectionName: col.MetaData.Name,
+			}
+			newReq.SetDefaultValues()
+			if err := c.repo.CreateRequest(newReq, col); err != nil {
+				c.view.showError(fmt.Errorf("failed to create request %s: %w", requestName, err))
+				continue
+			}
+			c.model.AddRequest(newReq)
+			c.model.AddRequestToCollection(col, newReq)
+			c.view.AddChildTreeViewNode(col.MetaData.ID, newReq)
+		}
+	}
+	c.view.ExpandTreeViewNode(col.MetaData.ID)
+	c.view.OpenTab(col.MetaData.ID, col.MetaData.Name, TypeCollection)
+	c.view.OpenCollectionContainer(col)
+	c.view.SwitchToTab(col.MetaData.ID)
 }
 
 func (c *Controller) onGrpcInvoke(id string) {
