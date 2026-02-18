@@ -28,9 +28,9 @@ type Grpc struct {
 
 	split widgets.SplitView
 
-	onSave                      func(id string)
-	onDataChanged               func(id string, data any)
-	onInvoke                    func(id string)
+	onSave                        func(id string)
+	onDataChanged                 func(id string, data any)
+	onInvoke                      func(id string)
 	onCreateCollectionFromMethods func()
 }
 
