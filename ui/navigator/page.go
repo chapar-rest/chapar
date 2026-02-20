@@ -14,6 +14,7 @@ const (
 	EnvironmentsPageId PageId = "environments"
 	ProtoFilesPageId   PageId = "protofiles"
 	WorkspacesPageId   PageId = "workspaces"
+	TestCasesPageId    PageId = "testcases"
 	SettingsPageId     PageId = "settings"
 )
 

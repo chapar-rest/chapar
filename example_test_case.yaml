@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: TestCase
+metadata:
+  id: example-test-case-001
+  name: Example API Test
+spec:
+  description: Example test case demonstrating the test case feature
+  variables:
+    - name: base_url
+      value: https://jsonplaceholder.typicode.com
+    - name: user_id
+      value: "1"
+  steps:
+    - name: Get User
+      description: Fetch user details from API
+      request:
+        collection: ""
+        request: GetUser
+      override:
+        headers:
+          - key: Accept
+            value: application/json
+        pathParams: []
+        queryParams: []
+      assert:
+        statusCode: 200
+        headers:
+          - key: Content-Type
+            operator: contains
+            value: application/json
+        body:
+          - path: $.id
+            operator: exists
+          - path: $.name
+            operator: exists
+          - path: $.email
+            operator: exists
+      after:
+        - type: setEnv
+          name: user_name
+          valueFrom:
+            type: body
+            path: $.name
+
+    - name: Get User Posts
+      description: Fetch posts for the user
+      request:
+        collection: ""
+        request: GetPosts
+      assert:
+        statusCode: 200
+        body:
+          - path: $[0].userId
+            operator: equals
+            value: "1"
+      after:
+        - type: pythonScript
+          script: |
+            import chapar
+            
+            def on_response(res):
+              if res.status_code == 200:
+                data = res.json()
+                chapar.set_env('post_count', str(len(data)))
+                print(f"Found {len(data)} posts")
+            
+            chapar.on_response = on_response
