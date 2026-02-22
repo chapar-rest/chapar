@@ -8,8 +8,10 @@ import (
 	giox "gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
+	"github.com/chapar-rest/chapar/ui/pages/requests/component"
 	"github.com/chapar-rest/chapar/ui/widgets"
 	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 )
@@ -20,8 +22,10 @@ type container struct {
 	testCase *domain.TestCase
 	yaml     string
 
-	titleEditor *widgets.EditableLabel
-	codeEditor  *codeeditor.CodeEditor
+	Breadcrumb *component.Breadcrumb
+	Actions    *component.Actions
+
+	codeEditor *codeeditor.CodeEditor
 
 	saveButton   widget.Clickable
 	runButton    widget.Clickable
@@ -48,7 +52,8 @@ func newContainer(base *ui.Base, testCase *domain.TestCase, yaml string) *contai
 		Base:         base,
 		testCase:     testCase,
 		yaml:         yaml,
-		titleEditor:  widgets.NewEditableLabel(testCase.MetaData.Name),
+		Breadcrumb:   component.NewBreadcrumb(testCase.MetaData.ID, "", "", testCase.MetaData.Name),
+		Actions:      component.NewActions(true),
 		codeEditor:   codeeditor.NewCodeEditor(yaml, codeeditor.CodeLanguageYAML, base.Theme),
 		resultsPanel: NewResultsPanel(base.Theme),
 		Prompt:       widgets.NewPrompt("", "", ""),
@@ -61,12 +66,12 @@ func newContainer(base *ui.Base, testCase *domain.TestCase, yaml string) *contai
 		},
 	}
 
-	c.titleEditor.SetOnChanged(func(text string) {
-		if c.onTitleChanged != nil {
-			c.onTitleChanged(c.testCase.MetaData.ID, text)
-		}
-	})
+	c.setupHooks()
 
+	return c
+}
+
+func (c *container) setupHooks() {
 	c.codeEditor.SetOnChanged(func(text string) {
 		c.yaml = text
 		if c.onYAMLChanged != nil {
@@ -74,11 +79,26 @@ func newContainer(base *ui.Base, testCase *domain.TestCase, yaml string) *contai
 		}
 	})
 
-	return c
+	c.Prompt.SetOnSubmit(func(selectedOption string, remember bool) {
+		if c.onSave != nil {
+			c.onSave(c.testCase.MetaData.ID)
+		}
+	})
+
+	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
+		isChanged := old.Spec.General.UseHorizontalSplit != updated.Spec.General.UseHorizontalSplit
+		if isChanged {
+			if updated.Spec.General.UseHorizontalSplit {
+				c.split.Axis = layout.Horizontal
+			} else {
+				c.split.Axis = layout.Vertical
+			}
+		}
+	})
 }
 
 func (c *container) SetTitle(title string) {
-	c.titleEditor.SetText(title)
+	c.Breadcrumb.SetTitle(title)
 }
 
 func (c *container) SetOnSave(onSave func(id string)) {
@@ -90,7 +110,11 @@ func (c *container) SetOnRun(onRun func(id string)) {
 }
 
 func (c *container) SetOnTitleChanged(onTitleChanged func(id, title string)) {
-	c.onTitleChanged = onTitleChanged
+	c.Breadcrumb.SetOnTitleChanged(func(title string) {
+		if c.onTitleChanged != nil {
+			c.onTitleChanged(c.testCase.MetaData.ID, title)
+		}
+	})
 }
 
 func (c *container) SetOnYAMLChanged(onYAMLChanged func(id, yaml string)) {
@@ -122,65 +146,64 @@ func (c *container) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dim
 		}
 	}
 
-	dim := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		// Title section with save button indicator
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{
-				Top:    unit.Dp(10),
-				Bottom: unit.Dp(10),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return c.titleEditor.Layout(gtx, th)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if c.DataChanged {
-							return widgets.SaveButtonLayout(gtx, th, &c.saveButton)
-						}
-						return layout.Dimensions{}
-					}),
-				)
-			})
-		}),
-		// Action buttons
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{
-				Bottom: unit.Dp(10),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if !c.DataChanged {
-							return layout.Dimensions{}
-						}
-						return widgets.Button(th.Material(), &c.saveButton, widgets.SaveIcon, widgets.IconPositionStart, "Save").Layout(gtx, th)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if !c.DataChanged {
-							return layout.Dimensions{}
-						}
-						return layout.Spacer{Width: unit.Dp(10)}.Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return widgets.Button(th.Material(), &c.runButton, widgets.PlayIcon, widgets.IconPositionStart, "Run Test").Layout(gtx, th)
-					}),
-				)
-			})
-		}),
-		// Split view for editor and results
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return c.split.Layout(gtx, th,
-				func(gtx layout.Context) layout.Dimensions {
-					return c.layoutEditor(gtx, th)
-				},
-				func(gtx layout.Context) layout.Dimensions {
-					return c.layoutResults(gtx, th)
-				},
-			)
-		}),
-	)
+	dims := layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return c.Prompt.Layout(gtx, th)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 
-	c.Prompt.Layout(gtx, th)
-	return dim
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return c.Breadcrumb.Layout(gtx, th)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								border := widget.Border{
+									Color:        th.Palette.ContrastFg,
+									Width:        unit.Dp(1),
+									CornerRadius: unit.Dp(4),
+								}
+
+								bt := widgets.Button(th.Material(), &c.saveButton, widgets.SaveIcon, widgets.IconPositionStart, "Save")
+								if c.DataChanged {
+									bt.Color = th.Palette.ContrastFg
+									border.Width = unit.Dp(1)
+									border.Color = th.Palette.ContrastFg
+								} else {
+									bt.Color = widgets.Disabled(th.Palette.ContrastFg)
+									border.Color = widgets.Disabled(th.Palette.ContrastFg)
+									border.Width = 0
+								}
+
+								return border.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return bt.Layout(gtx, th)
+								})
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return widgets.Button(th.Material(), &c.runButton, widgets.PlayIcon, widgets.IconPositionStart, "Run Test").Layout(gtx, th)
+							}),
+						)
+					}),
+				)
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return c.split.Layout(gtx, th,
+					func(gtx layout.Context) layout.Dimensions {
+						return c.layoutEditor(gtx, th)
+					},
+					func(gtx layout.Context) layout.Dimensions {
+						return c.layoutResults(gtx, th)
+					},
+				)
+			}),
+		)
+	})
+
+	return dims
 }
 
 func (c *container) layoutEditor(gtx layout.Context, th *chapartheme.Theme) layout.Dimensions {
@@ -195,7 +218,11 @@ func (c *container) layoutEditor(gtx layout.Context, th *chapartheme.Theme) layo
 			})
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return c.codeEditor.Layout(gtx, th, "")
+			return layout.Inset{
+				Right: unit.Dp(5),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return c.codeEditor.Layout(gtx, th, "")
+			})
 		}),
 	)
 }
