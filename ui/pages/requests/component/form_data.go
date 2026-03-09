@@ -160,12 +160,6 @@ func (f *FormData) addField(field *FormDataField) {
 	field.activeBool = new(widget.Bool)
 	field.activeBool.Value = field.Enable
 
-	field.typeDropDown.SetOnChanged(func(selected string) {
-		field.Type = selected
-
-		f.triggerChanged()
-	})
-
 	f.Fields = append(f.Fields, field)
 }
 
@@ -318,6 +312,13 @@ func (f *FormData) layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 }
 
 func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapartheme.Theme) layout.Dimensions {
+	for _, field := range f.Fields {
+		if field.typeDropDown.Changed() {
+			field.Type = field.typeDropDown.GetSelected().Value
+			f.triggerChanged()
+		}
+	}
+
 	for i, field := range f.Fields {
 		if field.deleteButton.Clicked(gtx) {
 			f.Fields = append(f.Fields[:i], f.Fields[i+1:]...)
@@ -326,7 +327,7 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 
 		if field.uploadButton.Clicked(gtx) {
 			if f.onSelectFile != nil {
-				go f.onSelectFile(field.Identifier)
+				f.onSelectFile(field.Identifier)
 			}
 		}
 	}

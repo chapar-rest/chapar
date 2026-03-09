@@ -73,14 +73,6 @@ func NewView(base *ui.Base) *View {
 		filteredItems: make([]*Item, 0),
 	}
 
-	v.searchBox.SetOnTextChange(func(text string) {
-		if v.items == nil {
-			return
-		}
-
-		v.Filter(text)
-	})
-
 	return v
 }
 
@@ -217,6 +209,12 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.searchBox.Changed() {
+		if v.items != nil {
+			v.Filter(v.searchBox.GetText())
+		}
+	}
+
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems

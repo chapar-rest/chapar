@@ -103,11 +103,6 @@ func (r *Grpc) setupHooks() {
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
-	r.Request.Metadata.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		data := converter.KeyValueFromWidgetItems(items)
-		r.Req.Spec.GRPC.Metadata = data
-		r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	})
 
 	r.Request.Settings.SetOnChange(func(values map[string]any) {
 		r.Req.Spec.GRPC.Settings = convertSettingsToItems(values)
@@ -356,6 +351,12 @@ func (r *Grpc) SetMethodsLoading(loading bool) {
 }
 
 func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if r.Request.Metadata.Changed() {
+		data := converter.KeyValueFromWidgetItems(r.Request.Metadata.Items)
+		r.Req.Spec.GRPC.Metadata = data
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	}
+
 	if r.Actions.IsDataChanged && r.Actions.SaveButton.Clicked(gtx) && r.onSave != nil {
 		r.onSave(r.Req.MetaData.ID)
 		r.Actions.IsDataChanged = false

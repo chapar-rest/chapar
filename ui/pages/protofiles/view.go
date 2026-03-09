@@ -85,14 +85,6 @@ func NewView(base *ui.Base) *View {
 		Prompt: widgets.NewPrompt("", "", ""),
 	}
 
-	v.searchBox.SetOnTextChange(func(text string) {
-		if v.items == nil {
-			return
-		}
-
-		v.Filter(text)
-	})
-
 	return v
 }
 
@@ -287,6 +279,12 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 var headingText = []string{" ", "Path", "Package", "Services", " "}
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.searchBox.Changed() {
+		if v.items != nil {
+			v.Filter(v.searchBox.GetText())
+		}
+	}
+
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems

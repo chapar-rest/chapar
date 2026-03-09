@@ -166,7 +166,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 		if t.btn.Clicked(gtx) {
 			tabs.selected = tabIdx
 			if tabs.onSelectedChange != nil {
-				go tabs.onSelectedChange(tabIdx)
+				tabs.onSelectedChange(tabIdx)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		}

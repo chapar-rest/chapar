@@ -27,8 +27,7 @@ type KeyValue struct {
 
 	list *widget.List
 
-	onChanged func(items []*KeyValueItem)
-
+	changed  bool
 	readonly bool
 }
 
@@ -70,7 +69,7 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 
 	kv.addButton.OnClick = func() {
 		kv.AddItem(NewKeyValueItem("", "", uuid.NewString(), true))
-		kv.triggerChanged()
+		kv.changed = true
 	}
 
 	return kv
@@ -121,18 +120,15 @@ func (kv *KeyValue) Filter(text string) {
 	kv.filteredItems = items
 }
 
-func (kv *KeyValue) SetOnChanged(onChanged func(items []*KeyValueItem)) {
-	kv.onChanged = onChanged
+func (kv *KeyValue) Changed() bool {
+	out := kv.changed
+	kv.changed = false
+	return out
 }
 
 func (kv *KeyValue) AddItem(item *KeyValueItem) {
 	kv.mx.Lock()
 	defer kv.mx.Unlock()
-
-	item.valueEditor.SetOnChanged(func(text string) {
-		item.Value = text
-		kv.triggerChanged()
-	})
 
 	item.index = len(kv.Items)
 	kv.Items = append(kv.Items, item)
@@ -143,10 +139,6 @@ func (kv *KeyValue) SetItems(items []*KeyValueItem) {
 	defer kv.mx.Unlock()
 	for i := range items {
 		items[i].index = i
-		items[i].valueEditor.SetOnChanged(func(text string) {
-			items[i].Value = text
-			kv.triggerChanged()
-		})
 	}
 	kv.Items = items
 }
@@ -162,12 +154,6 @@ func (kv *KeyValue) GetItems() []*KeyValueItem {
 	return kv.Items
 }
 
-func (kv *KeyValue) triggerChanged() {
-	if kv.onChanged != nil {
-		kv.onChanged(kv.Items)
-	}
-}
-
 func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, index int, item *KeyValueItem) layout.Dimensions {
 	if index < 0 || index >= len(kv.Items) {
 		// Index is out of range, return zero dimensions.
@@ -179,13 +165,13 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 		kv.Items = append(kv.Items[:index], kv.Items[index+1:]...)
 		kv.mx.Unlock()
 
-		kv.triggerChanged()
+		kv.changed = true
 		return layout.Dimensions{}
 	}
 
 	if item.activeBool.Update(gtx) {
 		item.Active = item.activeBool.Value
-		kv.triggerChanged()
+		kv.changed = true
 	}
 
 	for {
@@ -195,7 +181,7 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 		}
 		if _, ok := event.(widget.ChangeEvent); ok {
 			item.Key = item.keyEditor.Text()
-			kv.triggerChanged()
+			kv.changed = true
 		}
 	}
 
@@ -256,6 +242,11 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 			})
 		}),
 	)
+
+	if item.valueEditor.Changed() {
+		item.Value = item.valueEditor.Text()
+		kv.changed = true
+	}
 
 	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

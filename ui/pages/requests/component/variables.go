@@ -158,11 +158,6 @@ func (f *Variables) addItem(item *Variable) {
 	item.enableBool = new(widget.Bool)
 	item.enableBool.Value = item.Enable
 
-	item.fromDropDown.SetOnChanged(func(selected string) {
-		item.From = domain.VariableFrom(selected)
-		f.triggerChanged()
-	})
-
 	item.jsonPathCodeEditor = &widget.Editor{SingleLine: true}
 	item.jsonPathCodeEditor.SetText(item.JsonPath)
 
@@ -330,6 +325,13 @@ func (f *Variables) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 }
 
 func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapartheme.Theme) layout.Dimensions {
+	for _, item := range f.Items {
+		if item.fromDropDown.Changed() {
+			item.From = domain.VariableFrom(item.fromDropDown.GetSelected().Value)
+			f.triggerChanged()
+		}
+	}
+
 	for i, field := range f.Items {
 		if field.deleteButton.Clicked(gtx) {
 			f.Items = append(f.Items[:i], f.Items[i+1:]...)

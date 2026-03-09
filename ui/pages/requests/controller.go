@@ -52,26 +52,7 @@ func NewController(view *View, repo repository.RepositoryV2, model *state.Reques
 		grpcService:   grpcService,
 	}
 
-	view.SetOnNewRequest(c.onNewRequest)
-	view.SetOnImport(c.onImport)
-	view.SetOnNewCollection(c.onNewCollection)
-	view.SetOnTitleChanged(c.onTitleChanged)
-	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeClicked)
-	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
-	view.SetOnTabClose(c.onTabClose)
-	view.SetOnDataChanged(c.onDataChanged)
-	view.SetOnSave(c.onSave)
-	view.SetOnSubmit(c.onSubmit)
-	view.SetOnCopyResponse(c.onCopyResponse)
-	view.SetOnBinaryFileSelect(c.onSelectBinaryFile)
-	view.SetOnPostRequestSetChanged(c.onPostRequestSetChanged)
-	view.SetOnFormDataFileSelect(c.onFormDataFileSelect)
-	view.SetOnServerInfoReload(c.onServerInfoReload)
-	view.SetOnGrpcInvoke(c.onGrpcInvoke)
-	view.SetOnGrpcLoadRequestExample(c.onLoadRequestExample)
-	view.SetOnSetOnTriggerRequestChanged(c.onSetOnTriggerRequestChanged)
-	view.SetOnRequestTabChange(c.onRequestTabChange)
-	view.SetOnCreateCollectionFromMethods(c.showCreateCollectionFromGRPCMethodsDialog)
+	view.SetController(c)
 	return c
 }
 
@@ -90,7 +71,7 @@ func (c *Controller) LoadData() error {
 	return nil
 }
 
-func (c *Controller) onSelectBinaryFile(id string) {
+func (c *Controller) OnBinaryFileSelect(id string) {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Declined {
 			return
@@ -108,7 +89,7 @@ func (c *Controller) onSelectBinaryFile(id string) {
 	}, "")
 }
 
-func (c *Controller) onFormDataFileSelect(requestId, fieldId string) {
+func (c *Controller) OnFormDataFileSelect(requestId, fieldId string) {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Declined {
 			return
@@ -135,7 +116,7 @@ func (c *Controller) getActiveEnvID() string {
 	return activeEnvironment.MetaData.ID
 }
 
-func (c *Controller) onServerInfoReload(id string) {
+func (c *Controller) OnServerInfoReload(id string) {
 	c.view.SetGRPCMethodsLoading(id, true)
 	defer c.view.SetGRPCMethodsLoading(id, false)
 
@@ -149,7 +130,7 @@ func (c *Controller) onServerInfoReload(id string) {
 	c.view.SetGRPCServices(id, res)
 }
 
-func (c *Controller) showCreateCollectionFromGRPCMethodsDialog(requestID string) {
+func (c *Controller) OnCreateCollectionFromMethods(requestID string) {
 	req := c.model.GetRequest(requestID)
 	if req == nil || req.Spec.GRPC == nil {
 		return
@@ -240,7 +221,7 @@ func (c *Controller) doCreateCollectionFromGRPCMethods(requestID, collectionName
 	c.view.SwitchToTab(col.MetaData.ID)
 }
 
-func (c *Controller) onGrpcInvoke(id string) {
+func (c *Controller) OnGrpcInvoke(id string) {
 	c.view.SetSendingRequestLoading(id)
 	defer c.view.SetSendingRequestLoaded(id)
 
@@ -269,7 +250,7 @@ func (c *Controller) onGrpcInvoke(id string) {
 	})
 }
 
-func (c *Controller) onLoadRequestExample(id string) {
+func (c *Controller) OnGrpcLoadRequestExample(id string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
 		return
@@ -285,7 +266,7 @@ func (c *Controller) onLoadRequestExample(id string) {
 	c.view.SetSetGrpcRequestBody(id, example)
 }
 
-func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, from, fromKey string) {
+func (c *Controller) OnPostRequestSetChanged(id string, statusCode int, item, from, fromKey string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
 		return
@@ -371,7 +352,7 @@ func (c *Controller) onPostRequestSetChanged(id string, statusCode int, item, fr
 	}
 }
 
-func (c *Controller) onSetOnTriggerRequestChanged(id, collectionID, requestID string) {
+func (c *Controller) OnSetOnTriggerRequestChanged(id, collectionID, requestID string) {
 	req := c.model.GetRequest(id)
 	if req == nil {
 		return
@@ -431,7 +412,7 @@ func (c *Controller) setPreviewFromKeyValue(id string, kv []domain.KeyValue, fro
 	}
 }
 
-func (c *Controller) onTitleChanged(id string, title, containerType string) {
+func (c *Controller) OnTitleChanged(id string, title, containerType string) {
 	switch containerType {
 	case TypeRequest:
 		c.onRequestTitleChange(id, title)
@@ -440,7 +421,7 @@ func (c *Controller) onTitleChanged(id string, title, containerType string) {
 	}
 }
 
-func (c *Controller) onSave(id string) {
+func (c *Controller) OnSave(id string) {
 	tabType := c.view.GetTabType(id)
 	if tabType == TypeRequest {
 		c.saveRequest(id)
@@ -449,13 +430,13 @@ func (c *Controller) onSave(id string) {
 	}
 }
 
-func (c *Controller) onSubmit(id, containerType string) {
+func (c *Controller) OnSubmit(id, containerType string) {
 	if containerType == TypeRequest {
 		c.onSubmitRequest(id)
 	}
 }
 
-func (c *Controller) onCopyResponse(gtx layout.Context, dataType, data string) {
+func (c *Controller) OnCopyResponse(gtx layout.Context, dataType, data string) {
 	gtx.Execute(clipboard.WriteCmd{
 		Data: io.NopCloser(strings.NewReader(data)),
 	})
@@ -556,7 +537,7 @@ func mapToKeyValue(m map[string]string) []domain.KeyValue {
 	return kvs
 }
 
-func (c *Controller) onTabClose(id string) {
+func (c *Controller) OnTabClose(id string) {
 	// get Tab to check if it's a request or collection
 	tabType := c.view.GetTabType(id)
 	if tabType == TypeRequest {
@@ -572,7 +553,7 @@ func (c *Controller) onCollectionTabClose(id string) {
 	c.view.CloseTab(id)
 }
 
-func (c *Controller) onDataChanged(id string, data any, containerType string) {
+func (c *Controller) OnDataChanged(id string, data any, containerType string) {
 	switch containerType {
 	case TypeRequest:
 		c.onRequestDataChanged(id, data)
@@ -889,7 +870,7 @@ func (c *Controller) onCollectionTitleChange(id, title string) {
 	c.view.SetContainerTitle(id, col.MetaData.Name)
 }
 
-func (c *Controller) onNewRequest(requestType domain.RequestType) {
+func (c *Controller) OnNewRequest(requestType domain.RequestType) {
 	var req *domain.Request
 	switch requestType {
 	case domain.RequestTypeHTTP:
@@ -924,7 +905,7 @@ func (c *Controller) onNewRequest(requestType domain.RequestType) {
 	c.view.SwitchToTab(req.MetaData.ID)
 }
 
-func (c *Controller) onImport(importType string) {
+func (c *Controller) OnImport(importType string) {
 	var fileExtension string
 	var importFunc func([]byte, repository.RepositoryV2, ...string) error
 
@@ -970,7 +951,7 @@ func (c *Controller) onImport(importType string) {
 	}, fileExtension)
 }
 
-func (c *Controller) onNewCollection() {
+func (c *Controller) OnNewCollection() {
 	col := domain.NewCollection("New Collection")
 
 	if err := c.repo.CreateCollection(col); err != nil {
@@ -1024,7 +1005,7 @@ func (c *Controller) saveCollection(id string) {
 	c.view.SetTabDirty(id, false)
 }
 
-func (c *Controller) onTreeViewNodeClicked(id string) {
+func (c *Controller) OnTreeViewNodeClicked(id string) {
 	nodeType := c.view.GetTreeViewNodeType(id)
 	if nodeType == "" {
 		return
@@ -1038,7 +1019,7 @@ func (c *Controller) onTreeViewNodeClicked(id string) {
 	}
 }
 
-func (c *Controller) onTreeViewMenuClicked(id, action string) {
+func (c *Controller) OnTreeViewMenuClicked(id, action string) {
 	nodeType := c.view.GetTreeViewNodeType(id)
 	if nodeType == "" {
 		return
@@ -1273,7 +1254,7 @@ func (c *Controller) deleteCollection(id string) {
 	c.view.CloseTab(id)
 }
 
-func (c *Controller) onRequestTabChange(id, tab string) {
+func (c *Controller) OnRequestTabChanged(id, tab string) {
 	if tab != "Pre Request" {
 		return
 	}

@@ -37,10 +37,6 @@ func (h *Headers) SetHeaders(headers []domain.KeyValue) {
 
 func (h *Headers) SetOnChange(f func(values []domain.KeyValue)) {
 	h.onChange = f
-
-	h.values.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		h.onChange(converter.KeyValueFromWidgetItems(h.values.Items))
-	})
 }
 
 // SetCollectionHeaders sets the headers from the collection for inheritance
@@ -50,6 +46,10 @@ func (h *Headers) SetCollectionHeaders(headers []domain.KeyValue) {
 }
 
 func (h *Headers) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if h.values.Changed() && h.onChange != nil {
+		h.onChange(converter.KeyValueFromWidgetItems(h.values.Items))
+	}
+
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{

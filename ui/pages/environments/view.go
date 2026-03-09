@@ -95,12 +95,6 @@ func NewView(base *ui.Base) *View {
 		tipsView: tips.New(),
 	}
 
-	v.treeViewSearchBox.SetOnTextChange(func(text string) {
-		if v.treeViewNodes.Len() == 0 {
-			return
-		}
-		v.treeView.Filter(text)
-	})
 	return v
 }
 
@@ -283,19 +277,6 @@ func (v *View) OpenContainer(env *domain.Environment) {
 		}
 	})
 
-	ct.Items.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		if v.onItemsChanged != nil {
-			v.onItemsChanged(env.MetaData.ID, converter.KeyValueFromWidgetItems(items))
-		}
-	})
-
-	ct.SearchBox.SetOnTextChange(func(text string) {
-		if ct.Items == nil {
-			return
-		}
-		ct.Items.Filter(text)
-	})
-
 	v.containers.Set(env.MetaData.ID, ct)
 
 	v.window.Invalidate()
@@ -338,6 +319,11 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 }
 
 func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.treeViewSearchBox.Changed() {
+		if v.treeViewNodes.Len() > 0 {
+			v.treeView.Filter(v.treeViewSearchBox.GetText())
+		}
+	}
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -410,7 +396,14 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 						}
 					}
 
-					return ct.Layout(gtx, theme, selectedTab.Identifier)
+					dims := ct.Layout(gtx, theme, selectedTab.Identifier)
+					if ct.SearchBox.Changed() {
+						ct.Items.Filter(ct.SearchBox.GetText())
+					}
+					if ct.Items.Changed() && v.onItemsChanged != nil {
+						v.onItemsChanged(selectedTab.Identifier, converter.KeyValueFromWidgetItems(ct.Items.Items))
+					}
+					return dims
 				}
 			}
 

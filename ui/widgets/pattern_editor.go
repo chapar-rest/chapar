@@ -25,8 +25,8 @@ type PatternEditor struct {
 
 	styledText string
 
-	onChange func(text string)
-	onSubmit func()
+	changed   bool
+	submitted bool
 }
 
 // NewPatternEditor creates a new PatternEditor
@@ -46,12 +46,16 @@ func (p *PatternEditor) SetText(text string) {
 	p.updateStyles(text)
 }
 
-func (p *PatternEditor) SetOnSubmit(onSubmit func()) {
-	p.onSubmit = onSubmit
+func (p *PatternEditor) Changed() bool {
+	out := p.changed
+	p.changed = false
+	return out
 }
 
-func (p *PatternEditor) SetOnChanged(onChange func(text string)) {
-	p.onChange = onChange
+func (p *PatternEditor) Submitted() bool {
+	out := p.submitted
+	p.submitted = false
+	return out
 }
 
 func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
@@ -77,16 +81,11 @@ func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hin
 		switch event.(type) {
 		// on carriage return event
 		case giovieweditor.SubmitEvent:
-			if p.onSubmit != nil {
-				// goroutine to prevent blocking the ui update
-				go p.onSubmit()
-			}
+			p.submitted = true
 		// on change event
 		case giovieweditor.ChangeEvent:
 			p.UpdateStyles()
-			if p.onChange != nil {
-				p.onChange(p.Editor.Text())
-			}
+			p.changed = true
 		}
 	}
 	gtx.Constraints.Max.Y = gtx.Dp(20)
