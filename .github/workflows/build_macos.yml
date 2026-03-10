@@ -26,15 +26,51 @@ jobs:
       - name: Install create-dmg tool
         run: brew install create-dmg
 
-      - name: Build macos disk images
+      - name: Import Developer ID certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
         run: |
-          make build_macos_app
-          make build_macos_dmg
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 20)
 
-      - name: Upload Release Asset
+          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      - name: Build and sign macOS apps
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: make build_macos_signed
+
+      - name: Notarize macOS apps
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: make notarize_macos
+
+      - name: Staple notarization tickets
         run: |
-          gh release upload ${{github.event.release.tag_name}} ./dist/chapar-macos-${{ github.ref_name }}-amd64.dmg
-          gh release upload ${{github.event.release.tag_name}} ./dist/chapar-macos-${{ github.ref_name }}-arm64.dmg
+          xcrun stapler staple ./dist/amd64/Chapar.app
+          xcrun stapler staple ./dist/arm64/Chapar.app
+
+      - name: Create DMG installers
+        run: make build_macos_dmg
+
+      - name: Upload Release Assets
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            ./dist/chapar-macos-${{ github.ref_name }}-amd64.dmg
+          gh release upload ${{ github.event.release.tag_name }} \
+            ./dist/chapar-macos-${{ github.ref_name }}-arm64.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash

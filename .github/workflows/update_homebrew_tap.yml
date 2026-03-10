@@ -1,0 +1,98 @@
+name: Update Homebrew Tap
+
+on:
+  workflow_run:
+    workflows: ["Build MacOS"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  update-tap:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get release tag and version
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }} \
+            --jq '.head_branch // empty')
+          if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
+            TAG=$(gh api /repos/${{ github.repository }}/releases/latest --jq '.tag_name')
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Get SHA256 hashes from release assets
+        id: hashes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          ARM64_SHA=$(gh api /repos/${{ github.repository }}/releases/tags/$TAG \
+            --jq '.assets[] | select(.name | endswith("-arm64.dmg")) | .digest' \
+            | sed 's/sha256://')
+          AMD64_SHA=$(gh api /repos/${{ github.repository }}/releases/tags/$TAG \
+            --jq '.assets[] | select(.name | endswith("-amd64.dmg")) | .digest' \
+            | sed 's/sha256://')
+          echo "arm64=$ARM64_SHA" >> "$GITHUB_OUTPUT"
+          echo "amd64=$AMD64_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: chapar-rest/homebrew-chapar
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-chapar
+
+      - name: Update cask version and hashes
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          ARM64_SHA: ${{ steps.hashes.outputs.arm64 }}
+          AMD64_SHA: ${{ steps.hashes.outputs.amd64 }}
+        run: |
+          python3 << 'EOF'
+          import re, os
+
+          version   = os.environ["VERSION"]
+          arm64_sha = os.environ["ARM64_SHA"]
+          amd64_sha = os.environ["AMD64_SHA"]
+
+          cask_path = "homebrew-chapar/Casks/chapar.rb"
+          with open(cask_path) as f:
+              content = f.read()
+
+          content = re.sub(r'version "\d+\.\d+\.\d+"', f'version "{version}"', content)
+          content = re.sub(
+              r'(on_arm do\b.*?sha256 )"[a-f0-9]+"',
+              lambda m: m.group(1) + f'"{arm64_sha}"',
+              content, flags=re.DOTALL
+          )
+          content = re.sub(
+              r'(on_intel do\b.*?sha256 )"[a-f0-9]+"',
+              lambda m: m.group(1) + f'"{amd64_sha}"',
+              content, flags=re.DOTALL
+          )
+
+          with open(cask_path, "w") as f:
+              f.write(content)
+
+          print(f"Updated cask to v{version}")
+          print(f"  arm64  sha256: {arm64_sha}")
+          print(f"  amd64  sha256: {amd64_sha}")
+          EOF
+
+      - name: Commit and push
+        working-directory: homebrew-chapar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/chapar.rb
+          git diff --staged --quiet || \
+            git commit -m "chore: bump chapar to v${{ steps.release.outputs.version }}"
+          git push
