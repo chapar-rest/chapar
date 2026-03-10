@@ -21,7 +21,7 @@ type EditableLabel struct {
 
 	clickable widget.Clickable
 
-	onChanged func(text string)
+	changed bool
 
 	isEditing  bool
 	isReadOnly bool
@@ -39,8 +39,10 @@ func NewEditableLabel(text string) *EditableLabel {
 	return e
 }
 
-func (e *EditableLabel) SetOnChanged(f func(text string)) {
-	e.onChanged = f
+func (e *EditableLabel) Changed() bool {
+	out := e.changed
+	e.changed = false
+	return out
 }
 
 func (e *EditableLabel) SetText(text string) {
@@ -95,9 +97,7 @@ func (e *EditableLabel) Layout(gtx layout.Context, theme *chapartheme.Theme) lay
 				if _, ok := ev.(widget.SubmitEvent); ok {
 					e.isEditing = false
 					e.Text = e.editor.Text()
-					if e.onChanged != nil {
-						e.onChanged(e.Text)
-					}
+					e.changed = true
 				}
 			}
 

@@ -25,7 +25,13 @@ type IconButton struct {
 	SkipFocus bool
 	Clickable *widget.Clickable
 
-	OnClick func()
+	clicked bool
+}
+
+func (ib *IconButton) Clicked() bool {
+	out := ib.clicked
+	ib.clicked = false
+	return out
 }
 
 func (ib *IconButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -37,10 +43,8 @@ func (ib *IconButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layou
 		ib.BackgroundColorHover = Hovered(ib.BackgroundColor)
 	}
 
-	for ib.Clickable.Clicked(gtx) {
-		if ib.OnClick != nil {
-			ib.OnClick()
-		}
+	if ib.Clickable.Clicked(gtx) {
+		ib.clicked = true
 	}
 
 	return ib.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

@@ -750,7 +750,7 @@ func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	}
 
 	ct := collections.New(collection, v.theme)
-	ct.Title.SetOnChanged(func(text string) {
+	ct.SetOnTitleChanged(func(text string) {
 		if v.controller != nil {
 			v.controller.OnTitleChanged(collection.MetaData.ID, text, TypeCollection)
 		}

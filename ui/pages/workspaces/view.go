@@ -139,13 +139,6 @@ func (v *View) AddItem(item *domain.Workspace) {
 	nameEditable := widgets.NewEditableLabel(item.MetaData.Name)
 	nameEditable.SetReadOnly(readonly)
 
-	nameEditable.SetOnChanged(func(text string) {
-		if v.controller != nil {
-			item.MetaData.Name = text
-			v.controller.OnUpdate(item)
-		}
-	})
-
 	v.items = append(v.items, &Item{w: item, Name: nameEditable, readOnly: readonly})
 
 	sort.Slice(v.items, func(i, j int) bool {
@@ -159,7 +152,14 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 
 		editableLabel := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Dp(100)
-			return item.Name.Layout(gtx, theme)
+			dims := item.Name.Layout(gtx, theme)
+			if item.Name.Changed() {
+				if v.controller != nil {
+					item.w.MetaData.Name = item.Name.Text
+					v.controller.OnUpdate(item.w)
+				}
+			}
+			return dims
 		})
 
 		// NOTE(Isaac799) don't show delete button for active workspace
@@ -179,13 +179,13 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 				Clickable: &item.deleteButton,
 			}
 
-			ib.OnClick = func() {
+			dims := ib.Layout(gtx, theme)
+			if ib.Clicked() {
 				if v.controller != nil {
 					v.controller.OnDelete(item.w)
 				}
 			}
-
-			return ib.Layout(gtx, theme)
+			return dims
 		})
 		return layoutFlex.Layout(gtx, editableLabel, deleteIconButton)
 	})

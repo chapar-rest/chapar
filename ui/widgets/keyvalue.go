@@ -67,11 +67,6 @@ func NewKeyValue(items ...*KeyValueItem) *KeyValue {
 	// To make sure items are sorted by index and have the onValueChange callback set.
 	kv.SetItems(items)
 
-	kv.addButton.OnClick = func() {
-		kv.AddItem(NewKeyValueItem("", "", uuid.NewString(), true))
-		kv.changed = true
-	}
-
 	return kv
 }
 
@@ -311,7 +306,12 @@ func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme 
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						kv.addButton.BackgroundColor = theme.Palette.Bg
 						kv.addButton.Color = theme.TextColor
-						return kv.addButton.Layout(gtx, theme)
+						dims := kv.addButton.Layout(gtx, theme)
+						if kv.addButton.Clicked() {
+							kv.AddItem(NewKeyValueItem("", "", uuid.NewString(), true))
+							kv.changed = true
+						}
+						return dims
 					})
 				}),
 			)

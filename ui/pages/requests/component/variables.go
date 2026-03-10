@@ -73,18 +73,6 @@ func NewVariables(theme *chapartheme.Theme, requestType domain.RequestType, item
 		f.addItem(item)
 	}
 
-	f.addButton.OnClick = func() {
-		v := NewVariable()
-		if f.requestType == domain.RequestTypeGRPC {
-			v.OnStatusCode = 0
-		}
-
-		f.addItem(NewVariable())
-		if f.onChanged != nil {
-			f.onChanged(f.GetValues())
-		}
-	}
-
 	return f
 }
 
@@ -370,7 +358,18 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							f.addButton.BackgroundColor = theme.Palette.Bg
 							f.addButton.Color = theme.TextColor
-							return f.addButton.Layout(gtx, theme)
+							dims := f.addButton.Layout(gtx, theme)
+							if f.addButton.Clicked() {
+								v := NewVariable()
+								if f.requestType == domain.RequestTypeGRPC {
+									v.OnStatusCode = 0
+								}
+								f.addItem(v)
+								if f.onChanged != nil {
+									f.onChanged(f.GetValues())
+								}
+							}
+							return dims
 						})
 					}),
 				)

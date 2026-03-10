@@ -69,13 +69,6 @@ func NewFormData(theme *chapartheme.Theme, fields ...*FormDataField) *FormData {
 		f.addField(field)
 	}
 
-	f.addButton.OnClick = func() {
-		f.addField(NewFormDataField(FormDataFieldTypeText, "", "", nil))
-		if f.onChanged != nil {
-			f.onChanged(f.GetValues())
-		}
-	}
-
 	return f
 }
 
@@ -354,7 +347,14 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						f.addButton.BackgroundColor = theme.Palette.Bg
 						f.addButton.Color = theme.TextColor
-						return f.addButton.Layout(gtx, theme)
+						dims := f.addButton.Layout(gtx, theme)
+						if f.addButton.Clicked() {
+							f.addField(NewFormDataField(FormDataFieldTypeText, "", "", nil))
+							if f.onChanged != nil {
+								f.onChanged(f.GetValues())
+							}
+						}
+						return dims
 					})
 				}),
 			)

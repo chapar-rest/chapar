@@ -411,14 +411,13 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 											BackgroundColor: background,
 											Clickable:       &rowItem.deleteButton,
 										}
-
-										ib.OnClick = func() {
+										dims := ib.Layout(gtx, theme)
+										if ib.Clicked() {
 											if v.controller != nil {
 												v.controller.OnDelete(rowItem.p)
 											}
 										}
-
-										return ib.Layout(gtx, theme)
+										return dims
 									}
 
 									// set background color based on row

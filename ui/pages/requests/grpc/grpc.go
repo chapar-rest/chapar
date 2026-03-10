@@ -104,11 +104,6 @@ func (r *Grpc) setupHooks() {
 	})
 
 
-	r.Request.Settings.SetOnChange(func(values map[string]any) {
-		r.Req.Spec.GRPC.Settings = convertSettingsToItems(values)
-		r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	})
-
 	r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
 		r.Req.Spec.GRPC.PreRequest.Type = selected
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
@@ -385,7 +380,12 @@ func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return r.split.Layout(gtx, theme,
 					func(gtx layout.Context) layout.Dimensions {
-						return r.Request.Layout(gtx, theme)
+						dims := r.Request.Layout(gtx, theme)
+						if r.Request.Settings.Changed() {
+							r.Req.Spec.GRPC.Settings = convertSettingsToItems(r.Request.Settings.GetValues())
+							r.onDataChanged(r.Req.MetaData.ID, r.Req)
+						}
+						return dims
 					},
 					func(gtx layout.Context) layout.Dimensions {
 						return r.Response.Layout(gtx, theme)

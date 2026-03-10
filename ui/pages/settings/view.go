@@ -124,12 +124,6 @@ func (v *View) Refresh() {
 	v.window.Invalidate()
 }
 
-func (v *View) callOnChange(values map[string]any) {
-	if v.controller != nil {
-		v.controller.OnChange(values)
-	}
-}
-
 func (v *View) Load(config domain.GlobalConfig) {
 	if !v.treeViewSetupDone {
 		v.treeView.SetNodes([]*widgets.TreeNode{
@@ -172,7 +166,6 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewHeaderItem("User interface"),
 		widgets.NewBoolItem("Use horizontal split for request and response", "useHorizontalSplit", "If enabled, the request and response views are arranged top to bottom.", config.Spec.General.UseHorizontalSplit),
 	})
-	generalSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("general", generalSettings)
 
 	dockerVisibility := func(values map[string]any) bool {
@@ -195,7 +188,6 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewTextItem("Server script path", "serverScriptPath", "The absolute path to where Chapar can use to create server script", config.Spec.Scripting.ServerScriptPath).MinWidth(unit.Dp(400)).TextAlignment(text.Start).SetVisibleWhen(localEngineVisibility),
 		widgets.NewNumberItem("Port", "port", "Http port that server script is listening to", config.Spec.Scripting.Port),
 	})
-	scriptingSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("scripting", scriptingSettings)
 
 	editorSettings := widgets.NewSettings([]*widgets.SettingItem{
@@ -213,13 +205,11 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewBoolItem("Show Line numbers", "showLineNumbers", "Show line numbers", config.Spec.Editor.ShowLineNumbers),
 		widgets.NewBoolItem("Wrap lines", "wrapLines", "Automatically wrap long lines", config.Spec.Editor.WrapLines),
 	})
-	editorSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("editor", editorSettings)
 
 	dataSettings := widgets.NewSettings([]*widgets.SettingItem{
 		widgets.NewTextItem("Workspace path", "workspacePath", "The absolute path to the workspace folder", config.Spec.Data.WorkspacePath).MinWidth(unit.Dp(400)).TextAlignment(text.Start),
 	})
-	dataSettings.SetOnChange(v.callOnChange)
 	v.settings.Set("data", dataSettings)
 }
 
@@ -285,7 +275,11 @@ func (v *View) settingDetail(gtx layout.Context, theme *chapartheme.Theme) layou
 					Left:  unit.Dp(20),
 					Right: unit.Dp(20),
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return setting.Layout(gtx, theme)
+					dims := setting.Layout(gtx, theme)
+					if setting.Changed() && v.controller != nil {
+						v.controller.OnChange(setting.GetValues())
+					}
+					return dims
 				})
 			}),
 		)

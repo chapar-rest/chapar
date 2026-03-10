@@ -246,11 +246,6 @@ func (v *View) OpenContainer(env *domain.Environment) {
 	}
 
 	ct := newContainer(env.MetaData.ID, env.MetaData.Name, env.Spec.Values)
-	ct.Title.SetOnChanged(func(text string) {
-		if v.controller != nil {
-			v.controller.OnTitleChanged(env.MetaData.ID, text)
-		}
-	})
 
 	v.containers.Set(env.MetaData.ID, ct)
 
@@ -372,6 +367,9 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 					}
 
 					dims := ct.Layout(gtx, theme, selectedTab.Identifier)
+					if ct.Title.Changed() && v.controller != nil {
+						v.controller.OnTitleChanged(selectedTab.Identifier, ct.Title.Text)
+					}
 					if ct.SearchBox.Changed() {
 						ct.Items.Filter(ct.SearchBox.GetText())
 					}
