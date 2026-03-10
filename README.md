@@ -76,7 +76,20 @@ To Get started with Chapar, you can download the latest release from the [releas
 Their you can find the latest release for your operating system.
 
 #### Install on macOS
-On macOS, you can either download the latest release or install Chapar from Apple's App Store.
+On macOS, you can install Chapar via Homebrew, download the latest release, or install from Apple's App Store.
+
+**Homebrew (recommended)**
+```bash
+brew tap chapar-rest/chapar
+brew install --cask chapar
+```
+
+To upgrade to the latest version:
+```bash
+brew upgrade --cask chapar
+```
+
+**App Store**
 
 <a href="https://apps.apple.com/us/app/chapar-rest/id6673918597?mt=12&itscg=30200&itsct=apps_box_badge&mttnsubad=6673918597" style="display: inline-block;">
 <img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us?releaseDate=1743379200" alt="Download on the App Store" style="width: 150px; height: 50px; vertical-align: middle; object-fit: contain;" />
