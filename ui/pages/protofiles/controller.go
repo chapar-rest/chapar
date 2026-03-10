@@ -30,10 +30,7 @@ func NewController(view *View, state *state.ProtoFiles, repo repository.Reposito
 		explorer: explorer,
 	}
 
-	view.SetOnAdd(c.onAdd)
-	view.SetOnDelete(c.onDelete)
-	view.SetOnDeleteSelected(c.onDeleteSelected)
-	view.SetOnAddImportPath(c.addPath)
+	view.SetController(c)
 
 	return c
 }
@@ -57,7 +54,7 @@ func (c *Controller) showError(title, message string) {
 	}, []widgets.Option{{Text: "Ok"}}...)
 }
 
-func (c *Controller) addPath(path string) {
+func (c *Controller) OnAddImportPath(path string) {
 	// get last part of the path as the name
 	fileName := filepath.Base(path)
 	proto := domain.NewProtoFile(fileName)
@@ -75,7 +72,7 @@ func (c *Controller) addPath(path string) {
 	c.view.AddItem(proto)
 }
 
-func (c *Controller) onAdd() {
+func (c *Controller) OnAdd() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Declined {
 			return
@@ -140,7 +137,7 @@ func (c *Controller) getProtoInfo(path, filename string) (*info, error) {
 	return out, nil
 }
 
-func (c *Controller) onDelete(p *domain.ProtoFile) {
+func (c *Controller) OnDelete(p *domain.ProtoFile) {
 	pr := c.state.GetProtoFile(p.MetaData.ID)
 	if pr == nil {
 		c.showError("Failed to get proto-file", "failed to get proto-file")
@@ -155,7 +152,7 @@ func (c *Controller) onDelete(p *domain.ProtoFile) {
 	c.view.RemoveItem(p)
 }
 
-func (c *Controller) onDeleteSelected(ids []string) {
+func (c *Controller) OnDeleteSelected(ids []string) {
 	for _, id := range ids {
 		pr := c.state.GetProtoFile(id)
 		if pr == nil {

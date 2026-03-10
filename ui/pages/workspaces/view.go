@@ -21,6 +21,12 @@ import (
 
 var _ navigator.View = &View{}
 
+type WorkspaceController interface {
+	OnNew()
+	OnDelete(w *domain.Workspace)
+	OnUpdate(w *domain.Workspace)
+}
+
 type View struct {
 	*ui.Base
 	newButton widget.Clickable
@@ -33,9 +39,7 @@ type View struct {
 	items []*Item
 	list  *widget.List
 
-	onNew    func()
-	onDelete func(w *domain.Workspace)
-	onUpdate func(w *domain.Workspace)
+	controller WorkspaceController
 }
 
 func (v *View) OnEnter() {
@@ -76,6 +80,10 @@ func NewView(base *ui.Base) *View {
 	return v
 }
 
+func (v *View) SetController(c WorkspaceController) {
+	v.controller = c
+}
+
 func (v *View) showError(err error) {
 	m := modals.NewError(err)
 	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
@@ -84,18 +92,6 @@ func (v *View) showError(err error) {
 		}
 		return m.Layout(gtx, v.Theme)
 	})
-}
-
-func (v *View) SetOnNew(f func()) {
-	v.onNew = f
-}
-
-func (v *View) SetOnDelete(f func(w *domain.Workspace)) {
-	v.onDelete = f
-}
-
-func (v *View) SetOnUpdate(f func(w *domain.Workspace)) {
-	v.onUpdate = f
 }
 
 func (v *View) Filter(text string) {
@@ -144,9 +140,9 @@ func (v *View) AddItem(item *domain.Workspace) {
 	nameEditable.SetReadOnly(readonly)
 
 	nameEditable.SetOnChanged(func(text string) {
-		if v.onUpdate != nil {
+		if v.controller != nil {
 			item.MetaData.Name = text
-			v.onUpdate(item)
+			v.controller.OnUpdate(item)
 		}
 	})
 
@@ -184,8 +180,8 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 			}
 
 			ib.OnClick = func() {
-				if v.onDelete != nil {
-					v.onDelete(item.w)
+				if v.controller != nil {
+					v.controller.OnDelete(item.w)
 				}
 			}
 
@@ -220,9 +216,9 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 		items = v.filteredItems
 	}
 
-	if v.onNew != nil {
-		if v.newButton.Clicked(gtx) {
-			v.onNew()
+	if v.newButton.Clicked(gtx) {
+		if v.controller != nil {
+			v.controller.OnNew()
 		}
 	}
 

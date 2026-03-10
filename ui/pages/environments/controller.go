@@ -30,15 +30,7 @@ func NewController(view *View, repo repository.RepositoryV2, envState *state.Env
 		explorer: explorer,
 	}
 
-	view.SetOnNewEnv(c.onNewEnvironment)
-	view.SetOnImportEnv(c.onImportEnvironment)
-	view.SetOnTitleChanged(c.onTitleChanged)
-	view.SetOnTreeViewNodeClicked(c.onTreeViewNodeDoubleClicked)
-	view.SetOnTabSelected(c.onTabSelected)
-	view.SetOnItemsChanged(c.onItemsChanged)
-	view.SetOnSave(c.onSave)
-	view.SetOnTabClose(c.onTabClose)
-	view.SetOnTreeViewMenuClicked(c.onTreeViewMenuClicked)
+	view.SetController(c)
 	envState.AddEnvironmentChangeListener(c.onEnvironmentChange)
 
 	return c
@@ -48,7 +40,7 @@ func (c *Controller) OpenEnvironment(id string) {
 	c.openEnvironment(id)
 }
 
-func (c *Controller) onNewEnvironment() {
+func (c *Controller) OnNewEnv() {
 	env := domain.NewEnvironment("New Environment")
 	if err := c.repo.CreateEnvironment(env); err != nil {
 		c.view.showError(fmt.Errorf("failed to create environment: %w", err))
@@ -65,7 +57,7 @@ func (c *Controller) onNewEnvironment() {
 	c.view.AddTreeViewNode(env)
 }
 
-func (c *Controller) onImportEnvironment() {
+func (c *Controller) OnImportEnv() {
 	c.explorer.ChoseFile(func(result explorer.Result) {
 		if result.Declined {
 			return
@@ -111,7 +103,7 @@ func (c *Controller) onEnvironmentChange(env *domain.Environment, source state.S
 	}
 }
 
-func (c *Controller) onTitleChanged(id string, title string) {
+func (c *Controller) OnTitleChanged(id string, title string) {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
 		return
@@ -129,7 +121,7 @@ func (c *Controller) onTitleChanged(id string, title string) {
 	c.view.SetContainerTitle(id, env.MetaData.Name)
 }
 
-func (c *Controller) onTreeViewNodeDoubleClicked(id string) {
+func (c *Controller) OnTreeViewNodeClicked(id string) {
 	c.openEnvironment(id)
 }
 
@@ -159,7 +151,7 @@ func (c *Controller) LoadData() error {
 	return nil
 }
 
-func (c *Controller) onTabSelected(id string) {
+func (c *Controller) OnTabSelected(id string) {
 	if c.activeTabID == id {
 		return
 	}
@@ -169,7 +161,7 @@ func (c *Controller) onTabSelected(id string) {
 	c.view.OpenContainer(env)
 }
 
-func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
+func (c *Controller) OnItemsChanged(id string, items []domain.KeyValue) {
 	env := c.state.GetEnvironment(id)
 	if env == nil {
 		return
@@ -196,11 +188,11 @@ func (c *Controller) onItemsChanged(id string, items []domain.KeyValue) {
 	c.view.SetTabDirty(id, !domain.CompareKeyValues(env.Spec.Values, envFromFile.Spec.Values))
 }
 
-func (c *Controller) onSave(id string) {
+func (c *Controller) OnSave(id string) {
 	c.saveEnvironment(id)
 }
 
-func (c *Controller) onTabClose(id string) {
+func (c *Controller) OnTabClose(id string) {
 	// is tab data changed?
 	// if yes show prompt
 	// if no close tab
@@ -256,7 +248,7 @@ func (c *Controller) saveEnvironment(id string) {
 	c.view.SetTabDirty(id, false)
 }
 
-func (c *Controller) onTreeViewMenuClicked(id string, action string) {
+func (c *Controller) OnTreeViewMenuClicked(id string, action string) {
 	switch action {
 	case Duplicate:
 		c.duplicateEnvironment(id)

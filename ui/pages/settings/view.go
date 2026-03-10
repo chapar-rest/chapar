@@ -22,6 +22,13 @@ import (
 
 var _ navigator.View = &View{}
 
+type SettingsController interface {
+	OnChange(values map[string]any)
+	OnSave()
+	OnCancel()
+	OnLoadDefaults()
+}
+
 type View struct {
 	*ui.Base
 	window *app.Window
@@ -43,10 +50,7 @@ type View struct {
 	IsDataChanged     bool
 	treeViewSetupDone bool
 
-	onChange       func(values map[string]any)
-	onSave         func()
-	onCancel       func()
-	onLoadDefaults func()
+	controller SettingsController
 }
 
 func (v *View) OnEnter() {
@@ -92,6 +96,10 @@ func NewView(base *ui.Base) *View {
 	return u
 }
 
+func (v *View) SetController(c SettingsController) {
+	v.controller = c
+}
+
 func (v *View) ShowError(err error) {
 	m := modals.NewError(err)
 	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
@@ -116,25 +124,9 @@ func (v *View) Refresh() {
 	v.window.Invalidate()
 }
 
-func (v *View) SetOnSave(f func()) {
-	v.onSave = f
-}
-
-func (v *View) SetOnCancel(f func()) {
-	v.onCancel = f
-}
-
-func (v *View) SetOnLoadDefaults(f func()) {
-	v.onLoadDefaults = f
-}
-
-func (v *View) SetOnChange(f func(values map[string]any)) {
-	v.onChange = f
-}
-
 func (v *View) callOnChange(values map[string]any) {
-	if v.onChange != nil {
-		v.onChange(values)
+	if v.controller != nil {
+		v.controller.OnChange(values)
 	}
 }
 
@@ -322,26 +314,26 @@ func (b *button) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 
 func (v *View) layoutActions(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if v.SaveButton.Clicked(gtx) {
-		if v.onSave != nil {
-			v.onSave()
+		if v.controller != nil {
+			v.controller.OnSave()
 		}
 	}
 
-	if v.onSave != nil {
+	if v.controller != nil {
 		keys.OnSaveCommand(gtx, v, func() {
-			v.onSave()
+			v.controller.OnSave()
 		})
 	}
 
 	if v.CancelButton.Clicked(gtx) {
-		if v.onCancel != nil {
-			v.onCancel()
+		if v.controller != nil {
+			v.controller.OnCancel()
 		}
 	}
 
 	if v.LoadDefaultButton.Clicked(gtx) {
-		if v.onLoadDefaults != nil {
-			v.onLoadDefaults()
+		if v.controller != nil {
+			v.controller.OnLoadDefaults()
 		}
 	}
 
