@@ -108,6 +108,26 @@ var PlusIcon *widget.Icon = func() *widget.Icon {
 	return icon
 }()
 
+var AddIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ContentAdd)
+	return icon
+}()
+
+var DownloadIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.FileFileDownload)
+	return icon
+}()
+
+var PlayIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.AVPlayArrow)
+	return icon
+}()
+
+var CheckCircleIcon *widget.Icon = func() *widget.Icon {
+	icon, _ := widget.NewIcon(icons.ActionCheckCircle)
+	return icon
+}()
+
 var EditIcon *widget.Icon = func() *widget.Icon {
 	icon, _ := widget.NewIcon(icons.ContentCreate)
 	return icon

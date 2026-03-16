@@ -641,6 +641,8 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 		path = filepath.Join(f.dataDir, f.workspaceName, "envs")
 	case domain.KindRequest:
 		path = filepath.Join(f.dataDir, f.workspaceName, "requests")
+	case domain.KindTestCase:
+		path = filepath.Join(f.dataDir, f.workspaceName, "testcases")
 	default:
 		// workspace and old config files are living in the dataDir directly
 		path = f.dataDir
@@ -731,3 +733,95 @@ func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 
 	return out, nil
 }
+
+// LoadTestCases loads all test cases from the filesystem
+func (f *FilesystemV2) LoadTestCases() ([]*domain.TestCase, error) {
+	dir, err := f.EntityPath(domain.KindTestCase)
+	if err != nil {
+		return nil, err
+	}
+
+	return loadList[domain.TestCase](dir, func(n *domain.TestCase) {
+		f.entities.Set(n.ID(), n.GetName())
+	})
+}
+
+// CreateTestCase creates a new test case in the filesystem
+func (f *FilesystemV2) CreateTestCase(testCase *domain.TestCase) error {
+	f.entities.Set(testCase.ID(), testCase.GetName())
+	return f.writeTestCase(testCase, false)
+}
+
+// UpdateTestCase updates an existing test case in the filesystem
+func (f *FilesystemV2) UpdateTestCase(testCase *domain.TestCase) error {
+	oldEntityName, ok := f.entities.Get(testCase.ID())
+	if !ok {
+		return fmt.Errorf("test case with ID %s not found", testCase.ID())
+	}
+
+	// did the test case change its name?
+	if oldEntityName != testCase.GetName() {
+		// as name has changed, we need to rename the file
+		path, err := f.EntityPath(testCase.GetKind())
+		if err != nil {
+			return err
+		}
+
+		anotherFileExists, err := doesFileNameExistWithDifferentID(filepath.Join(path, testCase.GetName()+".yaml"), testCase.ID())
+		if err != nil {
+			return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+		}
+		if anotherFileExists {
+			n := f.ensureUniqueName(path, testCase.GetName(), ".yaml")
+			testCase.SetName(n)
+		}
+
+		if err := f.renameEntity(path, oldEntityName+".yaml", testCase.GetName()+".yaml"); err != nil {
+			return fmt.Errorf("cannot rename test case with ID %s: %v", testCase.ID(), err)
+		}
+
+		// Update the name in the entities map
+		f.entities.Set(testCase.ID(), testCase.GetName())
+	}
+
+	return f.writeTestCase(testCase, true)
+}
+
+// DeleteTestCase deletes a test case from the filesystem
+func (f *FilesystemV2) DeleteTestCase(testCase *domain.TestCase) error {
+	path, err := f.EntityPath(testCase.GetKind())
+	if err != nil {
+		return err
+	}
+
+	if err := f.deleteEntity(path, testCase); err != nil {
+		return err
+	}
+
+	// Remove the test case from the entities map
+	f.entities.Delete(testCase.ID())
+	return nil
+}
+
+// writeTestCase writes a test case to the filesystem
+func (f *FilesystemV2) writeTestCase(testCase *domain.TestCase, update bool) error {
+	path, err := f.EntityPath(testCase.GetKind())
+	if err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(path, testCase.GetName()+".yaml")
+
+	if !update {
+		// Check if file already exists
+		if _, err := os.Stat(filePath); err == nil {
+			// File exists, ensure unique name
+			newName := f.ensureUniqueName(path, testCase.GetName(), ".yaml")
+			testCase.SetName(newName)
+			filePath = filepath.Join(path, newName+".yaml")
+		}
+	}
+
+	return SaveToYaml(filePath, testCase)
+}
+
