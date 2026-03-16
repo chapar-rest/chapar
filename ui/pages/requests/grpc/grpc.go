@@ -3,6 +3,7 @@ package grpc
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+
 	giox "gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -102,7 +103,6 @@ func (r *Grpc) setupHooks() {
 		r.Req.Spec.GRPC.Auth = auth
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
-
 
 	r.Request.PreRequest.SetOnDropDownChanged(func(selected string) {
 		r.Req.Spec.GRPC.PreRequest.Type = selected
