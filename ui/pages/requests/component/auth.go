@@ -79,11 +79,6 @@ func NewAuth(auth domain.Auth, theme *chapartheme.Theme) *Auth {
 func (a *Auth) SetOnChange(f func(auth domain.Auth)) {
 	a.onChange = f
 
-	a.DropDown.SetOnChanged(func(selected string) {
-		a.auth.Type = selected
-		a.onChange(a.auth)
-	})
-
 	a.TokenForm.SetOnChange(func(values map[string]string) {
 		if a.auth.TokenAuth == nil {
 			a.auth.TokenAuth = &domain.TokenAuth{}
@@ -145,6 +140,13 @@ func (a *Auth) SetCollectionAuth(collectionAuth *domain.Auth) {
 }
 
 func (a *Auth) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if a.DropDown.Changed() {
+		a.auth.Type = a.DropDown.GetSelected().Value
+		if a.onChange != nil {
+			a.onChange(a.auth)
+		}
+	}
+
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		selectedAuthType := a.DropDown.GetSelected().Value

@@ -34,9 +34,10 @@ type Collection struct {
 
 	split widgets.SplitView
 
-	dataChanged   bool
-	onSave        func(id string)
-	onDataChanged func(id string, data any)
+	dataChanged    bool
+	onSave         func(id string)
+	onDataChanged  func(id string, data any)
+	onTitleChanged func(title string)
 }
 
 func (c *Collection) SetOnDataChanged(f func(id string, data any)) {
@@ -103,7 +104,7 @@ func New(collection *domain.Collection, theme *chapartheme.Theme) *Collection {
 }
 
 func (c *Collection) SetOnTitleChanged(f func(string)) {
-	c.Title.SetOnChanged(f)
+	c.onTitleChanged = f
 }
 
 func (c *Collection) SetTitle(title string) {
@@ -194,7 +195,11 @@ func (c *Collection) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return c.Title.Layout(gtx, theme)
+									dims := c.Title.Layout(gtx, theme)
+									if c.Title.Changed() && c.onTitleChanged != nil {
+										c.onTitleChanged(c.Title.Text)
+									}
+									return dims
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									if c.dataChanged && c.onSave != nil {

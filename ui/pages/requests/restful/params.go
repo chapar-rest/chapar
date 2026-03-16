@@ -38,17 +38,13 @@ func (p *Params) SetPathParams(pathParams []domain.KeyValue) {
 
 func (p *Params) SetOnChange(f func(queryParams []domain.KeyValue, pathParams []domain.KeyValue)) {
 	p.onChange = f
-
-	p.pathParams.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.pathParams.Items))
-	})
-
-	p.queryParams.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.pathParams.Items))
-	})
 }
 
 func (p *Params) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if (p.queryParams.Changed() || p.pathParams.Changed()) && p.onChange != nil {
+		p.onChange(converter.KeyValueFromWidgetItems(p.queryParams.Items), converter.KeyValueFromWidgetItems(p.pathParams.Items))
+	}
+
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{

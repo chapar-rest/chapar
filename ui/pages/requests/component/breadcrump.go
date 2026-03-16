@@ -32,7 +32,6 @@ func NewBreadcrumb(id, name, cType, title string) *Breadcrumb {
 
 func (b *Breadcrumb) SetOnTitleChanged(f func(title string)) {
 	b.onTitleChanged = f
-	b.Title.SetOnChanged(f)
 }
 
 func (b *Breadcrumb) SetTitle(title string) {
@@ -63,7 +62,11 @@ func (b *Breadcrumb) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 	}
 
 	items = append(items, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return b.Title.Layout(gtx, theme)
+		dims := b.Title.Layout(gtx, theme)
+		if b.Title.Changed() && b.onTitleChanged != nil {
+			b.onTitleChanged(b.Title.Text)
+		}
+		return dims
 	}))
 
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceEnd, Alignment: layout.Middle}.Layout(gtx, items...)

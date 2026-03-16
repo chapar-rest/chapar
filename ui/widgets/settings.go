@@ -29,7 +29,7 @@ type Settings struct {
 
 	list *widget.List
 
-	onChange func(values map[string]any)
+	changed bool
 }
 
 func NewSettings(items []*SettingItem) *Settings {
@@ -49,11 +49,13 @@ func NewSettings(items []*SettingItem) *Settings {
 	return s
 }
 
-func (s *Settings) SetOnChange(f func(values map[string]any)) {
-	s.onChange = f
+func (s *Settings) Changed() bool {
+	out := s.changed
+	s.changed = false
+	return out
 }
 
-func (s *Settings) getValues() map[string]any {
+func (s *Settings) GetValues() map[string]any {
 	values := make(map[string]any, len(s.Items))
 	for _, i := range s.Items {
 		switch i.Type {
@@ -98,11 +100,7 @@ func (s *Settings) SetValues(values map[string]any) {
 }
 
 func (s *Settings) onChanged() {
-	if s.onChange == nil {
-		return
-	}
-
-	s.onChange(s.getValues())
+	s.changed = true
 }
 
 type SettingItem struct {
@@ -361,7 +359,7 @@ func (i *SettingItem) dropDownLayout(gtx layout.Context, theme *chapartheme.Them
 
 func (s *Settings) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	// update visibility
-	values := s.getValues()
+	values := s.GetValues()
 	for _, i := range s.Items {
 		if i.visibleWhen != nil {
 			i.visible = i.visibleWhen(values)

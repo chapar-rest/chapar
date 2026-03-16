@@ -70,7 +70,6 @@ func (a *AddressBar) SetSelectedMethod(method string) {
 
 func (a *AddressBar) SetOnServerAddressChanged(onServerAddressChanged func(url string)) {
 	a.onServerAddressChanged = onServerAddressChanged
-	a.serverAddress.SetOnChanged(onServerAddressChanged)
 }
 
 func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
@@ -79,10 +78,19 @@ func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
 
 func (a *AddressBar) SetOnSubmit(onSubmit func()) {
 	a.onSubmit = onSubmit
-	a.serverAddress.SetOnSubmit(onSubmit)
 }
 
 func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if a.serverAddress.Changed() && a.onServerAddressChanged != nil {
+		a.onServerAddressChanged(a.serverAddress.Text())
+	}
+	if a.serverAddress.Submitted() && a.onSubmit != nil {
+		a.onSubmit()
+	}
+	if a.methodDropDown.Changed() && a.onMethodChanged != nil {
+		a.onMethodChanged(a.methodDropDown.GetSelected().GetValue())
+	}
+
 	borderColor := theme.BorderColor
 	if gtx.Source.Focused(a.serverAddress) {
 		borderColor = theme.BorderColorFocused
@@ -92,14 +100,6 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		Color:        borderColor,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
-	}
-
-	methodSelected := a.methodDropDown.GetSelected().GetValue()
-	if methodSelected != a.lastSelectedMethod {
-		a.lastSelectedMethod = methodSelected
-		if a.onMethodChanged != nil {
-			a.onMethodChanged(methodSelected)
-		}
 	}
 
 	return layout.Flex{
@@ -131,7 +131,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if a.sendClickable.Clicked(gtx) {
 				if a.onSubmit != nil {
-					go a.onSubmit()
+					a.onSubmit()
 				}
 			}
 

@@ -21,6 +21,12 @@ import (
 
 var _ navigator.View = &View{}
 
+type WorkspaceController interface {
+	OnNew()
+	OnDelete(w *domain.Workspace)
+	OnUpdate(w *domain.Workspace)
+}
+
 type View struct {
 	*ui.Base
 	newButton widget.Clickable
@@ -33,9 +39,7 @@ type View struct {
 	items []*Item
 	list  *widget.List
 
-	onNew    func()
-	onDelete func(w *domain.Workspace)
-	onUpdate func(w *domain.Workspace)
+	controller WorkspaceController
 }
 
 func (v *View) OnEnter() {
@@ -73,15 +77,11 @@ func NewView(base *ui.Base) *View {
 		filteredItems: make([]*Item, 0),
 	}
 
-	v.searchBox.SetOnTextChange(func(text string) {
-		if v.items == nil {
-			return
-		}
-
-		v.Filter(text)
-	})
-
 	return v
+}
+
+func (v *View) SetController(c WorkspaceController) {
+	v.controller = c
 }
 
 func (v *View) showError(err error) {
@@ -92,18 +92,6 @@ func (v *View) showError(err error) {
 		}
 		return m.Layout(gtx, v.Theme)
 	})
-}
-
-func (v *View) SetOnNew(f func()) {
-	v.onNew = f
-}
-
-func (v *View) SetOnDelete(f func(w *domain.Workspace)) {
-	v.onDelete = f
-}
-
-func (v *View) SetOnUpdate(f func(w *domain.Workspace)) {
-	v.onUpdate = f
 }
 
 func (v *View) Filter(text string) {
@@ -151,13 +139,6 @@ func (v *View) AddItem(item *domain.Workspace) {
 	nameEditable := widgets.NewEditableLabel(item.MetaData.Name)
 	nameEditable.SetReadOnly(readonly)
 
-	nameEditable.SetOnChanged(func(text string) {
-		if v.onUpdate != nil {
-			item.MetaData.Name = text
-			v.onUpdate(item)
-		}
-	})
-
 	v.items = append(v.items, &Item{w: item, Name: nameEditable, readOnly: readonly})
 
 	sort.Slice(v.items, func(i, j int) bool {
@@ -171,7 +152,14 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 
 		editableLabel := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Dp(100)
-			return item.Name.Layout(gtx, theme)
+			dims := item.Name.Layout(gtx, theme)
+			if item.Name.Changed() {
+				if v.controller != nil {
+					item.w.MetaData.Name = item.Name.Text
+					v.controller.OnUpdate(item.w)
+				}
+			}
+			return dims
 		})
 
 		// NOTE(Isaac799) don't show delete button for active workspace
@@ -191,13 +179,13 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 				Clickable: &item.deleteButton,
 			}
 
-			ib.OnClick = func() {
-				if v.onDelete != nil {
-					v.onDelete(item.w)
+			dims := ib.Layout(gtx, theme)
+			if ib.Clicked() {
+				if v.controller != nil {
+					v.controller.OnDelete(item.w)
 				}
 			}
-
-			return ib.Layout(gtx, theme)
+			return dims
 		})
 		return layoutFlex.Layout(gtx, editableLabel, deleteIconButton)
 	})
@@ -217,14 +205,20 @@ func (v *View) itemLayout(gtx layout.Context, theme *chapartheme.Theme, item *It
 }
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.searchBox.Changed() {
+		if v.items != nil {
+			v.Filter(v.searchBox.GetText())
+		}
+	}
+
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems
 	}
 
-	if v.onNew != nil {
-		if v.newButton.Clicked(gtx) {
-			v.onNew()
+	if v.newButton.Clicked(gtx) {
+		if v.controller != nil {
+			v.controller.OnNew()
 		}
 	}
 

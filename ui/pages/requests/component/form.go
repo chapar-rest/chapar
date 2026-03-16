@@ -36,7 +36,6 @@ func (f *Form) GetValues() map[string]string {
 	for _, field := range f.Fields {
 		if field.Editor == nil {
 			field.Editor = widgets.NewPatternEditor()
-			field.Editor.SetOnChanged(f.onDataChange)
 		}
 
 		values[field.Label] = field.Editor.Text()
@@ -54,7 +53,6 @@ func (f *Form) SetValues(values map[string]string) {
 	for _, field := range f.Fields {
 		if field.Editor == nil {
 			field.Editor = widgets.NewPatternEditor()
-			field.Editor.SetOnChanged(f.onDataChange)
 		}
 
 		field.Editor.SetText(values[field.Label])
@@ -62,13 +60,18 @@ func (f *Form) SetValues(values map[string]string) {
 }
 
 func (f *Form) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	for _, field := range f.Fields {
+		if field.Editor != nil && field.Editor.Changed() {
+			f.onDataChange(field.Editor.Text())
+		}
+	}
+
 	childs := make([]layout.FlexChild, 0)
 	for _, field := range f.Fields {
 		field := field
 		childs = append(childs, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if field.Editor == nil {
 				field.Editor = widgets.NewPatternEditor()
-				field.Editor.SetOnChanged(f.onDataChange)
 			}
 
 			lb := &widgets.LabeledInput{

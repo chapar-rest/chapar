@@ -23,9 +23,7 @@ func NewController(view *View, state *state.Workspaces, repo repository.Reposito
 		repo:  repo,
 	}
 
-	view.SetOnNew(c.onNew)
-	view.SetOnDelete(c.onDelete)
-	view.SetOnUpdate(c.onUpdate)
+	view.SetController(c)
 
 	return c
 }
@@ -40,7 +38,7 @@ func (c *Controller) LoadData() error {
 	return nil
 }
 
-func (c *Controller) onNew() {
+func (c *Controller) OnNew() {
 	ws := domain.NewWorkspace("New Workspace")
 	if err := c.repo.CreateWorkspace(ws); err != nil {
 		c.view.showError(fmt.Errorf("failed to create workspace: %w", err))
@@ -51,7 +49,7 @@ func (c *Controller) onNew() {
 	c.view.AddItem(ws)
 }
 
-func (c *Controller) onDelete(w *domain.Workspace) {
+func (c *Controller) OnDelete(w *domain.Workspace) {
 	ws := c.state.GetWorkspace(w.MetaData.ID)
 	if ws == nil {
 		c.view.showError(fmt.Errorf("failed to get workspace, %s", w.MetaData.ID))
@@ -66,7 +64,7 @@ func (c *Controller) onDelete(w *domain.Workspace) {
 	c.view.RemoveItem(w)
 }
 
-func (c *Controller) onUpdate(w *domain.Workspace) {
+func (c *Controller) OnUpdate(w *domain.Workspace) {
 	ws := c.state.GetWorkspace(w.MetaData.ID)
 	if ws == nil {
 		c.view.showError(fmt.Errorf("failed to get workspace, %s", w.MetaData.ID))

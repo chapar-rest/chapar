@@ -56,19 +56,14 @@ func (a *AddressBar) SetSelectedMethod(method string) {
 
 func (a *AddressBar) SetOnURLChanged(onURLChanged func(url string)) {
 	a.onURLChanged = onURLChanged
-	a.url.SetOnChanged(onURLChanged)
 }
 
 func (a *AddressBar) SetOnMethodChanged(onMethodChanged func(method string)) {
 	a.onMethodChanged = onMethodChanged
-	a.methodDropDown.SetOnChanged(func(selected string) {
-		a.onMethodChanged(selected)
-	})
 }
 
 func (a *AddressBar) SetOnSubmit(onSubmit func()) {
 	a.onSubmit = onSubmit
-	a.url.SetOnSubmit(onSubmit)
 }
 
 func (a *AddressBar) SetURL(url string) {
@@ -76,6 +71,16 @@ func (a *AddressBar) SetURL(url string) {
 }
 
 func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if a.url.Changed() && a.onURLChanged != nil {
+		a.onURLChanged(a.url.Text())
+	}
+	if a.url.Submitted() && a.onSubmit != nil {
+		a.onSubmit()
+	}
+	if a.methodDropDown.Changed() && a.onMethodChanged != nil {
+		a.onMethodChanged(a.methodDropDown.GetSelected().Text)
+	}
+
 	borderColor := theme.BorderColor
 	if gtx.Source.Focused(a.url) {
 		borderColor = theme.BorderColorFocused
@@ -85,13 +90,6 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		Color:        borderColor,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
-	}
-
-	if a.methodDropDown.GetSelected().Text != a.lastSelectedMethod {
-		a.lastSelectedMethod = a.methodDropDown.GetSelected().Text
-		if a.onMethodChanged != nil {
-			a.onMethodChanged(a.lastSelectedMethod)
-		}
 	}
 
 	return layout.Flex{
@@ -123,7 +121,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if a.sendClickable.Clicked(gtx) {
 				if a.onSubmit != nil {
-					go a.onSubmit()
+					a.onSubmit()
 				}
 			}
 

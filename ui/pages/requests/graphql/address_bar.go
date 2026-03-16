@@ -33,12 +33,10 @@ func NewAddressBar(url string) *AddressBar {
 
 func (a *AddressBar) SetOnURLChanged(onURLChanged func(url string)) {
 	a.onURLChanged = onURLChanged
-	a.url.SetOnChanged(onURLChanged)
 }
 
 func (a *AddressBar) SetOnSubmit(onSubmit func()) {
 	a.onSubmit = onSubmit
-	a.url.SetOnSubmit(onSubmit)
 }
 
 func (a *AddressBar) SetURL(url string) {
@@ -46,6 +44,13 @@ func (a *AddressBar) SetURL(url string) {
 }
 
 func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if a.url.Changed() && a.onURLChanged != nil {
+		a.onURLChanged(a.url.Text())
+	}
+	if a.url.Submitted() && a.onSubmit != nil {
+		a.onSubmit()
+	}
+
 	borderColor := theme.BorderColor
 	if gtx.Source.Focused(a.url) {
 		borderColor = theme.BorderColorFocused
@@ -79,7 +84,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if a.sendClickable.Clicked(gtx) {
 				if a.onSubmit != nil {
-					go a.onSubmit()
+					a.onSubmit()
 				}
 			}
 

@@ -27,6 +27,18 @@ const (
 	Delete    = "Delete"
 )
 
+type EnvironmentController interface {
+	OnNewEnv()
+	OnImportEnv()
+	OnTitleChanged(id, title string)
+	OnTreeViewNodeClicked(id string)
+	OnTreeViewMenuClicked(id, action string)
+	OnTabSelected(id string)
+	OnItemsChanged(id string, items []domain.KeyValue)
+	OnSave(id string)
+	OnTabClose(id string)
+}
+
 type View struct {
 	*ui.Base
 
@@ -41,16 +53,7 @@ type View struct {
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
 
-	// callbacks
-	onTitleChanged        func(id, title string)
-	onNewEnv              func()
-	onImportEnv           func()
-	onTabClose            func(id string)
-	onItemsChanged        func(id string, items []domain.KeyValue)
-	onSave                func(id string)
-	onTreeViewNodeClicked func(id string)
-	onTreeViewMenuClicked func(id string, action string)
-	onTabSelected         func(id string)
+	controller EnvironmentController
 
 	// state
 	containers    *safemap.Map[*container]
@@ -95,13 +98,21 @@ func NewView(base *ui.Base) *View {
 		tipsView: tips.New(),
 	}
 
-	v.treeViewSearchBox.SetOnTextChange(func(text string) {
-		if v.treeViewNodes.Len() == 0 {
-			return
-		}
-		v.treeView.Filter(text)
-	})
 	return v
+}
+
+func (v *View) SetController(c EnvironmentController) {
+	v.controller = c
+	v.treeView.OnNodeClick(func(node *widgets.TreeNode) {
+		if v.controller != nil {
+			v.controller.OnTreeViewNodeClicked(node.Identifier)
+		}
+	})
+	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
+		if v.controller != nil {
+			v.controller.OnTreeViewMenuClicked(node.Identifier, item)
+		}
+	})
 }
 
 func (v *View) showError(err error) {
@@ -167,48 +178,6 @@ func (v *View) RemoveTreeViewNode(id string) {
 	v.treeView.RemoveNode(id)
 }
 
-func (v *View) SetOnItemsChanged(onItemsChanged func(id string, items []domain.KeyValue)) {
-	v.onItemsChanged = onItemsChanged
-}
-
-func (v *View) SetOnTreeViewNodeClicked(onTreeViewNodeClicked func(id string)) {
-	v.onTreeViewNodeClicked = onTreeViewNodeClicked
-	v.treeView.OnNodeClick(func(node *widgets.TreeNode) {
-		v.onTreeViewNodeClicked(node.Identifier)
-	})
-}
-
-func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id string, action string)) {
-	v.onTreeViewMenuClicked = onTreeViewMenuClicked
-	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
-		v.onTreeViewMenuClicked(node.Identifier, item)
-	})
-}
-
-func (v *View) SetOnSave(onSave func(id string)) {
-	v.onSave = onSave
-}
-
-func (v *View) SetOnTitleChanged(onTitleChanged func(id, title string)) {
-	v.onTitleChanged = onTitleChanged
-}
-
-func (v *View) SetOnNewEnv(onNewEnv func()) {
-	v.onNewEnv = onNewEnv
-}
-
-func (v *View) SetOnImportEnv(onImportEnv func()) {
-	v.onImportEnv = onImportEnv
-}
-
-func (v *View) SetOnTabSelected(onTabSelected func(id string)) {
-	v.onTabSelected = onTabSelected
-}
-
-func (v *View) SetOnTabClose(onTabClose func(id string)) {
-	v.onTabClose = onTabClose
-}
-
 func (v *View) UpdateTabTitle(id, title string) {
 	if tab, ok := v.openTabs.Get(id); ok {
 		tab.Title = title
@@ -261,11 +230,11 @@ func (v *View) OpenTab(env *domain.Environment) {
 		CloseClickable: &widget.Clickable{},
 		Identifier:     env.MetaData.ID,
 	}
-	if v.onTabClose != nil {
-		tab.SetOnClose(func(tab *widgets.Tab) {
-			v.onTabClose(tab.Identifier)
-		})
-	}
+	tab.SetOnClose(func(tab *widgets.Tab) {
+		if v.controller != nil {
+			v.controller.OnTabClose(tab.Identifier)
+		}
+	})
 	i := v.tabHeader.AddTab(tab)
 	v.openTabs.Set(env.MetaData.ID, tab)
 	v.tabHeader.SetSelected(i)
@@ -277,24 +246,6 @@ func (v *View) OpenContainer(env *domain.Environment) {
 	}
 
 	ct := newContainer(env.MetaData.ID, env.MetaData.Name, env.Spec.Values)
-	ct.Title.SetOnChanged(func(text string) {
-		if v.onTitleChanged != nil {
-			v.onTitleChanged(env.MetaData.ID, text)
-		}
-	})
-
-	ct.Items.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		if v.onItemsChanged != nil {
-			v.onItemsChanged(env.MetaData.ID, converter.KeyValueFromWidgetItems(items))
-		}
-	})
-
-	ct.SearchBox.SetOnTextChange(func(text string) {
-		if ct.Items == nil {
-			return
-		}
-		ct.Items.Filter(text)
-	})
 
 	v.containers.Set(env.MetaData.ID, ct)
 
@@ -338,6 +289,11 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 }
 
 func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.treeViewSearchBox.Changed() {
+		if v.treeViewNodes.Len() > 0 {
+			v.treeView.Filter(v.treeViewSearchBox.GetText())
+		}
+	}
 	return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -345,8 +301,8 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if v.importButton.Clicked(gtx) {
-								if v.onImportEnv != nil {
-									v.onImportEnv()
+								if v.controller != nil {
+									v.controller.OnImportEnv()
 								}
 							}
 							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
@@ -356,8 +312,8 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if v.newEnvButton.Clicked(gtx) {
-								if v.onNewEnv != nil {
-									v.onNewEnv()
+								if v.controller != nil {
+									v.controller.OnNewEnv()
 								}
 							}
 							btn := widgets.Button(theme.Material(), &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
@@ -382,9 +338,9 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 }
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if v.onSave != nil {
+	if v.controller != nil {
 		keys.OnSaveCommand(gtx, v, func() {
-			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())
+			v.controller.OnSave(v.tabHeader.SelectedTab().GetIdentifier())
 		})
 	}
 
@@ -399,18 +355,28 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 
 			selectedTab := v.tabHeader.SelectedTab()
 			if selectedTab != nil {
-				if v.onTabSelected != nil {
-					v.onTabSelected(selectedTab.Identifier)
+				if v.controller != nil {
+					v.controller.OnTabSelected(selectedTab.Identifier)
 				}
 
 				if ct, ok := v.containers.Get(selectedTab.Identifier); ok {
-					if v.onSave != nil {
+					if v.controller != nil {
 						if ct.SaveButton.Clicked(gtx) {
-							v.onSave(selectedTab.Identifier)
+							v.controller.OnSave(selectedTab.Identifier)
 						}
 					}
 
-					return ct.Layout(gtx, theme, selectedTab.Identifier)
+					dims := ct.Layout(gtx, theme, selectedTab.Identifier)
+					if ct.Title.Changed() && v.controller != nil {
+						v.controller.OnTitleChanged(selectedTab.Identifier, ct.Title.Text)
+					}
+					if ct.SearchBox.Changed() {
+						ct.Items.Filter(ct.SearchBox.GetText())
+					}
+					if ct.Items.Changed() && v.controller != nil {
+						v.controller.OnItemsChanged(selectedTab.Identifier, converter.KeyValueFromWidgetItems(ct.Items.Items))
+					}
+					return dims
 				}
 			}
 

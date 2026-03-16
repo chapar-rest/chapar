@@ -30,6 +30,7 @@ type CodeModal struct {
 	dropDown    *widgets.DropDown
 
 	copyButtonText string
+	copyResetAt    time.Time
 
 	updateCode bool
 	visible    bool
@@ -55,8 +56,6 @@ func NewCodeModal(theme *chapartheme.Theme) *CodeModal {
 	}
 
 	c.dropDown.MaxWidth = unit.Dp(200)
-
-	c.dropDown.SetOnChanged(c.onLangSelected)
 
 	return c
 }
@@ -116,10 +115,23 @@ func (c *CodeModal) SetCollectionAuth(auth *domain.Auth) {
 }
 
 func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if c.dropDown.Changed() {
+		c.onLangSelected(c.dropDown.GetSelected().Value)
+	}
+
 	border := widget.Border{
 		Color:        theme.TableBorderColor,
 		CornerRadius: unit.Dp(4),
 		Width:        unit.Dp(2),
+	}
+
+	if !c.copyResetAt.IsZero() {
+		if time.Now().After(c.copyResetAt) {
+			c.copyButtonText = "Copy"
+			c.copyResetAt = time.Time{}
+		} else {
+			gtx.Execute(op.InvalidateCmd{At: c.copyResetAt})
+		}
 	}
 
 	if c.CopyButton.Clicked(gtx) {
@@ -127,14 +139,8 @@ func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			Data: io.NopCloser(strings.NewReader(c.code)),
 		})
 		c.copyButtonText = "Copied"
-
-		// Start a goroutine to reset the button text after 900ms
-		go func() {
-			time.Sleep(900 * time.Millisecond)
-			c.copyButtonText = "Copy"
-			// Trigger a re-render
-			gtx.Execute(op.InvalidateCmd{})
-		}()
+		c.copyResetAt = time.Now().Add(900 * time.Millisecond)
+		gtx.Execute(op.InvalidateCmd{At: c.copyResetAt})
 	}
 
 	if c.CloseButton.Clicked(gtx) {

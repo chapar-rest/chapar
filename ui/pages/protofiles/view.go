@@ -27,6 +27,13 @@ import (
 
 var _ navigator.View = &View{}
 
+type ProtoFilesController interface {
+	OnAdd()
+	OnDelete(p *domain.ProtoFile)
+	OnDeleteSelected(ids []string)
+	OnAddImportPath(path string)
+}
+
 type View struct {
 	*ui.Base
 	addButton            widget.Clickable
@@ -45,10 +52,7 @@ type View struct {
 	items         []*Item
 	filteredItems []*Item
 
-	onAdd            func()
-	onDelete         func(p *domain.ProtoFile)
-	onDeleteSelected func(ids []string)
-	onAddImportPath  func(path string)
+	controller ProtoFilesController
 }
 
 func (v *View) OnEnter() {
@@ -85,15 +89,11 @@ func NewView(base *ui.Base) *View {
 		Prompt: widgets.NewPrompt("", "", ""),
 	}
 
-	v.searchBox.SetOnTextChange(func(text string) {
-		if v.items == nil {
-			return
-		}
-
-		v.Filter(text)
-	})
-
 	return v
+}
+
+func (v *View) SetController(c ProtoFilesController) {
+	v.controller = c
 }
 
 func (v *View) SetItems(items []*domain.ProtoFile) {
@@ -146,22 +146,6 @@ func (v *View) RemoveItem(item *domain.ProtoFile) {
 	}
 }
 
-func (v *View) SetOnAdd(f func()) {
-	v.onAdd = f
-}
-
-func (v *View) SetOnDelete(f func(w *domain.ProtoFile)) {
-	v.onDelete = f
-}
-
-func (v *View) SetOnDeleteSelected(f func(ids []string)) {
-	v.onDeleteSelected = f
-}
-
-func (v *View) SetOnAddImportPath(f func(path string)) {
-	v.onAddImportPath = f
-}
-
 func (v *View) Filter(text string) {
 	v.mx.Lock()
 	defer v.mx.Unlock()
@@ -186,7 +170,9 @@ func (v *View) showImportPathInputModal() {
 	m := modals.NewInputText("Add Import Path", "Enter absolute import path")
 	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.AddBtn.Clicked(gtx) {
-			v.onAddImportPath(m.TextField.GetText())
+			if v.controller != nil {
+				v.controller.OnAddImportPath(m.TextField.GetText())
+			}
 			v.Base.CloseModal()
 		}
 
@@ -199,9 +185,9 @@ func (v *View) showImportPathInputModal() {
 }
 
 func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if v.onAdd != nil {
-		if v.addButton.Clicked(gtx) {
-			v.onAdd()
+	if v.addButton.Clicked(gtx) {
+		if v.controller != nil {
+			v.controller.OnAdd()
 		}
 	}
 
@@ -226,8 +212,8 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 				}
 			}
 
-			if v.onDeleteSelected != nil {
-				v.onDeleteSelected(ids)
+			if v.controller != nil {
+				v.controller.OnDeleteSelected(ids)
 			}
 		}
 	}
@@ -287,6 +273,12 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 var headingText = []string{" ", "Path", "Package", "Services", " "}
 
 func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.searchBox.Changed() {
+		if v.items != nil {
+			v.Filter(v.searchBox.GetText())
+		}
+	}
+
 	items := v.items
 	if v.filterText != "" {
 		items = v.filteredItems
@@ -419,14 +411,13 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 											BackgroundColor: background,
 											Clickable:       &rowItem.deleteButton,
 										}
-
-										ib.OnClick = func() {
-											if v.onDelete != nil {
-												v.onDelete(rowItem.p)
+										dims := ib.Layout(gtx, theme)
+										if ib.Clicked() {
+											if v.controller != nil {
+												v.controller.OnDelete(rowItem.p)
 											}
 										}
-
-										return ib.Layout(gtx, theme)
+										return dims
 									}
 
 									// set background color based on row

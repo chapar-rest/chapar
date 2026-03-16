@@ -43,6 +43,30 @@ const (
 	MenuView              = "View"
 )
 
+// RequestController is the interface the View uses to notify its controller of events.
+type RequestController interface {
+	OnNewRequest(requestType domain.RequestType)
+	OnImport(importType string)
+	OnNewCollection()
+	OnTitleChanged(id, title, containerType string)
+	OnTreeViewNodeClicked(id string)
+	OnTreeViewMenuClicked(id, action string)
+	OnTabClose(id string)
+	OnDataChanged(id string, data any, containerType string)
+	OnSave(id string)
+	OnSubmit(id, containerType string)
+	OnCopyResponse(gtx layout.Context, dataType, data string)
+	OnPostRequestSetChanged(id string, statusCode int, item, from, fromKey string)
+	OnSetOnTriggerRequestChanged(id, collectionID, requestID string)
+	OnBinaryFileSelect(id string)
+	OnFormDataFileSelect(requestID, fieldID string)
+	OnServerInfoReload(id string)
+	OnGrpcInvoke(id string)
+	OnGrpcLoadRequestExample(id string)
+	OnRequestTabChanged(id, tab string)
+	OnCreateCollectionFromMethods(requestID string)
+}
+
 type View struct {
 	theme  *chapartheme.Theme
 	window *app.Window
@@ -59,29 +83,7 @@ type View struct {
 	split     widgets.SplitView
 	tabHeader *widgets.Tabs
 
-	// callbacks
-	onTitleChanged                 func(id, title, containerType string)
-	onNewRequest                   func(requestType domain.RequestType)
-	onImport                       func(importType string)
-	onNewCollection                func()
-	onTabClose                     func(id string)
-	onTreeViewNodeDoubleClicked    func(id string)
-	onTreeViewNodeClicked          func(id string)
-	onTreeViewMenuClicked          func(id string, action string)
-	onTabSelected                  func(id string)
-	onSave                         func(id string)
-	onSubmit                       func(id, containerType string)
-	onDataChanged                  func(id string, data any, containerType string)
-	onCopyResponse                 func(gtx layout.Context, dataType, data string)
-	onOnPostRequestSetChanged      func(id string, statusCode int, item, from, fromKey string)
-	onOnSetOnTriggerRequestChanged func(id, collectionID, requestID string)
-	onBinaryFileSelect             func(id string)
-	onFromDataFileSelect           func(requestID, fieldID string)
-	onServerInfoReload             func(id string)
-	onGrpcInvoke                   func(id string)
-	onGrpcLoadRequestExample       func(id string)
-	onRequestTabChanged            func(id string, tab string)
-	onCreateCollectionFromMethods  func(requestID string)
+	controller RequestController
 
 	// state
 	containers    *safemap.Map[Container]
@@ -131,22 +133,26 @@ func NewView(b *ui.Base) *View {
 
 	v.tabHeader.SetMaxTitleWidth(20)
 
-	v.treeViewSearchBox.SetOnTextChange(func(text string) {
-		if v.treeViewNodes.Len() == 0 {
-			return
-		}
-		v.treeView.Filter(text)
-	})
-
 	return v
 }
 
-func (v *View) SetOnRequestTabChange(f func(id string, tab string)) {
-	v.onRequestTabChanged = f
-}
-
-func (v *View) SetOnCreateCollectionFromMethods(f func(requestID string)) {
-	v.onCreateCollectionFromMethods = f
+func (v *View) SetController(c RequestController) {
+	v.controller = c
+	v.treeView.OnNodeDoubleClick(func(node *widgets.TreeNode) {
+		if v.controller != nil {
+			v.controller.OnTreeViewNodeClicked(node.Identifier)
+		}
+	})
+	v.treeView.OnNodeClick(func(node *widgets.TreeNode) {
+		if v.controller != nil {
+			v.controller.OnTreeViewNodeClicked(node.Identifier)
+		}
+	})
+	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
+		if v.controller != nil {
+			v.controller.OnTreeViewMenuClicked(node.Identifier, item)
+		}
+	})
 }
 
 func (v *View) SetPreRequestCollections(id string, collections []*domain.Collection, selectedID string) {
@@ -185,10 +191,6 @@ func (v *View) SetPreRequestRequests(id string, requests []*domain.Request, sele
 	}
 }
 
-func (v *View) SetOnSetOnTriggerRequestChanged(f func(id, collectionID, requestID string)) {
-	v.onOnSetOnTriggerRequestChanged = f
-}
-
 func (v *View) showError(err error) {
 	m := modals.NewError(err)
 	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
@@ -197,10 +199,6 @@ func (v *View) showError(err error) {
 		}
 		return m.Layout(gtx, v.Theme)
 	})
-}
-
-func (v *View) SetOnPostRequestSetChanged(f func(id string, statusCode int, item, from, fromKey string)) {
-	v.onOnPostRequestSetChanged = f
 }
 
 func (v *View) SetPostRequestSetValues(id string, set domain.PostRequestSet) {
@@ -277,26 +275,6 @@ func (v *View) RemoveTreeViewNode(id string) {
 	v.treeViewNodes.Delete(id)
 }
 
-func (v *View) SetOnCopyResponse(onCopyResponse func(gtx layout.Context, dataType, data string)) {
-	v.onCopyResponse = onCopyResponse
-}
-
-func (v *View) SetOnBinaryFileSelect(f func(id string)) {
-	v.onBinaryFileSelect = f
-}
-
-func (v *View) SetOnServerInfoReload(f func(id string)) {
-	v.onServerInfoReload = f
-}
-
-func (v *View) SetOnGrpcInvoke(f func(id string)) {
-	v.onGrpcInvoke = f
-}
-
-func (v *View) SetOnGrpcLoadRequestExample(f func(id string)) {
-	v.onGrpcLoadRequestExample = f
-}
-
 func (v *View) SetSetGrpcRequestBody(id, body string) {
 	if ct, ok := v.containers.Get(id); ok {
 		if ct, ok := ct.(GrpcContainer); ok {
@@ -329,69 +307,12 @@ func (v *View) SetGRPCMethodsLoading(id string, loading bool) {
 	}
 }
 
-func (v *View) SetOnFormDataFileSelect(f func(requestId, fieldId string)) {
-	v.onFromDataFileSelect = f
-}
-
 func (v *View) AddFileToFormData(requestId, fieldId, filePath string) {
 	if ct, ok := v.containers.Get(requestId); ok {
 		if ct, ok := ct.(RestContainer); ok {
 			ct.AddFileToFormData(fieldId, filePath)
 		}
 	}
-}
-
-func (v *View) SetOnNewRequest(onNewRequest func(requestType domain.RequestType)) {
-	v.onNewRequest = onNewRequest
-}
-
-func (v *View) SetOnDataChanged(onDataChanged func(id string, data any, containerType string)) {
-	v.onDataChanged = onDataChanged
-}
-
-func (v *View) SetOnNewCollection(onNewCollection func()) {
-	v.onNewCollection = onNewCollection
-}
-
-func (v *View) SetOnSubmit(f func(id, containerType string)) {
-	v.onSubmit = f
-}
-
-func (v *View) SetOnImport(f func(importType string)) {
-	v.onImport = f
-}
-
-func (v *View) SetOnTitleChanged(onTitleChanged func(id, title, containerType string)) {
-	v.onTitleChanged = onTitleChanged
-}
-
-func (v *View) SetOnTreeViewNodeDoubleClicked(onTreeViewNodeDoubleClicked func(id string)) {
-	v.onTreeViewNodeDoubleClicked = onTreeViewNodeDoubleClicked
-	v.treeView.OnNodeDoubleClick(func(node *widgets.TreeNode) {
-		v.onTreeViewNodeDoubleClicked(node.Identifier)
-	})
-}
-
-func (v *View) SetOnTreeViewNodeClicked(onTreeViewNodeClicked func(id string)) {
-	v.onTreeViewNodeClicked = onTreeViewNodeClicked
-	v.treeView.OnNodeClick(func(node *widgets.TreeNode) {
-		v.onTreeViewNodeClicked(node.Identifier)
-	})
-}
-
-func (v *View) SetOnTreeViewMenuClicked(onTreeViewMenuClicked func(id, action string)) {
-	v.onTreeViewMenuClicked = onTreeViewMenuClicked
-	v.treeView.SetOnMenuItemClick(func(node *widgets.TreeNode, item string) {
-		v.onTreeViewMenuClicked(node.Identifier, item)
-	})
-}
-
-func (v *View) SetOnTabSelected(onTabSelected func(id string)) {
-	v.onTabSelected = onTabSelected
-}
-
-func (v *View) SetOnSave(onSave func(id string)) {
-	v.onSave = onSave
 }
 
 func (v *View) ExpandTreeViewNode(id string) {
@@ -401,10 +322,6 @@ func (v *View) ExpandTreeViewNode(id string) {
 	}
 
 	v.treeView.ExpandNode(node.Identifier)
-}
-
-func (v *View) SetOnTabClose(onTabClose func(id string)) {
-	v.onTabClose = onTabClose
 }
 
 func (v *View) UpdateTabTitle(id, title string) {
@@ -462,11 +379,11 @@ func (v *View) OpenTab(id, name, tabType string) {
 	}
 	tab.Meta.Set(TypeMeta, tabType)
 
-	if v.onTabClose != nil {
-		tab.SetOnClose(func(tab *widgets.Tab) {
-			v.onTabClose(tab.Identifier)
-		})
-	}
+	tab.SetOnClose(func(tab *widgets.Tab) {
+		if v.controller != nil {
+			v.controller.OnTabClose(tab.Identifier)
+		}
+	})
 
 	i := v.tabHeader.AddTab(tab)
 	v.openTabs.Set(id, tab)
@@ -522,68 +439,68 @@ func (v *View) createGrpcContainer(req *domain.Request) Container {
 	ct := grpc.New(req, v.theme, v.explorer)
 
 	ct.SetOnTitleChanged(func(text string) {
-		if v.onTitleChanged != nil {
-			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnTitleChanged(req.MetaData.ID, text, TypeRequest)
 		}
 	})
 
 	ct.SetOnSave(func(id string) {
-		if v.onSave != nil {
-			v.onSave(id)
+		if v.controller != nil {
+			v.controller.OnSave(id)
 		}
 	})
 
 	ct.SetOnDataChanged(func(id string, data any) {
-		if v.onDataChanged != nil {
-			v.onDataChanged(id, data, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnDataChanged(id, data, TypeRequest)
 		}
 	})
 
 	ct.SetOnReload(func(id string) {
-		if v.onServerInfoReload != nil {
-			v.onServerInfoReload(id)
+		if v.controller != nil {
+			v.controller.OnServerInfoReload(id)
 		}
 	})
 
 	ct.SetOnInvoke(func(id string) {
-		if v.onGrpcInvoke != nil {
-			v.onGrpcInvoke(id)
+		if v.controller != nil {
+			v.controller.OnGrpcInvoke(id)
 		}
 	})
 
 	ct.SetOnSetOnTriggerRequestChanged(func(id, collectionID, requestID string) {
-		if v.onOnSetOnTriggerRequestChanged != nil {
-			v.onOnSetOnTriggerRequestChanged(id, collectionID, requestID)
+		if v.controller != nil {
+			v.controller.OnSetOnTriggerRequestChanged(id, collectionID, requestID)
 		}
 	})
 
 	ct.SetOnPostRequestSetChanged(func(id string, statusCode int, item, from, fromKey string) {
-		if v.onOnPostRequestSetChanged != nil {
-			v.onOnPostRequestSetChanged(id, statusCode, item, from, fromKey)
+		if v.controller != nil {
+			v.controller.OnPostRequestSetChanged(id, statusCode, item, from, fromKey)
 		}
 	})
 
 	ct.SetOnLoadRequestExample(func(id string) {
-		if v.onGrpcLoadRequestExample != nil {
-			v.onGrpcLoadRequestExample(id)
+		if v.controller != nil {
+			v.controller.OnGrpcLoadRequestExample(id)
 		}
 	})
 
 	ct.SetOnCopyResponse(func(gtx layout.Context, dataType, data string) {
-		if v.onCopyResponse != nil {
-			v.onCopyResponse(gtx, dataType, data)
+		if v.controller != nil {
+			v.controller.OnCopyResponse(gtx, dataType, data)
 		}
 	})
 
 	ct.SetOnRequestTabChange(func(id, tab string) {
-		if v.onRequestTabChanged != nil {
-			v.onRequestTabChanged(id, tab)
+		if v.controller != nil {
+			v.controller.OnRequestTabChanged(id, tab)
 		}
 	})
 
 	ct.SetOnCreateCollectionFromMethods(func() {
-		if v.onCreateCollectionFromMethods != nil {
-			v.onCreateCollectionFromMethods(req.MetaData.ID)
+		if v.controller != nil {
+			v.controller.OnCreateCollectionFromMethods(req.MetaData.ID)
 		}
 	})
 
@@ -594,62 +511,62 @@ func (v *View) createRestfulContainer(req *domain.Request) Container {
 	ct := restful.New(req, v.theme, v.explorer)
 
 	ct.SetOnTitleChanged(func(text string) {
-		if v.onTitleChanged != nil {
-			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnTitleChanged(req.MetaData.ID, text, TypeRequest)
 		}
 	})
 
 	ct.SetOnSave(func(id string) {
-		if v.onSave != nil {
-			v.onSave(id)
+		if v.controller != nil {
+			v.controller.OnSave(id)
 		}
 	})
 
 	ct.SetOnDataChanged(func(id string, data any) {
-		if v.onDataChanged != nil {
-			v.onDataChanged(id, req, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnDataChanged(id, req, TypeRequest)
 		}
 	})
 
 	ct.SetOnSubmit(func(id string) {
-		if v.onSubmit != nil {
-			v.onSubmit(id, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnSubmit(id, TypeRequest)
 		}
 	})
 
 	ct.SetOnCopyResponse(func(gtx layout.Context, dataType, data string) {
-		if v.onCopyResponse != nil {
-			v.onCopyResponse(gtx, dataType, data)
+		if v.controller != nil {
+			v.controller.OnCopyResponse(gtx, dataType, data)
 		}
 	})
 
 	ct.SetOnPostRequestSetChanged(func(id string, statusCode int, item, from, fromKey string) {
-		if v.onOnPostRequestSetChanged != nil {
-			v.onOnPostRequestSetChanged(id, statusCode, item, from, fromKey)
+		if v.controller != nil {
+			v.controller.OnPostRequestSetChanged(id, statusCode, item, from, fromKey)
 		}
 	})
 
 	ct.SetOnSetOnTriggerRequestChanged(func(id, collectionID, requestID string) {
-		if v.onOnSetOnTriggerRequestChanged != nil {
-			v.onOnSetOnTriggerRequestChanged(id, collectionID, requestID)
+		if v.controller != nil {
+			v.controller.OnSetOnTriggerRequestChanged(id, collectionID, requestID)
 		}
 	})
 
 	ct.SetOnBinaryFileSelect(func(id string) {
-		if v.onBinaryFileSelect != nil {
-			v.onBinaryFileSelect(id)
+		if v.controller != nil {
+			v.controller.OnBinaryFileSelect(id)
 		}
 	})
 
 	ct.SetOnFormDataFileSelect(func(requestId, fieldId string) {
-		if v.onFromDataFileSelect != nil {
-			v.onFromDataFileSelect(requestId, fieldId)
+		if v.controller != nil {
+			v.controller.OnFormDataFileSelect(requestId, fieldId)
 		}
 	})
 
 	ct.SetOnRequestTabChange(func(id, tab string) {
-		if v.onRequestTabChanged != nil {
-			v.onRequestTabChanged(id, tab)
+		if v.controller != nil {
+			v.controller.OnRequestTabChanged(id, tab)
 		}
 	})
 
@@ -660,50 +577,50 @@ func (v *View) createGraphQLContainer(req *domain.Request) Container {
 	ct := graphql.New(req, v.theme, v.explorer)
 
 	ct.SetOnTitleChanged(func(text string) {
-		if v.onTitleChanged != nil {
-			v.onTitleChanged(req.MetaData.ID, text, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnTitleChanged(req.MetaData.ID, text, TypeRequest)
 		}
 	})
 
 	ct.SetOnSave(func(id string) {
-		if v.onSave != nil {
-			v.onSave(id)
+		if v.controller != nil {
+			v.controller.OnSave(id)
 		}
 	})
 
 	ct.SetOnDataChanged(func(id string, data any) {
-		if v.onDataChanged != nil {
-			v.onDataChanged(id, data, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnDataChanged(id, data, TypeRequest)
 		}
 	})
 
 	ct.SetOnSubmit(func(id string) {
-		if v.onSubmit != nil {
-			v.onSubmit(id, TypeRequest)
+		if v.controller != nil {
+			v.controller.OnSubmit(id, TypeRequest)
 		}
 	})
 
 	ct.SetOnCopyResponse(func(gtx layout.Context, dataType, data string) {
-		if v.onCopyResponse != nil {
-			v.onCopyResponse(gtx, dataType, data)
+		if v.controller != nil {
+			v.controller.OnCopyResponse(gtx, dataType, data)
 		}
 	})
 
 	ct.SetOnPostRequestSetChanged(func(id string, statusCode int, item, from, fromKey string) {
-		if v.onOnPostRequestSetChanged != nil {
-			v.onOnPostRequestSetChanged(id, statusCode, item, from, fromKey)
+		if v.controller != nil {
+			v.controller.OnPostRequestSetChanged(id, statusCode, item, from, fromKey)
 		}
 	})
 
 	ct.SetOnSetOnTriggerRequestChanged(func(id, collectionID, requestID string) {
-		if v.onOnSetOnTriggerRequestChanged != nil {
-			v.onOnSetOnTriggerRequestChanged(id, collectionID, requestID)
+		if v.controller != nil {
+			v.controller.OnSetOnTriggerRequestChanged(id, collectionID, requestID)
 		}
 	})
 
 	ct.SetOnRequestTabChange(func(id, tab string) {
-		if v.onRequestTabChanged != nil {
-			v.onRequestTabChanged(id, tab)
+		if v.controller != nil {
+			v.controller.OnRequestTabChanged(id, tab)
 		}
 	})
 
@@ -833,21 +750,21 @@ func (v *View) OpenCollectionContainer(collection *domain.Collection) {
 	}
 
 	ct := collections.New(collection, v.theme)
-	ct.Title.SetOnChanged(func(text string) {
-		if v.onTitleChanged != nil {
-			v.onTitleChanged(collection.MetaData.ID, text, TypeCollection)
+	ct.SetOnTitleChanged(func(text string) {
+		if v.controller != nil {
+			v.controller.OnTitleChanged(collection.MetaData.ID, text, TypeCollection)
 		}
 	})
 
 	ct.SetOnDataChanged(func(id string, data any) {
-		if v.onDataChanged != nil {
-			v.onDataChanged(id, data, TypeCollection)
+		if v.controller != nil {
+			v.controller.OnDataChanged(id, data, TypeCollection)
 		}
 	})
 
 	ct.SetOnSave(func(id string) {
-		if v.onSave != nil {
-			v.onSave(id)
+		if v.controller != nil {
+			v.controller.OnSave(id)
 		}
 	})
 
@@ -1076,6 +993,12 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 }
 
 func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if v.treeViewSearchBox.Changed() {
+		if v.treeViewNodes.Len() > 0 {
+			v.treeView.Filter(v.treeViewSearchBox.GetText())
+		}
+	}
+
 	if v.newRequestButton.Clicked(gtx) {
 		v.showCreateNewModal()
 	}
@@ -1146,8 +1069,8 @@ func (v *View) showImportModal() {
 		for _, item := range m.Items {
 			if item.Clickable.Clicked(gtx) {
 				v.Base.CloseModal()
-				if v.onImport != nil {
-					v.onImport(item.Key)
+				if v.controller != nil {
+					v.controller.OnImport(item.Key)
 				}
 			}
 		}
@@ -1157,26 +1080,26 @@ func (v *View) showImportModal() {
 }
 
 func (v *View) createNew(itemType domain.RequestType) {
-	if v.onNewRequest == nil || v.onNewCollection == nil {
+	if v.controller == nil {
 		return
 	}
 
 	switch itemType {
 	case domain.RequestTypeGRPC:
-		v.onNewRequest(domain.RequestTypeGRPC)
+		v.controller.OnNewRequest(domain.RequestTypeGRPC)
 	case domain.RequestTypeHTTP:
-		v.onNewRequest(domain.RequestTypeHTTP)
+		v.controller.OnNewRequest(domain.RequestTypeHTTP)
 	case domain.RequestTypeGraphQL:
-		v.onNewRequest(domain.RequestTypeGraphQL)
+		v.controller.OnNewRequest(domain.RequestTypeGraphQL)
 	case domain.KindCollection:
-		v.onNewCollection()
+		v.controller.OnNewCollection()
 	}
 }
 
 func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	if v.onSave != nil {
+	if v.controller != nil {
 		keys.OnSaveCommand(gtx, v, func() {
-			v.onSave(v.tabHeader.SelectedTab().GetIdentifier())
+			v.controller.OnSave(v.tabHeader.SelectedTab().GetIdentifier())
 		})
 	}
 
@@ -1191,10 +1114,6 @@ func (v *View) containerHolder(gtx layout.Context, theme *chapartheme.Theme) lay
 
 			selectedTab := v.tabHeader.SelectedTab()
 			if selectedTab != nil {
-				if v.onTabSelected != nil {
-					v.onTabSelected(selectedTab.Identifier)
-				}
-
 				if ct, ok := v.containers.Get(selectedTab.Identifier); ok {
 					return ct.Layout(gtx, theme)
 				}

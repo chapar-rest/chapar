@@ -33,8 +33,7 @@ type DropDown struct {
 	borderWidth  unit.Dp
 	cornerRadius unit.Dp
 
-	changed       bool
-	onValueChange func(value string)
+	changed bool
 }
 
 type DropDownOption struct {
@@ -105,10 +104,6 @@ func (o *DropDownOption) GetValue() string {
 func (c *DropDown) SetSelected(index int) {
 	c.selectedOptionIndex = index
 	c.lastSelectedIndex = index
-}
-
-func (c *DropDown) SetOnChanged(f func(value string)) {
-	c.onValueChange = f
 }
 
 func (c *DropDown) SetSelectedByTitle(title string) {
@@ -272,9 +267,6 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 
 	if c.selectedOptionIndex != c.lastSelectedIndex {
 		c.changed = true
-		if c.onValueChange != nil {
-			go c.onValueChange(c.options[c.selectedOptionIndex].Value)
-		}
 		c.lastSelectedIndex = c.selectedOptionIndex
 	}
 

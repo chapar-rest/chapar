@@ -34,8 +34,8 @@ func (l *LabeledInput) SetLabel(label string) {
 	l.Label = label
 }
 
-func (l *LabeledInput) SetOnChanged(f func(text string)) {
-	l.Editor.SetOnChanged(f)
+func (l *LabeledInput) Changed() bool {
+	return l.Editor.Changed()
 }
 
 func (l *LabeledInput) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {

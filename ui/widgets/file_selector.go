@@ -68,16 +68,6 @@ func (b *FileSelector) handleExplorerSelect() {
 
 func (b *FileSelector) SetOnSelectFile(f func()) {
 	b.onSelectFile = f
-	b.textField.SetOnIconClick(func() {
-		if b.FileName != "" {
-			b.RemoveFile()
-			return
-		} else {
-			// Select file
-			f()
-			b.onChangeCallback()
-		}
-	})
 }
 
 func (b *FileSelector) SetFileName(name string) {
@@ -127,5 +117,14 @@ func (b *FileSelector) updateIcon() {
 func (b *FileSelector) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	gtx.Constraints.Max.Y = gtx.Dp(32)
 	gtx.Constraints.Max.X = gtx.Dp(200)
-	return b.textField.Layout(gtx, theme)
+	dims := b.textField.Layout(gtx, theme)
+	if b.textField.IconClicked() {
+		if b.FileName != "" {
+			b.RemoveFile()
+		} else if b.onSelectFile != nil {
+			b.onSelectFile()
+			b.onChangeCallback()
+		}
+	}
+	return dims
 }

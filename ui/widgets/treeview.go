@@ -231,7 +231,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 		switch click.NumClicks {
 		case 1:
 			if t.onNodeClick != nil {
-				go t.onNodeClick(node)
+				t.onNodeClick(node)
 				if t.selectedOnClick {
 					t.setNodeSelected(node)
 				}
@@ -239,7 +239,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 			}
 		case 2:
 			if t.onNodeDoubleClick != nil {
-				go t.onNodeDoubleClick(node)
+				t.onNodeDoubleClick(node)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		default:

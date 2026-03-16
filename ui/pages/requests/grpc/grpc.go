@@ -3,6 +3,7 @@ package grpc
 import (
 	"gioui.org/layout"
 	"gioui.org/unit"
+
 	giox "gioui.org/x/component"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -100,17 +101,6 @@ func (r *Grpc) setupHooks() {
 
 	r.Request.Auth.SetOnChange(func(auth domain.Auth) {
 		r.Req.Spec.GRPC.Auth = auth
-		r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	})
-
-	r.Request.Metadata.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		data := converter.KeyValueFromWidgetItems(items)
-		r.Req.Spec.GRPC.Metadata = data
-		r.onDataChanged(r.Req.MetaData.ID, r.Req)
-	})
-
-	r.Request.Settings.SetOnChange(func(values map[string]any) {
-		r.Req.Spec.GRPC.Settings = convertSettingsToItems(values)
 		r.onDataChanged(r.Req.MetaData.ID, r.Req)
 	})
 
@@ -356,6 +346,12 @@ func (r *Grpc) SetMethodsLoading(loading bool) {
 }
 
 func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if r.Request.Metadata.Changed() {
+		data := converter.KeyValueFromWidgetItems(r.Request.Metadata.Items)
+		r.Req.Spec.GRPC.Metadata = data
+		r.onDataChanged(r.Req.MetaData.ID, r.Req)
+	}
+
 	if r.Actions.IsDataChanged && r.Actions.SaveButton.Clicked(gtx) && r.onSave != nil {
 		r.onSave(r.Req.MetaData.ID)
 		r.Actions.IsDataChanged = false
@@ -384,7 +380,12 @@ func (r *Grpc) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return r.split.Layout(gtx, theme,
 					func(gtx layout.Context) layout.Dimensions {
-						return r.Request.Layout(gtx, theme)
+						dims := r.Request.Layout(gtx, theme)
+						if r.Request.Settings.Changed() {
+							r.Req.Spec.GRPC.Settings = convertSettingsToItems(r.Request.Settings.GetValues())
+							r.onDataChanged(r.Req.MetaData.ID, r.Req)
+						}
+						return dims
 					},
 					func(gtx layout.Context) layout.Dimensions {
 						return r.Response.Layout(gtx, theme)

@@ -142,13 +142,6 @@ func (p *PrePostRequest) SetRequests(requests []*domain.Request, selectedID stri
 
 func (p *PrePostRequest) SetOnTriggerRequestChanged(f func(collectionID, requestID string)) {
 	p.onTriggerRequestChange = f
-	p.triggerRequestForm.collectionsDropDown.SetOnChanged(func(selected string) {
-		p.onTriggerRequestChange(selected, p.triggerRequestForm.requestDropDown.GetSelected().GetValue())
-	})
-
-	p.triggerRequestForm.requestDropDown.SetOnChanged(func(selected string) {
-		p.onTriggerRequestChange(p.triggerRequestForm.collectionsDropDown.GetSelected().GetValue(), selected)
-	})
 }
 
 func (p *PrePostRequest) SetOnScriptChanged(f func(script string)) {
@@ -158,7 +151,6 @@ func (p *PrePostRequest) SetOnScriptChanged(f func(script string)) {
 
 func (p *PrePostRequest) SetOnDropDownChanged(f func(selected string)) {
 	p.onDropDownChanged = f
-	p.dropDown.SetOnChanged(p.onDropDownChanged)
 }
 
 func (p *PrePostRequest) SetSelectedDropDown(selected string) {
@@ -190,23 +182,13 @@ func (p *PrePostRequest) SetOnPostRequestSetChanged(f func(statusCode int, item,
 	}
 
 	p.onSetEnvFormChanged = f
-	p.setEnvForm.fromDropDown.SetOnChanged(func(selected string) {
-		statusCode, _ := strconv.Atoi(p.setEnvForm.statusCodeEditor.Text())
-		p.onSetEnvFormChanged(statusCode, p.setEnvForm.targetEditor.Text(), selected, p.setEnvForm.fromEditor.Text())
-	})
-	p.setEnvForm.statusCodeEditor.SetOnChanged(func(text string) {
-		p.enforceNumericEditor(p.setEnvForm.statusCodeEditor.Editor)
-		p.handleDataChange()
-	})
-	p.setEnvForm.targetEditor.SetOnChanged(func(_ string) {
-		p.handleDataChange()
-	})
-	p.setEnvForm.fromEditor.SetOnChanged(func(_ string) {
-		p.handleDataChange()
-	})
 }
 
 func (p *PrePostRequest) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if p.dropDown.Changed() && p.onDropDownChanged != nil {
+		p.onDropDownChanged(p.dropDown.GetSelected().Value)
+	}
+
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{
@@ -258,6 +240,24 @@ func (p *PrePostRequest) enforceNumericEditor(editor *widgets.PatternEditor) {
 }
 
 func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	changed := false
+	if p.setEnvForm.fromDropDown.Changed() {
+		changed = true
+	}
+	if p.setEnvForm.statusCodeEditor.Changed() {
+		p.enforceNumericEditor(p.setEnvForm.statusCodeEditor.Editor)
+		changed = true
+	}
+	if p.setEnvForm.targetEditor.Changed() {
+		changed = true
+	}
+	if p.setEnvForm.fromEditor.Changed() {
+		changed = true
+	}
+	if changed {
+		p.handleDataChange()
+	}
+
 	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -317,6 +317,13 @@ func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme
 }
 
 func (p *PrePostRequest) TriggerRequestForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if (p.triggerRequestForm.collectionsDropDown.Changed() || p.triggerRequestForm.requestDropDown.Changed()) && p.onTriggerRequestChange != nil {
+		p.onTriggerRequestChange(
+			p.triggerRequestForm.collectionsDropDown.GetSelected().GetValue(),
+			p.triggerRequestForm.requestDropDown.GetSelected().GetValue(),
+		)
+	}
+
 	topButtonInset := layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(4)}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,

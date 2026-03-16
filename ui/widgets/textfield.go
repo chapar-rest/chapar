@@ -32,8 +32,8 @@ type TextField struct {
 
 	size image.Point
 
-	onIconClick  func()
-	onTextChange func(text string)
+	changed     bool
+	iconClicked bool
 }
 
 func NewTextField(text, placeholder string) *TextField {
@@ -73,12 +73,16 @@ func (t *TextField) SetBorderColor(color color.NRGBA) {
 	t.BorderColor = color
 }
 
-func (t *TextField) SetOnTextChange(f func(text string)) {
-	t.onTextChange = f
+func (t *TextField) Changed() bool {
+	out := t.changed
+	t.changed = false
+	return out
 }
 
-func (t *TextField) SetOnIconClick(f func()) {
-	t.onIconClick = f
+func (t *TextField) IconClicked() bool {
+	out := t.iconClicked
+	t.iconClicked = false
+	return out
 }
 
 func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
@@ -124,9 +128,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			break
 		}
 		if _, ok := event.(widget.ChangeEvent); ok {
-			if t.onTextChange != nil {
-				t.onTextChange(t.textEditor.Text())
-			}
+			t.changed = true
 		}
 	}
 
@@ -150,15 +152,11 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			spacing := layout.SpaceBetween
 			if t.Icon != nil {
 				iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					clk := &widget.Clickable{}
-					if t.onIconClick != nil {
-						clk = &t.iconClick
-						if t.iconClick.Clicked(gtx) {
-							t.onIconClick()
-						}
+					if t.iconClick.Clicked(gtx) {
+						t.iconClicked = true
 					}
 
-					b := Button(theme.Material(), clk, t.Icon, IconPositionStart, "")
+					b := Button(theme.Material(), &t.iconClick, t.Icon, IconPositionStart, "")
 					b.Inset = layout.Inset{Left: unit.Dp(8), Right: unit.Dp(2), Top: unit.Dp(2), Bottom: unit.Dp(2)}
 					return b.Layout(gtx, theme)
 				})

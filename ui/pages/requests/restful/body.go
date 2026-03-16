@@ -66,15 +66,6 @@ func NewBody(body domain.Body, theme *chapartheme.Theme, explorer *explorer.Expl
 func (b *Body) SetOnChange(f func(body domain.Body)) {
 	b.onChange = f
 
-	b.DropDown.SetOnChanged(func(selected string) {
-		b.body.Type = selected
-		b.onChange(b.body)
-
-		if selected == domain.RequestBodyTypeJSON || selected == domain.RequestBodyTypeXML {
-			b.script.SetLanguage(selected)
-		}
-	})
-
 	b.script.SetOnChanged(func(script string) {
 		b.body.Data = script
 		b.onChange(b.body)
@@ -85,11 +76,6 @@ func (b *Body) SetOnChange(f func(body domain.Body)) {
 		b.onChange(b.body)
 	})
 
-	b.urlencoded.SetOnChanged(func(items []*widgets.KeyValueItem) {
-		b.body.URLEncoded = converter.KeyValueFromWidgetItems(b.urlencoded.Items)
-		b.onChange(b.body)
-	})
-
 	b.BinaryFile.SetOnChanged(func(filePath string) {
 		b.body.BinaryFilePath = filePath
 		b.onChange(b.body)
@@ -97,6 +83,22 @@ func (b *Body) SetOnChange(f func(body domain.Body)) {
 }
 
 func (b *Body) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if b.DropDown.Changed() {
+		b.body.Type = b.DropDown.GetSelected().Value
+		if b.onChange != nil {
+			b.onChange(b.body)
+		}
+		if b.body.Type == domain.RequestBodyTypeJSON || b.body.Type == domain.RequestBodyTypeXML {
+			b.script.SetLanguage(b.body.Type)
+		}
+	}
+	if b.urlencoded.Changed() {
+		b.body.URLEncoded = converter.KeyValueFromWidgetItems(b.urlencoded.Items)
+		if b.onChange != nil {
+			b.onChange(b.body)
+		}
+	}
+
 	inset := layout.Inset{Top: unit.Dp(15), Right: unit.Dp(10)}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{

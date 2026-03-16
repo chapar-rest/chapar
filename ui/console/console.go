@@ -49,10 +49,6 @@ func New(theme *chapartheme.Theme) *Console {
 		searchBox: search,
 	}
 
-	search.SetOnTextChange(func(text string) {
-		c.filterText = text
-	})
-
 	return c
 }
 
@@ -93,6 +89,9 @@ func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *d
 }
 
 func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
+	if c.searchBox.Changed() {
+		c.filterText = c.searchBox.GetText()
+	}
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.X = gtx.Dp(200)

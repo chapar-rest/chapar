@@ -19,14 +19,11 @@ func NewController(view *View) *Controller {
 		view: view,
 	}
 
-	view.SetOnChange(c.onChange)
-	view.SetOnSave(c.onSave)
-	view.SetOnCancel(c.onCancel)
-	view.SetOnLoadDefaults(c.onLoadDefaults)
+	view.SetController(c)
 	return c
 }
 
-func (c *Controller) onSave() {
+func (c *Controller) OnSave() {
 	if !c.view.IsDataChanged {
 		return
 	}
@@ -46,7 +43,7 @@ func (c *Controller) onSave() {
 	}
 }
 
-func (c *Controller) onCancel() {
+func (c *Controller) OnCancel() {
 	if !c.view.IsDataChanged {
 		return
 	}
@@ -57,14 +54,14 @@ func (c *Controller) onCancel() {
 	c.view.Refresh()
 }
 
-func (c *Controller) onLoadDefaults() {
+func (c *Controller) OnLoadDefaults() {
 	c.view.Load(*domain.GetDefaultGlobalConfig())
 	c.view.IsDataChanged = false
 	c.oldViewChanged = false
 	c.view.Refresh()
 }
 
-func (c *Controller) onChange(values map[string]any) {
+func (c *Controller) OnChange(values map[string]any) {
 	// load data from the settings
 	globalSettings := prefs.GetGlobalConfig()
 	// input values

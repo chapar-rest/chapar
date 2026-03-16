@@ -69,13 +69,6 @@ func NewFormData(theme *chapartheme.Theme, fields ...*FormDataField) *FormData {
 		f.addField(field)
 	}
 
-	f.addButton.OnClick = func() {
-		f.addField(NewFormDataField(FormDataFieldTypeText, "", "", nil))
-		if f.onChanged != nil {
-			f.onChanged(f.GetValues())
-		}
-	}
-
 	return f
 }
 
@@ -159,12 +152,6 @@ func (f *FormData) addField(field *FormDataField) {
 
 	field.activeBool = new(widget.Bool)
 	field.activeBool.Value = field.Enable
-
-	field.typeDropDown.SetOnChanged(func(selected string) {
-		field.Type = selected
-
-		f.triggerChanged()
-	})
 
 	f.Fields = append(f.Fields, field)
 }
@@ -318,6 +305,13 @@ func (f *FormData) layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 }
 
 func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapartheme.Theme) layout.Dimensions {
+	for _, field := range f.Fields {
+		if field.typeDropDown.Changed() {
+			field.Type = field.typeDropDown.GetSelected().Value
+			f.triggerChanged()
+		}
+	}
+
 	for i, field := range f.Fields {
 		if field.deleteButton.Clicked(gtx) {
 			f.Fields = append(f.Fields[:i], f.Fields[i+1:]...)
@@ -326,7 +320,7 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 
 		if field.uploadButton.Clicked(gtx) {
 			if f.onSelectFile != nil {
-				go f.onSelectFile(field.Identifier)
+				f.onSelectFile(field.Identifier)
 			}
 		}
 	}
@@ -353,7 +347,14 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						f.addButton.BackgroundColor = theme.Palette.Bg
 						f.addButton.Color = theme.TextColor
-						return f.addButton.Layout(gtx, theme)
+						dims := f.addButton.Layout(gtx, theme)
+						if f.addButton.Clicked() {
+							f.addField(NewFormDataField(FormDataFieldTypeText, "", "", nil))
+							if f.onChanged != nil {
+								f.onChanged(f.GetValues())
+							}
+						}
+						return dims
 					})
 				}),
 			)

@@ -73,18 +73,6 @@ func NewVariables(theme *chapartheme.Theme, requestType domain.RequestType, item
 		f.addItem(item)
 	}
 
-	f.addButton.OnClick = func() {
-		v := NewVariable()
-		if f.requestType == domain.RequestTypeGRPC {
-			v.OnStatusCode = 0
-		}
-
-		f.addItem(NewVariable())
-		if f.onChanged != nil {
-			f.onChanged(f.GetValues())
-		}
-	}
-
 	return f
 }
 
@@ -157,11 +145,6 @@ func (f *Variables) addItem(item *Variable) {
 
 	item.enableBool = new(widget.Bool)
 	item.enableBool.Value = item.Enable
-
-	item.fromDropDown.SetOnChanged(func(selected string) {
-		item.From = domain.VariableFrom(selected)
-		f.triggerChanged()
-	})
 
 	item.jsonPathCodeEditor = &widget.Editor{SingleLine: true}
 	item.jsonPathCodeEditor.SetText(item.JsonPath)
@@ -330,6 +313,13 @@ func (f *Variables) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 }
 
 func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapartheme.Theme) layout.Dimensions {
+	for _, item := range f.Items {
+		if item.fromDropDown.Changed() {
+			item.From = domain.VariableFrom(item.fromDropDown.GetSelected().Value)
+			f.triggerChanged()
+		}
+	}
+
 	for i, field := range f.Items {
 		if field.deleteButton.Clicked(gtx) {
 			f.Items = append(f.Items[:i], f.Items[i+1:]...)
@@ -368,7 +358,18 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							f.addButton.BackgroundColor = theme.Palette.Bg
 							f.addButton.Color = theme.TextColor
-							return f.addButton.Layout(gtx, theme)
+							dims := f.addButton.Layout(gtx, theme)
+							if f.addButton.Clicked() {
+								v := NewVariable()
+								if f.requestType == domain.RequestTypeGRPC {
+									v.OnStatusCode = 0
+								}
+								f.addItem(v)
+								if f.onChanged != nil {
+									f.onChanged(f.GetValues())
+								}
+							}
+							return dims
 						})
 					}),
 				)
