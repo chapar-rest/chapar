@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -164,6 +165,7 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 		Transport: &http.Transport{
 			MaxIdleConns:           10,
 			MaxResponseHeaderBytes: int64(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
+			TLSClientConfig:        &tls.Config{InsecureSkipVerify: !globalConfig.Spec.General.VaidateTLSCertificates},
 		},
 	}
 	if !globalConfig.Spec.General.FollowRedirects {
@@ -176,6 +178,7 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 		client.Transport = &http2.Transport{
 			AllowHTTP:        true,
 			MaxReadFrameSize: uint32(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
+			TLSClientConfig:  &tls.Config{InsecureSkipVerify: !globalConfig.Spec.General.VaidateTLSCertificates},
 		}
 	}
 

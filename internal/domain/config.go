@@ -33,13 +33,14 @@ func (g *GlobalConfig) Changed(other *GlobalConfig) bool {
 }
 
 type GeneralConfig struct {
-	HTTPVersion           string `yaml:"httpVersion"`
-	RequestTimeoutSec     int    `yaml:"timeoutSec"`
-	ResponseSizeMb        int    `yaml:"responseSizeMb"`
-	SendNoCacheHeader     bool   `yaml:"sendNoCacheHeader"`
-	UseHorizontalSplit    bool   `yaml:"useVerticalSplit"`
-	SendChaparAgentHeader bool   `yaml:"sendChaparAgentHeader"`
-	FollowRedirects       bool   `yaml:"followRedirects"`
+	HTTPVersion            string `yaml:"httpVersion"`
+	RequestTimeoutSec      int    `yaml:"timeoutSec"`
+	ResponseSizeMb         int    `yaml:"responseSizeMb"`
+	SendNoCacheHeader      bool   `yaml:"sendNoCacheHeader"`
+	UseHorizontalSplit     bool   `yaml:"useVerticalSplit"`
+	SendChaparAgentHeader  bool   `yaml:"sendChaparAgentHeader"`
+	FollowRedirects        bool   `yaml:"followRedirects"`
+	VaidateTLSCertificates bool   `yaml:"validateTLSCertificates"`
 }
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
@@ -49,7 +50,8 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.SendNoCacheHeader != other.SendNoCacheHeader ||
 		g.UseHorizontalSplit != other.UseHorizontalSplit ||
 		g.SendChaparAgentHeader != other.SendChaparAgentHeader ||
-		g.FollowRedirects != other.FollowRedirects
+		g.FollowRedirects != other.FollowRedirects ||
+		g.VaidateTLSCertificates != other.VaidateTLSCertificates
 }
 
 const (
@@ -134,13 +136,14 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 		},
 		Spec: GlobalConfigSpec{
 			General: GeneralConfig{
-				HTTPVersion:           "http/1.1",
-				RequestTimeoutSec:     30,
-				ResponseSizeMb:        10,
-				SendNoCacheHeader:     true,
-				SendChaparAgentHeader: true,
-				UseHorizontalSplit:    true,
-				FollowRedirects:       true,
+				HTTPVersion:            "http/1.1",
+				RequestTimeoutSec:      30,
+				ResponseSizeMb:         10,
+				SendNoCacheHeader:      true,
+				SendChaparAgentHeader:  true,
+				UseHorizontalSplit:     true,
+				FollowRedirects:        true,
+				VaidateTLSCertificates: true,
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -169,13 +172,14 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 func (g *GlobalConfig) ValuesMap() map[string]any {
 	return map[string]any{
 		"general": map[string]any{
-			"httpVersion":           g.Spec.General.HTTPVersion,
-			"timeoutSec":            g.Spec.General.RequestTimeoutSec,
-			"responseSizeMb":        g.Spec.General.ResponseSizeMb,
-			"sendNoCacheHeader":     g.Spec.General.SendNoCacheHeader,
-			"sendChaparAgentHeader": g.Spec.General.SendChaparAgentHeader,
-			"useHorizontalSplit":    g.Spec.General.UseHorizontalSplit,
-			"followRedirects":       g.Spec.General.FollowRedirects,
+			"httpVersion":            g.Spec.General.HTTPVersion,
+			"timeoutSec":             g.Spec.General.RequestTimeoutSec,
+			"responseSizeMb":         g.Spec.General.ResponseSizeMb,
+			"sendNoCacheHeader":      g.Spec.General.SendNoCacheHeader,
+			"sendChaparAgentHeader":  g.Spec.General.SendChaparAgentHeader,
+			"useHorizontalSplit":     g.Spec.General.UseHorizontalSplit,
+			"followRedirects":        g.Spec.General.FollowRedirects,
+			"validateTLSCertificate": g.Spec.General.VaidateTLSCertificates,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -216,6 +220,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.General.SendChaparAgentHeader = getOrDefault(values, "sendChaparAgentHeader", g.Spec.General.SendChaparAgentHeader).(bool)
 	g.Spec.General.UseHorizontalSplit = getOrDefault(values, "useHorizontalSplit", g.Spec.General.UseHorizontalSplit).(bool)
 	g.Spec.General.FollowRedirects = getOrDefault(values, "followRedirects", g.Spec.General.FollowRedirects).(bool)
+	g.Spec.General.VaidateTLSCertificates = getOrDefault(values, "validateTLSCertificates", g.Spec.General.VaidateTLSCertificates).(bool)
 
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)
