@@ -786,6 +786,106 @@ func TestFilesystemV2_DeleteWorkspace(t *testing.T) {
 	assert.Equal(t, wks1.MetaData.Name, collections[0].MetaData.Name, "expected remaining workspace name to be 'NotToDeleteWorkspace'")
 }
 
+// TestFilesystemV2_LoadRequests_SetsDefaultValues verifies that standalone
+// requests loaded via LoadRequests have SetDefaultValues applied — ensuring
+// parity with collection requests (bug fix).
+func TestFilesystemV2_LoadRequests_SetsDefaultValues(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	// Build a request with an intentionally empty Method field to simulate
+	// data that was saved before defaults were applied.
+	req := domain.NewHTTPRequest("TestDefaultValues")
+	req.Spec.HTTP.Method = "" // clear to trigger SetDefaultValues on load
+
+	dir, err := fs.EntityPath(domain.KindRequest)
+	assert.NoError(t, err)
+	assert.NoError(t, SaveToYaml(filepath.Join(dir, req.MetaData.Name+".yaml"), req))
+
+	requests, err := fs.LoadRequests()
+	assert.NoError(t, err)
+	assert.Len(t, requests, 1)
+	assert.Equal(t, domain.RequestMethodGET, requests[0].Spec.HTTP.Method,
+		"LoadRequests must call SetDefaultValues so Method defaults to GET")
+}
+
+// TestFilesystemV2_AtomicWrite_NoTmpLeftOnSuccess verifies that after a
+// successful update-with-rename, no leftover .tmp files exist and the old
+// file is gone (atomic write + cleanup).
+func TestFilesystemV2_AtomicWrite_NoTmpLeftOnSuccess(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	pf := domain.NewProtoFile("OriginalName")
+	assert.NoError(t, fs.CreateProtoFile(pf))
+
+	pf.MetaData.Name = "NewName"
+	assert.NoError(t, fs.UpdateProtoFile(pf))
+
+	dir, err := fs.EntityPath(domain.KindProtoFile)
+	assert.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(dir, "NewName.yaml"))
+	assert.NoError(t, err, "renamed file must exist")
+
+	_, err = os.Stat(filepath.Join(dir, "OriginalName.yaml"))
+	assert.True(t, os.IsNotExist(err), "old file must be removed after atomic rename")
+
+	tmpFiles, err := filepath.Glob(filepath.Join(dir, "*.tmp"))
+	assert.NoError(t, err)
+	assert.Empty(t, tmpFiles, "no .tmp files should remain after successful write")
+}
+
+// TestFilesystemV2_AtomicWrite_WriteFailureLeavesOldFile verifies that when
+// the underlying WriteFile fails (simulated via a fault backend), the original
+// file is untouched.
+func TestFilesystemV2_AtomicWrite_WriteFailureLeavesOldFile(t *testing.T) {
+	mem := NewMemStorage()
+	fs, err := NewFilesystemV2WithBackend("/memtest", "Default", mem)
+	assert.NoError(t, err)
+
+	pf := domain.NewProtoFile("OriginalName")
+	assert.NoError(t, fs.CreateProtoFile(pf))
+
+	// Capture the original serialised content.
+	dir, _ := fs.EntityPath(domain.KindProtoFile)
+	originalContent, _ := mem.ReadFile(filepath.Join(dir, "OriginalName.yaml"))
+	assert.NotEmpty(t, originalContent)
+
+	// Inject a fault: fail writes to the .tmp path for the new name.
+	tmpPath := filepath.Join(dir, "NewName.yaml.tmp")
+	fs.storage = &faultStorage{StorageBackend: mem, failOnWrite: tmpPath}
+
+	pf.MetaData.Name = "NewName"
+	err = fs.UpdateProtoFile(pf)
+	assert.Error(t, err, "update must fail when WriteFile is injected with a fault")
+
+	// Original file must still exist with its original content.
+	exists, _ := mem.Stat(filepath.Join(dir, "OriginalName.yaml"))
+	assert.True(t, exists, "original file must survive a failed atomic write")
+
+	content, _ := mem.ReadFile(filepath.Join(dir, "OriginalName.yaml"))
+	assert.Equal(t, originalContent, content, "original file content must be unchanged")
+
+	// New file must not have been created.
+	exists, _ = mem.Stat(filepath.Join(dir, "NewName.yaml"))
+	assert.False(t, exists, "new file must not exist after a failed write")
+}
+
+// faultStorage wraps any StorageBackend and injects a write failure for one
+// specific path. Used to test atomic-write resilience.
+type faultStorage struct {
+	StorageBackend
+	failOnWrite string
+}
+
+func (f *faultStorage) WriteFile(path string, data []byte) error {
+	if path == f.failOnWrite {
+		return fmt.Errorf("injected write failure for %s", path)
+	}
+	return f.StorageBackend.WriteFile(path, data)
+}
+
 // setupTest creates a temporary directory for testing and returns a cleanup function
 func setupTest(t *testing.T) (*FilesystemV2, func()) {
 	t.Helper()

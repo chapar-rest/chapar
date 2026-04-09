@@ -8,6 +8,28 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 )
 
+// loadFromYaml reads and unmarshals a YAML file via the given StorageBackend.
+func loadFromYaml[T any](backend StorageBackend, path string) (*T, error) {
+	data, err := backend.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	v := new(T)
+	if err := yaml.Unmarshal(data, v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// saveToYaml marshals data to YAML and writes it via the given StorageBackend.
+func saveToYaml[T any](backend StorageBackend, path string, data *T) error {
+	out, err := yaml.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return backend.WriteFile(path, out)
+}
+
 // RepositoryV2 defines the main storage interface
 type RepositoryV2 interface {
 	SetActiveWorkspace(workspaceName string)
