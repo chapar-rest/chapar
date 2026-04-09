@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -158,6 +159,11 @@ func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environm
 	if !globalConfig.Spec.General.FollowRedirects {
 		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
+		}
+	}
+	if !globalConfig.Spec.General.VaidateTLSCertificates {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
 
