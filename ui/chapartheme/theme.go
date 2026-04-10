@@ -58,7 +58,7 @@ func New(material *material.Theme, isDark bool) *Theme {
 
 	t.Theme.TextSize = unit.Sp(14)
 	// default theme is dark
-	t.Switch(isDark)
+	t.Switch("dark")
 	return t
 }
 
@@ -66,10 +66,10 @@ func (t *Theme) Material() *material.Theme {
 	return t.Theme
 }
 
-func (t *Theme) Switch(isDark bool) *material.Theme {
-	t.isDark = isDark
-
-	if isDark {
+func (t *Theme) Switch(themeName string) *material.Theme {
+	switch themeName {
+	case "dark":
+		t.isDark = true
 		t.Theme.Palette.Fg = rgb(0xd7dade)
 		t.LoaderColor = rgb(0xd7dade)
 		t.Theme.Palette.Bg = rgb(0x202224)
@@ -98,7 +98,37 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.BadgeBgColor = rgb(0x2b2d31)
 		t.DeleteButtonBgColor = rgb(0xff7373)
 		t.SideBarTextColor = rgb(0xffffff)
-	} else {
+	case "github-dark":
+		t.isDark = true
+		t.Theme.Palette.Fg = rgb(0xc9d1d9)
+		t.LoaderColor = rgb(0xc9d1d9)
+		t.Theme.Palette.Bg = rgb(0x0d1117)
+		t.Theme.Palette.ContrastBg = rgb(0x161b22)
+		t.Theme.Palette.ContrastFg = rgb(0xc9d1d9)
+		t.BorderColorFocused = rgb(0x58a6ff)
+		t.BorderColor = rgb(0x30363d)
+		t.TextColor = rgb(0xc9d1d9)
+		t.ButtonTextColor = rgb(0xffffff)
+		t.TabInactiveColor = rgb(0x8b949e)
+		t.ActionButtonBgColor = rgb(0x238636)
+		t.SwitchBgColor = rgb(0x238636)
+		t.SeparatorColor = rgb(0x21262d)
+		t.TableBorderColor = rgb(0x30363d)
+		t.CheckBoxColor = rgb(0x58a6ff)
+		t.RequestMethodColor = rgb(0x3fb950)
+		t.DropDownMenuBgColor = rgb(0x161b22)
+		t.MenuBgColor = rgb(0x161b22)
+		t.TextSelectionColor = rgb(0x264f78)
+		t.NotificationBgColor = rgb(0x1f6feb)
+		t.NotificationTextColor = rgb(0xffffff)
+		t.ResponseStatusColor = rgb(0x3fb950)
+		t.ErrorColor = rgb(0xf85149)
+		t.WarningColor = rgb(0xd29922)
+		t.BadgeBgColor = rgb(0x21262d)
+		t.DeleteButtonBgColor = rgb(0xda3633)
+		t.SideBarTextColor = rgb(0xc9d1d9)
+	case "light":
+		t.isDark = false
 		t.LoaderColor = rgb(0x000000)
 		t.Theme.Palette.Fg = rgb(0x000000)
 		t.Theme.Palette.Bg = rgb(0xffffff)
@@ -126,6 +156,35 @@ func (t *Theme) Switch(isDark bool) *material.Theme {
 		t.BadgeBgColor = rgb(0x2b2d31)
 		t.DeleteButtonBgColor = rgb(0xff7373)
 		t.SideBarTextColor = rgb(0x000000)
+	case "github-light":
+		t.isDark = false
+		t.LoaderColor = rgb(0x24292f)
+		t.Theme.Palette.Fg = rgb(0x24292f)
+		t.Theme.Palette.Bg = rgb(0xffffff)
+		t.Theme.Palette.ContrastBg = rgb(0xf6f8fa)
+		t.Theme.Palette.ContrastFg = rgb(0x24292f)
+		t.TextColor = rgb(0x57606a)
+		t.BorderColorFocused = rgb(0x0969da)
+		t.BorderColor = rgb(0xd0d7de)
+		t.TabInactiveColor = rgb(0x57606a)
+		t.ActionButtonBgColor = rgb(0x2da44e)
+		t.SwitchBgColor = rgb(0x2da44e)
+		t.ButtonTextColor = rgb(0xffffff)
+		t.SeparatorColor = rgb(0xd8dee4)
+		t.TableBorderColor = rgb(0xd0d7de)
+		t.CheckBoxColor = rgb(0x0969da)
+		t.RequestMethodColor = rgb(0x1a7f37)
+		t.DropDownMenuBgColor = rgb(0x24292f)
+		t.MenuBgColor = rgb(0xf6f8fa)
+		t.TextSelectionColor = rgb(0xddf4ff)
+		t.NotificationBgColor = rgb(0x0969da)
+		t.NotificationTextColor = rgb(0xffffff)
+		t.ResponseStatusColor = rgb(0x1a7f37)
+		t.ErrorColor = rgb(0xcf222e)
+		t.WarningColor = rgb(0x9a6700)
+		t.BadgeBgColor = rgb(0xeaeef2)
+		t.DeleteButtonBgColor = rgb(0xcf222e)
+		t.SideBarTextColor = rgb(0x24292f)
 	}
 
 	return t.Theme

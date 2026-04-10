@@ -41,6 +41,7 @@ type GeneralConfig struct {
 	SendChaparAgentHeader  bool   `yaml:"sendChaparAgentHeader"`
 	FollowRedirects        bool   `yaml:"followRedirects"`
 	VaidateTLSCertificates bool   `yaml:"validateTLSCertificates"`
+	Theme                  string `yaml:"theme"`
 }
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
@@ -51,7 +52,8 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.UseHorizontalSplit != other.UseHorizontalSplit ||
 		g.SendChaparAgentHeader != other.SendChaparAgentHeader ||
 		g.FollowRedirects != other.FollowRedirects ||
-		g.VaidateTLSCertificates != other.VaidateTLSCertificates
+		g.VaidateTLSCertificates != other.VaidateTLSCertificates ||
+		g.Theme != other.Theme
 }
 
 const (
@@ -122,6 +124,7 @@ type AppStateSpec struct {
 	ActiveWorkspace     *ActiveWorkspace     `yaml:"activeWorkspace"`
 	SelectedEnvironment *SelectedEnvironment `yaml:"selectedEnvironment"`
 	DarkMode            bool                 `yaml:"darkMode"`
+	Theme               string               `yaml:"theme"`
 }
 
 // GetDefaultGlobalConfig returns a default global config
@@ -144,6 +147,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				UseHorizontalSplit:     true,
 				FollowRedirects:        true,
 				VaidateTLSCertificates: true,
+				Theme:                  "light",
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -180,6 +184,7 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"useHorizontalSplit":     g.Spec.General.UseHorizontalSplit,
 			"followRedirects":        g.Spec.General.FollowRedirects,
 			"validateTLSCertificate": g.Spec.General.VaidateTLSCertificates,
+			"theme":                  g.Spec.General.Theme,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -221,6 +226,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.General.UseHorizontalSplit = getOrDefault(values, "useHorizontalSplit", g.Spec.General.UseHorizontalSplit).(bool)
 	g.Spec.General.FollowRedirects = getOrDefault(values, "followRedirects", g.Spec.General.FollowRedirects).(bool)
 	g.Spec.General.VaidateTLSCertificates = getOrDefault(values, "validateTLSCertificates", g.Spec.General.VaidateTLSCertificates).(bool)
+	g.Spec.General.Theme = getOrDefault(values, "theme", g.Spec.General.Theme).(string)
 
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)

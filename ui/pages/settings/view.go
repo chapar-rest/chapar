@@ -165,6 +165,12 @@ func (v *View) Load(config domain.GlobalConfig) {
 		widgets.NewBoolItem("Send no-cache header", "sendNoCacheHeader", "Add and send no-cache header in http requests", config.Spec.General.SendNoCacheHeader),
 		widgets.NewBoolItem("Send Chapar agent header", "sendChaparAgentHeader", "Add and send Chapar agent header in http requests", config.Spec.General.SendChaparAgentHeader),
 		widgets.NewHeaderItem("User interface"),
+		widgets.NewDropDownItem("Theme", "theme", "Select the theme to use for the application.", config.Spec.General.Theme,
+			widgets.NewDropDownOption("Light").WithIdentifier("light").WithValue("light"),
+			widgets.NewDropDownOption("GitHub Light").WithIdentifier("github-light").WithValue("github-light"),
+			widgets.NewDropDownOption("Dark").WithIdentifier("dark").WithValue("dark"),
+			widgets.NewDropDownOption("GitHub Dark").WithIdentifier("github-dark").WithValue("github-dark"),
+		),
 		widgets.NewBoolItem("Use horizontal split for request and response", "useHorizontalSplit", "If enabled, the request and response views are arranged top to bottom.", config.Spec.General.UseHorizontalSplit),
 	})
 	v.settings.Set("general", generalSettings)
