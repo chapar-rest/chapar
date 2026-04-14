@@ -1,11 +1,15 @@
 TAG_NAME?=$(shell git describe --tags --abbrev=0)
 APP_NAME="Chapar"
+BUILD_NUMBER=$(shell date +%Y%m%d%H%M)
+MACOS_DEPLOYMENT_TARGET=11.0
 
 .PHONY: build_macos_app
 build_macos_app:
 	@echo "Building Macos..."
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+	MACOSX_DEPLOYMENT_TARGET=$(MACOS_DEPLOYMENT_TARGET) gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
+	MACOSX_DEPLOYMENT_TARGET=$(MACOS_DEPLOYMENT_TARGET) gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+	sed 's/VERSION_PLACEHOLDER/$(TAG_NAME)/g; s/BUILD_PLACEHOLDER/$(BUILD_NUMBER)/g' ./build/Info.plist.template > ./dist/amd64/Chapar.app/Contents/Info.plist
+	sed 's/VERSION_PLACEHOLDER/$(TAG_NAME)/g; s/BUILD_PLACEHOLDER/$(BUILD_NUMBER)/g' ./build/Info.plist.template > ./dist/arm64/Chapar.app/Contents/Info.plist
 	codesign --force --deep --sign - ./dist/amd64/Chapar.app
 	codesign --force --deep --sign - ./dist/arm64/Chapar.app
 
@@ -61,8 +65,12 @@ build_macos_signed:
 	fi
 
 	# Build apps
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+	MACOSX_DEPLOYMENT_TARGET=$(MACOS_DEPLOYMENT_TARGET) gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/Chapar.app .
+	MACOSX_DEPLOYMENT_TARGET=$(MACOS_DEPLOYMENT_TARGET) gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/Chapar.app .
+
+	# Replace gogio-generated Info.plist with custom one
+	sed 's/VERSION_PLACEHOLDER/$(TAG_NAME)/g; s/BUILD_PLACEHOLDER/$(BUILD_NUMBER)/g' ./build/Info.plist.template > ./dist/amd64/Chapar.app/Contents/Info.plist
+	sed 's/VERSION_PLACEHOLDER/$(TAG_NAME)/g; s/BUILD_PLACEHOLDER/$(BUILD_NUMBER)/g' ./build/Info.plist.template > ./dist/arm64/Chapar.app/Contents/Info.plist
 
 	# Sign apps with Developer ID
 	codesign --force --options runtime --deep -vvv --sign "$(IDENTITY)" ./dist/amd64/Chapar.app
