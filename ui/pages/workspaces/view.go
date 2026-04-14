@@ -86,9 +86,9 @@ func (v *View) SetController(c WorkspaceController) {
 
 func (v *View) showError(err error) {
 	m := modals.NewError(err)
-	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 		return m.Layout(gtx, v.Theme)
 	})

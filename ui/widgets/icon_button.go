@@ -36,7 +36,7 @@ func (ib *IconButton) Clicked() bool {
 
 func (ib *IconButton) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	if ib.BackgroundColor == (color.NRGBA{}) {
-		ib.BackgroundColor = theme.Palette.Bg
+		ib.BackgroundColor = theme.Bg
 	}
 
 	if ib.BackgroundColorHover == (color.NRGBA{}) {

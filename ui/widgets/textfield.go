@@ -102,7 +102,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		borderColor = theme.BorderColor
 	}
 
-	if gtx.Source.Focused(&t.textEditor) {
+	if gtx.Focused(&t.textEditor) {
 		if t.BorderColorFocused == (color.NRGBA{}) {
 			borderColor = theme.BorderColorFocused
 		} else {
@@ -159,7 +159,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 					ib := &IconButton{
 						Icon:            t.Icon,
 						Color:           theme.TextColor,
-						BackgroundColor: theme.Palette.Bg,
+						BackgroundColor: theme.Bg,
 						Size:            unit.Dp(18),
 						Clickable:       &t.iconClick,
 					}

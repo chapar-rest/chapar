@@ -116,13 +116,14 @@ func (f *Variables) SetValues(values []domain.Variable) {
 }
 
 func (f *Variables) addItem(item *Variable) {
-	if f.requestType == domain.RequestTypeHTTP {
+	switch f.requestType {
+	case domain.RequestTypeHTTP:
 		item.fromDropDown = widgets.NewDropDownWithoutBorder(
 			widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
 			widgets.NewDropDownOption("Header").WithIdentifier("header").WithValue("header"),
 			widgets.NewDropDownOption("Cookie").WithIdentifier("cookie").WithValue("cookie"),
 		)
-	} else if f.requestType == domain.RequestTypeGRPC {
+	case domain.RequestTypeGRPC:
 		item.fromDropDown = widgets.NewDropDownWithoutBorder(
 			widgets.NewDropDownOption("Body").WithIdentifier("body").WithValue("body"),
 			widgets.NewDropDownOption("Meta").WithIdentifier("metadata").WithValue("metadata"),
@@ -141,7 +142,7 @@ func (f *Variables) addItem(item *Variable) {
 	item.sourceKeyEditor.SetText(item.SourceKey)
 
 	item.onStatusCodeEditor = &widgets.NumericEditor{Editor: widget.Editor{SingleLine: true}}
-	item.onStatusCodeEditor.Editor.SetText(strconv.Itoa(item.OnStatusCode))
+	item.onStatusCodeEditor.SetText(strconv.Itoa(item.OnStatusCode))
 
 	item.enableBool = new(widget.Bool)
 	item.enableBool.Value = item.Enable
@@ -355,7 +356,7 @@ func (f *Variables) Layout(gtx layout.Context, title, hint string, theme *chapar
 							Bottom: unit.Dp(10),
 							Left:   0,
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							f.addButton.BackgroundColor = theme.Palette.Bg
+							f.addButton.BackgroundColor = theme.Bg
 							f.addButton.Color = theme.TextColor
 							dims := f.addButton.Layout(gtx, theme)
 							if f.addButton.Clicked() {
@@ -442,9 +443,10 @@ func (f *Variables) update(gtx layout.Context, item *Variable) {
 		}
 
 		// its either the http or grpc response available
-		if f.requestType == domain.RequestTypeHTTP {
+		switch f.requestType {
+		case domain.RequestTypeHTTP:
 			f.handleHttpPreview(item)
-		} else if f.requestType == domain.RequestTypeGRPC {
+		case domain.RequestTypeGRPC:
 			f.handleGrpcPreview(item)
 		}
 	}

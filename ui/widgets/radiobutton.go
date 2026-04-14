@@ -24,7 +24,7 @@ func RadioButton(th *chapartheme.Theme, group *widget.Enum, key, label string) R
 		checkable: checkable{
 			Label: label,
 
-			Color:              th.Palette.Fg,
+			Color:              th.Fg,
 			IconColor:          th.CheckBoxColor,
 			TextSize:           th.TextSize * 14.0 / 16.0,
 			Size:               26,
@@ -34,7 +34,7 @@ func RadioButton(th *chapartheme.Theme, group *widget.Enum, key, label string) R
 		},
 		Key: key,
 	}
-	r.checkable.Font.Typeface = th.Face
+	r.Font.Typeface = th.Face
 	return r
 }
 

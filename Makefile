@@ -192,3 +192,7 @@ test:
 		-v $(PWD):/app \
 		-w /app chapar/builder:0.1.5 \
 		go test -v ./...
+
+.PHONY: fmt
+fmt:
+	golangci-lint fmt

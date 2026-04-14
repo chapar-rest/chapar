@@ -45,8 +45,8 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 	r := &Response{
 		copyButton: &widgets.FlatButton{
 			Text:            "Copy",
-			BackgroundColor: theme.Palette.Bg,
-			TextColor:       theme.Palette.Fg,
+			BackgroundColor: theme.Bg,
+			TextColor:       theme.Fg,
 			MinWidth:        unit.Dp(75),
 			Icon:            widgets.CopyIcon,
 			Clickable:       new(widget.Clickable),

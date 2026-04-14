@@ -172,7 +172,7 @@ func (p *PythonExecutor) executeScript(endpoint string, requestBody interface{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request to Python server: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read the response
 	respBody, err := io.ReadAll(resp.Body)

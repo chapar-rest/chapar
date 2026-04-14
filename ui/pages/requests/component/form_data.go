@@ -344,7 +344,7 @@ func (f *FormData) Layout(gtx layout.Context, title, hint string, theme *chapart
 						Bottom: unit.Dp(10),
 						Left:   0,
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						f.addButton.BackgroundColor = theme.Palette.Bg
+						f.addButton.BackgroundColor = theme.Bg
 						f.addButton.Color = theme.TextColor
 						dims := f.addButton.Layout(gtx, theme)
 						if f.addButton.Clicked() {

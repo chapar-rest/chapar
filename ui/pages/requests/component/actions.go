@@ -27,7 +27,7 @@ func NewActions(showCode bool) *Actions {
 
 func (r *Actions) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	border := widget.Border{
-		Color:        theme.Palette.ContrastFg,
+		Color:        theme.ContrastFg,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
 	}
@@ -37,10 +37,10 @@ func (r *Actions) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 			bt := widgets.Button(theme, &r.SaveButton, widgets.SaveIcon, widgets.IconPositionStart, "Save")
 			if r.IsDataChanged {
 				border.Width = unit.Dp(1)
-				border.Color = theme.Palette.ContrastFg
+				border.Color = theme.ContrastFg
 			} else {
 				bt.Color = widgets.Disabled(theme.ButtonTextColor)
-				border.Color = widgets.Disabled(theme.Palette.ContrastFg)
+				border.Color = widgets.Disabled(theme.ContrastFg)
 				border.Width = 0
 			}
 

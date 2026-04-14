@@ -113,7 +113,7 @@ func getEditorFont() font.FontFace {
 	fontFamilyName := prefs.GetGlobalConfig().Spec.Editor.FontFamily
 	fontFamilyName = strings.ReplaceAll(fontFamilyName, " ", "")
 
-	if "JetBrainsMono" == fontFamilyName {
+	if fontFamilyName == "JetBrainsMono" {
 		return fonts.MustGetCodeEditorFont()
 	}
 

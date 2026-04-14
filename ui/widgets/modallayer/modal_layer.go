@@ -26,9 +26,9 @@ const defaultModalAnimationDuration = time.Millisecond * 250
 // NewModal creates an initializes a modal layer.
 func NewModal() *ModalLayer {
 	m := ModalLayer{}
-	m.VisibilityAnimation.State = component.Invisible
-	m.VisibilityAnimation.Duration = defaultModalAnimationDuration
-	m.Scrim.FinalAlpha = 20 // default
+	m.State = component.Invisible
+	m.Duration = defaultModalAnimationDuration
+	m.FinalAlpha = 20 // default
 	return &m
 }
 

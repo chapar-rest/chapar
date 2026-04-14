@@ -193,9 +193,9 @@ func (v *View) SetPreRequestRequests(id string, requests []*domain.Request, sele
 
 func (v *View) showError(err error) {
 	m := modals.NewError(err)
-	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 		return m.Layout(gtx, v.Theme)
 	})
@@ -1043,12 +1043,12 @@ func (v *View) showCreateNewModal() {
 	m := modals.NewCreateModal(items)
 	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.CloseBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		for _, item := range items {
 			if item.Clickable.Clicked(gtx) {
-				v.Base.CloseModal()
+				v.CloseModal()
 				v.createNew(domain.RequestType(item.Key))
 			}
 		}
@@ -1061,12 +1061,12 @@ func (v *View) showImportModal() {
 	m := modals.NewImportModal()
 	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.CloseBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		for _, item := range m.Items {
 			if item.Clickable.Clicked(gtx) {
-				v.Base.CloseModal()
+				v.CloseModal()
 				if v.controller != nil {
 					v.controller.OnImport(item.Key)
 				}

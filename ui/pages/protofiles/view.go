@@ -173,11 +173,11 @@ func (v *View) showImportPathInputModal() {
 			if v.controller != nil {
 				v.controller.OnAddImportPath(m.TextField.GetText())
 			}
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		if m.CloseBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		return m.Layout(gtx, v.Theme)

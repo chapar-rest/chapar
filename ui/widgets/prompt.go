@@ -21,7 +21,6 @@ const (
 	ModalTypeErr  = "err"
 )
 
-
 type Prompt struct {
 	Title   string
 	Content string
@@ -178,9 +177,9 @@ func (p *Prompt) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 							items = append(
 								items,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								btn := Button(theme, &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
-								btn.Background = textColor
-								btn.Color = bannerBg
+									btn := Button(theme, &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
+									btn.Background = textColor
+									btn.Color = bannerBg
 									return btn.Layout(gtx, theme)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),

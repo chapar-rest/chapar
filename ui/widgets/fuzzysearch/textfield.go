@@ -90,7 +90,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 	}
 
 	borderColor := theme.BorderColor
-	if gtx.Source.Focused(&t.textEditor) {
+	if gtx.Focused(&t.textEditor) {
 		borderColor = theme.BorderColorFocused
 	}
 

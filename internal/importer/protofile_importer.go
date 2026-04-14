@@ -27,14 +27,14 @@ func ImportProtoFile(data []byte, repo repository.RepositoryV2, filePath ...stri
 	if err != nil {
 		return fmt.Errorf("error creating temporary file: %w", err)
 	}
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	defer func() { _ = tempFile.Close() }()
 
 	// Write the proto content to the temporary file
 	if _, err := tempFile.Write(data); err != nil {
 		return fmt.Errorf("error writing to temporary file: %w", err)
 	}
-	tempFile.Close()
+	_ = tempFile.Close()
 
 	// Parse the proto file using protoreflect
 	parser := protoparse.Parser{

@@ -223,9 +223,9 @@ func (a *App) onSelectSearchResult(result *fuzzysearch.SearchResult) {
 func (a *App) showError(err error) {
 	m := modals.NewError(err)
 
-	a.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	a.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			a.Base.CloseModal()
+			a.CloseModal()
 		}
 		return m.Layout(gtx, a.Theme)
 	})

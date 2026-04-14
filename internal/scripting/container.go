@@ -167,7 +167,7 @@ func (dc *DockerClient) pullImage(imageName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to pull image: %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Read the pull output (optional, for logging)
 	_, err = io.Copy(io.Discard, reader)
@@ -320,7 +320,7 @@ func isContainerRunning(containerName string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.isContainerRunning(containerName)
 }
@@ -330,7 +330,7 @@ func isContainerExists(containerName string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.isContainerExists(containerName)
 }
@@ -340,7 +340,7 @@ func isImageUpToDate(imageName string) (exists bool, upToDate bool, err error) {
 	if err != nil {
 		return false, false, err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.isImageUpToDate(imageName)
 }
@@ -350,7 +350,7 @@ func removeImage(imageName string) error {
 	if err != nil {
 		return err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.removeImage(imageName)
 }
@@ -360,7 +360,7 @@ func pullImage(imageName string) error {
 	if err != nil {
 		return err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.pullImage(imageName)
 }
@@ -370,7 +370,7 @@ func runContainer(imageName, containerName string, ports, envs []string) error {
 	if err != nil {
 		return err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.runContainer(imageName, containerName, ports, envs)
 }

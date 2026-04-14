@@ -89,7 +89,7 @@ func (f *Footer) rightLayout(gtx layout.Context, theme *chapartheme.Theme) layou
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.End}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			btn := widgets.Button(theme, &f.RequestSplitClickable, splitIcon, widgets.IconPositionStart, "")
-			btn.Background = theme.Palette.Bg
+			btn.Background = theme.Bg
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
@@ -99,7 +99,7 @@ func (f *Footer) rightLayout(gtx layout.Context, theme *chapartheme.Theme) layou
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			btn := widgets.Button(theme, &f.ConsoleClickable, widgets.TerminalIcon, widgets.IconPositionStart, "Console")
-			btn.Background = theme.Palette.Bg
+			btn.Background = theme.Bg
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
@@ -109,7 +109,7 @@ func (f *Footer) rightLayout(gtx layout.Context, theme *chapartheme.Theme) layou
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			btn := widgets.Button(theme, &f.NotificationsClickable, widgets.Notifications, widgets.IconPositionStart, "Notifications")
-			btn.Background = theme.Palette.Bg
+			btn.Background = theme.Bg
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}

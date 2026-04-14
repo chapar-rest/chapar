@@ -29,7 +29,7 @@ func (n *Navigator) Register(view View) {
 		n.current = detail.ID
 	}
 
-	n.Sidebar.AddNavItem(sidebar.Item{
+	n.AddNavItem(sidebar.Item{
 		Tag:  detail.ID,
 		Name: detail.Title,
 		Icon: detail.Icon,
@@ -52,7 +52,7 @@ func (n *Navigator) Current() View {
 }
 
 func (n *Navigator) Update() {
-	if n.Sidebar.Changed() {
+	if n.Changed() {
 		n.SwitchTo(n.Sidebar.Current())
 	}
 }

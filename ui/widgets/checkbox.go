@@ -18,7 +18,7 @@ func CheckBox(th *chapartheme.Theme, checkBox *widget.Bool, label string) CheckB
 		CheckBox: checkBox,
 		checkable: checkable{
 			Label:              label,
-			Color:              th.Palette.Fg,
+			Color:              th.Fg,
 			IconColor:          th.CheckBoxColor,
 			TextSize:           th.TextSize * 12.0 / 14.0,
 			Size:               24,
@@ -27,7 +27,7 @@ func CheckBox(th *chapartheme.Theme, checkBox *widget.Bool, label string) CheckB
 			uncheckedStateIcon: th.Icon.CheckBoxUnchecked,
 		},
 	}
-	c.checkable.Font.Typeface = th.Face
+	c.Font.Typeface = th.Face
 	return c
 }
 

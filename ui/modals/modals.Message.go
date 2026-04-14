@@ -32,7 +32,7 @@ type Message struct {
 }
 
 func (m *Message) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dimensions {
-	textColor := th.Palette.Fg
+	textColor := th.Fg
 	switch m.Type {
 	case MessageTypeErr:
 		textColor = th.ErrorColor

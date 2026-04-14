@@ -23,7 +23,7 @@ type PatternEditor struct {
 	*giovieweditor.Editor
 	Keys map[string]string
 
-	styledText    string
+	styledText     string
 	highlightColor color.NRGBA
 
 	changed   bool
@@ -37,7 +37,7 @@ func NewPatternEditor() *PatternEditor {
 		Keys:   make(map[string]string),
 	}
 
-	pe.Editor.SingleLine = true
+	pe.SingleLine = true
 
 	return pe
 }
@@ -65,7 +65,7 @@ func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hin
 		p.styledText = ""
 	}
 	if p.styledText == "" {
-		p.updateStyles(p.Editor.Text())
+		p.updateStyles(p.Text())
 	}
 
 	editorConf := &giovieweditor.EditorConf{
@@ -78,7 +78,7 @@ func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hin
 	}
 
 	for {
-		event, ok := p.Editor.Update(gtx)
+		event, ok := p.Update(gtx)
 		if !ok {
 			break
 		}
@@ -98,7 +98,7 @@ func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hin
 }
 
 func (p *PatternEditor) UpdateStyles() {
-	p.updateStyles(p.Editor.Text())
+	p.updateStyles(p.Text())
 }
 
 func (p *PatternEditor) updateStyles(text string) {
@@ -127,7 +127,7 @@ func (p *PatternEditor) updateStyles(text string) {
 	applyStyles(doubleBracket)
 
 	p.styledText = text
-	p.Editor.UpdateTextStyles(styles)
+	p.UpdateTextStyles(styles)
 }
 
 func nRGBAColorToOp(textColor color.NRGBA) op.CallOp {

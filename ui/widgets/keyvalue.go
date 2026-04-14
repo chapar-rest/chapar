@@ -303,7 +303,7 @@ func (kv *KeyValue) WithAddLayout(gtx layout.Context, title, hint string, theme 
 						Bottom: unit.Dp(10),
 						Left:   0,
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						kv.addButton.BackgroundColor = theme.Palette.Bg
+						kv.addButton.BackgroundColor = theme.Bg
 						kv.addButton.Color = theme.TextColor
 						dims := kv.addButton.Layout(gtx, theme)
 						if kv.addButton.Clicked() {
