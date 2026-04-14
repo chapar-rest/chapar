@@ -65,7 +65,7 @@ func (c *Console) SetVisible(visible bool) {
 }
 
 func (c *Console) logLayout(gtx layout.Context, theme *chapartheme.Theme, log *domain.Log) layout.Dimensions {
-	textColor := theme.Palette.Fg
+	textColor := theme.Fg
 	switch log.Level {
 	case "info":
 		textColor = chapartheme.LightGreen
@@ -99,7 +99,7 @@ func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) la
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &c.clearButton, widgets.CleanIcon, widgets.IconPositionStart, "Clear")
+			btn := widgets.Button(theme, &c.clearButton, widgets.CleanIcon, widgets.IconPositionStart, "Clear")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
@@ -108,7 +108,7 @@ func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) la
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &c.copyButton, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
+			btn := widgets.Button(theme, &c.copyButton, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
@@ -117,7 +117,7 @@ func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) la
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &c.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
+			btn := widgets.Button(theme, &c.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
@@ -136,7 +136,7 @@ func (c *Console) titleLayout(gtx layout.Context, theme *chapartheme.Theme) layo
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(12)
 					return layout.Inset{Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return widgets.ConsoleIcon.Layout(gtx, theme.Palette.ContrastFg)
+						return widgets.ConsoleIcon.Layout(gtx, theme.ContrastFg)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -231,7 +231,7 @@ func copyToClipboard(gtx layout.Context) {
 			sb.WriteString(log.Message + "\n")
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("[%s] %s: %s\n", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message))
+		fmt.Fprintf(&sb, "[%s] %s: %s\n", log.Time.Format(time.DateTime), strings.ToUpper(log.Level), log.Message)
 	}
 	gtx.Execute(clipboard.WriteCmd{
 		Data: io.NopCloser(strings.NewReader(sb.String())),

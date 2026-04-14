@@ -450,6 +450,7 @@ func TestFilesystemV2_LoadCollections(t *testing.T) {
 	// this file will not be loaded as a collection
 	randomFilePath := filepath.Join(dir, "random.txt")
 	err = os.WriteFile(randomFilePath, []byte("This is a random file"), 0644)
+	assert.NoError(t, err, "expected no error creating random file")
 
 	col := domain.NewCollection("TestCollection")
 	assert.Nil(t, SaveToYaml(collectionMetaPath, col), "expected no error saving collection")
@@ -689,6 +690,7 @@ func TestFilesystemV2_LoadWorkspaces(t *testing.T) {
 	// this file will not be loaded as a workspace
 	randomFilePath := filepath.Join(dir, "random.txt")
 	err = os.WriteFile(randomFilePath, []byte("This is a random file"), 0644)
+	assert.NoError(t, err, "expected no error creating random file")
 
 	wks := domain.NewWorkspace("TestWorkspace")
 	assert.Nil(t, SaveToYaml(workspaceMetaPath, wks), "expected no error saving workspace")

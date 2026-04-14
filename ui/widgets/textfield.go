@@ -102,7 +102,7 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 		borderColor = theme.BorderColor
 	}
 
-	if gtx.Source.Focused(&t.textEditor) {
+	if gtx.Focused(&t.textEditor) {
 		if t.BorderColorFocused == (color.NRGBA{}) {
 			borderColor = theme.BorderColorFocused
 		} else {
@@ -156,9 +156,16 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 						t.iconClicked = true
 					}
 
-					b := Button(theme.Material(), &t.iconClick, t.Icon, IconPositionStart, "")
-					b.Inset = layout.Inset{Left: unit.Dp(8), Right: unit.Dp(2), Top: unit.Dp(2), Bottom: unit.Dp(2)}
-					return b.Layout(gtx, theme)
+					ib := &IconButton{
+						Icon:            t.Icon,
+						Color:           theme.TextColor,
+						BackgroundColor: theme.Bg,
+						Size:            unit.Dp(18),
+						Clickable:       &t.iconClick,
+					}
+					return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(2), Top: unit.Dp(2), Bottom: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return ib.Layout(gtx, theme)
+					})
 				})
 
 				if t.IconPosition == IconPositionEnd {

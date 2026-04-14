@@ -193,9 +193,9 @@ func (v *View) SetPreRequestRequests(id string, requests []*domain.Request, sele
 
 func (v *View) showError(err error) {
 	m := modals.NewError(err)
-	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 		return m.Layout(gtx, v.Theme)
 	})
@@ -1012,14 +1012,12 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 							if v.importButton.Clicked(gtx) {
 								v.showImportModal()
 							}
-							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
-							btn.Color = theme.ButtonTextColor
+							btn := widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
 							return btn.Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							newBtn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
-							newBtn.Color = theme.ButtonTextColor
+							newBtn := widgets.Button(theme, &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
 							return newBtn.Layout(gtx, theme)
 						}),
 					)
@@ -1045,12 +1043,12 @@ func (v *View) showCreateNewModal() {
 	m := modals.NewCreateModal(items)
 	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.CloseBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		for _, item := range items {
 			if item.Clickable.Clicked(gtx) {
-				v.Base.CloseModal()
+				v.CloseModal()
 				v.createNew(domain.RequestType(item.Key))
 			}
 		}
@@ -1063,12 +1061,12 @@ func (v *View) showImportModal() {
 	m := modals.NewImportModal()
 	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.CloseBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		for _, item := range m.Items {
 			if item.Clickable.Clicked(gtx) {
-				v.Base.CloseModal()
+				v.CloseModal()
 				if v.controller != nil {
 					v.controller.OnImport(item.Key)
 				}

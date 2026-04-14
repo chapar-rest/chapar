@@ -240,10 +240,8 @@ func (p *PrePostRequest) enforceNumericEditor(editor *widgets.PatternEditor) {
 }
 
 func (p *PrePostRequest) SetEnvForm(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	changed := false
-	if p.setEnvForm.fromDropDown.Changed() {
-		changed = true
-	}
+	changed := p.setEnvForm.fromDropDown.Changed()
+
 	if p.setEnvForm.statusCodeEditor.Changed() {
 		p.enforceNumericEditor(p.setEnvForm.statusCodeEditor.Editor)
 		changed = true

@@ -173,11 +173,11 @@ func (v *View) showImportPathInputModal() {
 			if v.controller != nil {
 				v.controller.OnAddImportPath(m.TextField.GetText())
 			}
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		if m.CloseBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 
 		return m.Layout(gtx, v.Theme)
@@ -241,23 +241,18 @@ func (v *View) header(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 					if !shouldShowDeleteSelected {
 						return layout.Dimensions{}
 					}
-					deleteSelectedBtn := widgets.Button(theme.Material(), &v.deleteSelectedButton, widgets.DeleteIcon, widgets.IconPositionStart, "Delete Selected")
-					deleteSelectedBtn.Color = theme.ButtonTextColor
+					deleteSelectedBtn := widgets.Button(theme, &v.deleteSelectedButton, widgets.DeleteIcon, widgets.IconPositionStart, "Delete Selected")
 					deleteSelectedBtn.Background = theme.DeleteButtonBgColor
 					return deleteSelectedBtn.Layout(gtx, theme)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					newBtn := widgets.Button(theme.Material(), &v.addImportPath, widgets.FileFolderIcon, widgets.IconPositionStart, "Add Import Path")
-					newBtn.Color = theme.ButtonTextColor
-					newBtn.Background = theme.ActionButtonBgColor
+					newBtn := widgets.Button(theme, &v.addImportPath, widgets.FileFolderIcon, widgets.IconPositionStart, "Add Import Path")
 					return newBtn.Layout(gtx, theme)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					newBtn := widgets.Button(theme.Material(), &v.addButton, widgets.PlusIcon, widgets.IconPositionStart, "Add Proto file")
-					newBtn.Color = theme.ButtonTextColor
-					newBtn.Background = theme.ActionButtonBgColor
+					newBtn := widgets.Button(theme, &v.addButton, widgets.PlusIcon, widgets.IconPositionStart, "Add Proto file")
 					return newBtn.Layout(gtx, theme)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(25)}.Layout),
@@ -312,8 +307,7 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 	_ = macro.Stop()
 
 	chAllMacro := op.Record(gtx.Ops)
-	chAll := widgets.CheckBox(theme.Material(), &v.checkAllBook, "")
-	chAll.IconColor = theme.CheckBoxColor
+	chAll := widgets.CheckBox(theme, &v.checkAllBook, "")
 	chAllDim := layout.UniformInset(unit.Dp(4)).Layout(gtx, chAll.Layout)
 	chAllCall := chAllMacro.Stop()
 
@@ -394,8 +388,7 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 								func(gtx layout.Context) layout.Dimensions {
 									switch col {
 									case 0:
-										ch := material.CheckBox(theme.Material(), &rowItem.checkBox, "")
-										ch.IconColor = theme.CheckBoxColor
+										ch := widgets.CheckBox(theme, &rowItem.checkBox, "")
 										return layout.UniformInset(unit.Dp(4)).Layout(gtx, ch.Layout)
 									case 1:
 										bodyLabel.Text = rowItem.Path

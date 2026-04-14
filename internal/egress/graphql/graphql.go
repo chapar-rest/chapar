@@ -186,7 +186,7 @@ func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environm
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	// read body
 	body, err := io.ReadAll(res.Body)

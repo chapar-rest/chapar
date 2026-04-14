@@ -423,9 +423,10 @@ func (c *Controller) OnTitleChanged(id string, title, containerType string) {
 
 func (c *Controller) OnSave(id string) {
 	tabType := c.view.GetTabType(id)
-	if tabType == TypeRequest {
+	switch tabType {
+	case TypeRequest:
 		c.saveRequest(id)
-	} else if tabType == TypeCollection {
+	case TypeCollection:
 		c.saveCollection(id)
 	}
 }
@@ -1041,9 +1042,10 @@ func (c *Controller) OnTreeViewMenuClicked(id, action string) {
 		}
 	case MenuAddHTTPRequest, MenuAddGRPCRequest, MenuAddGraphQLRequest:
 		requestType := domain.RequestTypeHTTP
-		if action == MenuAddGRPCRequest {
+		switch action {
+		case MenuAddGRPCRequest:
 			requestType = domain.RequestTypeGRPC
-		} else if action == MenuAddGraphQLRequest {
+		case MenuAddGraphQLRequest:
 			requestType = domain.RequestTypeGraphQL
 		}
 

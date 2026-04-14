@@ -52,7 +52,7 @@ func (a *AddressBar) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 	}
 
 	borderColor := theme.BorderColor
-	if gtx.Source.Focused(a.url) {
+	if gtx.Focused(a.url) {
 		borderColor = theme.BorderColorFocused
 	}
 

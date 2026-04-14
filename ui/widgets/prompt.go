@@ -21,17 +21,6 @@ const (
 	ModalTypeErr  = "err"
 )
 
-var (
-	colors = map[string]color.NRGBA{
-		// Red
-		ModalTypeErr: {R: 0xD1, G: 0x1E, B: 0x35, A: 0xFF},
-		// Light blue
-		ModalTypeInfo: {R: 0x1D, G: 0xBF, B: 0xEC, A: 0xFF},
-		// Yellow
-		ModalTypeWarn: {R: 0xFD, G: 0xB5, B: 0x0E, A: 0xFF},
-	}
-)
-
 type Prompt struct {
 	Title   string
 	Content string
@@ -123,20 +112,23 @@ func (p *Prompt) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 		return layout.Dimensions{}
 	}
 
-	textColor := theme.ContrastFg
+	var bannerBg color.NRGBA
 	switch p.Type {
 	case ModalTypeErr:
-		textColor = color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
+		bannerBg = theme.ErrorColor
 	case ModalTypeInfo:
-		textColor = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xFF}
+		bannerBg = theme.InfoColor
 	case ModalTypeWarn:
-		textColor = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xFF}
+		bannerBg = theme.WarningColor
+	default:
+		bannerBg = theme.InfoColor
 	}
+	textColor := chapartheme.ContrastText(bannerBg)
 
 	return layout.Background{}.Layout(gtx,
 		func(gtx layout.Context) layout.Dimensions {
 			defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 8).Push(gtx.Ops).Pop()
-			paint.Fill(gtx.Ops, colors[p.Type])
+			paint.Fill(gtx.Ops, bannerBg)
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		}, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -169,7 +161,7 @@ func (p *Prompt) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 							items = append(
 								items,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return material.CheckBox(theme.Material(), p.rememberBool, "Don't ask again").Layout(gtx)
+									return CheckBox(theme, p.rememberBool, "Don't ask again").Layout(gtx)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
 							)
@@ -185,9 +177,9 @@ func (p *Prompt) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dim
 							items = append(
 								items,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									btn := Button(theme.Material(), &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
-									btn.Background = chapartheme.White
-									btn.Color = chapartheme.Black
+									btn := Button(theme, &p.options[i].Button, nil, IconPositionStart, p.options[i].Text)
+									btn.Background = textColor
+									btn.Color = bannerBg
 									return btn.Layout(gtx, theme)
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),

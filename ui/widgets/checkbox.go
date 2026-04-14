@@ -4,7 +4,8 @@ import (
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
+
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 type CheckBoxStyle struct {
@@ -12,13 +13,13 @@ type CheckBoxStyle struct {
 	CheckBox *widget.Bool
 }
 
-func CheckBox(th *material.Theme, checkBox *widget.Bool, label string) CheckBoxStyle {
+func CheckBox(th *chapartheme.Theme, checkBox *widget.Bool, label string) CheckBoxStyle {
 	c := CheckBoxStyle{
 		CheckBox: checkBox,
 		checkable: checkable{
 			Label:              label,
-			Color:              th.Palette.Fg,
-			IconColor:          th.Palette.ContrastBg,
+			Color:              th.Fg,
+			IconColor:          th.CheckBoxColor,
 			TextSize:           th.TextSize * 12.0 / 14.0,
 			Size:               24,
 			shaper:             th.Shaper,
@@ -26,7 +27,7 @@ func CheckBox(th *material.Theme, checkBox *widget.Bool, label string) CheckBoxS
 			uncheckedStateIcon: th.Icon.CheckBoxUnchecked,
 		},
 	}
-	c.checkable.Font.Typeface = th.Face
+	c.Font.Typeface = th.Face
 	return c
 }
 

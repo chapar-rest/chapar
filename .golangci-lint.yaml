@@ -1,28 +1,30 @@
+version: "2"
+
 linters:
-  enable-all: false
+  default: none
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
-    - unused
-    - gocritic
-    - gocyclo
-    - gofmt
-    - goimports
-    - misspell
-    - nakedret
-    - prealloc
-    - unconvert
-    - unparam
     - staticcheck
+    - unused
 
-  linters-settings:
-    errcheck:
-      ignore: ''
-      exclude-functions:
-       - fmt:.*
+formatters:
+  enable:
+    - goimports
+    - gci
+
+  settings:
+    goimports:
+      local-prefixes: 
+       - github.com/chapar-rest/chapar
+    gci:
+      sections:
+        - standard
+        - default
+        - "prefix(github.com/chapar-rest/chapar)"
+        - localmodule
 
 run:
   modules-download-mode: vendor
-  tests: false
+  timeout: 5m

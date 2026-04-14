@@ -102,9 +102,9 @@ func (v *View) SetController(c SettingsController) {
 
 func (v *View) ShowError(err error) {
 	m := modals.NewError(err)
-	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 		return m.Layout(gtx, v.Theme)
 	})
@@ -112,9 +112,9 @@ func (v *View) ShowError(err error) {
 
 func (v *View) ShowInfo(title, message string) {
 	m := modals.NewInfo(title, message)
-	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 		return m.Layout(gtx, v.Theme)
 	})
@@ -306,12 +306,9 @@ type button struct {
 }
 
 func (b *button) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
-	bt := widgets.Button(theme.Material(), b.Clickable, b.Icon, widgets.IconPositionStart, b.Text)
-	if b.IsDataChanged {
-		bt.Color = theme.ButtonTextColor
-		bt.Background = theme.ActionButtonBgColor
-	} else {
-		bt.Color = widgets.Disabled(theme.Palette.ContrastFg)
+	bt := widgets.Button(theme, b.Clickable, b.Icon, widgets.IconPositionStart, b.Text)
+	if !b.IsDataChanged {
+		bt.Color = widgets.Disabled(theme.ButtonTextColor)
 	}
 
 	return bt.Layout(gtx, theme)
@@ -345,12 +342,12 @@ func (v *View) layoutActions(gtx layout.Context, theme *chapartheme.Theme) layou
 	return layout.Inset{Bottom: unit.Dp(15), Top: unit.Dp(5)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				btn := widgets.Button(theme.Material(), &v.LoadDefaultButton, nil, widgets.IconPositionStart, "Load Defaults")
+				btn := widgets.Button(theme, &v.LoadDefaultButton, nil, widgets.IconPositionStart, "Load Defaults")
 				return btn.Layout(gtx, theme)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				btn := widgets.Button(theme.Material(), &v.CancelButton, nil, widgets.IconPositionStart, "Cancel")
+				btn := widgets.Button(theme, &v.CancelButton, nil, widgets.IconPositionStart, "Cancel")
 				return btn.Layout(gtx, theme)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),

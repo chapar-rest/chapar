@@ -43,7 +43,7 @@ func (s *SplitView) Layout(gtx layout.Context, theme *chapartheme.Theme, left, r
 				},
 			}
 
-			if s.Resize.Axis == layout.Vertical {
+			if s.Axis == layout.Vertical {
 				rect.Max.X = gtx.Constraints.Max.X
 				rect.Max.Y = bar
 			}

@@ -294,7 +294,7 @@ func (s *Service) applyBody(req *domain.HTTPRequestSpec, httpReq *http.Request) 
 						if err != nil {
 							return err
 						}
-						defer file.Close()
+						defer func() { _ = file.Close() }()
 
 						fw, err := w.CreateFormFile(field.Key, file.Name())
 						if err != nil {

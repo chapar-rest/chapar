@@ -236,7 +236,7 @@ func ImportPostmanEnvironment(data []byte, repo repository.RepositoryV2) error {
 func ImportPostmanEnvironmentFromFile(filePath string, repo repository.RepositoryV2) error {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("error reading file: %v\n", err)
+		return fmt.Errorf("error reading file: %v", err)
 	}
 
 	return ImportPostmanEnvironment(fileContent, repo)

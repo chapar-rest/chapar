@@ -48,7 +48,7 @@ type ContextArea struct {
 // It is automatically invoked by Layout() if it has not already been called during
 // a given frame.
 func (r *ContextArea) Update(gtx layout.Context) {
-	if gtx.Now == r.lastUpdate {
+	if gtx.Now.Equal(r.lastUpdate) {
 		return
 	}
 	r.lastUpdate = gtx.Now

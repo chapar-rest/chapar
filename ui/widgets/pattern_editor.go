@@ -23,7 +23,8 @@ type PatternEditor struct {
 	*giovieweditor.Editor
 	Keys map[string]string
 
-	styledText string
+	styledText     string
+	highlightColor color.NRGBA
 
 	changed   bool
 	submitted bool
@@ -36,7 +37,7 @@ func NewPatternEditor() *PatternEditor {
 		Keys:   make(map[string]string),
 	}
 
-	pe.Editor.SingleLine = true
+	pe.SingleLine = true
 
 	return pe
 }
@@ -59,8 +60,12 @@ func (p *PatternEditor) Submitted() bool {
 }
 
 func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
+	if p.highlightColor != theme.PatternHighlightColor {
+		p.highlightColor = theme.PatternHighlightColor
+		p.styledText = ""
+	}
 	if p.styledText == "" {
-		p.updateStyles(p.Editor.Text())
+		p.updateStyles(p.Text())
 	}
 
 	editorConf := &giovieweditor.EditorConf{
@@ -73,7 +78,7 @@ func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hin
 	}
 
 	for {
-		event, ok := p.Editor.Update(gtx)
+		event, ok := p.Update(gtx)
 		if !ok {
 			break
 		}
@@ -93,7 +98,7 @@ func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hin
 }
 
 func (p *PatternEditor) UpdateStyles() {
-	p.updateStyles(p.Editor.Text())
+	p.updateStyles(p.Text())
 }
 
 func (p *PatternEditor) updateStyles(text string) {
@@ -103,8 +108,10 @@ func (p *PatternEditor) updateStyles(text string) {
 
 	var styles []*giovieweditor.TextStyle
 
-	keyColor := color.NRGBA{R: 255, G: 165, B: 0, A: 255}
-	// Apply styles based on matches
+	keyColor := p.highlightColor
+	if keyColor == (color.NRGBA{}) {
+		keyColor = color.NRGBA{R: 255, G: 165, B: 0, A: 255}
+	}
 	applyStyles := func(re *regexp.Regexp) {
 		matches := re.FindAllStringIndex(text, -1)
 		for _, match := range matches {
@@ -120,7 +127,7 @@ func (p *PatternEditor) updateStyles(text string) {
 	applyStyles(doubleBracket)
 
 	p.styledText = text
-	p.Editor.UpdateTextStyles(styles)
+	p.UpdateTextStyles(styles)
 }
 
 func nRGBAColorToOp(textColor color.NRGBA) op.CallOp {

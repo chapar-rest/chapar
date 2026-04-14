@@ -177,12 +177,12 @@ func (t *TreeView) clickableWrap(gtx layout.Context, theme *chapartheme.Theme, n
 	return node.DiscloserState.Clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Background{}.Layout(gtx,
 			func(gtx layout.Context) layout.Dimensions {
-				background := theme.Palette.Bg
+				background := theme.Bg
 				defer clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, 0).Push(gtx.Ops).Pop()
 				if gtx.Source == (input.Source{}) {
-					background = Disabled(theme.Palette.Bg)
-				} else if node.DiscloserState.Clickable.Hovered() || gtx.Focused(node.DiscloserState.Clickable) || node.menuContextArea.Active() || node.IsSelected {
-					background = Hovered(theme.Palette.Bg)
+					background = Disabled(theme.Bg)
+				} else if node.DiscloserState.Hovered() || gtx.Focused(node.DiscloserState.Clickable) || node.menuContextArea.Active() || node.IsSelected {
+					background = Hovered(theme.Bg)
 				}
 
 				paint.Fill(gtx.Ops, background)
@@ -224,7 +224,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 	}
 
 	for {
-		click, ok := node.DiscloserState.Clickable.Update(gtx)
+		click, ok := node.DiscloserState.Update(gtx)
 		if !ok {
 			break
 		}
@@ -285,7 +285,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 					}
 
 					iconBtn := layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						if !node.DiscloserState.Clickable.Hovered() && !node.menuContextArea.Active() {
+						if !node.DiscloserState.Hovered() && !node.menuContextArea.Active() {
 							return layout.Dimensions{}
 						}
 						gtx.Constraints.Min.X = gtx.Dp(16)
@@ -304,7 +304,7 @@ func (t *TreeView) itemLayout(gtx layout.Context, theme *chapartheme.Theme, node
 								return offset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 									gtx.Constraints.Min = image.Point{}
 									m := component.Menu(theme.Material(), &node.menu)
-									m.SurfaceStyle.Fill = theme.MenuBgColor
+									m.Fill = theme.MenuBgColor
 									return m.Layout(gtx)
 								})
 							})

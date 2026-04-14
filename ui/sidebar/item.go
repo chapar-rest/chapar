@@ -93,14 +93,14 @@ func (r *renderItem) layoutContent(gtx layout.Context, th *chapartheme.Theme) la
 	}.Layout(gtx, func(gtx C) D {
 		return layout.Flex{Alignment: layout.Middle, Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
-				if r.Item.Icon == nil {
+				if r.Icon == nil {
 					return layout.Dimensions{}
 				}
 				return layout.Inset{Bottom: unit.Dp(5), Top: unit.Dp(5)}.Layout(gtx,
 					func(gtx C) D {
 						iconSize := gtx.Dp(unit.Dp(24))
 						gtx.Constraints = layout.Exact(image.Pt(iconSize, iconSize))
-						return r.Item.Icon.Layout(gtx, contentColor)
+						return r.Icon.Layout(gtx, contentColor)
 					})
 			}),
 			layout.Rigid(func(gtx C) D {
@@ -118,9 +118,9 @@ func (r *renderItem) layoutBackground(gtx layout.Context, th *chapartheme.Theme)
 	}
 	var fill color.NRGBA
 	if r.hovering {
-		fill = WithAlpha(th.Palette.Fg, r.AlphaPalette.Hover)
+		fill = WithAlpha(th.Fg, r.Hover)
 	} else if r.selected {
-		fill = WithAlpha(th.Palette.ContrastBg, r.AlphaPalette.Selected)
+		fill = WithAlpha(th.ContrastBg, r.Selected)
 	}
 	rr := gtx.Dp(unit.Dp(5))
 	defer clip.RRect{

@@ -225,7 +225,7 @@ func (n *Notifications) notificationLayout(gtx layout.Context, theme *chaparthem
 					return material.Label(theme.Material(), theme.TextSize, notification.Text).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					btn := widgets.Button(theme.Material(), &notification.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
+					btn := widgets.Button(theme, &notification.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
 					btn.TextSize = unit.Sp(12)
 					btn.IconSize = unit.Sp(12)
 					btn.Background = theme.DropDownMenuBgColor
@@ -258,7 +258,7 @@ func (n *Notifications) listLayout(gtx layout.Context, theme *chapartheme.Theme)
 func (n *Notifications) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &n.clearButton, widgets.CleanIcon, widgets.IconPositionStart, "Clear")
+			btn := widgets.Button(theme, &n.clearButton, widgets.CleanIcon, widgets.IconPositionStart, "Clear")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.Background = theme.DropDownMenuBgColor
@@ -268,7 +268,7 @@ func (n *Notifications) actionsLayout(gtx layout.Context, theme *chapartheme.The
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &n.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
+			btn := widgets.Button(theme, &n.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.Background = theme.DropDownMenuBgColor

@@ -168,12 +168,12 @@ func (c *CodeModal) layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 										}),
 										layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return widgets.Button(theme.Material(), &c.CopyButton, widgets.CopyIcon, widgets.IconPositionStart, c.copyButtonText).Layout(gtx, theme)
+											return widgets.Button(theme, &c.CopyButton, widgets.CopyIcon, widgets.IconPositionStart, c.copyButtonText).Layout(gtx, theme)
 										}),
 									)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return widgets.Button(theme.Material(), &c.CloseButton, widgets.CloseIcon, widgets.IconPositionStart, "Close").Layout(gtx, theme)
+									return widgets.Button(theme, &c.CloseButton, widgets.CloseIcon, widgets.IconPositionStart, "Close").Layout(gtx, theme)
 								}),
 							)
 						}),

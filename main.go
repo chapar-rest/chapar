@@ -49,7 +49,7 @@ func main() {
 
 		var ops op.Ops
 		for {
-			switch e := chaparApp.Window.Event().(type) {
+			switch e := chaparApp.Event().(type) {
 			case app.FrameEvent:
 				gtx := app.NewContext(&ops, e)
 				chaparApp.Layout(gtx, chaparApp.Theme)
@@ -102,7 +102,7 @@ func errorLayout(gtx layout.Context, closeBtn *widget.Clickable, err error) {
 			Y: gtx.Constraints.Max.Y,
 		},
 	}
-	paint.FillShape(gtx.Ops, theme.Palette.Bg, clip.Rect(rect).Op())
+	paint.FillShape(gtx.Ops, theme.Bg, clip.Rect(rect).Op())
 	background := macro.Stop()
 	background.Add(gtx.Ops)
 
@@ -137,9 +137,8 @@ func errorLayout(gtx layout.Context, closeBtn *widget.Clickable, err error) {
 						Spacing:   layout.SpaceStart,
 					}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							btn := widgets.Button(theme.Material(), closeBtn, nil, widgets.IconPositionStart, "Close")
-							btn.Background = chapartheme.White
-							btn.Color = chapartheme.Black
+							btn := widgets.Button(theme, closeBtn, nil, widgets.IconPositionStart, "Close")
+							btn.Background = theme.ContrastBg
 							return btn.Layout(gtx, theme)
 						}),
 					)

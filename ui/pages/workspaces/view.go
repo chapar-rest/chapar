@@ -86,9 +86,9 @@ func (v *View) SetController(c WorkspaceController) {
 
 func (v *View) showError(err error) {
 	m := modals.NewError(err)
-	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 		return m.Layout(gtx, v.Theme)
 	})
@@ -232,9 +232,7 @@ func (v *View) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimen
 						return lb.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						newBtn := widgets.Button(theme.Material(), &v.newButton, widgets.PlusIcon, widgets.IconPositionStart, "New Workspace")
-						newBtn.Color = theme.ButtonTextColor
-						newBtn.Background = theme.ActionButtonBgColor
+						newBtn := widgets.Button(theme, &v.newButton, widgets.PlusIcon, widgets.IconPositionStart, "New Workspace")
 						return newBtn.Layout(gtx, theme)
 					}),
 				)

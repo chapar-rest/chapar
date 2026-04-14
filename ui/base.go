@@ -113,7 +113,7 @@ func NewBase(w *app.Window, navi *navigator.Navigator) (*Base, error) {
 
 func (b *Base) CloseModal() {
 	b.Modal.Widget = nil
-	b.Modal.VisibilityAnimation.Disappear(time.Now())
+	b.Modal.Disappear(time.Now())
 }
 
 func (b *Base) RefreshView() {
@@ -122,7 +122,7 @@ func (b *Base) RefreshView() {
 
 func (b *Base) SetModal(mw func(gtx layout.Context) layout.Dimensions) {
 	// this hack is needed to avoid scrim being disparaged when user is clicking on it
-	b.Modal.Scrim.Clickable = widget.Clickable{}
+	b.Modal.Clickable = widget.Clickable{}
 	b.Modal.VisibilityAnimation = component.VisibilityAnimation{
 		Duration: 200 * time.Millisecond,
 		State:    component.Invisible,
@@ -132,5 +132,5 @@ func (b *Base) SetModal(mw func(gtx layout.Context) layout.Dimensions) {
 		return mw(gtx)
 	}
 
-	b.Modal.VisibilityAnimation.Appear(time.Now())
+	b.Modal.Appear(time.Now())
 }

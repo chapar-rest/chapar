@@ -117,9 +117,9 @@ func (v *View) SetController(c EnvironmentController) {
 
 func (v *View) showError(err error) {
 	m := modals.NewError(err)
-	v.Base.SetModal(func(gtx layout.Context) layout.Dimensions {
+	v.SetModal(func(gtx layout.Context) layout.Dimensions {
 		if m.OKBtn.Clicked(gtx) {
-			v.Base.CloseModal()
+			v.CloseModal()
 		}
 		return m.Layout(gtx, v.Theme)
 	})
@@ -305,8 +305,7 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 									v.controller.OnImportEnv()
 								}
 							}
-							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
-							btn.Color = theme.ButtonTextColor
+							btn := widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
 							return btn.Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
@@ -316,8 +315,7 @@ func (v *View) envList(gtx layout.Context, theme *chapartheme.Theme) layout.Dime
 									v.controller.OnNewEnv()
 								}
 							}
-							btn := widgets.Button(theme.Material(), &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
-							btn.Color = theme.ButtonTextColor
+							btn := widgets.Button(theme, &v.newEnvButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
 							return btn.Layout(gtx, theme)
 						}),
 					)

@@ -45,8 +45,8 @@ func NewResponse(theme *chapartheme.Theme) *Response {
 	r := &Response{
 		copyButton: &widgets.FlatButton{
 			Text:            "Copy",
-			BackgroundColor: theme.Palette.Bg,
-			TextColor:       theme.Palette.Fg,
+			BackgroundColor: theme.Bg,
+			TextColor:       theme.Fg,
 			MinWidth:        unit.Dp(75),
 			Icon:            widgets.CopyIcon,
 			Clickable:       new(widget.Clickable),
@@ -153,8 +153,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := widgets.Button(theme.Material(), &r.copyClickable, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
-						btn.Color = theme.ButtonTextColor
+						btn := widgets.Button(theme, &r.copyClickable, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
 						return btn.Layout(gtx, theme)
 					}),
 				)

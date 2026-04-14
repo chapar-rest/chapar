@@ -27,21 +27,20 @@ func NewActions(showCode bool) *Actions {
 
 func (r *Actions) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Dimensions {
 	border := widget.Border{
-		Color:        theme.Palette.ContrastFg,
+		Color:        theme.ContrastFg,
 		Width:        unit.Dp(1),
 		CornerRadius: unit.Dp(4),
 	}
 
 	flexItems := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			bt := widgets.Button(theme.Material(), &r.SaveButton, widgets.SaveIcon, widgets.IconPositionStart, "Save")
+			bt := widgets.Button(theme, &r.SaveButton, widgets.SaveIcon, widgets.IconPositionStart, "Save")
 			if r.IsDataChanged {
-				bt.Color = theme.Palette.ContrastFg
 				border.Width = unit.Dp(1)
-				border.Color = theme.Palette.ContrastFg
+				border.Color = theme.ContrastFg
 			} else {
-				bt.Color = widgets.Disabled(theme.Palette.ContrastFg)
-				border.Color = widgets.Disabled(theme.Palette.ContrastFg)
+				bt.Color = widgets.Disabled(theme.ButtonTextColor)
+				border.Color = widgets.Disabled(theme.ContrastFg)
 				border.Width = 0
 			}
 
@@ -54,7 +53,7 @@ func (r *Actions) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 	if r.showCode {
 		flexItems = append(flexItems, layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout))
 		flexItems = append(flexItems, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return widgets.Button(theme.Material(), &r.CodeButton, widgets.CodeIcon, widgets.IconPositionStart, "Code").Layout(gtx, theme)
+			return widgets.Button(theme, &r.CodeButton, widgets.CodeIcon, widgets.IconPositionStart, "Code").Layout(gtx, theme)
 		}))
 	}
 

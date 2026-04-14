@@ -233,7 +233,7 @@ func (c *DropDown) box(gtx layout.Context, theme *chapartheme.Theme, text string
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Dp(16)
-					return ExpandIcon.Layout(gtx, theme.Palette.Fg)
+					return ExpandIcon.Layout(gtx, theme.Fg)
 				}),
 			)
 		})
@@ -303,7 +303,7 @@ func (c *DropDown) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 					}
 					gtx.Constraints.Max.Y = gtx.Dp(300)
 					m := component.Menu(theme.Material(), &c.menu)
-					m.SurfaceStyle.Fill = theme.DropDownMenuBgColor
+					m.Fill = theme.DropDownMenuBgColor
 					return m.Layout(gtx)
 				})
 			})
@@ -330,7 +330,7 @@ func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
 				itm.IconSize = opt.IconSize
 			}
 
-			itm.Label.Color = chapartheme.White
+			itm.Label.Color = theme.DropDownTextColor
 			return itm.Layout(gtx)
 		})
 	}

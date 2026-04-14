@@ -104,7 +104,7 @@ func (c *CreateItem) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Di
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints.Min.X = gtx.Dp(48)
 						gtx.Constraints.Max.X = gtx.Dp(48)
-						return c.Icon.Layout(gtx, th.Palette.ContrastFg)
+						return c.Icon.Layout(gtx, th.ContrastFg)
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
