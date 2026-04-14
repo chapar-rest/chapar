@@ -90,7 +90,7 @@ func showStartupError(w *app.Window, err error) error {
 }
 
 func errorLayout(gtx layout.Context, closeBtn *widget.Clickable, err error) {
-	theme := chapartheme.New(material.NewTheme(), true)
+	theme := chapartheme.New(material.NewTheme())
 
 	message := err.Error() + "\n\nPlease consider reporting this issue to the Chapar team using github.com/chapar-rest/chapar/issues"
 

@@ -65,7 +65,7 @@ func NewBase(w *app.Window, navi *navigator.Navigator) (*Base, error) {
 	appState := prefs.GetAppState()
 	theme := material.NewTheme()
 	theme.Shaper = text.NewShaper(text.WithCollection(fontCollection))
-	th := chapartheme.New(theme, appState.Spec.DarkMode)
+	th := chapartheme.New(theme)
 	explorerController := explorer.NewExplorer(w)
 
 	// create file storage in user's home directory

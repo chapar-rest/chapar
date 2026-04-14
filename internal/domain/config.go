@@ -123,8 +123,7 @@ type AppState struct {
 type AppStateSpec struct {
 	ActiveWorkspace     *ActiveWorkspace     `yaml:"activeWorkspace"`
 	SelectedEnvironment *SelectedEnvironment `yaml:"selectedEnvironment"`
-	DarkMode            bool                 `yaml:"darkMode"`
-	Theme               string               `yaml:"theme"`
+	DarkMode            *bool                `yaml:"darkMode"`
 }
 
 // GetDefaultGlobalConfig returns a default global config

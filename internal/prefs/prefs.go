@@ -320,7 +320,7 @@ func (m *Manager) migrateFromOldFormat() error {
 		// Migrate data from old preferences to new structures
 
 		// If we already have dark mode from config, don't overwrite
-		m.appState.Spec.DarkMode = oldPrefs.Spec.DarkMode
+		m.appState.Spec.DarkMode = &oldPrefs.Spec.DarkMode
 
 		// Move selected environment if not already set
 		if m.appState.Spec.SelectedEnvironment == nil || m.appState.Spec.SelectedEnvironment.ID == "" {

@@ -282,6 +282,18 @@ func (a *App) loadWorkspace() error {
 	config := prefs.GetGlobalConfig().Spec.General
 	a.Theme.Switch(config.Theme)
 
+	if appState.Spec.DarkMode != nil {
+		if *appState.Spec.DarkMode {
+			a.Theme.Switch("dark")
+		} else {
+			a.Theme.Switch("light")
+		}
+		appState.Spec.DarkMode = nil
+		if err := prefs.UpdateAppState(appState); err != nil {
+			return err
+		}
+	}
+
 	if err := a.EnvironmentsController.LoadData(); err != nil {
 		return err
 	}

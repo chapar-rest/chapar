@@ -49,7 +49,7 @@ type Theme struct {
 	BadgeBgColor          color.NRGBA
 }
 
-func New(material *material.Theme, isDark bool) *Theme {
+func New(material *material.Theme) *Theme {
 	t := &Theme{
 		Theme: material,
 		//SideBarBgColor:   rgb(0x202224),
