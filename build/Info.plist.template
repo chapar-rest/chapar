@@ -19,12 +19,16 @@
 	<key>CFBundleVersion</key>
 	<string>BUILD_PLACEHOLDER</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>10.14</string>
+	<string>11.0</string>
 	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
 	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.developer-tools</string>
+	<key>CFBundleIconFile</key>
+	<string>icon.icns</string>
 </dict>
 </plist>

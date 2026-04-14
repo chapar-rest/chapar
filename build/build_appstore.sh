@@ -50,7 +50,7 @@ cat > ./build/appstore/Info.plist << EOF
 	<key>CFBundleVersion</key>
 	<string>$BUILD_NUMBER</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>10.14</string>
+	<string>11.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>
@@ -82,6 +82,8 @@ cat > ./build/appstore/entitlements.plist << EOF
 EOF
 
 # Build for App Store (both architectures)
+export MACOSX_DEPLOYMENT_TARGET=11.0
+
 echo "Building for Intel (amd64)..."
 gogio -ldflags="-X main.serviceVersion=$VERSION" -appid=rest.chapar.app -icon=./build/appicon.png -target=macos -arch=amd64 -o ./dist/appstore/amd64/Chapar.app .
 
