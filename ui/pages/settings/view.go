@@ -170,6 +170,10 @@ func (v *View) Load(config domain.GlobalConfig) {
 			widgets.NewDropDownOption("GitHub Light").WithIdentifier("github-light").WithValue("github-light"),
 			widgets.NewDropDownOption("Dark").WithIdentifier("dark").WithValue("dark"),
 			widgets.NewDropDownOption("GitHub Dark").WithIdentifier("github-dark").WithValue("github-dark"),
+			widgets.NewDropDownOption("Catppuccin Frappe").WithIdentifier("catppuccin-frappe").WithValue("catppuccin-frappe"),
+			widgets.NewDropDownOption("Catppuccin Latte").WithIdentifier("catppuccin-latte").WithValue("catppuccin-latte"),
+			widgets.NewDropDownOption("Catppuccin Macchiato").WithIdentifier("catppuccin-macchiato").WithValue("catppuccin-macchiato"),
+			widgets.NewDropDownOption("Catppuccin Mocha").WithIdentifier("catppuccin-mocha").WithValue("catppuccin-mocha"),
 		),
 		widgets.NewBoolItem("Use horizontal split for request and response", "useHorizontalSplit", "If enabled, the request and response views are arranged top to bottom.", config.Spec.General.UseHorizontalSplit),
 	})
