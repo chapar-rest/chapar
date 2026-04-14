@@ -92,8 +92,6 @@ func NewApp(w *app.Window) (*App, error) {
 		baseLayout.HeaderLayout.LoadWorkspaces(base.WorkspacesState.GetWorkspaces())
 	})
 
-	baseLayout.HeaderLayout.OnThemeSwitched = out.onThemeChange
-
 	return out, out.loadWorkspace()
 }
 
@@ -281,8 +279,20 @@ func (a *App) onWorkspaceChanged(ws *domain.Workspace) {
 func (a *App) loadWorkspace() error {
 	appState := prefs.GetAppState()
 
-	a.HeaderLayout.SetTheme(appState.Spec.DarkMode)
-	a.Theme.Switch(appState.Spec.DarkMode)
+	config := prefs.GetGlobalConfig().Spec.General
+	a.Theme.Switch(config.Theme)
+
+	if appState.Spec.DarkMode != nil {
+		if *appState.Spec.DarkMode {
+			a.Theme.Switch("dark")
+		} else {
+			a.Theme.Switch("light")
+		}
+		appState.Spec.DarkMode = nil
+		if err := prefs.UpdateAppState(appState); err != nil {
+			return err
+		}
+	}
 
 	if err := a.EnvironmentsController.LoadData(); err != nil {
 		return err
@@ -305,14 +315,4 @@ func (a *App) loadWorkspace() error {
 	}
 
 	return a.RequestsController.LoadData()
-}
-
-func (a *App) onThemeChange(isDark bool) {
-	a.Theme.Switch(isDark)
-
-	appState := prefs.GetAppState()
-	appState.Spec.DarkMode = isDark
-	if err := prefs.UpdateAppState(appState); err != nil {
-		a.showError(err)
-	}
 }

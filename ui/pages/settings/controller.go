@@ -75,10 +75,12 @@ func (c *Controller) OnChange(values map[string]any) {
 		c.view.IsDataChanged = true
 		c.oldViewChanged = true
 		c.state = inputSettings
+		c.view.Theme.Switch(inputSettings.Spec.General.Theme)
 		c.view.Refresh()
 	} else {
 		c.workspacePathChanged = false
 		c.view.IsDataChanged = false
+		c.view.Theme.Switch(globalSettings.Spec.General.Theme)
 		if c.oldViewChanged {
 			c.view.Refresh()
 		}
