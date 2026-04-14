@@ -330,7 +330,7 @@ func (c *DropDown) updateMenuItems(theme *chapartheme.Theme) {
 				itm.IconSize = opt.IconSize
 			}
 
-			itm.Label.Color = chapartheme.White
+			itm.Label.Color = theme.DropDownTextColor
 			return itm.Layout(gtx)
 		})
 	}

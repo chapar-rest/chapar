@@ -88,8 +88,7 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 					Alignment: layout.Middle,
 				}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						r := widgets.RadioButton(theme.Material(), s.definitionFrom, "reflection", "Server reflection")
-						r.IconColor = theme.CheckBoxColor
+						r := widgets.RadioButton(theme, s.definitionFrom, "reflection", "Server reflection")
 						return r.Layout(gtx)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(20)}.Layout),
@@ -98,8 +97,7 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 							return layout.Dimensions{}
 						}
 
-						btn := widgets.Button(theme.Material(), s.ReloadButton, widgets.RefreshIcon, widgets.IconPositionStart, "Reload")
-						btn.Color = theme.ButtonTextColor
+						btn := widgets.Button(theme, s.ReloadButton, widgets.RefreshIcon, widgets.IconPositionStart, "Reload")
 						btn.Inset = layout.Inset{
 							Top: 4, Bottom: 4,
 							Left: 4, Right: 4,
@@ -117,8 +115,7 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(5)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				r := widgets.RadioButton(theme.Material(), s.definitionFrom, "proto_files", "Proto files")
-				r.IconColor = theme.CheckBoxColor
+				r := widgets.RadioButton(theme, s.definitionFrom, "proto_files", "Proto files")
 				return r.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
@@ -144,9 +141,8 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 							return layout.Dimensions{}
 						}
 
-						btn := widgets.Button(theme.Material(), s.ReloadButton, widgets.RefreshIcon, widgets.IconPositionStart, "")
+						btn := widgets.Button(theme, s.ReloadButton, widgets.RefreshIcon, widgets.IconPositionStart, "")
 						btn.Inset = layout.Inset{Top: unit.Dp(6), Bottom: unit.Dp(4), Left: unit.Dp(6), Right: unit.Dp(2)}
-						btn.Color = theme.ButtonTextColor
 						return btn.Layout(gtx, theme)
 					}),
 				)
@@ -179,8 +175,7 @@ func (s *ServerInfo) Layout(gtx layout.Context, theme *chapartheme.Theme) layout
 
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := widgets.Button(theme.Material(), s.CreateCollectionBtn, widgets.PlusIcon, widgets.IconPositionStart, "Create collection from methods")
-						btn.Color = theme.ButtonTextColor
+						btn := widgets.Button(theme, s.CreateCollectionBtn, widgets.PlusIcon, widgets.IconPositionStart, "Create collection from methods")
 						btn.Inset = layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(4), Right: unit.Dp(4)}
 						return btn.Layout(gtx, theme)
 					}),

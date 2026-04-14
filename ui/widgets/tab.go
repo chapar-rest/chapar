@@ -199,8 +199,7 @@ func (tabs *Tabs) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.Di
 								iconSize := unit.Dp(16)
 								padding := unit.Dp(4)
 								if t.isDataChanged {
-									// yellow
-									iconColor = color.NRGBA{R: 0xff, G: 0xff, B: 0x00, A: 0xff}
+									iconColor = theme.TabDirtyColor
 									closeIcon = CircleIcon
 									iconSize = unit.Dp(10)
 									padding = unit.Dp(8)

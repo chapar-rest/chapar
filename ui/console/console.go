@@ -99,7 +99,7 @@ func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) la
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &c.clearButton, widgets.CleanIcon, widgets.IconPositionStart, "Clear")
+			btn := widgets.Button(theme, &c.clearButton, widgets.CleanIcon, widgets.IconPositionStart, "Clear")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
@@ -108,7 +108,7 @@ func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) la
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &c.copyButton, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
+			btn := widgets.Button(theme, &c.copyButton, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}
@@ -117,7 +117,7 @@ func (c *Console) actionsLayout(gtx layout.Context, theme *chapartheme.Theme) la
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(5)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &c.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
+			btn := widgets.Button(theme, &c.closeButton, widgets.CloseIcon, widgets.IconPositionStart, "")
 			btn.TextSize = unit.Sp(12)
 			btn.IconSize = unit.Sp(12)
 			btn.IconInset = layout.Inset{Right: unit.Dp(3)}

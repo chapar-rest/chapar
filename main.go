@@ -137,9 +137,8 @@ func errorLayout(gtx layout.Context, closeBtn *widget.Clickable, err error) {
 						Spacing:   layout.SpaceStart,
 					}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							btn := widgets.Button(theme.Material(), closeBtn, nil, widgets.IconPositionStart, "Close")
-							btn.Background = chapartheme.White
-							btn.Color = chapartheme.Black
+							btn := widgets.Button(theme, closeBtn, nil, widgets.IconPositionStart, "Close")
+							btn.Background = theme.Palette.ContrastBg
 							return btn.Layout(gtx, theme)
 						}),
 					)

@@ -179,8 +179,7 @@ func (f *Variables) itemLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 
 	items := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			ch := widgets.CheckBox(theme.Material(), item.enableBool, "")
-			ch.IconColor = theme.CheckBoxColor
+			ch := widgets.CheckBox(theme, item.enableBool, "")
 			return ch.Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

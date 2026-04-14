@@ -55,14 +55,14 @@ type IconButtonStyle struct {
 	Description string
 }
 
-func Button(th *material.Theme, button *widget.Clickable, icon Icon, iconPosition int, txt string) ButtonStyle {
+func Button(th *chapartheme.Theme, button *widget.Clickable, icon Icon, iconPosition int, txt string) ButtonStyle {
 	b := ButtonStyle{
 		Text:         txt,
 		Icon:         icon,
 		IconPosition: iconPosition,
-		Color:        th.Palette.ContrastFg,
+		Color:        th.ButtonTextColor,
 		CornerRadius: 4,
-		Background:   th.Palette.ContrastBg,
+		Background:   th.ActionButtonBgColor,
 		TextSize:     th.TextSize * 14.0 / 16.0,
 		Inset: layout.Inset{
 			Top: 8, Bottom: 8,

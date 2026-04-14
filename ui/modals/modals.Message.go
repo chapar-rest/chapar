@@ -1,8 +1,6 @@
 package modals
 
 import (
-	"image/color"
-
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -37,11 +35,11 @@ func (m *Message) Layout(gtx layout.Context, th *chapartheme.Theme) layout.Dimen
 	textColor := th.Palette.Fg
 	switch m.Type {
 	case MessageTypeErr:
-		textColor = color.NRGBA{R: 0xD1, G: 0x1E, B: 0x35, A: 0xFF}
+		textColor = th.ErrorColor
 	case MessageTypeInfo:
-		textColor = color.NRGBA{R: 0x1D, G: 0xBF, B: 0xEC, A: 0xFF}
+		textColor = th.InfoColor
 	case MessageTypeWarn:
-		textColor = color.NRGBA{R: 0xFD, G: 0xB5, B: 0x0E, A: 0xFF}
+		textColor = th.WarningColor
 	}
 
 	marginTop := layout.Inset{Top: unit.Dp(90)}

@@ -162,8 +162,7 @@ func (r *Response) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.D
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := widgets.Button(theme.Material(), &r.copyClickable, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
-						btn.Color = theme.ButtonTextColor
+						btn := widgets.Button(theme, &r.copyClickable, widgets.CopyIcon, widgets.IconPositionStart, "Copy")
 						btn.Inset = layout.Inset{
 							Top: 4, Bottom: 4,
 							Left: 4, Right: 4,

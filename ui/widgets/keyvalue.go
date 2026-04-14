@@ -185,9 +185,8 @@ func (kv *KeyValue) itemLayout(gtx layout.Context, theme *chapartheme.Theme, ind
 	content := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return leftPadding.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				ch := material.CheckBox(theme.Material(), item.activeBool, "")
+				ch := CheckBox(theme, item.activeBool, "")
 				ch.Size = unit.Dp(20)
-				ch.IconColor = theme.CheckBoxColor
 				return ch.Layout(gtx)
 			})
 		}),

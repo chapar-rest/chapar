@@ -23,7 +23,8 @@ type PatternEditor struct {
 	*giovieweditor.Editor
 	Keys map[string]string
 
-	styledText string
+	styledText    string
+	highlightColor color.NRGBA
 
 	changed   bool
 	submitted bool
@@ -59,6 +60,10 @@ func (p *PatternEditor) Submitted() bool {
 }
 
 func (p *PatternEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
+	if p.highlightColor != theme.PatternHighlightColor {
+		p.highlightColor = theme.PatternHighlightColor
+		p.styledText = ""
+	}
 	if p.styledText == "" {
 		p.updateStyles(p.Editor.Text())
 	}
@@ -103,8 +108,10 @@ func (p *PatternEditor) updateStyles(text string) {
 
 	var styles []*giovieweditor.TextStyle
 
-	keyColor := color.NRGBA{R: 255, G: 165, B: 0, A: 255}
-	// Apply styles based on matches
+	keyColor := p.highlightColor
+	if keyColor == (color.NRGBA{}) {
+		keyColor = color.NRGBA{R: 255, G: 165, B: 0, A: 255}
+	}
 	applyStyles := func(re *regexp.Regexp) {
 		matches := re.FindAllStringIndex(text, -1)
 		for _, match := range matches {

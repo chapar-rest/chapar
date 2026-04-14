@@ -135,9 +135,11 @@ func (t *TextField) Layout(gtx layout.Context, theme *chapartheme.Theme) layout.
 			spacing := layout.SpaceBetween
 			if t.Icon != nil {
 				iconLayout := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					b := widgets.Button(theme.Material(), &widget.Clickable{}, t.Icon, 0, "")
-					b.Inset = layout.Inset{Left: unit.Dp(8), Right: unit.Dp(2), Top: unit.Dp(2), Bottom: unit.Dp(2)}
-					return b.Layout(gtx, theme)
+					return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(2), Top: unit.Dp(2), Bottom: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						iconSize := gtx.Dp(unit.Dp(18))
+						gtx.Constraints = layout.Exact(image.Pt(iconSize, iconSize))
+						return t.Icon.Layout(gtx, theme.TextColor)
+					})
 				})
 
 				items = []layout.FlexChild{inputLayout, iconLayout}

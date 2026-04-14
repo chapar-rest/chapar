@@ -6,7 +6,8 @@ import (
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
+
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 )
 
 type RadioButtonStyle struct {
@@ -17,14 +18,14 @@ type RadioButtonStyle struct {
 
 // RadioButton returns a RadioButton with a label. The key specifies
 // the value for the Enum.
-func RadioButton(th *material.Theme, group *widget.Enum, key, label string) RadioButtonStyle {
+func RadioButton(th *chapartheme.Theme, group *widget.Enum, key, label string) RadioButtonStyle {
 	r := RadioButtonStyle{
 		Group: group,
 		checkable: checkable{
 			Label: label,
 
 			Color:              th.Palette.Fg,
-			IconColor:          th.Palette.ContrastBg,
+			IconColor:          th.CheckBoxColor,
 			TextSize:           th.TextSize * 14.0 / 16.0,
 			Size:               26,
 			shaper:             th.Shaper,

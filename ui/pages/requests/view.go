@@ -1012,14 +1012,12 @@ func (v *View) requestList(gtx layout.Context, theme *chapartheme.Theme) layout.
 							if v.importButton.Clicked(gtx) {
 								v.showImportModal()
 							}
-							btn := widgets.Button(theme.Material(), &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
-							btn.Color = theme.ButtonTextColor
+							btn := widgets.Button(theme, &v.importButton, widgets.UploadIcon, widgets.IconPositionStart, "Import")
 							return btn.Layout(gtx, theme)
 						}),
 						layout.Rigid(layout.Spacer{Width: unit.Dp(2)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							newBtn := widgets.Button(theme.Material(), &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
-							newBtn.Color = theme.ButtonTextColor
+							newBtn := widgets.Button(theme, &v.newRequestButton, widgets.PlusIcon, widgets.IconPositionStart, "New")
 							return newBtn.Layout(gtx, theme)
 						}),
 					)

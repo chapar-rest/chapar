@@ -208,8 +208,7 @@ func (f *FormData) fieldLayouts(gtx layout.Context, theme *chapartheme.Theme, it
 
 	items := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			ch := material.CheckBox(theme.Material(), item.activeBool, "")
-			ch.IconColor = theme.CheckBoxColor
+			ch := widgets.CheckBox(theme, item.activeBool, "")
 			return ch.Layout(gtx)
 		}),
 		widgets.DrawLineFlex(theme.TableBorderColor, unit.Dp(35), unit.Dp(1)),

@@ -315,8 +315,7 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 						return layout.Dimensions{}
 					}
 
-					btn := widgets.Button(theme.Material(), &c.loadExample, widgets.RefreshIcon, widgets.IconPositionStart, "Load Example")
-					btn.Color = theme.ButtonTextColor
+					btn := widgets.Button(theme, &c.loadExample, widgets.RefreshIcon, widgets.IconPositionStart, "Load Example")
 					btn.Inset = layout.Inset{
 						Top: unit.Dp(4), Bottom: unit.Dp(4),
 						Left: unit.Dp(4), Right: unit.Dp(4),
@@ -376,8 +375,7 @@ func (c *CodeEditor) beautyButton(gtx layout.Context, theme *chapartheme.Theme) 
 
 	return layout.Inset{Bottom: unit.Dp(4), Right: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.SE.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			btn := widgets.Button(theme.Material(), &c.beatufier, widgets.FormatIcon, widgets.IconPositionStart, "Beautify")
-			btn.Color = theme.ButtonTextColor
+			btn := widgets.Button(theme, &c.beatufier, widgets.FormatIcon, widgets.IconPositionStart, "Beautify")
 			btn.Inset = layout.Inset{
 				Top: 4, Bottom: 4,
 				Left: 4, Right: 4,

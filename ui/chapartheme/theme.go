@@ -46,7 +46,11 @@ type Theme struct {
 	ResponseStatusColor   color.NRGBA
 	ErrorColor            color.NRGBA
 	WarningColor          color.NRGBA
+	InfoColor             color.NRGBA
 	BadgeBgColor          color.NRGBA
+	TabDirtyColor         color.NRGBA
+	PatternHighlightColor color.NRGBA
+	DropDownTextColor     color.NRGBA
 }
 
 func New(material *material.Theme) *Theme {
@@ -98,6 +102,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0x2b2d31)
 		t.DeleteButtonBgColor = rgb(0xff7373)
 		t.SideBarTextColor = rgb(0xffffff)
+		t.InfoColor = rgb(0x4589f5)
+		t.TabDirtyColor = rgb(0xffe073)
+		t.PatternHighlightColor = rgb(0xffa500)
+		t.DropDownTextColor = rgb(0xffffff)
 	case "github-dark":
 		t.isDark = true
 		t.Theme.Palette.Fg = rgb(0xc9d1d9)
@@ -127,6 +135,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0x21262d)
 		t.DeleteButtonBgColor = rgb(0xda3633)
 		t.SideBarTextColor = rgb(0xc9d1d9)
+		t.InfoColor = rgb(0x58a6ff)
+		t.TabDirtyColor = rgb(0xd29922)
+		t.PatternHighlightColor = rgb(0xffa657)
+		t.DropDownTextColor = rgb(0xc9d1d9)
 	case "light":
 		t.isDark = false
 		t.LoaderColor = rgb(0x000000)
@@ -156,6 +168,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0x2b2d31)
 		t.DeleteButtonBgColor = rgb(0xff7373)
 		t.SideBarTextColor = rgb(0x000000)
+		t.InfoColor = rgb(0x4589f5)
+		t.TabDirtyColor = rgb(0xb8860b)
+		t.PatternHighlightColor = rgb(0xd2691e)
+		t.DropDownTextColor = rgb(0xffffff)
 	case "github-light":
 		t.isDark = false
 		t.LoaderColor = rgb(0x24292f)
@@ -185,6 +201,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0xeaeef2)
 		t.DeleteButtonBgColor = rgb(0xcf222e)
 		t.SideBarTextColor = rgb(0x24292f)
+		t.InfoColor = rgb(0x0969da)
+		t.TabDirtyColor = rgb(0x9a6700)
+		t.PatternHighlightColor = rgb(0xbc4c00)
+		t.DropDownTextColor = rgb(0xffffff)
 	case "catppuccin-latte":
 		t.isDark = false
 		t.LoaderColor = rgb(0x1e66f5)              // Blue
@@ -214,6 +234,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0xbcc0cc)             // Surface1
 		t.DeleteButtonBgColor = rgb(0xd20f39)      // Red
 		t.SideBarTextColor = rgb(0x4c4f69)         // Text
+		t.InfoColor = rgb(0x1e66f5)                // Blue
+		t.TabDirtyColor = rgb(0xdf8e1d)            // Yellow
+		t.PatternHighlightColor = rgb(0xfe640b)    // Peach
+		t.DropDownTextColor = rgb(0x4c4f69)        // Text
 
 	case "catppuccin-frappe":
 		t.isDark = true
@@ -244,6 +268,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0x51576d)             // Surface1
 		t.DeleteButtonBgColor = rgb(0xe78284)      // Red
 		t.SideBarTextColor = rgb(0xc6d0f5)         // Text
+		t.InfoColor = rgb(0x8caaee)                // Blue
+		t.TabDirtyColor = rgb(0xe5c890)            // Yellow
+		t.PatternHighlightColor = rgb(0xef9f76)    // Peach
+		t.DropDownTextColor = rgb(0xc6d0f5)        // Text
 
 	case "catppuccin-macchiato":
 		t.isDark = true
@@ -274,6 +302,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0x494d64)             // Surface1
 		t.DeleteButtonBgColor = rgb(0xed8796)      // Red
 		t.SideBarTextColor = rgb(0xcad3f5)         // Text
+		t.InfoColor = rgb(0x8aadf4)                // Blue
+		t.TabDirtyColor = rgb(0xeed49f)            // Yellow
+		t.PatternHighlightColor = rgb(0xf5a97f)    // Peach
+		t.DropDownTextColor = rgb(0xcad3f5)        // Text
 
 	case "catppuccin-mocha":
 		t.isDark = true
@@ -304,6 +336,10 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 		t.BadgeBgColor = rgb(0x45475a)             // Surface1
 		t.DeleteButtonBgColor = rgb(0xf38ba8)      // Red
 		t.SideBarTextColor = rgb(0xcdd6f4)         // Text
+		t.InfoColor = rgb(0x89b4fa)                // Blue
+		t.TabDirtyColor = rgb(0xf9e2af)            // Yellow
+		t.PatternHighlightColor = rgb(0xfab387)    // Peach
+		t.DropDownTextColor = rgb(0xcdd6f4)        // Text
 	}
 
 	return t.Theme
@@ -311,6 +347,14 @@ func (t *Theme) Switch(themeName string) *material.Theme {
 
 func (t *Theme) IsDark() bool {
 	return t.isDark
+}
+
+func ContrastText(bg color.NRGBA) color.NRGBA {
+	lum := (299*int(bg.R) + 587*int(bg.G) + 114*int(bg.B)) / 1000
+	if lum > 128 {
+		return Black
+	}
+	return White
 }
 
 func rgb(c uint32) color.NRGBA {
