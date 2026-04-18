@@ -43,6 +43,7 @@ func NewApp(w *app.Window) (*App, error) {
 	}
 	navi.Register(baseLayout.RequestsView)
 	navi.Register(baseLayout.EnvironmentsView)
+	navi.Register(baseLayout.TestCasesView)
 	navi.Register(baseLayout.ProtoFilesView)
 	navi.Register(baseLayout.WorkspaceView)
 	navi.Register(baseLayout.SettingsView)
