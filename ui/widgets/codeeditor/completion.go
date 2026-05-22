@@ -17,10 +17,12 @@ type templateCompletion struct {
 	completor *envVariableCompletor
 	onConfirm func()
 
-	active      bool
-	ctx         gvcode.CompletionContext
-	insertStart int
-	candidates  []gvcode.CompletionCandidate
+	active       bool
+	suppressNext bool
+	pendingConfirm int
+	ctx            gvcode.CompletionContext
+	insertStart    int
+	candidates     []gvcode.CompletionCandidate
 }
 
 func newTemplateCompletion(editor *gvcode.Editor, popup *completion.CompletionPopup, completor *envVariableCompletor) *templateCompletion {
@@ -36,6 +38,11 @@ func (tc *templateCompletion) AddCompletor(_ gvcode.Completor, _ gvcode.Completi
 }
 
 func (tc *templateCompletion) OnText(ctx gvcode.CompletionContext) {
+	if tc.suppressNext {
+		tc.suppressNext = false
+		return
+	}
+
 	if ctx.Input != "" && isTemplateTerminatingInput(ctx.Input) {
 		tc.Cancel()
 		return
@@ -57,6 +64,10 @@ func (tc *templateCompletion) OnText(ctx gvcode.CompletionContext) {
 }
 
 func (tc *templateCompletion) OnConfirm(idx int) {
+	tc.pendingConfirm = idx
+}
+
+func (tc *templateCompletion) applyConfirm(idx int) {
 	if idx < 0 || idx >= len(tc.candidates) {
 		return
 	}
@@ -64,8 +75,16 @@ func (tc *templateCompletion) OnConfirm(idx int) {
 	candidate := tc.candidates[idx]
 	editStart := tc.insertStart + 2
 	editEnd := tc.ctx.Position.Runes
+	suffix := templateClosingSuffix(tc.editor.Text(), editEnd)
+	insertText := candidate.Label + suffix
 	tc.editor.SetCaret(editStart, editEnd)
-	tc.editor.Insert(candidate.Label + "}}")
+	tc.editor.Insert(insertText)
+
+	caret, _ := tc.editor.Selection()
+	caret = advanceCaretPastClosingBraces(tc.editor.Text(), caret)
+	tc.editor.SetCaret(caret, caret)
+
+	tc.suppressNext = true
 	tc.Cancel()
 	if tc.onConfirm != nil {
 		tc.onConfirm()
@@ -76,9 +95,6 @@ func (tc *templateCompletion) Cancel() {
 	tc.active = false
 	tc.candidates = tc.candidates[:0]
 	tc.insertStart = 0
-	if tc.popup != nil {
-		tc.popup.Reset()
-	}
 }
 
 func (tc *templateCompletion) IsActive() bool {
@@ -93,11 +109,20 @@ func (tc *templateCompletion) Layout(gtx layout.Context) layout.Dimensions {
 	if tc.popup == nil {
 		return layout.Dimensions{}
 	}
-	if !tc.IsActive() {
-		// Always run popup layout when inactive so stale key handlers are removed.
+
+	var items []gvcode.CompletionCandidate
+	if tc.IsActive() {
+		items = tc.candidates
+	}
+
+	dims := tc.popup.Layout(gtx, items)
+	if tc.pendingConfirm >= 0 {
+		idx := tc.pendingConfirm
+		tc.pendingConfirm = -1
+		tc.applyConfirm(idx)
 		return tc.popup.Layout(gtx, nil)
 	}
-	return tc.popup.Layout(gtx, tc.candidates)
+	return dims
 }
 
 type envVariableCompletor struct {
@@ -166,6 +191,29 @@ func templateContextBeforeCaret(text string, runeOff int) (bracesStart int, part
 	}
 
 	return bracesStart, partial, true
+}
+
+// templateClosingSuffix returns any missing "}}" characters already present
+// after runeOff, for example when auto-close brackets inserted them.
+func templateClosingSuffix(text string, runeOff int) string {
+	runes := []rune(text)
+	var suffix strings.Builder
+	for _, want := range "}}" {
+		if runeOff < len(runes) && runes[runeOff] == want {
+			runeOff++
+			continue
+		}
+		suffix.WriteRune(want)
+	}
+	return suffix.String()
+}
+
+func advanceCaretPastClosingBraces(text string, runeOff int) int {
+	runes := []rune(text)
+	for runeOff < len(runes) && runes[runeOff] == '}' {
+		runeOff++
+	}
+	return runeOff
 }
 
 func isTemplateNameRune(r rune) bool {
