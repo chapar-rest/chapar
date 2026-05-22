@@ -15,7 +15,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/flopp/go-findfont"
 	gvcolor "github.com/oligo/gvcode/color"
 	"github.com/oligo/gvcode/textstyle/syntax"
@@ -89,8 +89,13 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 		editorConfig: globalConfig.Spec.Editor,
 	}
 
-	c.lexer = getLexer(lang)
+	c.editor.SetText(code)
 	c.setEditorOptions()
+
+	tokens := chromaTokensToGvcode(c.lang, code)
+	if len(tokens) > 0 {
+		c.editor.SetSyntaxTokens(tokens...)
+	}
 
 	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
 		if old.Spec.Editor.Changed(updated.Spec.Editor) {
@@ -105,7 +110,6 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 		CornerRadius: unit.Dp(4),
 	}
 
-	c.editor.SetText(code)
 	return c
 }
 
@@ -168,12 +172,6 @@ func (c *CodeEditor) updateEditorOptions(old, updated domain.EditorConfig) {
 }
 
 func (c *CodeEditor) setEditorOptions() {
-	// color scheme
-	colorScheme := syntax.ColorScheme{}
-	colorScheme.SelectColor = gvcolor.MakeColor(c.theme.TextSelectionColor)
-	colorScheme.LineColor = gvcolor.MakeColor(c.theme.ContrastBg).MulAlpha(0x80)
-	colorScheme.LineNumberColor = gvcolor.MakeColor(c.theme.ContrastFg).MulAlpha(0xb6)
-
 	var styleName string
 	if c.theme.IsDark() {
 		styleName = "dracula"
@@ -181,17 +179,12 @@ func (c *CodeEditor) setEditorOptions() {
 		styleName = "tango"
 	}
 
-	// TODO make the color scheme configurable
-	syntaxStyles, _ := extractStylesFromChroma(styleName)
-	var bg gvcolor.Color
-	for _, style := range syntaxStyles {
-		colorScheme.AddStyle(style.scope, style.textStyle, style.color, style.bg)
-		bg = style.bg
-
-		colorScheme.SelectColor = gvcolor.MakeColor(c.theme.TextSelectionColor).MulAlpha(0x35)
+	// Build color scheme from chroma style and apply syntax highlighting
+	chromaStyle := styles.Get(styleName)
+	if chromaStyle == nil {
+		chromaStyle = styles.Fallback
 	}
-
-	colorScheme.Background = bg
+	gvScheme := buildColorSchemeFromChroma(c.theme, chromaStyle)
 
 	editorOptions := []gvcode.EditorOption{
 		gvcode.WithFont(c.font.Font),
@@ -202,8 +195,8 @@ func (c *CodeEditor) setEditorOptions() {
 		gvcode.WithSoftTab(c.editorConfig.Indentation == domain.IndentationSpaces),
 		gvcode.WrapLine(c.editorConfig.WrapLines),
 		gvcode.WithLineNumber(c.editorConfig.ShowLineNumbers),
-		gvcode.WithColorScheme(colorScheme),
 		gvcode.WithLineNumberGutterGap(unit.Dp(8)),
+		gvcode.WithColorScheme(gvScheme),
 	}
 
 	if !c.editorConfig.AutoCloseBrackets {
@@ -215,15 +208,6 @@ func (c *CodeEditor) setEditorOptions() {
 	}
 
 	c.editor.WithOptions(editorOptions...)
-}
-
-func getLexer(lang string) chroma.Lexer {
-	lexer := lexers.Get(lang)
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-
-	return chroma.Coalesce(lexer)
 }
 
 func (c *CodeEditor) WithBeautifier(enabled bool) {
@@ -251,13 +235,19 @@ func (c *CodeEditor) SetCode(code string) {
 		display = "\n"
 	}
 	c.editor.SetText(display)
-	c.editor.SetSyntaxTokens(c.stylingText(c.editor.Text())...)
+
+	tokens := chromaTokensToGvcode(c.lang, code)
+	if len(tokens) > 0 {
+		c.editor.SetSyntaxTokens(tokens...)
+	}
 }
 
 func (c *CodeEditor) SetLanguage(lang string) {
 	c.lang = lang
-	c.lexer = getLexer(lang)
-	c.editor.SetSyntaxTokens(c.stylingText(c.editor.Text())...)
+	tokens := chromaTokensToGvcode(c.lang, c.code)
+	if len(tokens) > 0 {
+		c.editor.SetSyntaxTokens(tokens...)
+	}
 }
 
 func (c *CodeEditor) Code() string {
@@ -265,22 +255,23 @@ func (c *CodeEditor) Code() string {
 }
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
-	if c.styledCode == "" {
-		// First time styling
-		c.editor.SetSyntaxTokens(c.stylingText(c.editor.Text())...)
-	}
-
 	scrollIndicatorColor := gvcolor.MakeColor(theme.Material().Fg).MulAlpha(0x30)
 
 	if c.editor.Mode() != gvcode.ModeReadOnly {
-		if ev, ok := c.editor.Update(gtx); ok {
-			if _, ok := ev.(gvcode.ChangeEvent); ok {
-				st := c.stylingText(c.editor.Text())
-				c.tokens = st
-				c.editor.SetSyntaxTokens(st...)
+		for {
+			evt, ok := c.editor.Update(gtx)
+			if !ok {
+				break
+			}
+			if _, isChange := evt.(gvcode.ChangeEvent); isChange {
+				c.code = c.editor.Text()
 				if c.onChange != nil {
-					c.onChange(c.editor.Text())
-					c.code = c.editor.Text()
+					c.onChange(c.code)
+				}
+				c.editor.OnTextEdit()
+				tokens := chromaTokensToGvcode(c.lang, c.code)
+				if len(tokens) > 0 {
+					c.editor.SetSyntaxTokens(tokens...)
 				}
 			}
 		}
@@ -393,35 +384,4 @@ func makeScrollbar(th *material.Theme, scroll *widget.Scrollbar, color color.NRG
 	bar.Track.MajorPadding = unit.Dp(0)
 	bar.Track.MinorPadding = unit.Dp(1)
 	return bar
-}
-
-func (c *CodeEditor) stylingText(text string) []syntax.Token {
-	if c.styledCode == text {
-		return c.tokens
-	}
-
-	// nolint:prealloc
-	var tokens []syntax.Token
-
-	offset := 0
-
-	iterator, err := c.lexer.Tokenise(nil, text)
-	if err != nil {
-		return tokens
-	}
-
-	for _, token := range iterator.Tokens() {
-		gtoken := syntax.Token{
-			Start: offset,
-			End:   offset + len([]rune(token.Value)),
-			Scope: syntax.StyleScope(token.Type.String()),
-		}
-		tokens = append(tokens, gtoken)
-		offset = gtoken.End
-	}
-
-	c.styledCode = text
-	c.tokens = tokens
-
-	return tokens
 }

@@ -1,58 +1,84 @@
 package codeeditor
 
 import (
-	"fmt"
 	"image/color"
+	"unicode/utf8"
 
 	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/chapar-rest/chapar/ui/chapartheme"
 	gvcolor "github.com/oligo/gvcode/color"
 	"github.com/oligo/gvcode/textstyle/syntax"
 )
 
-type colorStyle struct {
-	scope     syntax.StyleScope
-	textStyle syntax.TextStyle
-	color     gvcolor.Color
-	bg        gvcolor.Color
-}
-
 // registry holds the color styles for styles
-var registry = make(map[string][]colorStyle)
+var registry = make(map[string]syntax.ColorScheme)
 
-func extractStylesFromChroma(styleName string) ([]colorStyle, error) {
-	if st, ok := registry[styleName]; ok {
-		return st, nil
+// buildColorSchemeFromChroma creates a gvcode ColorScheme from a chroma style.
+func buildColorSchemeFromChroma(theme *chapartheme.Theme, chromaStyle *chroma.Style) syntax.ColorScheme {
+	if st, ok := registry[chromaStyle.Name]; ok {
+		return st
 	}
 
-	// Get the Chroma style
-	chromaStyle := styles.Get(styleName)
-	if chromaStyle == nil {
-		return nil, fmt.Errorf("style %s not found", styleName)
-	}
+	mat := theme.Material()
 
-	var customStyles = make([]colorStyle, 0, len(chromaStyle.Types()))
+	cs := syntax.ColorScheme{}
+	cs.Foreground = gvcolor.MakeColor(mat.Fg)
+	cs.Background = gvcolor.MakeColor(mat.Bg)
 
-	// Iterate through all style entries
-	for _, tokenType := range chromaStyle.Types() {
-		entry := chromaStyle.Get(tokenType)
-		custom := colorStyle{
-			scope:     syntax.StyleScope(tokenType.String()),
-			textStyle: extractTextStyle(entry),
-			color:     extractColor(entry.Colour),
-			//bg:        extractColor(entry.Background),
-			bg: gvcolor.Color{},
+	cs.SelectColor = gvcolor.MakeColor(theme.TextSelectionColor)
+	cs.LineColor = gvcolor.MakeColor(mat.ContrastBg).MulAlpha(0x80)
+	cs.LineNumberColor = gvcolor.MakeColor(mat.ContrastFg).MulAlpha(0xb6)
+
+	for _, tt := range chromaStyle.Types() {
+		entry := chromaStyle.Get(tt)
+		if !entry.Colour.IsSet() {
+			continue
 		}
-
-		customStyles = append(customStyles, custom)
+		fg := gvcolor.MakeColor(color.NRGBA{
+			R: entry.Colour.Red(),
+			G: entry.Colour.Green(),
+			B: entry.Colour.Blue(),
+			A: 255,
+		})
+		cs.AddStyle(syntax.StyleScope(tt.String()), chromaTextStyle(entry), fg, gvcolor.Color{})
 	}
-
-	registry[styleName] = customStyles
-	return customStyles, nil
+	registry[chromaStyle.Name] = cs
+	return cs
 }
 
-func extractTextStyle(entry chroma.StyleEntry) syntax.TextStyle {
-	var textStyle syntax.TextStyle = 0
+// chromaTokensToGvcode tokenizes content with chroma and returns gvcode syntax tokens.
+func chromaTokensToGvcode(lang, content string) []syntax.Token {
+	lexer := lexers.Get(lang)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	lexer = chroma.Coalesce(lexer)
+
+	it, err := lexer.Tokenise(nil, content)
+	if err != nil {
+		return nil
+	}
+
+	var tokens []syntax.Token
+	runeOffset := 0
+	for t := it(); t != chroma.EOF; t = it() {
+		if t.Value == "" {
+			continue
+		}
+		start := runeOffset
+		runeOffset += utf8.RuneCountInString(t.Value)
+		end := runeOffset
+		scope := syntax.StyleScope(t.Type.String())
+		if scope.IsValid() {
+			tokens = append(tokens, syntax.Token{Start: start, End: end, Scope: scope})
+		}
+	}
+	return tokens
+}
+
+func chromaTextStyle(entry chroma.StyleEntry) syntax.TextStyle {
+	var textStyle syntax.TextStyle
 	if entry.Bold == chroma.Yes {
 		textStyle |= syntax.Bold
 	}
@@ -65,23 +91,5 @@ func extractTextStyle(entry chroma.StyleEntry) syntax.TextStyle {
 	if entry.Border.IsSet() {
 		textStyle |= syntax.Border
 	}
-
 	return textStyle
-}
-
-func extractColor(color chroma.Colour) gvcolor.Color {
-	if !color.IsSet() {
-		return gvcolor.Color{}
-	}
-
-	return gvcolor.MakeColor(chromaColorToNRGBA(color))
-}
-
-func chromaColorToNRGBA(textColor chroma.Colour) color.NRGBA {
-	return color.NRGBA{
-		R: textColor.Red(),
-		G: textColor.Green(),
-		B: textColor.Blue(),
-		A: 0xff,
-	}
 }
