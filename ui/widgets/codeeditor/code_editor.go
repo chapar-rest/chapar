@@ -82,6 +82,8 @@ type CodeEditor struct {
 
 	readOnly          bool
 	pendingEditorFocus bool
+
+	ctxMenu editorContextMenu
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
@@ -368,29 +370,31 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 							Left:   unit.Dp(8),
 							Right:  unit.Dp(0),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							dims := c.editor.Layout(gtx, theme.Material().Shaper)
+							return c.layoutContextMenu(gtx, theme, func(gtx layout.Context) layout.Dimensions {
+								dims := c.editor.Layout(gtx, theme.Material().Shaper)
 
-							if c.varHover.active {
-								c.editor.PaintOverlay(gtx, c.varHover.position, func(gtx layout.Context) layout.Dimensions {
-									return layoutVariableTooltip(gtx, theme, c.varHover)
-								})
-							}
+								if c.varHover.active {
+									c.editor.PaintOverlay(gtx, c.varHover.position, func(gtx layout.Context) layout.Dimensions {
+										return layoutVariableTooltip(gtx, theme, c.varHover)
+									})
+								}
 
-							macro := op.Record(gtx.Ops)
-							scrollbarDims := func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{
-									Left: gtx.Metric.PxToDp(c.editor.GutterWidth()),
-								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									minX, maxX, _, _ := c.editor.ScrollRatio()
-									bar := makeScrollbar(theme.Material(), &c.xScroll, scrollIndicatorColor.NRGBA())
-									return bar.Layout(gtx, layout.Horizontal, minX, maxX)
-								})
-							}(gtx)
+								macro := op.Record(gtx.Ops)
+								scrollbarDims := func(gtx layout.Context) layout.Dimensions {
+									return layout.Inset{
+										Left: gtx.Metric.PxToDp(c.editor.GutterWidth()),
+									}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										minX, maxX, _, _ := c.editor.ScrollRatio()
+										bar := makeScrollbar(theme.Material(), &c.xScroll, scrollIndicatorColor.NRGBA())
+										return bar.Layout(gtx, layout.Horizontal, minX, maxX)
+									})
+								}(gtx)
 
-							scrollbarOp := macro.Stop()
-							defer op.Offset(image.Point{Y: dims.Size.Y - scrollbarDims.Size.Y}).Push(gtx.Ops).Pop()
-							scrollbarOp.Add(gtx.Ops)
-							return dims
+								scrollbarOp := macro.Stop()
+								defer op.Offset(image.Point{Y: dims.Size.Y - scrollbarDims.Size.Y}).Push(gtx.Ops).Pop()
+								scrollbarOp.Add(gtx.Ops)
+								return dims
+							})
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
