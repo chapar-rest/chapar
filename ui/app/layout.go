@@ -18,6 +18,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/pages/protofiles"
 	"github.com/chapar-rest/chapar/ui/pages/requests"
 	"github.com/chapar-rest/chapar/ui/pages/settings"
+	"github.com/chapar-rest/chapar/ui/pages/testcases"
 	"github.com/chapar-rest/chapar/ui/pages/workspaces"
 	"github.com/chapar-rest/chapar/ui/widgets"
 )
@@ -29,6 +30,7 @@ type BaseLayout struct {
 	RequestsView     *requests.View
 	EnvironmentsView *environments.View
 	WorkspaceView    *workspaces.View
+	TestCasesView    *testcases.View
 	SettingsView     *settings.View
 
 	// controllers
@@ -37,6 +39,7 @@ type BaseLayout struct {
 	RequestsController     *requests.Controller
 	SettingsController     *settings.Controller
 	EnvironmentsController *environments.Controller
+	TestCasesController    *testcases.Controller
 
 	// layouts
 	HeaderLayout  *header.Header
@@ -53,6 +56,7 @@ func NewBaseLayout(base *ui.Base) (*BaseLayout, error) {
 	settingsView := settings.NewView(base)
 	environmentsView := environments.NewView(base)
 	requestsView := requests.NewView(base)
+	testCasesView := testcases.NewView(base)
 
 	// init controllers
 	workspacesController := workspaces.NewController(workspaceView, base.WorkspacesState, base.Repository)
@@ -74,6 +78,12 @@ func NewBaseLayout(base *ui.Base) (*BaseLayout, error) {
 	// init environments controller
 	environmentsController := environments.NewController(environmentsView, base.Repository, base.EnvironmentsState, base.Explorer)
 
+	// init test cases controller
+	testCasesController := testcases.NewController(testCasesView, base.Repository, base.TestCasesState, base.RequestsState, base.EnvironmentsState, base.EgressService, base.Executor, base.Explorer)
+	if err := testCasesController.LoadData(); err != nil {
+		return nil, err
+	}
+
 	headerLayout := header.NewHeader(base.Window, base.EnvironmentsState, base.WorkspacesState, base.Theme)
 	footerLayout := footer.New()
 	consoleLayout := console.New(base.Theme)
@@ -84,12 +94,14 @@ func NewBaseLayout(base *ui.Base) (*BaseLayout, error) {
 		RequestsView:           requestsView,
 		EnvironmentsView:       environmentsView,
 		WorkspaceView:          workspaceView,
+		TestCasesView:          testCasesView,
 		SettingsView:           settingsView,
 		WorkspacesController:   workspacesController,
 		ProtoFileController:    protoFileController,
 		RequestsController:     requestsController,
 		SettingsController:     settingsController,
 		EnvironmentsController: environmentsController,
+		TestCasesController:    testCasesController,
 		HeaderLayout:           headerLayout,
 		FooterLayout:           footerLayout,
 		ConsoleLayout:          consoleLayout,

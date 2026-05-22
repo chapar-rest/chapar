@@ -41,6 +41,7 @@ type Base struct {
 	RequestsState     *state.Requests
 	EnvironmentsState *state.Environments
 	WorkspacesState   *state.Workspaces
+	TestCasesState    *state.TestCases
 
 	// services
 	GrpcService    egress.Sender
@@ -78,6 +79,7 @@ func NewBase(w *app.Window, navi *navigator.Navigator) (*Base, error) {
 	protoFilesState := state.NewProtoFiles(repo)
 	requestsState := state.NewRequests(repo)
 	environmentsState := state.NewEnvironments(repo)
+	testCasesState := state.NewTestCases(repo)
 	workspacesState, err := state.NewWorkspaces(repo)
 	if err != nil {
 		return nil, err
@@ -102,6 +104,7 @@ func NewBase(w *app.Window, navi *navigator.Navigator) (*Base, error) {
 		RequestsState:     requestsState,
 		EnvironmentsState: environmentsState,
 		WorkspacesState:   workspacesState,
+		TestCasesState:    testCasesState,
 		GrpcService:       grpcService,
 		GrpcDiscorvery:    grpcService,
 		RestService:       restService,

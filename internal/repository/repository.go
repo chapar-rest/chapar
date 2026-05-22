@@ -36,6 +36,11 @@ type RepositoryV2 interface {
 	CreateWorkspace(workspace *domain.Workspace) error
 	UpdateWorkspace(workspace *domain.Workspace) error
 	DeleteWorkspace(workspace *domain.Workspace) error
+
+	LoadTestCases() ([]*domain.TestCase, error)
+	CreateTestCase(testCase *domain.TestCase) error
+	UpdateTestCase(testCase *domain.TestCase) error
+	DeleteTestCase(testCase *domain.TestCase) error
 }
 
 func LoadFromYaml[T any](filename string) (*T, error) {
