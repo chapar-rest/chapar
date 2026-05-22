@@ -8,6 +8,7 @@ import (
 
 	"gioui.org/font"
 	"gioui.org/font/opentype"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
@@ -18,6 +19,7 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/flopp/go-findfont"
 	gvcolor "github.com/oligo/gvcode/color"
+	"github.com/oligo/gvcode/addons/completion"
 	"github.com/oligo/gvcode/textstyle/syntax"
 	wg "github.com/oligo/gvcode/widget"
 
@@ -77,6 +79,9 @@ type CodeEditor struct {
 
 	variableResolver VariableResolver
 	varHover         variableHover
+
+	readOnly          bool
+	pendingEditorFocus bool
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
@@ -95,6 +100,7 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 
 	c.editor.SetText(code)
 	c.setEditorOptions()
+	c.setupCompletion()
 
 	tokens := chromaTokensToGvcode(c.lang, code)
 	if len(tokens) > 0 {
@@ -214,6 +220,23 @@ func (c *CodeEditor) setEditorOptions() {
 	c.editor.WithOptions(editorOptions...)
 }
 
+func (c *CodeEditor) setupCompletion() {
+	completor := &envVariableCompletor{
+		editor: c.editor,
+		list:   defaultVariableLister,
+	}
+	cm := newTemplateCompletion(c.editor, nil, completor)
+	cm.onConfirm = func() {
+		c.pendingEditorFocus = true
+	}
+	popup := completion.NewCompletionPopup(c.editor, cm)
+	popup.Theme = c.theme.Material()
+	popup.TextSize = unit.Sp(max(float32(c.editorConfig.FontSize)-1, 10))
+	popup.HighlightColor = c.theme.ContrastBg
+	cm.popup = popup
+	c.editor.WithOptions(gvcode.WithAutoCompletion(cm))
+}
+
 func (c *CodeEditor) WithBeautifier(enabled bool) {
 	c.withBeautify = enabled
 }
@@ -223,6 +246,7 @@ func (c *CodeEditor) SetOnChanged(f func(text string)) {
 }
 
 func (c *CodeEditor) SetReadOnly(readOnly bool) {
+	c.readOnly = readOnly
 	c.editor.WithOptions(gvcode.ReadOnlyMode(readOnly))
 }
 
@@ -264,6 +288,11 @@ func (c *CodeEditor) Code() string {
 
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
 	scrollIndicatorColor := gvcolor.MakeColor(theme.Material().Fg).MulAlpha(0x30)
+
+	if c.pendingEditorFocus {
+		gtx.Execute(key.FocusCmd{Tag: c.editor})
+		c.pendingEditorFocus = false
+	}
 
 	for {
 		evt, ok := c.editor.Update(gtx)

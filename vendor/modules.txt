@@ -235,6 +235,7 @@ github.com/oligo/gioview/theme
 # github.com/oligo/gvcode v0.4.0
 ## explicit; go 1.23
 github.com/oligo/gvcode
+github.com/oligo/gvcode/addons/completion
 github.com/oligo/gvcode/color
 github.com/oligo/gvcode/internal/buffer
 github.com/oligo/gvcode/internal/gesture

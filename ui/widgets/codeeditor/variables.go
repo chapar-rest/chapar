@@ -3,6 +3,7 @@ package codeeditor
 import (
 	"image"
 	"regexp"
+	"sort"
 	"unicode/utf8"
 
 	"gioui.org/layout"
@@ -20,11 +21,29 @@ import (
 // VariableResolver looks up the resolved value for a template variable name.
 type VariableResolver func(name string) (value string, ok bool)
 
-var defaultVariableResolver VariableResolver
+// VariableEntry describes a completion candidate for template variables.
+type VariableEntry struct {
+	Name  string
+	Value string
+	Kind  string
+}
+
+// VariableLister returns variables available for completion.
+type VariableLister func() []VariableEntry
+
+var (
+	defaultVariableResolver VariableResolver
+	defaultVariableLister VariableLister
+)
 
 // SetDefaultVariableResolver sets the resolver used by new code editors.
 func SetDefaultVariableResolver(resolver VariableResolver) {
 	defaultVariableResolver = resolver
+}
+
+// SetDefaultVariableLister sets the lister used for variable auto-completion.
+func SetDefaultVariableLister(lister VariableLister) {
+	defaultVariableLister = lister
 }
 
 // EnvironmentVariableResolver resolves {{name}} placeholders from the active
@@ -47,6 +66,45 @@ func EnvironmentVariableResolver(getEnv func() *domain.Environment) VariableReso
 		}
 
 		return "", false
+	}
+}
+
+// EnvironmentVariableLister lists variables from the active environment and
+// built-in dynamic variables for auto-completion.
+func EnvironmentVariableLister(getEnv func() *domain.Environment) VariableLister {
+	return func() []VariableEntry {
+		entries := make([]VariableEntry, 0)
+
+		for name := range variables.GetVariables() {
+			entries = append(entries, VariableEntry{
+				Name:  name,
+				Value: "(dynamic)",
+				Kind:  "builtin",
+			})
+		}
+
+		env := getEnv()
+		if env != nil {
+			for _, kv := range env.Spec.Values {
+				if !kv.Enable {
+					continue
+				}
+				entries = append(entries, VariableEntry{
+					Name:  kv.Key,
+					Value: kv.Value,
+					Kind:  "env",
+				})
+			}
+		}
+
+		sort.Slice(entries, func(i, j int) bool {
+			if entries[i].Kind == entries[j].Kind {
+				return entries[i].Name < entries[j].Name
+			}
+			return entries[i].Kind < entries[j].Kind
+		})
+
+		return entries
 	}
 }
 

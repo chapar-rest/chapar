@@ -55,6 +55,7 @@ func NewApp(w *app.Window) (*App, error) {
 	}
 
 	codeeditor.SetDefaultVariableResolver(codeeditor.EnvironmentVariableResolver(base.EnvironmentsState.GetActiveEnvironment))
+	codeeditor.SetDefaultVariableLister(codeeditor.EnvironmentVariableLister(base.EnvironmentsState.GetActiveEnvironment))
 
 	// init executor in a separate goroutine
 	initExecutor := func() {

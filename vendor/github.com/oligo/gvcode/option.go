@@ -115,7 +115,11 @@ func WithBracketPairs(bracketPairs map[rune]rune) EditorOption {
 func ReadOnlyMode(enabled bool) EditorOption {
 	return func(e *Editor) {
 		e.initBuffer()
-		e.setMode(ModeReadOnly)
+		if enabled {
+			e.setMode(ModeReadOnly)
+		} else {
+			e.setMode(ModeNormal)
+		}
 	}
 }
 
