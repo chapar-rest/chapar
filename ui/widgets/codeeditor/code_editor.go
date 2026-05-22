@@ -74,6 +74,9 @@ type CodeEditor struct {
 	yScroll widget.Scrollbar
 
 	editorConfig domain.EditorConfig
+
+	variableResolver VariableResolver
+	varHover         variableHover
 }
 
 func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEditor {
@@ -85,8 +88,9 @@ func NewCodeEditor(code string, lang string, theme *chapartheme.Theme) *CodeEdit
 		editor:       wg.NewEditor(theme.Material()),
 		code:         code,
 		font:         editorFont,
-		lang:         lang,
-		editorConfig: globalConfig.Spec.Editor,
+		lang:             lang,
+		editorConfig:     globalConfig.Spec.Editor,
+		variableResolver: defaultVariableResolver,
 	}
 
 	c.editor.SetText(code)
@@ -226,6 +230,10 @@ func (c *CodeEditor) SetOnLoadExample(f func()) {
 	c.onLoadExample = f
 }
 
+func (c *CodeEditor) SetVariableResolver(resolver VariableResolver) {
+	c.variableResolver = resolver
+}
+
 func (c *CodeEditor) SetCode(code string) {
 	c.code = code
 	// Avoid passing empty string to the editor: harfbuzz (used by the text shaper)
@@ -257,23 +265,28 @@ func (c *CodeEditor) Code() string {
 func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint string) layout.Dimensions {
 	scrollIndicatorColor := gvcolor.MakeColor(theme.Material().Fg).MulAlpha(0x30)
 
-	if c.editor.Mode() != gvcode.ModeReadOnly {
-		for {
-			evt, ok := c.editor.Update(gtx)
-			if !ok {
-				break
+	for {
+		evt, ok := c.editor.Update(gtx)
+		if !ok {
+			break
+		}
+
+		switch e := evt.(type) {
+		case gvcode.ChangeEvent:
+			if c.editor.Mode() == gvcode.ModeReadOnly {
+				continue
 			}
-			if _, isChange := evt.(gvcode.ChangeEvent); isChange {
-				c.code = c.editor.Text()
-				if c.onChange != nil {
-					c.onChange(c.code)
-				}
-				c.editor.OnTextEdit()
-				tokens := chromaTokensToGvcode(c.lang, c.code)
-				if len(tokens) > 0 {
-					c.editor.SetSyntaxTokens(tokens...)
-				}
+			c.code = c.editor.Text()
+			if c.onChange != nil {
+				c.onChange(c.code)
 			}
+			c.editor.OnTextEdit()
+			tokens := chromaTokensToGvcode(c.lang, c.code)
+			if len(tokens) > 0 {
+				c.editor.SetSyntaxTokens(tokens...)
+			}
+		case gvcode.HoverEvent:
+			c.updateVariableHover(e)
 		}
 	}
 
@@ -327,6 +340,12 @@ func (c *CodeEditor) Layout(gtx layout.Context, theme *chapartheme.Theme, hint s
 							Right:  unit.Dp(0),
 						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							dims := c.editor.Layout(gtx, theme.Material().Shaper)
+
+							if c.varHover.active {
+								c.editor.PaintOverlay(gtx, c.varHover.position, func(gtx layout.Context) layout.Dimensions {
+									return layoutVariableTooltip(gtx, theme, c.varHover)
+								})
+							}
 
 							macro := op.Record(gtx.Ops)
 							scrollbarDims := func(gtx layout.Context) layout.Dimensions {
@@ -384,4 +403,31 @@ func makeScrollbar(th *material.Theme, scroll *widget.Scrollbar, color color.NRG
 	bar.Track.MajorPadding = unit.Dp(0)
 	bar.Track.MinorPadding = unit.Dp(1)
 	return bar
+}
+
+func (c *CodeEditor) updateVariableHover(e gvcode.HoverEvent) {
+	if e.IsCancel {
+		c.varHover.active = false
+		return
+	}
+
+	if c.variableResolver == nil {
+		c.varHover.active = false
+		return
+	}
+
+	name, ok := findVariableAtRuneOffset(c.editor.Text(), e.Pos.Runes)
+	if !ok {
+		c.varHover.active = false
+		return
+	}
+
+	value, defined := c.variableResolver(name)
+	c.varHover = variableHover{
+		name:     name,
+		value:    value,
+		defined:  defined,
+		position: e.PixelOff,
+		active:   true,
+	}
 }

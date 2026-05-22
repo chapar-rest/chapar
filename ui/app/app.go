@@ -17,6 +17,7 @@ import (
 	"github.com/chapar-rest/chapar/ui/modals"
 	"github.com/chapar-rest/chapar/ui/navigator"
 	"github.com/chapar-rest/chapar/ui/notifications"
+	"github.com/chapar-rest/chapar/ui/widgets/codeeditor"
 	"github.com/chapar-rest/chapar/ui/widgets/fuzzysearch"
 )
 
@@ -52,6 +53,8 @@ func NewApp(w *app.Window) (*App, error) {
 		Base:       base,
 		BaseLayout: baseLayout,
 	}
+
+	codeeditor.SetDefaultVariableResolver(codeeditor.EnvironmentVariableResolver(base.EnvironmentsState.GetActiveEnvironment))
 
 	// init executor in a separate goroutine
 	initExecutor := func() {
