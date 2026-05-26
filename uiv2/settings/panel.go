@@ -6,6 +6,7 @@ import (
 	"cogentcore.org/core/events"
 	"cogentcore.org/core/styles"
 	"cogentcore.org/core/styles/units"
+	"cogentcore.org/core/text/rich"
 	"cogentcore.org/core/tree"
 )
 
@@ -111,6 +112,7 @@ func buildSettingPanel(parent tree.Node, draft *Data, sectionID string, onChange
 			hdr.SetType(core.TextTitleSmall)
 			hdr.Styler(func(s *styles.Style) {
 				s.Padding.Set(units.Dp(12), units.Dp(4), units.Dp(4), units.Dp(4))
+				s.Font.Weight = rich.Bold
 			})
 			continue
 		}
