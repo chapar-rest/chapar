@@ -1,0 +1,22 @@
+linters:
+  enable:
+    # Default linters, plus these:
+    - exportloopref
+    - gocognit
+    - goconst
+    - gocritic
+    - gofmt
+    - gosec
+    - misspell
+    - paralleltest
+    - revive
+
+issues:
+  include:
+    # Re-enable default excluded rules
+    - EXC0001
+    - EXC0002
+    - EXC0012
+    - EXC0013
+    - EXC0014
+    - EXC0015
