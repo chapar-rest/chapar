@@ -37,6 +37,7 @@ func setupGlobalStyles() {
 	core.TheApp.SetSceneInit(func(sc *core.Scene) {
 		sc.Styler(func(s *styles.Style) {
 			s.Padding.Zero()
+			s.Gap.Zero()
 		})
 		sc.SetWidgetInit(func(w core.Widget) {
 			wb := w.AsWidget()

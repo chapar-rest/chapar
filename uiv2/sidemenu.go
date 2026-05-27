@@ -1,6 +1,8 @@
 package uiv2
 
 import (
+	"image"
+
 	"cogentcore.org/core/colors"
 	"cogentcore.org/core/core"
 	"cogentcore.org/core/cursors"
@@ -13,6 +15,30 @@ import (
 	"cogentcore.org/core/text/text"
 	"cogentcore.org/core/tree"
 )
+
+// sideMenuItemFrame is a [core.Frame] subtype that anchors its tooltip to the
+// right side of the item, vertically centered, instead of the default
+// top-center anchor (which makes tooltips appear in the top-right corner for
+// narrow sidebar items).
+type sideMenuItemFrame struct {
+	core.Frame
+}
+
+// WidgetTooltip overrides the default [core.WidgetBase.WidgetTooltip] anchor.
+// It returns a point just to the right of the widget; the tooltip popup
+// positioner then places the tooltip body above that anchor, which puts it
+// roughly at the vertical middle and right of the item.
+func (f *sideMenuItemFrame) WidgetTooltip(pos image.Point) (string, image.Point) {
+	bb := f.Geom.TotalBBox
+	if f.Scene != nil {
+		bb = bb.Add(f.Scene.SceneGeom.Pos)
+	}
+	anchor := image.Point{
+		X: bb.Max.X + 8,
+		Y: bb.Max.Y,
+	}
+	return f.Tooltip, anchor
+}
 
 // SideMenuItem describes a single navigation entry in the [SideMenu].
 type SideMenuItem struct {
@@ -56,7 +82,7 @@ func NewSideMenu(parent tree.Node) *SideMenu {
 		s.Grow.Set(0, 1)
 		s.Min.X.Dp(72)
 		s.Max.X.Dp(72)
-		s.Padding.Set(units.Dp(0), units.Dp(4))
+		s.Padding.Set(units.Dp(12), units.Dp(4), units.Dp(6), units.Dp(4))
 		s.Gap.Set(units.Dp(4))
 		s.Justify.Content = styles.Start
 		s.Align.Items = styles.Center
@@ -122,7 +148,8 @@ func (m *SideMenu) selectIndex(idx int, fire bool) {
 }
 
 func (m *SideMenu) buildItem(item SideMenuItem, idx int) *core.Frame {
-	frame := core.NewFrame(m.bar)
+	itemNode := tree.New[sideMenuItemFrame](m.bar)
+	frame := &itemNode.Frame
 	frame.SetTooltip(item.Name)
 	frame.Styler(func(s *styles.Style) {
 		s.SetAbilities(true,
