@@ -5,9 +5,13 @@ import (
 
 	"cogentcore.org/core/colors"
 	"cogentcore.org/core/core"
+	"cogentcore.org/core/icons"
 	"cogentcore.org/core/styles"
+	"cogentcore.org/core/styles/states"
 	"cogentcore.org/core/styles/units"
 	"cogentcore.org/core/text/rich"
+	"cogentcore.org/core/text/text"
+	"cogentcore.org/core/tree"
 )
 
 func applyToCogentCore(primary color.RGBA, isDark bool) {
@@ -31,6 +35,9 @@ func applyToCogentCore(primary color.RGBA, isDark bool) {
 
 func setupGlobalStyles() {
 	core.TheApp.SetSceneInit(func(sc *core.Scene) {
+		sc.Styler(func(s *styles.Style) {
+			s.Padding.Zero()
+		})
 		sc.SetWidgetInit(func(w core.Widget) {
 			wb := w.AsWidget()
 			wb.Styler(func(s *styles.Style) {
@@ -49,8 +56,26 @@ func setupGlobalStyles() {
 					s.Border.Radius = styles.BorderRadiusSmall
 				})
 			case *core.Chooser:
+				w.SetType(core.ChooserOutlined).SetIndicator(icons.ExpandMore)
+				tree.AddChildInit(w, "text", func(w *core.Text) {
+					w.Styler(func(s *styles.Style) {
+						s.Grow.Set(1, 0)
+						s.Text.Align = text.Start
+					})
+				})
 				w.FinalStyler(func(s *styles.Style) {
+					s.Background = nil
 					s.Border.Radius = styles.BorderRadiusSmall
+					s.Justify.Content = styles.Start
+					s.Align.Items = styles.Center
+					s.Text.Align = text.Start
+					s.Text.AlignV = text.Center
+					s.Padding.Set(units.Dp(4), units.Dp(8))
+					if !s.Is(states.Focused) {
+						s.Border.Style.Set(styles.BorderSolid)
+						s.Border.Width.Set(units.Dp(1))
+						s.Border.Color.Set(colors.Scheme.OutlineVariant)
+					}
 				})
 			}
 		})
