@@ -105,9 +105,6 @@ func (m *SideMenu) AddItem(item SideMenuItem) *SideMenu {
 	idx := len(m.items)
 	frame := m.buildItem(item, idx)
 	m.items = append(m.items, sideMenuEntry{item: item, frame: frame})
-	if m.current == -1 {
-		m.selectIndex(idx, false)
-	}
 	return m
 }
 
