@@ -29,7 +29,9 @@ func Run() {
 	menu.AddItem(SideMenuItem{Tag: "environments", Name: "Envs", Icon: icons.Menu})
 	menu.AddItem(SideMenuItem{Tag: "protofiles", Name: "Proto", Icon: icons.Folder})
 	menu.AddItem(SideMenuItem{Tag: "workspaces", Name: "Workspaces", Icon: icons.Workspaces})
-	menu.AddItem(SideMenuItem{Tag: "settings", Name: "Settings", Icon: icons.Settings})
+	menu.AddBottomAction(icons.Settings, "Settings", func(ctx core.Widget) {
+		settings.OpenDialog(ctx)
+	})
 
 	content := core.NewFrame(b)
 	content.Styler(func(s *styles.Style) {

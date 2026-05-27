@@ -61,7 +61,7 @@ func NewAppBar(b *core.Body) {
 			s.Max.X.Dp(160)
 		})
 
-		// settingsBtn := core.NewButton(bar).
+		// settingsBtn := core.NewButton(right).
 		// 	SetType(core.ButtonAction).
 		// 	SetIcon(icons.Settings).
 		// 	SetTooltip("Settings")

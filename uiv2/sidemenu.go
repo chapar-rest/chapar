@@ -58,11 +58,16 @@ type SideMenuItem struct {
 // The menu is rendered as a regular child of the parent passed to
 // [NewSideMenu]. The parent is responsible for laying it out (typically by
 // placing it on the left of a row-oriented body or frame).
+//
+// In addition to navigation items added with [SideMenu.AddItem], a SideMenu
+// can host icon-only action buttons pinned to the bottom edge via
+// [SideMenu.AddBottomAction]. These do not participate in selection.
 type SideMenu struct {
-	bar      *core.Frame
-	items    []sideMenuEntry
-	current  int
-	onSelect func(item SideMenuItem)
+	bar         *core.Frame
+	items       []sideMenuEntry
+	current     int
+	onSelect    func(item SideMenuItem)
+	bottomReady bool
 }
 
 type sideMenuEntry struct {
@@ -103,6 +108,20 @@ func (m *SideMenu) AddItem(item SideMenuItem) *SideMenu {
 	if m.current == -1 {
 		m.selectIndex(idx, false)
 	}
+	return m
+}
+
+// AddBottomAction adds an icon-only button pinned to the bottom of the menu.
+// onClick is invoked when the button is clicked, receiving the button widget
+// as context (useful for positioning dialogs). The button does not
+// participate in navigation selection. Bottom actions should be added after
+// all calls to [SideMenu.AddItem].
+func (m *SideMenu) AddBottomAction(icon icons.Icon, tooltip string, onClick func(ctx core.Widget)) *SideMenu {
+	if !m.bottomReady {
+		core.NewStretch(m.bar)
+		m.bottomReady = true
+	}
+	m.buildAction(icon, tooltip, onClick)
 	return m
 }
 
@@ -148,9 +167,31 @@ func (m *SideMenu) selectIndex(idx int, fire bool) {
 }
 
 func (m *SideMenu) buildItem(item SideMenuItem, idx int) *core.Frame {
+	frame := m.newItemFrame(item.Name, item.Icon, item.Name != "")
+	frame.OnClick(func(e events.Event) {
+		m.selectIndex(idx, true)
+	})
+	return frame
+}
+
+func (m *SideMenu) buildAction(icon icons.Icon, tooltip string, onClick func(ctx core.Widget)) *core.Frame {
+	frame := m.newItemFrame(tooltip, icon, false)
+	if onClick != nil {
+		frame.OnClick(func(e events.Event) {
+			onClick(frame)
+		})
+	}
+	return frame
+}
+
+// newItemFrame constructs a clickable icon-and-(optional)-label cell used by
+// both navigation items and bottom action buttons.
+func (m *SideMenu) newItemFrame(tooltip string, icon icons.Icon, showLabel bool) *core.Frame {
 	itemNode := tree.New[sideMenuItemFrame](m.bar)
 	frame := &itemNode.Frame
-	frame.SetTooltip(item.Name)
+	if tooltip != "" {
+		frame.SetTooltip(tooltip)
+	}
 	frame.Styler(func(s *styles.Style) {
 		s.SetAbilities(true,
 			abilities.Activatable,
@@ -171,8 +212,8 @@ func (m *SideMenu) buildItem(item SideMenuItem, idx int) *core.Frame {
 		}
 	})
 
-	if item.Icon.IsSet() {
-		ic := core.NewIcon(frame).SetIcon(item.Icon)
+	if icon.IsSet() {
+		ic := core.NewIcon(frame).SetIcon(icon)
 		ic.Styler(func(s *styles.Style) {
 			s.IconSize.Set(units.Dp(20))
 			s.Min.Set(units.Dp(20))
@@ -182,18 +223,16 @@ func (m *SideMenu) buildItem(item SideMenuItem, idx int) *core.Frame {
 		})
 	}
 
-	lbl := core.NewText(frame).SetText(item.Name).SetType(core.TextLabelSmall)
-	lbl.Styler(func(s *styles.Style) {
-		s.SetTextWrap(false)
-		s.Text.Align = text.Center
-		s.Font.Size.Dp(11)
-		s.Align.Self = styles.Center
-		s.Justify.Self = styles.Center
-	})
-
-	frame.OnClick(func(e events.Event) {
-		m.selectIndex(idx, true)
-	})
+	if showLabel && tooltip != "" {
+		lbl := core.NewText(frame).SetText(tooltip).SetType(core.TextLabelSmall)
+		lbl.Styler(func(s *styles.Style) {
+			s.SetTextWrap(false)
+			s.Text.Align = text.Center
+			s.Font.Size.Dp(11)
+			s.Align.Self = styles.Center
+			s.Justify.Self = styles.Center
+		})
+	}
 
 	return frame
 }
