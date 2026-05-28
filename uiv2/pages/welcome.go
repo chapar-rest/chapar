@@ -1,4 +1,4 @@
-package uiv2
+package pages
 
 import (
 	"cogentcore.org/core/core"

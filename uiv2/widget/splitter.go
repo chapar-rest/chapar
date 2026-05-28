@@ -1,4 +1,4 @@
-package uiv2
+package widget
 
 import (
 	"cogentcore.org/core/colors"
@@ -23,7 +23,8 @@ func DefaultSplitterConfig() SplitterConfig {
 // Splitter is a [core.Splits] with Chapar line-style, hideable divider handles.
 type Splitter struct {
 	*core.Splits
-	lineWidth units.Value
+	lineWidth      units.Value
+	handlesVisible bool
 }
 
 // NewSplits creates a splits widget with styled handles using [DefaultSplitterConfig].
@@ -40,8 +41,9 @@ func NewSplitsWithConfig(cfg SplitterConfig, parent ...tree.Node) *Splitter {
 	}
 
 	s := &Splitter{
-		Splits:    core.NewSplits(parent...),
-		lineWidth: lineWidth,
+		Splits:         core.NewSplits(parent...),
+		lineWidth:      lineWidth,
+		handlesVisible: true,
 	}
 	s.applyHandleStyle()
 	return s
@@ -58,6 +60,14 @@ func (s *Splitter) applyHandleStyle() {
 			st.Border.Radius.Zero()
 			st.Margin.Zero()
 			st.Padding.Zero()
+
+			if !s.handlesVisible {
+				st.Min.Zero()
+				st.Max.Zero()
+				st.Grow.Set(0, 0)
+				st.Background = nil
+				return
+			}
 
 			if st.Direction == styles.Row {
 				// Vertical line between columns: fixed width, full height.
@@ -81,6 +91,7 @@ func (s *Splitter) applyHandleStyle() {
 				st.Background = colors.Scheme.OutlineVariant
 			}
 		})
+		s.syncHandleVisible(h)
 	}
 
 	s.Parts.SetOnChildAdded(func(n tree.Node) {
@@ -95,22 +106,28 @@ func (s *Splitter) applyHandleStyle() {
 	}
 }
 
+func (s *Splitter) syncHandleVisible(h *core.Handle) {
+	if h == nil {
+		return
+	}
+	h.SetState(!s.handlesVisible, states.Invisible)
+	h.Restyle()
+}
+
 // SetHandlesVisible shows or hides all split handles without affecting pane content.
 func (s *Splitter) SetHandlesVisible(visible bool) {
 	if s == nil || s.Splits == nil {
 		return
 	}
+	s.handlesVisible = visible
 	s.UpdateWidget()
 	if s.Parts == nil {
 		return
 	}
 	for i := range s.Parts.NumChildren() {
-		h, ok := s.Parts.Child(i).(*core.Handle)
-		if !ok {
-			continue
+		if h, ok := s.Parts.Child(i).(*core.Handle); ok {
+			s.syncHandleVisible(h)
 		}
-		h.SetState(!visible, states.Invisible)
-		h.Restyle()
 	}
 	s.NeedsLayout()
 	s.Update()

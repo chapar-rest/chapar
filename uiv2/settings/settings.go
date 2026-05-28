@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"os"
+	"path/filepath"
 	"sync"
 
 	"cogentcore.org/core/base/errors"
@@ -53,7 +55,25 @@ func (d *Data) toConfig() domain.GlobalConfig {
 
 // Init prepares settings. Call before [Load].
 func Init() {
-	registerOnce.Do(func() {})
+	registerOnce.Do(func() {
+		errors.Log(redirectCogentCoreSettings())
+	})
+}
+
+func redirectCogentCoreSettings() error {
+	chaparDir, err := prefs.GetConfigDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(chaparDir, "cogentcore")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	core.AppearanceSettings.File = filepath.Join(dir, "appearance-settings.toml")
+	core.SystemSettings.File = filepath.Join(dir, "system-settings.toml")
+	core.TimingSettings.File = filepath.Join(dir, "timing-settings.toml")
+	core.DebugSettings.File = filepath.Join(dir, "debug-settings.toml")
+	return nil
 }
 
 // Load loads Cogent Core platform settings and Chapar config from prefs.

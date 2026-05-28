@@ -1,4 +1,4 @@
-package uiv2
+package widget
 
 import (
 	"cogentcore.org/core/colors"

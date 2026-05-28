@@ -12,8 +12,10 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/uiv2/pages"
 	"github.com/chapar-rest/chapar/uiv2/settings"
 	"github.com/chapar-rest/chapar/uiv2/theme"
+	"github.com/chapar-rest/chapar/uiv2/widget"
 )
 
 const defaultListSplit = 0.28
@@ -43,17 +45,18 @@ func Run() {
 		s.Grow.Set(1, 1)
 	})
 
-	menu := NewSideMenu(b)
-	menu.AddItem(SideMenuItem{Tag: "requests", Name: "Requests", Icon: icons.SwapHoriz})
-	menu.AddItem(SideMenuItem{Tag: "environments", Name: "Envs", Icon: icons.Menu})
-	menu.AddItem(SideMenuItem{Tag: "protofiles", Name: "Proto", Icon: icons.Folder})
-	menu.AddItem(SideMenuItem{Tag: "workspaces", Name: "Workspaces", Icon: icons.Workspaces})
+	menu := widget.NewSideMenu(b)
+	menu.AddItem(widget.SideMenuItem{Tag: "requests", Name: "Requests", Icon: icons.SwapHoriz})
+	menu.AddItem(widget.SideMenuItem{Tag: "environments", Name: "Envs", Icon: icons.Menu})
+	menu.AddItem(widget.SideMenuItem{Tag: "protofiles", Name: "Proto", Icon: icons.Folder})
+	menu.AddItem(widget.SideMenuItem{Tag: "workspaces", Name: "Workspaces", Icon: icons.Workspaces})
 	menu.AddBottomAction(icons.Settings, "Settings", func(ctx core.Widget) {
 		settings.OpenDialog(ctx)
 	})
 
-	mainSplit := NewSplits(b)
+	mainSplit := widget.NewSplits(b)
 	mainSplit.SetName("main-split")
+	mainSplit.SetHandlesVisible(false)
 
 	listPanel := core.NewFrame(mainSplit)
 	listPanel.SetName("list-panel")
@@ -73,40 +76,45 @@ func Run() {
 		s.Display = styles.Stacked
 	})
 
-	NewWelcome(content)
-	tabView := NewTabView(content)
+	pages.NewWelcome(content)
+	tabView := widget.NewTabView(content)
 
 	sectionActive := false
+
 	updateContent := func() {
-		showWelcome := tabView.IsEmpty() && !sectionActive
-		// Stacked layout only displays the StackTop child; welcome is index 0,
-		// tabView is index 1.
-		if showWelcome {
-			content.StackTop = 0
+		if tabView.IsEmpty() {
+			content.StackTop = 0 // welcome
 		} else {
-			content.StackTop = 1
+			content.StackTop = 1 // tabView
 		}
 		content.UpdateStackedVisibility()
 		content.NeedsLayout()
 		content.Update()
 	}
+
+	updateChrome := func() {
+		listPanel.SetState(!sectionActive, states.Invisible)
+		listPanel.Restyle()
+		if sectionActive {
+			mainSplit.SetSplits(defaultListSplit, 1-defaultListSplit)
+		} else {
+			mainSplit.SetSplits(0, 1)
+		}
+		mainSplit.SetHandlesVisible(sectionActive)
+		mainSplit.NeedsLayout()
+		mainSplit.Update()
+	}
+
 	tabView.OnChange(func(bool) { updateContent() })
 
-	// Start with list panel collapsed; only the welcome screen is shown.
-	mainSplit.SetSplits(0, 1)
-	listPanel.SetState(true, states.Invisible)
-	mainSplit.SetHandlesVisible(false)
+	updateChrome()
 	updateContent()
 
-	menu.OnSelect(func(item SideMenuItem) {
-		listPanel.SetState(false, states.Invisible)
-		listPanel.Restyle()
+	menu.OnSelect(func(item widget.SideMenuItem) {
 		sectionActive = true
-		mainSplit.SetHandlesVisible(true)
-		mainSplit.SetSplits(defaultListSplit, 1-defaultListSplit)
+		updateChrome()
 		buildListPanel(item.Tag, listPanel, tabView, repo)
 		updateContent()
-		mainSplit.NeedsLayout()
 		listPanel.Update()
 	})
 

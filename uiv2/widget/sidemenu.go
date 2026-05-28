@@ -1,4 +1,4 @@
-package uiv2
+package widget
 
 import (
 	"image"
