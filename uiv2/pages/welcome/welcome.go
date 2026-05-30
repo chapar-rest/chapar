@@ -1,4 +1,4 @@
-package pages
+package welcome
 
 import (
 	"cogentcore.org/core/core"
@@ -18,8 +18,8 @@ var welcomeMessages = []string{
 	"Use the sidebar to navigate between different sections",
 }
 
-// NewWelcome creates the startup tips panel shown before any section or tab is open.
-func NewWelcome(parent tree.Node) *core.Frame {
+// New creates the startup tips panel shown before any section or tab is open.
+func New(parent tree.Node) *core.Frame {
 	frame := core.NewFrame(parent)
 	frame.SetName("welcome")
 	frame.Styler(func(s *styles.Style) {

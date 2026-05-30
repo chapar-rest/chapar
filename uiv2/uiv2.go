@@ -13,6 +13,11 @@ import (
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/uiv2/pages"
+	"github.com/chapar-rest/chapar/uiv2/pages/environment"
+	"github.com/chapar-rest/chapar/uiv2/pages/protofile"
+	"github.com/chapar-rest/chapar/uiv2/pages/request"
+	"github.com/chapar-rest/chapar/uiv2/pages/welcome"
+	"github.com/chapar-rest/chapar/uiv2/pages/workspace"
 	"github.com/chapar-rest/chapar/uiv2/settings"
 	"github.com/chapar-rest/chapar/uiv2/theme"
 	"github.com/chapar-rest/chapar/uiv2/widget"
@@ -46,13 +51,6 @@ func Run() {
 	})
 
 	menu := widget.NewSideMenu(b)
-	menu.AddItem(widget.SideMenuItem{Tag: "requests", Name: "Requests", Icon: icons.SwapHoriz})
-	menu.AddItem(widget.SideMenuItem{Tag: "environments", Name: "Envs", Icon: icons.Menu})
-	menu.AddItem(widget.SideMenuItem{Tag: "protofiles", Name: "Proto", Icon: icons.Folder})
-	menu.AddItem(widget.SideMenuItem{Tag: "workspaces", Name: "Workspaces", Icon: icons.Workspaces})
-	menu.AddBottomAction(icons.Settings, "Settings", func(ctx core.Widget) {
-		settings.OpenDialog(ctx)
-	})
 
 	mainSplit := widget.NewSplits(b)
 	mainSplit.SetName("main-split")
@@ -76,8 +74,24 @@ func Run() {
 		s.Display = styles.Stacked
 	})
 
-	pages.NewWelcome(content)
+	welcome.New(content)
 	tabView := widget.NewTabView(content)
+
+	sections := []pages.Section{
+		request.New(repo, tabView),
+		environment.New(repo, tabView),
+		protofile.New(),
+		workspace.New(),
+	}
+	byTag := map[any]pages.Section{}
+	for _, s := range sections {
+		mi := s.MenuItem()
+		menu.AddItem(mi)
+		byTag[mi.Tag] = s
+	}
+	menu.AddBottomAction(icons.Settings, "Settings", func(ctx core.Widget) {
+		settings.OpenDialog(ctx)
+	})
 
 	sectionActive := false
 
@@ -113,7 +127,10 @@ func Run() {
 	menu.OnSelect(func(item widget.SideMenuItem) {
 		sectionActive = true
 		updateChrome()
-		buildListPanel(item.Tag, listPanel, tabView, repo)
+		if s, ok := byTag[item.Tag]; ok {
+			listPanel.DeleteChildren()
+			s.BuildListPanel(listPanel)
+		}
 		updateContent()
 		listPanel.Update()
 	})
