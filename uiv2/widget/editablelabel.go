@@ -15,16 +15,27 @@ import (
 type EditableLabel struct {
 	core.Frame
 
-	text     string
-	editing  bool
-	onCommit func(string)
+	text      string
+	labelType core.TextTypes
+	editing   bool
+	onCommit  func(string)
 }
 
 // NewEditableLabel creates an editable title widget with the given initial text.
 func NewEditableLabel(parent tree.Node, text string) *EditableLabel {
 	el := tree.New[EditableLabel](parent)
 	el.text = text
+	el.labelType = core.TextTitleMedium
 	el.showLabel()
+	return el
+}
+
+// SetLabelType sets the text style used when not editing.
+func (el *EditableLabel) SetLabelType(t core.TextTypes) *EditableLabel {
+	el.labelType = t
+	if !el.editing {
+		el.showLabel()
+	}
 	return el
 }
 
@@ -48,13 +59,13 @@ func (el *EditableLabel) showLabel() {
 	el.Styler(func(s *styles.Style) {
 		s.SetAbilities(true, abilities.Activatable, abilities.Clickable, abilities.Hoverable, abilities.Focusable)
 		s.Cursor = cursors.Pointer
-		s.Grow.Set(0, 0)
+		s.Grow.Set(1, 0)
 		if s.Is(states.Hovered) {
 			s.Background = colors.Scheme.SurfaceContainerHighest
 		}
 	})
 	lbl := core.NewText(el).
-		SetType(core.TextTitleMedium).
+		SetType(el.labelType).
 		SetText(el.text)
 	lbl.Styler(func(s *styles.Style) {
 		s.SetTextWrap(false)

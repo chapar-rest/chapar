@@ -77,11 +77,18 @@ func Run() {
 	welcome.New(content)
 	tabView := widget.NewTabView(content)
 
+	fullPage := core.NewFrame(content)
+	fullPage.SetName("full-page")
+	fullPage.Styler(func(s *styles.Style) {
+		s.Grow.Set(1, 1)
+		s.Overflow.Y = styles.OverflowAuto
+	})
+
 	sections := []pages.Section{
 		request.New(repo, tabView),
 		environment.New(repo, tabView),
 		protofile.New(),
-		workspace.New(),
+		workspace.New(repo),
 	}
 	byTag := map[any]pages.Section{}
 	for _, s := range sections {
@@ -94,9 +101,12 @@ func Run() {
 	})
 
 	sectionActive := false
+	var currentSection pages.Section
 
 	updateContent := func() {
-		if tabView.IsEmpty() {
+		if _, ok := currentSection.(pages.FullPageSection); ok {
+			content.StackTop = 2 // fullPage
+		} else if tabView.IsEmpty() {
 			content.StackTop = 0 // welcome
 		} else {
 			content.StackTop = 1 // tabView
@@ -107,14 +117,18 @@ func Run() {
 	}
 
 	updateChrome := func() {
-		listPanel.SetState(!sectionActive, states.Invisible)
+		isFullPage := false
+		if _, ok := currentSection.(pages.FullPageSection); ok {
+			isFullPage = true
+		}
+		listPanel.SetState(!sectionActive || isFullPage, states.Invisible)
 		listPanel.Restyle()
-		if sectionActive {
+		if sectionActive && !isFullPage {
 			mainSplit.SetSplits(defaultListSplit, 1-defaultListSplit)
 		} else {
 			mainSplit.SetSplits(0, 1)
 		}
-		mainSplit.SetHandlesVisible(sectionActive)
+		mainSplit.SetHandlesVisible(sectionActive && !isFullPage)
 		mainSplit.NeedsLayout()
 		mainSplit.Update()
 	}
@@ -126,13 +140,20 @@ func Run() {
 
 	menu.OnSelect(func(item widget.SideMenuItem) {
 		sectionActive = true
-		updateChrome()
 		if s, ok := byTag[item.Tag]; ok {
-			listPanel.DeleteChildren()
-			s.BuildListPanel(listPanel)
+			currentSection = s
+			if fp, ok := s.(pages.FullPageSection); ok {
+				fullPage.DeleteChildren()
+				fp.BuildContent(fullPage)
+				fullPage.Update()
+			} else {
+				listPanel.DeleteChildren()
+				s.BuildListPanel(listPanel)
+				listPanel.Update()
+			}
 		}
+		updateChrome()
 		updateContent()
-		listPanel.Update()
 	})
 
 	b.NewWindow().SetDisplayTitle(false).RunMain()
