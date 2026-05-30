@@ -1,8 +1,6 @@
 package theme
 
 import (
-	"image/color"
-
 	"cogentcore.org/core/colors"
 	"cogentcore.org/core/core"
 	"cogentcore.org/core/icons"
@@ -14,23 +12,48 @@ import (
 	"cogentcore.org/core/tree"
 )
 
-func applyToCogentCore(primary color.RGBA, isDark bool) {
-	core.AppColor = primary
-	colors.SetSchemes(primary)
-	colors.SetScheme(isDark)
+func applyToCogentCore(def schema) {
+	core.AppColor = def.primary
+	colors.SetSchemes(def.primary)
+	colors.SetScheme(def.isDark)
 
-	if isDark {
+	if def.hasExplicitPalette() {
+		applyExplicitPalette(def)
+	}
+
+	if def.isDark {
 		core.AppearanceSettings.Theme = core.ThemeDark
 	} else {
 		core.AppearanceSettings.Theme = core.ThemeLight
 	}
-	core.AppearanceSettings.Color = primary
+	core.AppearanceSettings.Color = def.primary
 
 	core.AppearanceSettings.Text.SansSerif = defaultSansFont
 	core.AppearanceSettings.Text.Monospace = defaultMonoFont
 	rich.Settings = core.AppearanceSettings.Text
 
 	core.UpdateAll()
+}
+
+func applyExplicitPalette(def schema) {
+	sc := colors.Scheme
+	sc.Surface = colors.Uniform(def.surface)
+	sc.SurfaceContainerLowest = colors.Uniform(def.surfaceContainerLowest)
+	sc.SurfaceContainerLow = colors.Uniform(def.surfaceContainerLow)
+	sc.SurfaceContainer = colors.Uniform(def.surfaceContainer)
+	sc.SurfaceContainerHigh = colors.Uniform(def.surfaceContainerHigh)
+	sc.SurfaceContainerHighest = colors.Uniform(def.surfaceContainerHighest)
+	sc.SurfaceVariant = colors.Uniform(def.surfaceVariant)
+	sc.OnSurface = colors.Uniform(def.onSurface)
+	sc.OnSurfaceVariant = colors.Uniform(def.onSurfaceVariant)
+	sc.Outline = colors.Uniform(def.outline)
+	sc.OutlineVariant = colors.Uniform(def.outlineVariant)
+	sc.Primary.Base = colors.Uniform(def.primary)
+	sc.Primary.On = colors.Uniform(def.onPrimary)
+	sc.Secondary.Base = colors.Uniform(def.secondary)
+	sc.Secondary.On = colors.Uniform(def.onSecondary)
+	sc.Secondary.Container = colors.Uniform(def.secondaryContainer)
+	sc.Secondary.OnContainer = colors.Uniform(def.onSecondaryContainer)
 }
 
 func setupGlobalStyles() {

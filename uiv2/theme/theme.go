@@ -18,6 +18,9 @@ const (
 	CatppuccinFrappe    Name = "catppuccin-frappe"
 	CatppuccinMacchiato Name = "catppuccin-macchiato"
 	CatppuccinMocha     Name = "catppuccin-mocha"
+	RosePine            Name = "rose-pine"
+	RosePineMoon        Name = "rose-pine-moon"
+	RosePineDawn        Name = "rose-pine-dawn"
 )
 
 // AllNames returns every available theme name in display order.
@@ -31,6 +34,9 @@ func AllNames() []Name {
 		CatppuccinFrappe,
 		CatppuccinMacchiato,
 		CatppuccinMocha,
+		RosePine,
+		RosePineMoon,
+		RosePineDawn,
 	}
 }
 
@@ -53,6 +59,12 @@ func (n Name) Label() string {
 		return "Catppuccin Macchiato"
 	case CatppuccinMocha:
 		return "Catppuccin Mocha"
+	case RosePine:
+		return "Rosé Pine"
+	case RosePineMoon:
+		return "Rosé Pine Moon"
+	case RosePineDawn:
+		return "Rosé Pine Dawn"
 	default:
 		return string(n)
 	}
@@ -92,7 +104,7 @@ func Apply(name Name) Theme {
 		IsDark:  def.isDark,
 		Primary: def.primary,
 	}
-	applyToCogentCore(def.primary, def.isDark)
+	applyToCogentCore(def)
 	return current
 }
 
