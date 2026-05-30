@@ -89,7 +89,7 @@ func (tv *TabView) configureTabBar() {
 func styleFunctionalTab(tab *core.Tab) {
 	tab.FinalStyler(func(s *styles.Style) {
 		s.Border.Radius = styles.BorderRadiusExtraSmallTop
-		s.Padding.Set(units.Dp(8), units.Dp(12), units.Dp(6), units.Dp(12))
+		s.Padding.Set(units.Dp(4), units.Dp(12), units.Dp(4), units.Dp(12))
 		s.Gap.Set(units.Dp(4))
 
 		if s.Is(states.Selected) {
@@ -154,4 +154,24 @@ func (tv *TabView) Select(key string) bool {
 func (tv *TabView) Has(key string) bool {
 	_, ok := tv.index[key]
 	return ok
+}
+
+// SetTabLabel updates the visible title of the tab identified by key.
+func (tv *TabView) SetTabLabel(key, label string) {
+	tv.UpdateWidget()
+	bar := tv.ChildByName("tabs")
+	if bar == nil {
+		return
+	}
+	barFrame := core.AsFrame(bar)
+	for i := range barFrame.NumChildren() {
+		tab, ok := barFrame.Child(i).(*core.Tab)
+		if !ok || tab.Name != key {
+			continue
+		}
+		tab.SetText(label)
+		styleFunctionalTab(tab)
+		break
+	}
+	tv.Update()
 }

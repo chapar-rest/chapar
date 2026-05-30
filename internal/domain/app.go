@@ -20,10 +20,10 @@ type MetaData struct {
 }
 
 type KeyValue struct {
-	ID     string `yaml:"id"`
+	ID     string `yaml:"id" display:"-"`
+	Enable bool   `yaml:"enable"`
 	Key    string `yaml:"key"`
 	Value  string `yaml:"value"`
-	Enable bool   `yaml:"enable"`
 }
 
 // CompareKeyValues compares two slices of KeyValue and returns true if they are equal

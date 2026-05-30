@@ -50,11 +50,37 @@ func setupGlobalStyles() {
 				w.SetType(core.TextFieldOutlined)
 				w.FinalStyler(func(s *styles.Style) {
 					s.Border.Radius = styles.BorderRadiusSmall
-					s.Padding.Set(units.Dp(10), units.Dp(8))
+					s.Padding.Set(units.Dp(4), units.Dp(8))
+					s.Min.Y.Dp(22)
+					s.Max.Y.Dp(26)
+					s.Font.Size.Dp(14)
+					s.Text.LineHeight = 1.25
+					s.Grow.Set(1, 0)
+					s.Min.X.Ch(8)
+					s.Max.X.Ch(0) // drop default 40ch cap so fields can fill containers
+					if !s.Is(states.Focused) {
+						s.Border.Style.Set(styles.BorderSolid)
+						s.Border.Width.Set(units.Dp(1))
+						s.Border.Color.Set(colors.Scheme.OutlineVariant)
+					}
 				})
 			case *core.Button:
 				w.FinalStyler(func(s *styles.Style) {
 					s.Border.Radius = styles.BorderRadiusSmall
+					s.Padding.Set(units.Dp(4), units.Dp(8))
+					s.Font.Size.Dp(13)
+					s.Min.Y.Dp(16)
+					s.Gap.Set(units.Dp(4))
+				})
+			case *core.Switch:
+				w.FinalStyler(func(s *styles.Style) {
+					s.Padding.SetVertical(units.Dp(2))
+					s.Padding.SetHorizontal(units.Dp(4))
+				})
+			case *core.Table:
+				w.FinalStyler(func(s *styles.Style) {
+					s.Gap.Set(units.Dp(2))
+					s.Border.Radius.Set(units.Dp(4))
 				})
 			case *core.Chooser:
 				w.SetType(core.ChooserOutlined).SetIndicator(icons.ExpandMore)
@@ -72,6 +98,8 @@ func setupGlobalStyles() {
 					s.Text.Align = text.Start
 					s.Text.AlignV = text.Center
 					s.Padding.Set(units.Dp(4), units.Dp(8))
+					s.Min.Y.Dp(18)
+					s.Max.Y.Dp(22)
 					if !s.Is(states.Focused) {
 						s.Border.Style.Set(styles.BorderSolid)
 						s.Border.Width.Set(units.Dp(1))
