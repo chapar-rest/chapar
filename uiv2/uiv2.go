@@ -87,7 +87,7 @@ func Run() {
 	sections := []pages.Section{
 		request.New(repo, tabView),
 		environment.New(repo, tabView),
-		protofile.New(),
+		protofile.New(repo),
 		workspace.New(repo),
 	}
 	byTag := map[any]pages.Section{}
