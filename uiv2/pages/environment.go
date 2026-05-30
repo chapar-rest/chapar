@@ -103,7 +103,8 @@ func EnvironmentPage(deps EnvironmentPageDeps) func(content *core.Frame) {
 			SetType(core.TextBodySmall).
 			SetText("Disabled items have no effect on your requests")
 
-		tbl := core.NewTable(content)
+		tbl := widget.NewTable(content)
+		tbl.OnDelete(func(int) { save() })
 		tbl.SetSlice(&env.Spec.Values)
 		tbl.SetTableStyler(func(w core.Widget, s *styles.Style, row, col int) {
 			if filter == "" || row < 0 || row >= len(env.Spec.Values) {
@@ -113,10 +114,6 @@ func EnvironmentPage(deps EnvironmentPageDeps) func(content *core.Frame) {
 			if !kvMatchesFilter(kv, filter) {
 				w.AsWidget().SetState(true, states.Invisible)
 			}
-		})
-		tbl.Styler(func(s *styles.Style) {
-			s.Grow.Set(1, 1)
-			s.Gap.Set(units.Dp(2))
 		})
 		tbl.OnChange(func(e events.Event) {
 			save()

@@ -56,6 +56,27 @@ func applyExplicitPalette(def schema) {
 	sc.Secondary.OnContainer = colors.Uniform(def.onSecondaryContainer)
 }
 
+// ConfigureTable applies shared table styling (gap, flat header).
+func ConfigureTable(tb *core.Table) {
+	configureTable(tb)
+}
+
+func configureTable(tb *core.Table) {
+	tb.TableStyler = func(w core.Widget, s *styles.Style, row, col int) {
+		s.Gap.Set(units.Dp(2))
+		s.Border.Radius.Set(units.Dp(2))
+	}
+	tb.FinalStyler(func(s *styles.Style) {
+		s.Gap.Set(units.Dp(2))
+		s.Border.Radius.Set(units.Dp(2))
+	})
+	tree.AddChildInit(tb, "header", func(h *core.Frame) {
+		h.FinalStyler(func(s *styles.Style) {
+			s.Border.Radius.Zero()
+		})
+	})
+}
+
 func setupGlobalStyles() {
 	core.TheApp.SetSceneInit(func(sc *core.Scene) {
 		sc.Styler(func(s *styles.Style) {
@@ -96,19 +117,13 @@ func setupGlobalStyles() {
 					s.Gap.Set(units.Dp(4))
 				})
 			case *core.Switch:
+				w.SetType(core.SwitchCheckbox)
 				w.FinalStyler(func(s *styles.Style) {
 					s.Padding.SetVertical(units.Dp(2))
 					s.Padding.SetHorizontal(units.Dp(4))
 				})
 			case *core.Table:
-				w.TableStyler = func(w core.Widget, s *styles.Style, row, col int) {
-					s.Gap.Set(units.Dp(2))
-					s.Border.Radius.Set(units.Dp(2))
-				}
-				w.FinalStyler(func(s *styles.Style) {
-					s.Gap.Set(units.Dp(2))
-					s.Border.Radius.Set(units.Dp(2))
-				})
+				configureTable(w)
 			case *core.Chooser:
 				w.SetType(core.ChooserOutlined).SetIndicator(icons.ExpandMore)
 				tree.AddChildInit(w, "text", func(w *core.Text) {
