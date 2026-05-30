@@ -16,8 +16,8 @@ import (
 	"cogentcore.org/core/styles/states"
 	"cogentcore.org/core/styles/units"
 
-	appevents "github.com/chapar-rest/chapar/internal/events"
 	"github.com/chapar-rest/chapar/internal/domain"
+	appevents "github.com/chapar-rest/chapar/internal/events"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/uiv2/pages"
@@ -104,6 +104,7 @@ func buildEnvironmentsList(panel *core.Frame, tabView *widget.TabView, repo repo
 	actions := core.NewFrame(panel)
 	actions.Styler(func(s *styles.Style) {
 		s.Direction = styles.Row
+		s.Align.Items = styles.End
 		s.Gap.Set(units.Dp(4))
 		s.Padding.Set(units.Dp(2), units.Dp(0))
 	})
@@ -130,11 +131,13 @@ func buildEnvironmentsList(panel *core.Frame, tabView *widget.TabView, repo repo
 			appevents.EnvironmentChangeTopic.Publish(env)
 			refreshEnvironmentsList(panel, tabView, repo)
 			openEnvironmentTab(tabView, repo, env)
-	})
+		})
 
 	search := core.NewTextField(panel)
 	search.SetPlaceholder("Search...")
 	search.SetTrailingIcon(icons.Search)
+	// TextField commits edits on blur/Enter; SendChangeOnInput fires Change while typing.
+	search.SendChangeOnInput()
 
 	list := core.NewFrame(panel)
 	list.Styler(func(s *styles.Style) {

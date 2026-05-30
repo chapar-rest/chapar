@@ -78,9 +78,13 @@ func setupGlobalStyles() {
 					s.Padding.SetHorizontal(units.Dp(4))
 				})
 			case *core.Table:
+				w.TableStyler = func(w core.Widget, s *styles.Style, row, col int) {
+					s.Gap.Set(units.Dp(2))
+					s.Border.Radius.Set(units.Dp(2))
+				}
 				w.FinalStyler(func(s *styles.Style) {
 					s.Gap.Set(units.Dp(2))
-					s.Border.Radius.Set(units.Dp(4))
+					s.Border.Radius.Set(units.Dp(2))
 				})
 			case *core.Chooser:
 				w.SetType(core.ChooserOutlined).SetIndicator(icons.ExpandMore)

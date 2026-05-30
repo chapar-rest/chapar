@@ -88,6 +88,7 @@ func EnvironmentPage(deps EnvironmentPageDeps) func(content *core.Frame) {
 		search := core.NewTextField(searchWrap)
 		search.SetPlaceholder("Search items")
 		search.SetTrailingIcon(icons.Search)
+		search.SendChangeOnInput()
 
 		filter := ""
 
