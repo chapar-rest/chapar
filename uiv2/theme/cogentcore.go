@@ -3,6 +3,7 @@ package theme
 import (
 	"cogentcore.org/core/colors"
 	"cogentcore.org/core/core"
+	"cogentcore.org/core/events"
 	"cogentcore.org/core/icons"
 	"cogentcore.org/core/styles"
 	"cogentcore.org/core/styles/states"
@@ -62,6 +63,23 @@ func ConfigureTable(tb *core.Table) {
 }
 
 func configureTable(tb *core.Table) {
+	// ListGrid paints a selection stripe from SelectedIndex. Clear it after
+	// ordinary selection so rows do not stay highlighted; keep selection for
+	// context-menu actions (Edit) by skipping the clear on that path.
+	preserveSelect := false
+	tb.OnFirst(events.ContextMenu, func(e events.Event) {
+		preserveSelect = true
+	})
+	tb.On(events.Select, func(e events.Event) {
+		if preserveSelect {
+			preserveSelect = false
+			return
+		}
+		tb.SelectedIndex = -1
+		tb.ResetSelectedIndexes()
+		tb.NeedsRender()
+	})
+
 	tb.TableStyler = func(w core.Widget, s *styles.Style, row, col int) {
 		s.Gap.Set(units.Dp(2))
 		s.Border.Radius.Set(units.Dp(2))
