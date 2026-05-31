@@ -124,6 +124,12 @@ type AppStateSpec struct {
 	ActiveWorkspace     *ActiveWorkspace     `yaml:"activeWorkspace"`
 	SelectedEnvironment *SelectedEnvironment `yaml:"selectedEnvironment"`
 	DarkMode            *bool                `yaml:"darkMode"`
+	Layout              *LayoutState         `yaml:"layout,omitempty"`
+}
+
+type LayoutState struct {
+	// MainListSplit is the proportion (0-1) of the main split allocated to the list panel.
+	MainListSplit float32 `yaml:"mainListSplit"`
 }
 
 // GetDefaultGlobalConfig returns a default global config

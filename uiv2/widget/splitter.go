@@ -3,6 +3,7 @@ package widget
 import (
 	"cogentcore.org/core/colors"
 	"cogentcore.org/core/core"
+	"cogentcore.org/core/events"
 	"cogentcore.org/core/styles"
 	"cogentcore.org/core/styles/states"
 	"cogentcore.org/core/styles/units"
@@ -112,6 +113,11 @@ func (s *Splitter) syncHandleVisible(h *core.Handle) {
 	}
 	h.SetState(!s.handlesVisible, states.Invisible)
 	h.Restyle()
+}
+
+// OnResize fires whenever the user drags a handle, with the current split proportions.
+func (s *Splitter) OnResize(fn func(splits []float32)) {
+	s.OnChange(func(e events.Event) { fn(s.Splits.Splits()) })
 }
 
 // SetHandlesVisible shows or hides all split handles without affecting pane content.

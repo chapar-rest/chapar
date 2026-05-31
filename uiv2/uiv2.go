@@ -6,10 +6,12 @@ import (
 	"cogentcore.org/core/colors"
 	"cogentcore.org/core/core"
 	"cogentcore.org/core/icons"
+	"cogentcore.org/core/math32"
 	"cogentcore.org/core/styles"
 	"cogentcore.org/core/styles/states"
 	"cogentcore.org/core/styles/units"
 
+	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/uiv2/pages"
@@ -23,7 +25,23 @@ import (
 	"github.com/chapar-rest/chapar/uiv2/widget"
 )
 
-const defaultListSplit = 0.28
+const defaultListSplit = 0.18
+
+func clampListSplit(v float32) float32 {
+	return math32.Clamp(v, 0.05, 0.95)
+}
+
+func seedListSplit(appState domain.AppState) float32 {
+	if appState.Spec.Layout != nil && appState.Spec.Layout.MainListSplit > 0 {
+		return clampListSplit(appState.Spec.Layout.MainListSplit)
+	}
+	return defaultListSplit
+}
+
+func isFullPageSection(s pages.Section) bool {
+	_, ok := s.(pages.FullPageSection)
+	return ok
+}
 
 func Run() {
 	theme.Init()
@@ -55,6 +73,8 @@ func Run() {
 	mainSplit := widget.NewSplits(b)
 	mainSplit.SetName("main-split")
 	mainSplit.SetHandlesVisible(false)
+
+	listSplit := seedListSplit(appState)
 
 	listPanel := core.NewFrame(mainSplit)
 	listPanel.SetName("list-panel")
@@ -104,7 +124,7 @@ func Run() {
 	var currentSection pages.Section
 
 	updateContent := func() {
-		if _, ok := currentSection.(pages.FullPageSection); ok {
+		if isFullPageSection(currentSection) {
 			content.StackTop = 2 // fullPage
 		} else if tabView.IsEmpty() {
 			content.StackTop = 0 // welcome
@@ -117,14 +137,11 @@ func Run() {
 	}
 
 	updateChrome := func() {
-		isFullPage := false
-		if _, ok := currentSection.(pages.FullPageSection); ok {
-			isFullPage = true
-		}
+		isFullPage := isFullPageSection(currentSection)
 		listPanel.SetState(!sectionActive || isFullPage, states.Invisible)
 		listPanel.Restyle()
 		if sectionActive && !isFullPage {
-			mainSplit.SetSplits(defaultListSplit, 1-defaultListSplit)
+			mainSplit.SetSplits(listSplit, 1-listSplit)
 		} else {
 			mainSplit.SetSplits(0, 1)
 		}
@@ -132,6 +149,26 @@ func Run() {
 		mainSplit.NeedsLayout()
 		mainSplit.Update()
 	}
+
+	mainSplit.OnResize(func(sp []float32) {
+		if !sectionActive || isFullPageSection(currentSection) {
+			return
+		}
+		if len(sp) < 2 {
+			return
+		}
+		v := sp[0]
+		if v < 0.05 || v > 0.95 || math32.Abs(v-listSplit) < 0.005 {
+			return
+		}
+		listSplit = v
+		state := prefs.GetAppState()
+		if state.Spec.Layout == nil {
+			state.Spec.Layout = &domain.LayoutState{}
+		}
+		state.Spec.Layout.MainListSplit = v
+		_ = prefs.UpdateAppState(state)
+	})
 
 	tabView.OnChange(func(bool) { updateContent() })
 
