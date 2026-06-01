@@ -92,6 +92,8 @@ func Run() {
 	content.Styler(func(s *styles.Style) {
 		s.Grow.Set(1, 1)
 		s.Display = styles.Stacked
+		s.Overflow.X = styles.OverflowHidden
+		s.Min.X.Zero()
 	})
 
 	welcome.New(content)
@@ -102,6 +104,8 @@ func Run() {
 	fullPage.Styler(func(s *styles.Style) {
 		s.Grow.Set(1, 1)
 		s.Overflow.Y = styles.OverflowAuto
+		s.Overflow.X = styles.OverflowHidden
+		s.Min.X.Zero()
 	})
 
 	sections := []pages.Section{

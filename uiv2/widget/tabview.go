@@ -3,6 +3,8 @@ package widget
 import (
 	"cogentcore.org/core/colors"
 	"cogentcore.org/core/core"
+	"cogentcore.org/core/events"
+	"cogentcore.org/core/icons"
 	"cogentcore.org/core/styles"
 	"cogentcore.org/core/styles/states"
 	"cogentcore.org/core/styles/units"
@@ -38,6 +40,12 @@ func NewTabView(parent tree.Node) *TabView {
 		}
 		tv.notifyChange()
 	}
+	tree.AddChildInit(tv, "frame", func(f *core.Frame) {
+		f.Styler(func(s *styles.Style) {
+			s.Overflow.X = styles.OverflowHidden
+			s.Min.X.Zero()
+		})
+	})
 	tv.configureTabBar()
 	return tv
 }
@@ -76,12 +84,55 @@ func (tv *TabView) configureTabBar() {
 	bar.AsTree().SetOnChildAdded(func(n tree.Node) {
 		if tab, ok := n.(*core.Tab); ok {
 			styleFunctionalTab(tab)
+			tv.attachTabMenu(tab)
 		}
 	})
 	for i := range barFrame.NumChildren() {
 		if tab, ok := barFrame.Child(i).(*core.Tab); ok {
 			styleFunctionalTab(tab)
+			tv.attachTabMenu(tab)
 		}
+	}
+}
+
+func (tv *TabView) attachTabMenu(tab *core.Tab) {
+	tab.AddContextMenu(func(m *core.Scene) {
+		name := tab.Name
+		core.NewButton(m).SetText("Close").SetIcon(icons.Close).
+			OnClick(func(e events.Event) {
+				tv.closeTabByName(name)
+			})
+		core.NewButton(m).SetText("Close others").
+			OnClick(func(e events.Event) {
+				tv.closeOthers(name)
+			})
+		core.NewButton(m).SetText("Close all").
+			OnClick(func(e events.Event) {
+				tv.closeAll()
+			})
+	})
+}
+
+func (tv *TabView) closeTabByName(name string) {
+	for i, k := range tv.keys {
+		if k == name {
+			tv.DeleteTabIndex(i)
+			return
+		}
+	}
+}
+
+func (tv *TabView) closeOthers(keep string) {
+	for i := len(tv.keys) - 1; i >= 0; i-- {
+		if tv.keys[i] != keep {
+			tv.DeleteTabIndex(i)
+		}
+	}
+}
+
+func (tv *TabView) closeAll() {
+	for len(tv.keys) > 0 {
+		tv.DeleteTabIndex(0)
 	}
 }
 
@@ -107,6 +158,14 @@ func styleFunctionalTab(tab *core.Tab) {
 	})
 }
 
+func styleTabContentFrame(content *core.Frame) {
+	content.Styler(func(s *styles.Style) {
+		s.Overflow.X = styles.OverflowHidden
+		s.Min.X.Zero()
+		s.Grow.Set(1, 1)
+	})
+}
+
 // Open returns (and focuses) the tab for key. If the tab does not yet exist, it
 // is created with label as the visible title and build is called once with the
 // tab's content frame. Subsequent Open calls with the same key only focus the tab.
@@ -120,6 +179,8 @@ func (tv *TabView) Open(key, label string, build func(content *core.Frame)) *cor
 	content, tabBtn := tv.NewTab(key)
 	tabBtn.SetText(label)
 	styleFunctionalTab(tabBtn)
+	// Context menu is attached in configureTabBar's OnChildAdded when NewTab runs.
+	styleTabContentFrame(content)
 	tv.index[key] = content
 	tv.keys = append(tv.keys, key)
 	if build != nil {

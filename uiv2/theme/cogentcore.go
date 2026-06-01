@@ -97,6 +97,7 @@ func configureTable(tb *core.Table) {
 
 func setupGlobalStyles() {
 	core.TheApp.SetSceneInit(func(sc *core.Scene) {
+		sc.ContextMenus = nil // drop standardContextMenu from Scene.Init
 		sc.Styler(func(s *styles.Style) {
 			s.Padding.Zero()
 			s.Gap.Zero()

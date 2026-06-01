@@ -12,8 +12,8 @@ import (
 	"cogentcore.org/core/styles/states"
 	"cogentcore.org/core/styles/units"
 
-	appevents "github.com/chapar-rest/chapar/internal/events"
 	"github.com/chapar-rest/chapar/internal/domain"
+	appevents "github.com/chapar-rest/chapar/internal/events"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/uiv2/pages/internal/listui"
@@ -62,15 +62,7 @@ func (s *Section) BuildListPanel(panel *core.Frame) {
 		SetText("New").
 		SetIcon(icons.Add).
 		OnClick(func(e events.Event) {
-			env := domain.NewEnvironment("New Environment")
-			if err := s.repo.CreateEnvironment(env); err != nil {
-				log.Println(err)
-				core.MessageDialog(panel, err.Error(), "Create failed")
-				return
-			}
-			appevents.EnvironmentChangeTopic.Publish(env)
-			s.refreshList(panel)
-			s.openTab(env)
+			s.createEnvironment(panel)
 		})
 
 	search := core.NewTextField(panel)
@@ -83,6 +75,7 @@ func (s *Section) BuildListPanel(panel *core.Frame) {
 		st.Direction = styles.Column
 		st.Grow.Set(1, 1)
 	})
+	list.AddContextMenu(s.listPanelContextMenu(panel))
 
 	populate := func(filter string) {
 		list.DeleteChildren()
@@ -112,8 +105,18 @@ func (s *Section) BuildListPanel(panel *core.Frame) {
 			if q != "" && !strings.Contains(strings.ToLower(label), strings.ToLower(q)) {
 				continue
 			}
-			listui.Item(list, label, env.MetaData.ID, func() {
-				s.openTab(env)
+			listui.ItemWith(list, label, env.MetaData.ID, listui.ItemOpts{
+				OnClick: func() { s.openTab(env) },
+				OnMenu: func(m *core.Scene) {
+					core.NewButton(m).SetText("Duplicate").SetIcon(icons.ContentCopy).
+						OnClick(func(e events.Event) {
+							s.duplicateEnvironment(env, panel)
+						})
+					core.NewButton(m).SetText("Delete").SetIcon(icons.Delete).
+						OnClick(func(e events.Event) {
+							s.confirmDeleteEnvironment(env, panel)
+						})
+				},
 			})
 		}
 		list.Update()
@@ -130,6 +133,76 @@ func (s *Section) refreshList(panel *core.Frame) {
 	panel.DeleteChildren()
 	s.BuildListPanel(panel)
 	panel.Update()
+}
+
+func (s *Section) listPanelContextMenu(panel *core.Frame) func(m *core.Scene) {
+	return func(m *core.Scene) {
+		core.NewButton(m).SetText("New environment").SetIcon(icons.Add).
+			OnClick(func(e events.Event) {
+				s.createEnvironment(panel)
+			})
+		core.NewButton(m).SetText("Import...").SetIcon(icons.FileOpen).
+			OnClick(func(e events.Event) {
+				s.openImportDialog(panel)
+			})
+	}
+}
+
+func (s *Section) createEnvironment(panel *core.Frame) {
+	env := domain.NewEnvironment("New Environment")
+	if err := s.repo.CreateEnvironment(env); err != nil {
+		log.Println(err)
+		core.MessageDialog(panel, err.Error(), "Create failed")
+		return
+	}
+	appevents.EnvironmentChangeTopic.Publish(env)
+	s.refreshList(panel)
+	s.openTab(env)
+}
+
+func (s *Section) duplicateEnvironment(env *domain.Environment, panel *core.Frame) {
+	clone := env.Clone()
+	name := clone.GetName()
+	if name == "" {
+		name = "Untitled environment"
+	}
+	clone.SetName(name + " (copy)")
+	if err := s.repo.CreateEnvironment(clone); err != nil {
+		log.Println(err)
+		core.MessageDialog(panel, err.Error(), "Duplicate failed")
+		return
+	}
+	appevents.EnvironmentChangeTopic.Publish(clone)
+	s.refreshList(panel)
+	s.openTab(clone)
+}
+
+func (s *Section) confirmDeleteEnvironment(env *domain.Environment, panel *core.Frame) {
+	label := env.GetName()
+	if label == "" {
+		label = "Untitled environment"
+	}
+	d := core.NewBody("Delete environment")
+	core.NewText(d).
+		SetType(core.TextBodyMedium).
+		SetText("Delete \"" + label + "\"? This cannot be undone.")
+	d.AddBottomBar(func(bar *core.Frame) {
+		d.AddCancel(bar)
+		d.AddOK(bar).SetText("Delete").OnClick(func(e events.Event) {
+			if err := s.repo.DeleteEnvironment(env); err != nil {
+				log.Println(err)
+				core.MessageDialog(d, err.Error(), "Delete failed")
+				return
+			}
+			appevents.EnvironmentChangeTopic.Publish(nil)
+			if s.tabView != nil {
+				s.tabView.Close("env:" + env.MetaData.ID)
+			}
+			s.refreshList(panel)
+			d.Close()
+		})
+	})
+	d.RunDialog(panel)
 }
 
 func (s *Section) openTab(env *domain.Environment) {
