@@ -80,6 +80,10 @@ func (el *EditableLabel) Init() {
 			s.Cursor = cursors.Pointer
 		}
 	})
+	el.FinalStyler(func(s *styles.Style) {
+		// TextField sets Select.Container when selected/focused; keep label look.
+		s.Background = nil
+	})
 
 	el.Updater(func() {
 		if !el.editing {
@@ -136,6 +140,7 @@ func (el *EditableLabel) beginEdit() {
 	}
 	el.pinnedWidth = el.labelWidth()
 	el.editing = true
+	el.SetState(false, states.Selected)
 	el.SetReadOnly(false)
 	el.TextField.SetText(el.text)
 	el.Restyle()
@@ -183,7 +188,7 @@ func (el *EditableLabel) cancelEdit() {
 
 // clearHoverState drops active/hover styling left over from the click that opened edit mode.
 func (el *EditableLabel) clearHoverState() {
-	el.SetState(false, states.Active|states.Hovered|states.Focused)
+	el.SetState(false, states.Active|states.Hovered|states.Focused|states.Selected)
 }
 
 func applyTextTypeStyle(s *styles.Style, t core.TextTypes) {
