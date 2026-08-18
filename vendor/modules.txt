@@ -82,6 +82,22 @@ github.com/bufbuild/protocompile/protoutil
 github.com/bufbuild/protocompile/reporter
 github.com/bufbuild/protocompile/sourceinfo
 github.com/bufbuild/protocompile/walk
+# github.com/cogentcore/webgpu v0.23.0
+## explicit; go 1.22
+github.com/cogentcore/webgpu/jsx
+github.com/cogentcore/webgpu/wgpu
+github.com/cogentcore/webgpu/wgpu/lib
+github.com/cogentcore/webgpu/wgpu/lib/android/386
+github.com/cogentcore/webgpu/wgpu/lib/android/amd64
+github.com/cogentcore/webgpu/wgpu/lib/android/arm
+github.com/cogentcore/webgpu/wgpu/lib/android/arm64
+github.com/cogentcore/webgpu/wgpu/lib/darwin/amd64
+github.com/cogentcore/webgpu/wgpu/lib/darwin/arm64
+github.com/cogentcore/webgpu/wgpu/lib/ios/amd64
+github.com/cogentcore/webgpu/wgpu/lib/ios/arm64
+github.com/cogentcore/webgpu/wgpu/lib/linux/amd64
+github.com/cogentcore/webgpu/wgpu/lib/windows/amd64
+github.com/cogentcore/webgpu/wgpuglfw
 # github.com/containerd/errdefs v1.0.0
 ## explicit; go 1.20
 github.com/containerd/errdefs
@@ -147,6 +163,15 @@ github.com/flopp/go-findfont
 # github.com/getkin/kin-openapi v0.133.0
 ## explicit; go 1.22.5
 github.com/getkin/kin-openapi/openapi3
+# github.com/go-gl/glfw/v3.3/glfw v0.0.0-20240506104042-037f3cc74f2a
+## explicit; go 1.10
+github.com/go-gl/glfw/v3.3/glfw
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps/glad
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps/mingw
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps/vs2008
+github.com/go-gl/glfw/v3.3/glfw/glfw/include/GLFW
+github.com/go-gl/glfw/v3.3/glfw/glfw/src
 # github.com/go-logr/logr v1.4.2
 ## explicit; go 1.18
 github.com/go-logr/logr
@@ -160,7 +185,7 @@ github.com/go-openapi/jsonpointer
 # github.com/go-openapi/swag v0.23.0
 ## explicit; go 1.20
 github.com/go-openapi/swag
-# github.com/go-text/typesetting v0.3.0
+# github.com/go-text/typesetting v0.3.4
 ## explicit; go 1.19
 github.com/go-text/typesetting/di
 github.com/go-text/typesetting/font
@@ -170,10 +195,10 @@ github.com/go-text/typesetting/font/opentype
 github.com/go-text/typesetting/font/opentype/tables
 github.com/go-text/typesetting/fontscan
 github.com/go-text/typesetting/harfbuzz
+github.com/go-text/typesetting/internal/unicodedata
 github.com/go-text/typesetting/language
 github.com/go-text/typesetting/segmenter
 github.com/go-text/typesetting/shaping
-github.com/go-text/typesetting/unicodedata
 # github.com/godbus/dbus/v5 v5.1.0
 ## explicit; go 1.12
 github.com/godbus/dbus/v5
@@ -209,6 +234,21 @@ github.com/josharian/intern
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
+# github.com/mattn/go-pointer v0.0.1
+## explicit
+github.com/mattn/go-pointer
+# github.com/mirzakhany/yoga v0.0.0 => ../yoga
+## explicit; go 1.26.2
+github.com/mirzakhany/yoga
+github.com/mirzakhany/yoga/highlight
+github.com/mirzakhany/yoga/input
+github.com/mirzakhany/yoga/layout
+github.com/mirzakhany/yoga/lsp
+github.com/mirzakhany/yoga/render
+github.com/mirzakhany/yoga/shape
+github.com/mirzakhany/yoga/text
+github.com/mirzakhany/yoga/theme
+github.com/mirzakhany/yoga/ui
 # github.com/moby/docker-image-spec v1.3.1
 ## explicit; go 1.18
 github.com/moby/docker-image-spec/specs-go/v1
@@ -269,6 +309,12 @@ github.com/rdleal/intervalst/interval
 # github.com/shopspring/decimal v1.3.1
 ## explicit; go 1.13
 github.com/shopspring/decimal
+# github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
+## explicit; go 1.17
+github.com/srwiley/oksvg
+# github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
+## explicit; go 1.17
+github.com/srwiley/rasterx
 # github.com/stretchr/testify v1.10.0
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
@@ -276,6 +322,15 @@ github.com/stretchr/testify/assert/yaml
 # github.com/tidwall/pretty v1.2.1
 ## explicit; go 1.16
 github.com/tidwall/pretty
+# github.com/tree-sitter/go-tree-sitter v0.25.0
+## explicit; go 1.23
+github.com/tree-sitter/go-tree-sitter
+# github.com/tree-sitter/tree-sitter-go v0.25.0
+## explicit; go 1.22
+github.com/tree-sitter/tree-sitter-go/bindings/go
+# github.com/tree-sitter/tree-sitter-json v0.24.8
+## explicit; go 1.22
+github.com/tree-sitter/tree-sitter-json/bindings/go
 # github.com/woodsbury/decimal128 v1.3.0
 ## explicit; go 1.21
 github.com/woodsbury/decimal128
@@ -323,8 +378,8 @@ golang.org/x/exp/slices
 golang.org/x/exp/shiny/iconvg
 golang.org/x/exp/shiny/iconvg/internal/gradient
 golang.org/x/exp/shiny/materialdesign/icons
-# golang.org/x/image v0.29.0
-## explicit; go 1.23.0
+# golang.org/x/image v0.41.0
+## explicit; go 1.25.0
 golang.org/x/image/ccitt
 golang.org/x/image/colornames
 golang.org/x/image/font/gofont/gobold
@@ -357,16 +412,16 @@ golang.org/x/net/idna
 golang.org/x/net/internal/httpcommon
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/sync v0.16.0
-## explicit; go 1.23.0
+# golang.org/x/sync v0.20.0
+## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 # golang.org/x/sys v0.34.0
 ## explicit; go 1.23.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.27.0
-## explicit; go 1.23.0
+# golang.org/x/text v0.37.0
+## explicit; go 1.25.0
 golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
@@ -516,3 +571,4 @@ gopkg.in/yaml.v2
 gopkg.in/yaml.v3
 # gotest.tools/v3 v3.5.2
 ## explicit; go 1.17
+# github.com/mirzakhany/yoga => ../yoga

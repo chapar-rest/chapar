@@ -20,10 +20,12 @@ import (
 	internal_app "github.com/chapar-rest/chapar/ui/app"
 	"github.com/chapar-rest/chapar/ui/chapartheme"
 	"github.com/chapar-rest/chapar/ui/widgets"
+	"github.com/chapar-rest/chapar/uiv2"
 )
 
 var (
 	enablePprof = flag.Bool("pprof", false, "enable pprof")
+	useUIv2     = flag.Bool("uiv2", false, "use the Yoga UI (experimental)")
 )
 
 func main() {
@@ -33,6 +35,13 @@ func main() {
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
+	}
+
+	if *useUIv2 {
+		if err := uiv2.Run(); err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
 
 	go func() {
