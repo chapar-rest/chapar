@@ -99,6 +99,7 @@ func (a *Window) initCursors() {
 		input.CursorPointer:  glfw.HandCursor,
 		input.CursorResizeEW: glfw.HResizeCursor,
 		input.CursorResizeNS: glfw.VResizeCursor,
+		input.CursorText:     glfw.IBeamCursor,
 	}
 	a.cursors = make(map[input.Cursor]*glfw.Cursor, len(shapes))
 	for kind, shape := range shapes {

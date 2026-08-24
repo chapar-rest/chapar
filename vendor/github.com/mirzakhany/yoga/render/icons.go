@@ -36,7 +36,7 @@ func RasterizeSVG(svg []byte, px int) (mask *image.Alpha, err error) {
 			err = fmt.Errorf("rasterize panic: %v", r)
 		}
 	}()
-	data := rewriteSVGColor(svg)
+	data := rewriteSVGColorTo(svg, "#000000")
 	c, err := canvas.ParseSVG(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -65,10 +65,10 @@ func RasterizeSVG(svg []byte, px int) (mask *image.Alpha, err error) {
 	return out, nil
 }
 
-func rewriteSVGColor(svg []byte) []byte {
+func rewriteSVGColorTo(svg []byte, hex string) []byte {
 	s := string(svg)
-	s = strings.ReplaceAll(s, "currentColor", "#000000")
-	s = strings.ReplaceAll(s, "currentcolor", "#000000")
+	s = strings.ReplaceAll(s, "currentColor", hex)
+	s = strings.ReplaceAll(s, "currentcolor", hex)
 	return []byte(s)
 }
 

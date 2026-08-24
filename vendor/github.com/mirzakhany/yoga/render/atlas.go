@@ -9,6 +9,7 @@ import (
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/mirzakhany/yoga/icons"
+	"golang.org/x/image/draw"
 	"golang.org/x/image/vector"
 )
 
@@ -51,6 +52,16 @@ func (a *FontAtlas) PadLogical() float32 {
 	return float32(GlyphRasterPad) / a.scale
 }
 
+// ImageEntry describes a baked bitmap image in the color atlas page.
+type ImageEntry struct {
+	UV       Rect
+	W, H     float32 // logical size
+	physW    int
+	physH    int
+	physX    int
+	physY    int
+}
+
 // DirtyRect is a sub-rectangle that changed in an atlas page.
 type DirtyRect struct {
 	Page Page
@@ -73,6 +84,7 @@ type FontAtlas struct {
 
 	glyphs map[glyphKey]GlyphEntry
 	icons  map[string]Rect
+	images map[string]ImageEntry
 
 	packedIconSources map[string]icons.Icon
 
@@ -114,6 +126,7 @@ func NewAtlasScale(scale float32) *FontAtlas {
 		H:                 initialMonoH,
 		glyphs:            make(map[glyphKey]GlyphEntry),
 		icons:             make(map[string]Rect, 32),
+		images:            make(map[string]ImageEntry, 8),
 		packedIconSources: make(map[string]icons.Icon),
 		monoShelf:         shelf{pad: 1},
 		colorShelf:        shelf{pad: 1},
@@ -358,8 +371,105 @@ func (a *FontAtlas) growColor(newH int) {
 	copy(pix, a.colorPix)
 	a.colorPix = pix
 	a.colorH = newH
-	a.colorShelf = shelf{pad: 1}
+	a.recomputeColorUVs()
 	a.fullRebuild = true
+}
+
+func (a *FontAtlas) recomputeColorUVs() {
+	cw, ch := float32(a.colorW), float32(a.colorH)
+	for k, e := range a.glyphs {
+		if e.Page != PageColor {
+			continue
+		}
+		e.UV = Rect{
+			X: float32(e.physX) / cw,
+			Y: float32(e.physY) / ch,
+			W: float32(e.physW) / cw,
+			H: float32(e.physH) / ch,
+		}
+		a.glyphs[k] = e
+	}
+	for k, e := range a.images {
+		e.UV = Rect{
+			X: float32(e.physX) / cw,
+			Y: float32(e.physY) / ch,
+			W: float32(e.physW) / cw,
+			H: float32(e.physH) / ch,
+		}
+		a.images[k] = e
+	}
+}
+
+// EnsureImage packs src into the color atlas under key, returning cached entry on hit.
+func (a *FontAtlas) EnsureImage(key string, src *image.RGBA) (ImageEntry, bool) {
+	if key == "" || src == nil {
+		return ImageEntry{}, false
+	}
+	if e, ok := a.images[key]; ok {
+		return e, true
+	}
+	prepared := a.prepareImage(src)
+	if prepared == nil {
+		return ImageEntry{}, false
+	}
+	e := a.packImage(key, prepared)
+	if e.physW < 1 {
+		return ImageEntry{}, false
+	}
+	return e, true
+}
+
+func (a *FontAtlas) prepareImage(src *image.RGBA) *image.RGBA {
+	w, h := src.Bounds().Dx(), src.Bounds().Dy()
+	if w < 1 || h < 1 {
+		return nil
+	}
+	maxW := a.colorW - 2*a.colorShelf.pad
+	if maxW < 1 {
+		maxW = 1
+	}
+	if w <= maxW {
+		return src
+	}
+	scale := float64(maxW) / float64(w)
+	nw := maxW
+	nh := int(float64(h)*scale + 0.5)
+	if nh < 1 {
+		nh = 1
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, nw, nh))
+	draw.ApproxBiLinear.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Over, nil)
+	return dst
+}
+
+func (a *FontAtlas) packImage(key string, src *image.RGBA) ImageEntry {
+	w, h := src.Bounds().Dx(), src.Bounds().Dy()
+	for {
+		x, y, ok := a.colorShelf.alloc(a, w, h, false)
+		if ok {
+			blitRGBA(a.colorPix, a.colorW, x, y, src)
+			a.markColorDirty(x, y, w, h)
+			e := ImageEntry{
+				UV: Rect{
+					X: float32(x) / float32(a.colorW),
+					Y: float32(y) / float32(a.colorH),
+					W: float32(w) / float32(a.colorW),
+					H: float32(h) / float32(a.colorH),
+				},
+				W: float32(w) / a.scale, H: float32(h) / a.scale,
+				physW: w, physH: h, physX: x, physY: y,
+			}
+			a.images[key] = e
+			return e
+		}
+		a.growColor(a.colorH * 2)
+	}
+}
+
+// ImageUV returns the UV for an image already packed in the atlas.
+func (a *FontAtlas) ImageUV(key string) (ImageEntry, bool) {
+	e, ok := a.images[key]
+	return e, ok
 }
 
 func (a *FontAtlas) markMonoDirty(x, y, w, h int) {
@@ -398,7 +508,7 @@ func blitRGBA(dst []byte, stride, ox, oy int, src *image.RGBA) {
 	for y := 0; y < src.Rect.Dy(); y++ {
 		for x := 0; x < src.Rect.Dx(); x++ {
 			i := ((oy+y)*stride + (ox + x)) * 4
-			j := (y*src.Stride + x) * 4
+			j := y*src.Stride + x*4
 			dst[i], dst[i+1], dst[i+2], dst[i+3] = src.Pix[j], src.Pix[j+1], src.Pix[j+2], src.Pix[j+3]
 		}
 	}

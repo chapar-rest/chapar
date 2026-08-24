@@ -14,8 +14,9 @@ type Workspace struct {
 	docs    []container.Container
 	active  int
 	deps    func() container.Deps
-	confirm func(title, message string, onYes func())
-	onTrees func()
+	confirm    func(title, message string, onYes func())
+	onTrees    func()
+	onSettings func()
 }
 
 func newWorkspace(deps func() container.Deps, confirm func(title, message string, onYes func())) *Workspace {
@@ -160,7 +161,7 @@ func (w *Workspace) SendActive() {
 func (w *Workspace) Layout(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	if len(w.docs) == 0 {
-		return ui.Center(ui.Muted("Open a request or environment from the tree")).Grow(1)
+		return w.emptyWorkspace(c)
 	}
 	if w.active < 0 || w.active >= len(w.docs) {
 		w.active = 0

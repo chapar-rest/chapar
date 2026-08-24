@@ -128,6 +128,8 @@ The ergonomic API is package `ui`.
 | `ui.Raw(el)` | Wrap a bare `*layout.Element` |
 | `ui.HLine` / `ui.VLine` | Rules |
 | `ui.Icon(icon, size, color)` | Atlas sprite |
+| `ui.Image(id, data)` | PNG/JPEG bitmap (`ImageFile`, `ImageFS`) |
+| `ui.SVG(id, data)` | Custom SVG (`SVGFile`, `SVGFS`; `currentColor` follows text color) |
 
 Children are `ui.View`. `nil` is skipped. Split UI into helpers that return `ui.View`.
 
@@ -202,6 +204,8 @@ ui.Drawer("inspector", panel, page).Open(open).Edge(ui.EdgeRight).Overlay().Size
 // Nest drawers for IDE-style panels (e.g. bottom terminal + right chat).
 
 ui.Tabs("tabs", tabs).Selected(i).OnSelectItem(onSelect).OnTabClose(onClose)
+// Section switcher without close buttons:
+ui.Tabs("sections", tabs).Selected(i).OnSelectItem(onSelect).Closable(false)
 
 ui.Nav("nav", ui.NavVertical, ui.NavIconTop, items...).
     Selected(i).OnSelectItem(func(i int, id string) { … }).Width(88)

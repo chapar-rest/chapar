@@ -260,7 +260,7 @@ github.com/go-fonts/latin-modern/lmsans9regular
 github.com/go-fonts/latin-modern/lmsansdemicond10regular
 github.com/go-fonts/latin-modern/lmsansquot8oblique
 github.com/go-fonts/latin-modern/lmsansquot8regular
-# github.com/go-gl/glfw/v3.3/glfw v0.0.0-20260802143932-8fa725040a18
+# github.com/go-gl/glfw/v3.3/glfw v0.0.0-20260823155953-d41da22a9587
 ## explicit; go 1.19
 github.com/go-gl/glfw/v3.3/glfw
 github.com/go-gl/glfw/v3.3/glfw/glfw/deps
@@ -338,7 +338,7 @@ github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-pointer v0.0.1
 ## explicit
 github.com/mattn/go-pointer
-# github.com/mirzakhany/yoga v0.0.0 => ../yoga
+# github.com/mirzakhany/yoga v0.3.3 => ../yoga
 ## explicit; go 1.26.2
 github.com/mirzakhany/yoga
 github.com/mirzakhany/yoga/highlight

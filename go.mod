@@ -16,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/inkeliz/giosvg v0.0.0-20240821232107-3208d4350d55
 	github.com/jhump/protoreflect v1.16.0
-	github.com/mirzakhany/yoga v0.0.0
+	github.com/mirzakhany/yoga v0.3.3
 	github.com/oligo/gioview v0.8.2
 	github.com/oligo/gvcode v0.4.0
 	github.com/stretchr/testify v1.12.1
@@ -53,7 +53,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-fonts/latin-modern v0.3.3 // indirect
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20260802143932-8fa725040a18 // indirect
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20260823155953-d41da22a9587 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect

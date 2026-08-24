@@ -25,6 +25,7 @@ const (
 	CursorPointer  = input.CursorPointer
 	CursorResizeEW = input.CursorResizeEW
 	CursorResizeNS = input.CursorResizeNS
+	CursorText     = input.CursorText
 )
 
 // colorRef is a token or literal color. Tokens win over literals when both are

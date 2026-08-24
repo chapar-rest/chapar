@@ -79,6 +79,11 @@ func BuildApp() *App {
 
 	a.ws = newWorkspace(a.deps, a.confirmClose)
 	a.ws.onTrees = a.rebuildTrees
+	a.ws.onSettings = func() {
+		if a.uiCtx != nil {
+			a.openSettings(a.uiCtx)
+		}
+	}
 
 	files := a.files
 	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.showError)

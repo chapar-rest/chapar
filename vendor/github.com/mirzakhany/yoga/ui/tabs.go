@@ -17,8 +17,9 @@ type TabModel struct {
 }
 
 type tabsData struct {
-	tabs []TabModel
-	bg   render.Color
+	tabs     []TabModel
+	bg       render.Color
+	closable bool
 }
 
 type tabsState struct {
@@ -66,13 +67,21 @@ const tabMaxText = 22
 
 // Tabs is a horizontal strip of document tabs. Active index is controlled via .Selected(i).
 func Tabs(id string, tabs []TabModel) *Node {
-	return &Node{kind: kindTabs, id: id, extra: &tabsData{tabs: tabs}}
+	return &Node{kind: kindTabs, id: id, extra: &tabsData{tabs: tabs, closable: true}}
 }
 
 // TabBackground overrides the strip fill (e.g. workspace background).
 func (n *Node) TabBackground(c render.Color) *Node {
 	if d, ok := n.extra.(*tabsData); ok {
 		d.bg = c
+	}
+	return n
+}
+
+// Closable controls whether tabs show a close control (default true).
+func (n *Node) Closable(v bool) *Node {
+	if d, ok := n.extra.(*tabsData); ok {
+		d.closable = v
 	}
 	return n
 }
@@ -117,21 +126,22 @@ func (n *Node) layoutTabs(c *Ctx) *layout.Element {
 	onActivate := n.onSelectIdx
 	onClose := n.onCloseIdx
 	bg := d.bg
+	closable := d.closable
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
-		paintTabs(dl, text, el, tabs, active, st.hoverTab, st.hoverClose, st.focused, bg)
+		paintTabs(dl, text, el, tabs, active, st.hoverTab, st.hoverClose, st.focused, bg, closable)
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		st.hoverTab, st.hoverClose = -1, -1
 		if !e.Frame.Contains(m.X, m.Y) {
 			return
 		}
-		ext := tabExtents(e, tabs)
+		ext := tabExtents(e, tabs, closable)
 		for i, te := range ext {
 			if m.X < te.x || m.X > te.x+te.w {
 				continue
 			}
 			st.hoverTab = i
-			if te.close.Contains(m.X, m.Y) {
+			if closable && te.close.Contains(m.X, m.Y) {
 				st.hoverClose = i
 				if m.Pressed {
 					m.Consumed = true
@@ -158,13 +168,16 @@ type tabExtent struct {
 	close render.Rect
 }
 
-func tabExtents(el *layout.Element, tabs []TabModel) []tabExtent {
+func tabExtents(el *layout.Element, tabs []TabModel, closable bool) []tabExtent {
 	th := theme.Current()
 	f := el.Frame
 	out := make([]tabExtent, len(tabs))
 	x := f.X + el.Style.Padding.Left
 	padX := th.Spacing.M
-	closeW := th.Metrics.IconSizeMD
+	closeW := float32(0)
+	if closable {
+		closeW = th.Metrics.IconSizeMD
+	}
 	style := th.Typography.Body
 	eng := frameText()
 	for i, tab := range tabs {
@@ -178,18 +191,22 @@ func tabExtents(el *layout.Element, tabs []TabModel) []tabExtent {
 			badgeW += th.Spacing.SNudge
 		}
 		w := tw + badgeW + 2*padX + closeW
-		closeX := x + w - closeW
-		cy := f.Y + (f.H-closeW)/2
+		var closeRect render.Rect
+		if closable {
+			closeX := x + w - closeW
+			cy := f.Y + (f.H-closeW)/2
+			closeRect = render.Rect{X: closeX, Y: cy, W: closeW - th.Spacing.XS, H: closeW - th.Spacing.XS}
+		}
 		out[i] = tabExtent{
 			x: x, w: w,
-			close: render.Rect{X: closeX, Y: cy, W: closeW - th.Spacing.XS, H: closeW - th.Spacing.XS},
+			close: closeRect,
 		}
 		x += w
 	}
 	return out
 }
 
-func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, tabs []TabModel, active, hoverTab, hoverClose int, focused bool, bgOverride render.Color) {
+func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, tabs []TabModel, active, hoverTab, hoverClose int, focused bool, bgOverride render.Color, closable bool) {
 	th := theme.Current()
 	f := el.Frame
 	padX := th.Spacing.M
@@ -200,7 +217,7 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, tabs
 	}
 	dl.AddRect(f, bg)
 	dl.PushClip(f)
-	ext := tabExtents(el, tabs)
+	ext := tabExtents(el, tabs, closable)
 	for i, tab := range tabs {
 		e := ext[i]
 		rect := render.Rect{X: e.x, Y: f.Y, W: e.w, H: f.H}
@@ -230,19 +247,21 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, tabs
 			dl.AddRoundedRect(render.Rect{X: px, Y: py, W: pillW, H: pillH}, th.Radius.Circular, th.ChromeMuted)
 			text.DrawStringTopAt(dl, tab.Badge, px+5, py+(pillH-bh)/2, th.ForegroundMuted, bsz)
 		}
-		c := e.close
-		if i == hoverClose {
-			dl.AddRect(c, th.ListHover)
-			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, icons.X, c, th.Foreground)
-			}
-		} else if tab.Modified {
-			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, icons.Circle, shrinkRect(c, 0.5), th.ForegroundMuted)
-			}
-		} else if i == hoverTab || i == active {
-			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, icons.X, c, th.ForegroundMuted)
+		if closable {
+			c := e.close
+			if i == hoverClose {
+				dl.AddRect(c, th.ListHover)
+				if sheet := frameIcons(); sheet != nil {
+					sheet.Draw(dl, icons.X, c, th.Foreground)
+				}
+			} else if tab.Modified {
+				if sheet := frameIcons(); sheet != nil {
+					sheet.Draw(dl, icons.Circle, shrinkRect(c, 0.5), th.ForegroundMuted)
+				}
+			} else if i == hoverTab || i == active {
+				if sheet := frameIcons(); sheet != nil {
+					sheet.Draw(dl, icons.X, c, th.ForegroundMuted)
+				}
 			}
 		}
 	}

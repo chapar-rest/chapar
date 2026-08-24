@@ -13,6 +13,7 @@ const (
 	CursorPointer
 	CursorResizeEW
 	CursorResizeNS
+	CursorText
 )
 
 // Mouse is the per-frame pointer state. The example mutates it from GLFW
