@@ -2,7 +2,6 @@ package uiv2
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -16,9 +15,8 @@ import (
 	"github.com/chapar-rest/chapar/uiv2/settings"
 	"github.com/chapar-rest/chapar/version"
 	"github.com/mirzakhany/yoga"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -33,11 +31,7 @@ type App struct {
 	repo     repository.RepositoryV2
 	catalog  *Catalog
 	sender   *sender.Service
-	dialogs  *ui.DialogHost
-	files    *ui.FileDialog
-	toasts   *ui.ToastHost
-	settings *settings.Dialog
-	confirm  *confirm
+	settings *settings.Panel
 	ws       *Workspace
 
 	requests *pages.Requests
@@ -46,9 +40,9 @@ type App struct {
 	spaces   *pages.Workspaces
 
 	navIndex int
-	search   string
 	initErr  error
 	wake     func()
+	uiCtx    *ui.Ctx
 	executor scripting.Executor
 }
 
@@ -57,15 +51,10 @@ var _ yoga.Closer = (*App)(nil)
 var _ yoga.KeyHook = (*App)(nil)
 
 func BuildApp() *App {
-	a := &App{
-		dialogs: ui.NewDialogHost(),
-		files:   ui.NewFileDialog(),
-		toasts:  ui.NewToastHost(),
-		confirm: &confirm{},
-	}
+	a := &App{}
 	a.settings = settings.New(func(name string) {
 		applyChaparTheme(name)
-	}, a.showError, a.toast, nil)
+	})
 
 	appState := prefs.GetAppState()
 	wsName := domain.DefaultWorkspaceName
@@ -88,22 +77,44 @@ func BuildApp() *App {
 		a.catalog.ReplaceEnvironment(env)
 	})
 
-	a.ws = newWorkspace(a.deps, a.confirm)
+	a.ws = newWorkspace(a.deps, a.confirmClose)
 	a.ws.onTrees = a.rebuildTrees
 
-	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, a.files, a.showError)
+	files := a.files
+	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.showError)
 	a.envs = pages.NewEnvironmentsPage(repo,
 		func() []*domain.Environment { return a.catalog.Environments },
 		a.catalog.EnvironmentByID,
 		a.catalog.Load,
-		a.ws, a.files, a.showError)
-	a.protos = pages.NewProtoFilesPage(repo, a.catalog.ProtoFileList, a.catalog.Load, a.files, a.showError)
+		a.ws, files, a.showError)
+	a.protos = pages.NewProtoFilesPage(repo, a.catalog.ProtoFileList, a.catalog.Load, files, a.showError)
 	a.spaces = pages.NewWorkspacesPage(repo,
 		func() []*domain.Workspace { return a.catalog.Workspaces },
 		a.catalog.Load, a.showError, a.switchWorkspace)
 
 	go a.initScripting()
 	return a
+}
+
+func (a *App) files() *ui.FileDialog {
+	if a.uiCtx == nil {
+		return nil
+	}
+	return a.uiCtx.Files()
+}
+
+func (a *App) dialogs() *ui.DialogHost {
+	if a.uiCtx == nil {
+		return nil
+	}
+	return a.uiCtx.Dialogs()
+}
+
+func (a *App) toasts() *ui.ToastHost {
+	if a.uiCtx == nil {
+		return nil
+	}
+	return a.uiCtx.Toasts()
 }
 
 func (a *App) deps() container.Deps {
@@ -118,6 +129,7 @@ func (a *App) deps() container.Deps {
 		ActiveEnv: a.catalog.ActiveEnvironment,
 		Report: container.Reporter{
 			Error: a.showError,
+			Toast: a.toast,
 		},
 	}
 }
@@ -141,22 +153,32 @@ func (a *App) showError(err error) {
 	if err == nil {
 		return
 	}
-	if a.dialogs != nil {
-		a.dialogs.ShowError("Error", err.Error(), nil)
+	if host := a.dialogs(); host != nil {
+		host.ShowError("Error", err.Error(), nil)
 	}
 }
 
 func (a *App) toast(msg string) {
-	if a.toasts != nil {
-		a.toasts.Show(msg, ui.ToastInfo, 3*time.Second)
+	if host := a.toasts(); host != nil {
+		host.Show(msg, ui.ToastInfo, 3*time.Second)
+	}
+}
+
+func (a *App) confirmClose(title, message string, onYes func()) {
+	if host := a.dialogs(); host != nil {
+		host.ShowAction(title, message, onYes, nil)
+		return
+	}
+	if onYes != nil {
+		onYes()
 	}
 }
 
 func (a *App) switchWorkspace(ws *domain.Workspace) {
 	if a.ws.HasDirty() {
-		a.confirm.open = true
-		a.confirm.message = "Switching workspace will close unsaved tabs. Continue?"
-		a.confirm.onYes = func() { a.doSwitchWorkspace(ws) }
+		a.confirmClose("Switch workspace?", "Switching workspace will close unsaved tabs. Continue?", func() {
+			a.doSwitchWorkspace(ws)
+		})
 		return
 	}
 	a.doSwitchWorkspace(ws)
@@ -193,6 +215,7 @@ func (a *App) initScripting() {
 }
 
 func (a *App) Body(c *ui.Ctx) ui.View {
+	a.uiCtx = c
 	a.wake = c.Invalidate
 	th := c.Theme()
 
@@ -200,37 +223,81 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 		return ui.Column(
 			ui.Title("Chapar failed to start"),
 			ui.Text(a.initErr.Error()),
-			a.dialogs,
 		).Padding(th.Spacing.L).Grow(1).Background(ui.TokenSurface)
 	}
 
-	page := a.pageView(c)
-	shell := ui.Column(
+	a.registerCommands(c)
+
+	return ui.Column(
 		a.topBar(c),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.Row(
 			a.nav(c),
 			ui.VLine(th.Stroke.Thin, th.Border),
-			ui.ViewOf(page).Grow(1),
+			ui.ViewOf(a.pageView(c)).Grow(1),
 		).Align(ui.AlignStretch).Grow(1),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		a.footer(c),
-		a.dialogs,
-		a.files,
-		a.toasts,
 	).Grow(1).Background(ui.TokenSurface)
+}
 
-	overlays := []ui.View{shell}
-	if a.settings != nil && a.settings.Open {
-		overlays = append(overlays, a.settings.Layout(c))
+func (a *App) registerCommands(c *ui.Ctx) {
+	cmds := []*ui.Command{
+		ui.Section("Navigation"),
+		ui.Cmd("nav.requests").Title("Go to Requests").Icon(icons.Send).Run(func() { a.navIndex = navRequests }),
+		ui.Cmd("nav.envs").Title("Go to Environments").Icon(icons.FolderPlus).Run(func() { a.navIndex = navEnvs }),
+		ui.Cmd("nav.protos").Title("Go to Proto files").Icon(icons.Code).Run(func() { a.navIndex = navProto }),
+		ui.Cmd("nav.spaces").Title("Go to Workspaces").Icon(icons.Boxes).Run(func() { a.navIndex = navWorkspaces }),
+		ui.Cmd("app.settings").Title("Open Settings").Shortcut("⌘,").Icon(icons.Settings).Run(func() { a.openSettings(c) }),
+		ui.Cmd("file.save").Title("Save").Shortcut("⌘S").Icon(icons.Save).Run(func() { a.ws.SaveActive() }),
+		ui.Cmd("file.send").Title("Send / Invoke").Shortcut("⌘Enter").Icon(icons.Play).Run(func() { a.ws.SendActive() }),
+		ui.Section("Open"),
 	}
-	if a.confirm != nil && a.confirm.open {
-		overlays = append(overlays, a.confirmLayout(c))
+	for _, e := range a.catalog.Environments {
+		e := e
+		cmds = append(cmds, ui.Item("open.env."+e.MetaData.ID).
+			Title(e.MetaData.Name).
+			Detail("Environment").
+			Icon(icons.FolderPlus).
+			Run(func() {
+				a.navIndex = navEnvs
+				a.ws.OpenEnv(e)
+			}))
 	}
-	if len(overlays) == 1 {
-		return shell
+	for _, col := range a.catalog.Collections {
+		col := col
+		cmds = append(cmds, ui.Item("open.col."+col.MetaData.ID).
+			Title(col.MetaData.Name).
+			Detail("Collection").
+			Icon(icons.Folder).
+			Run(func() {
+				a.navIndex = navRequests
+				a.ws.OpenCollection(col)
+			}))
+		for _, r := range col.Spec.Requests {
+			r := r
+			cmds = append(cmds, ui.Item("open.req."+r.MetaData.ID).
+				Title(r.MetaData.Name).
+				Detail(col.MetaData.Name).
+				Icon(icons.File).
+				Run(func() {
+					a.navIndex = navRequests
+					a.ws.OpenRequest(r)
+				}))
+		}
 	}
-	return ui.Stack(overlays...).Grow(1)
+	for _, r := range a.catalog.Requests {
+		r := r
+		cmds = append(cmds, ui.Item("open.req."+r.MetaData.ID).
+			Title(r.MetaData.Name).
+			Detail("Request").
+			Icon(icons.File).
+			Run(func() {
+				a.navIndex = navRequests
+				a.ws.OpenRequest(r)
+			}))
+	}
+	c.Commands().Register(cmds...)
 }
 
 func (a *App) pageView(c *ui.Ctx) ui.View {
@@ -269,131 +336,83 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 		}
 	}
 
-	hits := a.searchHits()
-	var hitViews []ui.View
-	for i, h := range hits {
-		if i > 7 {
-			break
-		}
-		h := h
-		hitViews = append(hitViews, ui.Button("hit-"+h.id, ui.Text(h.title)).Subtle().OnClick(func() { a.openHit(h) }))
-	}
-
-	row := ui.Row(
+	return ui.Row(
 		ui.Select("top-ws", wsOpts).Width(180).Selected(wsSel).OnChange(func(v string) {
 			if ws := a.catalog.WorkspaceByID(v); ws != nil {
 				a.switchWorkspace(ws)
 			}
 		}),
-		ui.TextField("top-search", a.search).Placeholder("Search…").IconStart("search").Grow(1).
-			OnChange(func(s string) { a.search = s }).
-			OnSubmit(func(s string) {
-				if hs := a.searchHits(); len(hs) > 0 {
-					a.openHit(hs[0])
-				}
-			}),
+		ui.IconButton("top-add", icons.Plus).OnClick(func() {}),
+		ui.Spacer(),
+		ui.Button("cmd-palette", ui.Text("Commands")).Width(300).
+			IconStart(icons.Search).
+			Hint(c.Commands().ToggleLabel()).
+			OnClick(func() { c.Commands().Show() }),
+		ui.Spacer(),
 		ui.Select("top-env", envOpts).Width(180).Selected(envSel).OnChange(func(v string) {
 			_ = a.catalog.SetActiveEnv(v)
 		}),
-		ui.IconButton("top-settings", "settings").OnClick(func() { a.settings.Show() }),
-	).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.S)
-
-	if len(hitViews) == 0 || a.search == "" {
-		return row
-	}
-	return ui.Column(row, ui.Row(hitViews...).Gap(th.Spacing.XS).PaddingXY(th.Spacing.M, 0))
+		ui.IconButton("top-settings", icons.Settings).OnClick(func() { a.openSettings(c) }),
+	).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.S).
+		Background(ui.TokenChrome).
+		Shrink(0)
 }
 
-type searchHit struct {
-	id, kind, title string
+func (a *App) openSettings(c *ui.Ctx) {
+	a.settings.Prepare()
+	a.showSettingsDialog(c)
 }
 
-func (a *App) searchHits() []searchHit {
-	q := strings.ToLower(strings.TrimSpace(a.search))
-	if q == "" {
-		return nil
-	}
-	var out []searchHit
-	match := func(id, kind, title string) {
-		if strings.Contains(strings.ToLower(title), q) {
-			out = append(out, searchHit{id: id, kind: kind, title: title})
-		}
-	}
-	for _, e := range a.catalog.Environments {
-		match(e.MetaData.ID, domain.KindEnv, e.MetaData.Name)
-	}
-	for _, col := range a.catalog.Collections {
-		match(col.MetaData.ID, domain.KindCollection, col.MetaData.Name)
-		for _, r := range col.Spec.Requests {
-			match(r.MetaData.ID, domain.KindRequest, r.MetaData.Name)
-		}
-	}
-	for _, r := range a.catalog.Requests {
-		match(r.MetaData.ID, domain.KindRequest, r.MetaData.Name)
-	}
-	return out
-}
-
-func (a *App) openHit(h searchHit) {
-	switch h.kind {
-	case domain.KindEnv:
-		if env := a.catalog.EnvironmentByID(h.id); env != nil {
-			a.navIndex = navEnvs
-			a.ws.OpenEnv(env)
-		}
-	case domain.KindCollection:
-		if col := a.catalog.CollectionByID(h.id); col != nil {
-			a.navIndex = navRequests
-			a.ws.OpenCollection(col)
-		}
-	case domain.KindRequest:
-		if req := a.catalog.RequestByID(h.id); req != nil {
-			a.navIndex = navRequests
-			a.ws.OpenRequest(req)
-		}
-	}
-	a.search = ""
+func (a *App) showSettingsDialog(c *ui.Ctx) {
+	c.Dialogs().Show(ui.DialogOpts{
+		Title:  "Settings",
+		Width:  800,
+		Height: 600,
+		Body:   a.settings.Layout,
+		OnDismiss: func() {
+			a.settings.Cancel()
+		},
+		Actions: []ui.DialogAction{
+			{Label: "Cancel", OnClick: func() { a.settings.Cancel() }},
+			{Label: "Defaults", OnClick: func() {
+				a.settings.LoadDefaults()
+				// Dialog actions always dismiss; reopen with the defaults draft.
+				a.showSettingsDialog(c)
+			}},
+			{Label: "Save", Primary: true, OnClick: func() {
+				if err := a.settings.Save(); err != nil {
+					a.showError(err)
+					return
+				}
+				a.toast("Settings saved")
+			}},
+		},
+	})
 }
 
 func (a *App) nav(c *ui.Ctx) ui.View {
 	return ui.Nav("main-nav", ui.NavVertical, ui.NavIconTop,
-		ui.NavItem{ID: "requests", Label: "Requests", Icon: "folder"},
-		ui.NavItem{ID: "environments", Label: "Envs", Icon: "list"},
-		ui.NavItem{ID: "protofiles", Label: "Protos", Icon: "code"},
-		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: "grid"},
-	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).Width(88)
+		ui.NavItem{ID: "requests", Label: "Requests", Icon: icons.Send},
+		ui.NavItem{ID: "environments", Label: "Envs", Icon: icons.FolderPlus},
+		ui.NavItem{ID: "protofiles", Label: "Protos", Icon: icons.Code},
+		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: icons.Boxes},
+	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).Width(75)
 }
 
 func (a *App) footer(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	return ui.Row(
-		ui.Caption("Chapar "+version.GetAppVersion()),
+		ui.Caption("Chapar "+version.GetAppVersion()).MarginLeft(th.Spacing.S),
 		ui.Spacer(),
-		ui.Caption("Yoga UI"),
-	).PaddingXY(th.Spacing.M, th.Spacing.XS)
+		ui.Button("footer-console", ui.Text("Console")).IconStart(icons.Terminal).Ghost().HoverFill().OnClick(func() {}),
+		ui.Button("footer-notifications", ui.Text("Notifications")).
+			IconStart(icons.Bell).
+			Ghost().
+			HoverFill().
+			MarginRight(th.Spacing.S).
+			OnClick(func() {}),
+	)
 }
-
-func (a *App) confirmLayout(c *ui.Ctx) ui.View {
-	th := c.Theme()
-	panel := ui.Column(
-		ui.Title("Confirm"),
-		ui.Text(a.confirm.message),
-		ui.Row(
-			ui.Spacer(),
-			ui.Button("confirm-no", ui.Text("Cancel")).OnClick(func() { a.confirm.open = false }),
-			ui.Button("confirm-yes", ui.Text("Close")).Primary().OnClick(func() {
-				fn := a.confirm.onYes
-				a.confirm.open = false
-				if fn != nil {
-					fn()
-				}
-			}),
-		).Gap(th.Spacing.S),
-	).Gap(th.Spacing.M).Padding(th.Spacing.L).Width(420).Background(ui.TokenChrome)
-	return ui.Center(panel).Grow(1).BackgroundColor(render.RGBA8(0, 0, 0, 140))
-}
-
-func (a *App) ClearColor() render.Color { return theme.Current().Background }
 
 func (a *App) Close() {
 	if a.ws != nil {
@@ -405,16 +424,7 @@ func (a *App) Close() {
 }
 
 func (a *App) OnKey(_ *ui.Ctx, k input.KeyEvent) bool {
-	if !k.Mods.Primary() {
-		return false
-	}
-	switch k.Key {
-	case input.KeyS:
-		a.ws.SaveActive()
-		return true
-	case input.KeyEnter:
-		a.ws.SendActive()
-		return true
-	}
+	// Save/Send are registered as commands (⌘S / ⌘Enter).
+	_ = k
 	return false
 }

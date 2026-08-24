@@ -1,67 +1,21 @@
 package layout
 
 type gridPlacement struct {
-	child                *Element
+	child                      *Element
 	col, row, colSpan, rowSpan int
 }
 
 func layoutGrid(e *Element, contentW, contentH float32) {
 	s := &e.Style
-	children := flowChildren(e)
-	if len(children) == 0 && len(s.Cols) == 0 && len(s.Rows) == 0 {
+	placements, cols, numRows := gridPlacements(e)
+	if len(placements) == 0 && cols == 0 && len(s.Rows) == 0 {
 		return
 	}
-
-	cols := len(s.Cols)
 	if cols == 0 {
 		cols = 1
 	}
-
-	// Determine grid dimensions and auto-place items.
-	placements := make([]gridPlacement, 0, len(children))
-	maxRow := 0
-	autoCol, autoRow := 1, 1
-
-	for _, c := range children {
-		cs := &c.Style
-		colSpan := cs.ColSpan
-		if colSpan <= 0 {
-			colSpan = 1
-		}
-		rowSpan := cs.RowSpan
-		if rowSpan <= 0 {
-			rowSpan = 1
-		}
-		col := cs.ColStart
-		row := cs.RowStart
-		if col <= 0 || row <= 0 {
-			if col <= 0 {
-				col = autoCol
-			}
-			if row <= 0 {
-				row = autoRow
-			}
-			autoCol += colSpan
-			if autoCol > cols {
-				autoCol = 1
-				autoRow++
-			}
-		}
-		placements = append(placements, gridPlacement{c, col, row, colSpan, rowSpan})
-		endRow := row + rowSpan - 1
-		if endRow > maxRow {
-			maxRow = endRow
-		}
-	}
-
-	numRows := len(s.Rows)
 	if numRows == 0 {
-		numRows = maxRow
-		if numRows == 0 {
-			numRows = 1
-		}
-	} else if maxRow > numRows {
-		numRows = maxRow
+		numRows = 1
 	}
 
 	colTracks := make([]Track, cols)
@@ -114,6 +68,66 @@ func layoutGrid(e *Element, contentW, contentH float32) {
 
 		alignCell(c, x, y, w, h)
 	}
+}
+
+// gridPlacements auto-places flow children and returns column/row counts.
+func gridPlacements(e *Element) (placements []gridPlacement, cols, numRows int) {
+	s := &e.Style
+	children := flowChildren(e)
+	cols = len(s.Cols)
+	if cols == 0 {
+		cols = 1
+	}
+	if len(children) == 0 && len(s.Cols) == 0 && len(s.Rows) == 0 {
+		return nil, 0, 0
+	}
+
+	placements = make([]gridPlacement, 0, len(children))
+	maxRow := 0
+	autoCol, autoRow := 1, 1
+
+	for _, c := range children {
+		cs := &c.Style
+		colSpan := cs.ColSpan
+		if colSpan <= 0 {
+			colSpan = 1
+		}
+		rowSpan := cs.RowSpan
+		if rowSpan <= 0 {
+			rowSpan = 1
+		}
+		col := cs.ColStart
+		row := cs.RowStart
+		if col <= 0 || row <= 0 {
+			if col <= 0 {
+				col = autoCol
+			}
+			if row <= 0 {
+				row = autoRow
+			}
+			autoCol += colSpan
+			if autoCol > cols {
+				autoCol = 1
+				autoRow++
+			}
+		}
+		placements = append(placements, gridPlacement{c, col, row, colSpan, rowSpan})
+		endRow := row + rowSpan - 1
+		if endRow > maxRow {
+			maxRow = endRow
+		}
+	}
+
+	numRows = len(s.Rows)
+	if numRows == 0 {
+		numRows = maxRow
+		if numRows == 0 {
+			numRows = 1
+		}
+	} else if maxRow > numRows {
+		numRows = maxRow
+	}
+	return placements, cols, numRows
 }
 
 func maxItemCross(placements []gridPlacement, trackIdx int, isCol bool, trackCount int) float32 {
@@ -291,7 +305,7 @@ func alignCell(c *Element, cellX, cellY, cellW, cellH float32) {
 
 func gridIntrinsicWidth(e *Element) float32 {
 	s := &e.Style
-	cols := len(s.Cols)
+	placements, cols, _ := gridPlacements(e)
 	if cols == 0 {
 		cols = 1
 	}
@@ -302,25 +316,24 @@ func gridIntrinsicWidth(e *Element) float32 {
 			tracks[i] = Auto()
 		}
 	}
-	sizes := resolveTracks(tracks, mathMax, s.ColGap, func(int) float32 { return 0 })
-	total := float32(0)
-	for i, sz := range sizes {
-		total += sz
-		if i < len(sizes)-1 {
-			total += s.ColGap
-		}
-	}
-	return total
+	// fr against an indefinite size is treated as auto (CSS Grid).
+	tracks = frAsAuto(tracks)
+	sizes := resolveTracks(tracks, mathMax, s.ColGap, func(trackIdx int) float32 {
+		return maxItemCross(placements, trackIdx, true, cols)
+	})
+	return sumTracks(sizes, s.ColGap)
 }
 
 func gridIntrinsicHeight(e *Element) float32 {
 	s := &e.Style
-	rows := len(s.Rows)
-	if rows == 0 {
-		rows = 1
+	placements, _, numRows := gridPlacements(e)
+	if numRows == 0 {
+		numRows = 1
 	}
-	tracks := make([]Track, rows)
-	copy(tracks, s.Rows)
+	tracks := make([]Track, numRows)
+	if len(s.Rows) > 0 {
+		copy(tracks, s.Rows)
+	}
 	auto := s.AutoRows
 	if auto.Kind == 0 && auto.Value == 0 {
 		auto = Fr(1)
@@ -330,12 +343,30 @@ func gridIntrinsicHeight(e *Element) float32 {
 			tracks[i] = auto
 		}
 	}
-	sizes := resolveTracks(tracks, mathMax, s.RowGap, func(int) float32 { return 0 })
+	tracks = frAsAuto(tracks)
+	sizes := resolveTracks(tracks, mathMax, s.RowGap, func(trackIdx int) float32 {
+		return maxItemCross(placements, trackIdx, false, numRows)
+	})
+	return sumTracks(sizes, s.RowGap)
+}
+
+// frAsAuto rewrites fr tracks to auto for intrinsic/indefinite measurement.
+func frAsAuto(tracks []Track) []Track {
+	out := append([]Track(nil), tracks...)
+	for i, t := range out {
+		if t.Kind == TrackFr {
+			out[i] = Auto()
+		}
+	}
+	return out
+}
+
+func sumTracks(sizes []float32, gap float32) float32 {
 	total := float32(0)
 	for i, sz := range sizes {
 		total += sz
 		if i < len(sizes)-1 {
-			total += s.RowGap
+			total += gap
 		}
 	}
 	return total

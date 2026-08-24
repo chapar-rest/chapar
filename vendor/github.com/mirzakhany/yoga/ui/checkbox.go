@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -118,7 +119,7 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		if checked {
 			inner := render.Rect{X: bx + 2, Y: by + 2, W: box - 4, H: box - 4}
 			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, "check", inner, th.AccentForeground)
+				sheet.Draw(dl, icons.Check, inner, th.AccentForeground)
 			}
 		}
 		tx := bx + box + th.Spacing.S

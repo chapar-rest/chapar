@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -36,7 +37,7 @@ type TableColumn struct {
 
 // TableAction is an icon button in a TableColActions column.
 type TableAction struct {
-	Icon    string
+	Icon    icons.Icon
 	Tooltip string
 	OnClick func(rowID string)
 }
@@ -47,7 +48,7 @@ type TableRow struct {
 	Cells    map[string]string
 	Selected bool
 	// Icon is drawn to the left of the first TableColText cell when set.
-	Icon string
+	Icon icons.Icon
 }
 
 // Table is a scrollable, self-painted table with optional filter, row selection,
@@ -98,6 +99,12 @@ type Table struct {
 	anchorRowID  string
 	lastClickRow string
 	lastClickAt  time.Time
+
+	// Action tooltip (TableAction.Tooltip).
+	tipKey     int
+	tipAt      time.Time
+	tipVisible bool
+	tipAnchor  render.Rect
 }
 
 const (
@@ -118,7 +125,7 @@ func NewTable(columns []TableColumn, actions []TableAction) *Table {
 		headerH:        th.Typography.Body.LineHeight + th.Spacing.S,
 	}
 	if len(t.Actions) == 0 {
-		t.Actions = []TableAction{{Icon: "close", Tooltip: "Delete"}}
+		t.Actions = []TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}}
 	}
 
 	chipH := t.rowH - th.Spacing.XS
@@ -154,7 +161,42 @@ func (t *Table) Layout(c *Ctx) *layout.Element {
 	if t.editingRowID != "" && t.editField != nil && t.editField.host != nil {
 		c.Overlay(t.editField.host)
 	}
+	t.layoutActionTooltip(c)
 	return t.host
+}
+
+func (t *Table) layoutActionTooltip(c *Ctx) {
+	if t.hoverAction < 0 || t.hoverAction >= len(t.Actions) || t.hoverRow < 0 {
+		t.tipKey = -1
+		t.tipVisible = false
+		return
+	}
+	tip := t.Actions[t.hoverAction].Tooltip
+	if tip == "" {
+		t.tipKey = -1
+		t.tipVisible = false
+		return
+	}
+	key := t.hoverRow*1000 + t.hoverAction
+	now := c.Now()
+	if key != t.tipKey {
+		t.tipKey = key
+		t.tipAt = now
+		t.tipVisible = false
+	}
+	if !t.tipVisible {
+		if now.Sub(t.tipAt) >= tooltipDelay {
+			t.tipVisible = true
+		} else {
+			remain := tooltipDelay - now.Sub(t.tipAt)
+			if remain < 0 {
+				remain = 0
+			}
+			c.Animate(remain)
+			return
+		}
+	}
+	showTooltipAt(c, t.tipAnchor, tip)
 }
 
 // SetRows replaces all rows and clears edit state.
@@ -438,7 +480,7 @@ func (t *Table) paintCheckbox(dl *render.DrawList, r render.Rect, checked, hover
 	dl.AddRoundedRectBorder(br, th.Radius.Small, th.Stroke.Thin, fill, border)
 	if checked {
 		inner := render.Rect{X: bx + 2, Y: by + 2, W: box - 4, H: box - 4}
-		frameIcons().Draw(dl, "check", inner, th.AccentForeground)
+		frameIcons().Draw(dl, icons.Check, inner, th.AccentForeground)
 	}
 }
 
@@ -467,14 +509,14 @@ func (t *Table) paintHeader(dl *render.DrawList, text *shape.Engine, widths, off
 		default:
 			tx := cr.X + t.padX()
 			if col.Label != "" {
-				lw, lh := text.MeasureAt(col.Label, style.Size)
-				text.DrawStringTopAt(dl, col.Label, tx, cr.Y+(t.rowH-lh)/2, th.Foreground, style.Size)
+				lw, lh := text.MeasureAtWeight(col.Label, style.Size, style.Weight)
+				text.DrawStringTopAtWeight(dl, col.Label, tx, cr.Y+(t.rowH-lh)/2, th.Foreground, style.Size, style.Weight)
 				tx += lw + th.Spacing.XS
 			}
 			if t.colSortable(col) && t.sortColID == col.ID {
-				icon := "expand_more"
+				icon := icons.ChevronDown
 				if t.sortAsc {
-					icon = "expand_less"
+					icon = icons.ChevronUp
 				}
 				ir := render.Rect{X: tx, Y: cr.Y + (t.rowH-iconSz)/2, W: iconSz, H: iconSz}
 				frameIcons().Draw(dl, icon, ir, th.Accent)
@@ -552,7 +594,7 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 				style := th.Typography.Body
 				_, lh := text.MeasureAt(val, style.Size)
 				tx := cr.X + t.padX()
-				if row.Icon != "" && i == t.firstTextCol() {
+				if !row.Icon.Empty() && i == t.firstTextCol() {
 					if sheet := frameIcons(); sheet != nil {
 						sz := th.Metrics.IconSizeSM
 						ir := render.Rect{X: tx, Y: cr.Y + (t.rowH-sz)/2, W: sz, H: sz}
@@ -819,6 +861,7 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 				ar := render.Rect{X: ax, Y: cr.Y + (t.rowH-slot)/2, W: slot, H: slot}
 				if ar.Contains(m.X, m.Y) {
 					t.hoverAction = ai
+					t.tipAnchor = ar
 					if m.Released {
 						t.fireAction(act, row.ID)
 						m.Consumed = true

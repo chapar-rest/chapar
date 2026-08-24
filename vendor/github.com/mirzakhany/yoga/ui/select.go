@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -134,7 +135,7 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		ix := f.X + f.W - pad - iconSz
 		iy := f.Y + (f.H-iconSz)/2
 		if sheet := frameIcons(); sheet != nil {
-			sheet.Draw(dl, "expand_more", render.Rect{X: ix, Y: iy, W: iconSz, H: iconSz}, th.ForegroundMuted)
+			sheet.Draw(dl, icons.ChevronDown, render.Rect{X: ix, Y: iy, W: iconSz, H: iconSz}, th.ForegroundMuted)
 		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {

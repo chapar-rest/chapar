@@ -1,8 +1,8 @@
-# Yoga UI examples (`cmd/`)
+# Yoga UI examples (`example/`)
 
 Copy these shapes. Do not invent a parallel widget API.
 
-## Smallest app — `cmd/todo`
+## Smallest app — `example/todo`
 
 Retained slice + draft string. DSL-only widgets. DefaultFocus on the field.
 
@@ -25,7 +25,7 @@ func (app *TodoApp) Body(c *ui.Ctx) ui.View {
 		ui.Row(
 			ui.TextField("draft", app.draft).
 				Placeholder("Add a todo and press Enter...").
-				IconStart("add").
+				IconStart(icons.Plus).
 				OnChange(func(s string) { app.draft = s }).
 				OnSubmit(func(s string) { app.addTodo(s) }).
 				DefaultFocus().
@@ -37,11 +37,11 @@ func (app *TodoApp) Body(c *ui.Ctx) ui.View {
 }
 ```
 
-GPU main: `yoga.Run(cfg, BuildTodoApp)` with `ClearColor: theme.Current().Background`.
+GPU main: `yoga.Run(cfg, BuildTodoApp)`.
 
-## App shell — `cmd/example`
+## App shell — `example/gallery`
 
-Page enum + subviews that return `ui.View`. Dialog/toast hosts live on the shell and are always in the tree.
+Page enum + subviews that return `ui.View`. Dialogs, file picker, and toasts are window services: `c.Dialogs()`, `c.Files()`, `c.Toasts()`. Do not put hosts in the tree.
 
 ```go
 func (app *AppShell) Body(c *ui.Ctx) ui.View {
@@ -62,9 +62,6 @@ func (app *AppShell) Body(c *ui.Ctx) ui.View {
 			}).Width(88),
 			content,
 		).Align(ui.AlignStretch).Grow(1),
-		app.dialogs,
-		app.files,
-		app.toasts,
 	).Grow(1).Background(ui.TokenSurface)
 }
 ```
@@ -77,13 +74,48 @@ ui.Splitter("editor-split", ui.Horizontal, explorer, editorCol).Sizes(240, 0).Gr
 
 Theme menu: `theme.Names()` → `theme.Use(n)`.
 
-## Widget gallery — `cmd/example/gallery.go`
+## Widget gallery — `example/gallery/gallery.go`
 
 Scrollable column of every control. Table constructed in `buildComponentGallery`, then `ui.ViewOf(g.kvTable).Height(220)`.
 
-Toasts/dialogs/file picker: `g.toasts.Show(msg, ui.ToastInfo, 3*time.Second)`, `g.dialogs.ShowError(...)`, `g.files.Show(ui.FileDialogOpts{...})`.
+Toasts/dialogs/file picker: `c.Toasts().Show(msg, ui.ToastInfo, 3*time.Second)`, `c.Dialogs().ShowInfo` / `ShowWarning` / `ShowError` / `ShowAction` / `ShowInput`, `c.Files().Show(ui.FileDialogOpts{...})`.
 
-## HTTP tester — `cmd/apitest`
+Settings dialog (sidebar nav + `ui.Form`):
+
+```go
+c.Dialogs().Show(ui.DialogOpts{
+    Title: "Settings", Width: 720, Height: 520,
+    Body: func(c *ui.Ctx) ui.View {
+        th := c.Theme()
+        return ui.Row(
+            ui.Nav("settings-cats", ui.NavVertical, ui.NavIconLeft, items...).Width(200),
+            ui.VLine(th.Stroke.Thin, th.Border),
+            ui.Column(ui.Subtitle(catName), ui.Scroll("form", form).Grow(1)).Grow(1),
+        ).Align(ui.AlignStretch).Grow(1)
+    },
+    Actions: []ui.DialogAction{{Label: "Close", Primary: true}},
+})
+```
+
+Form rows: `ui.FormSwitch`, `FormSelect`, `FormNumber`, `FormText`.
+
+File dialog modes and footer options:
+
+```go
+c.Files().Show(ui.FileDialogOpts{
+    Mode:              ui.FileDialogSaveFile,
+    ShowSaveFilter:    true,
+    AllowCreateFolder: true, // New Folder in footer, after filter
+    Filters: []ui.FileFilter{
+        {Label: "Go files", Exts: []string{".go"}},
+        {Label: "All files", Exts: nil},
+    },
+    OnConfirm: func(paths []string) { … },
+})
+// FileDialogOpenFile (Multiple for multi-select), FileDialogOpenFolder
+```
+
+## HTTP tester — `example/apitest`
 
 Toolbar `Row` of Select + TextField + Segmented + Primary button with `.Hint("⌘↵")`. Body polls a result channel and `c.Animate(pendingPoll)` while in flight.
 
@@ -104,9 +136,9 @@ Select option tints: `.OptionColor("GET", th.Success)`.
 
 Global shortcut in `Body` via `c.Keyboard()` (Cmd/Ctrl+Enter). Prefer `yoga.KeyHook` for shortcuts that must run even when a field captures keys.
 
-`theme.Use("yoga-midnight")` in `main` **before** `Config.ClearColor`.
+`theme.Use("yoga-midnight")` in `main` **before** `yoga.Run`.
 
-## Multi-page shell — `cmd/chapar`
+## Multi-page shell — `example/chapar`
 
 Subcomponents with `Layout(c *ui.Ctx) ui.View` (returns a Node, not `*layout.Element`). Nav bar owned by the shell; current page content `ui.ViewOf(currentPage.Layout(c)).Grow(1)`.
 
@@ -156,6 +188,6 @@ GPU runtime already does two `BuildFrame` passes per drawn frame (hit-test, then
 - Uncontrolled TextField (`OnChange` only, never passing the stored string back).
 - Hardcoded `render.RGBA8` for chrome — use tokens so `theme.Use` works.
 - Forgetting `.Grow(1)` on the chain from expanding content to the Body root.
-- Forgetting to put `DialogHost`/`FileDialog`/`ToastHost` in the tree.
+- Threading `DialogHost`/`FileDialog`/`ToastHost` through the app; use `c.Dialogs()` / `c.Files()` / `c.Toasts()`.
 - Capturing loop variables without `item := it`.
 - Reusing the same widget `id` for rows in a list (`fmt.Sprintf("todo-%d", id)`).

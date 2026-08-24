@@ -26,10 +26,10 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 	if tf.cfg.Placeholder == "" && placeholder != "" {
 		tf.cfg.Placeholder = placeholder
 	}
-	if iconStart != "" {
+	if !iconStart.Empty() {
 		tf.cfg.IconStart = iconStart
 	}
-	if iconEnd != "" {
+	if !iconEnd.Empty() {
 		tf.cfg.IconEnd = iconEnd
 	}
 	tf.cfg.Password = password
@@ -38,12 +38,18 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 		if tf.caret > len(tf.Value) {
 			tf.caret = len(tf.Value)
 		}
+		if tf.selAnchor > len(tf.Value) {
+			tf.selAnchor = -1
+		}
 	}
 	tf.OnChange = n.onChange
 	tf.OnSubmit = n.onSubmit
 	el := tf.Layout(c)
 	if n.defaultFocus && c.Focus() != nil {
 		c.Focus().EnsureFocus(tf)
+	}
+	if !n.spec.hasW {
+		el.Style.MinWidth = tf.minWidth()
 	}
 	el.Style = applyLayoutSpec(el.Style, n.spec)
 	return el

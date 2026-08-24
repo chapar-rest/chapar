@@ -4,6 +4,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/mirzakhany/yoga/highlight"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -83,7 +84,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				c.markDirty()
 				c.deps.ReportTitle(s)
 			}).Grow(1),
-			ui.Button("col-save-"+id, ui.Text("Save")).Primary().IconStart("save").Disabled(!c.Dirty()).OnClick(func() {
+			ui.Button("col-save-"+id, ui.Text("Save")).Primary().IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}

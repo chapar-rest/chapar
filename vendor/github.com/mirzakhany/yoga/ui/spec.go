@@ -82,6 +82,8 @@ type Spec struct {
 	hasMinW, hasMinH bool
 	fontSize         float32
 	hasFontSize      bool
+	fontWeight       int
+	hasFontWeight    bool
 	justify          layout.Justify
 	hasJustify       bool
 	align            layout.Align
@@ -118,6 +120,13 @@ func (s Spec) TextColorLit(c render.Color) Spec {
 	return s
 }
 
+// FontWeight sets the CSS-like font weight (400 Regular, 600 SemiBold).
+func (s Spec) FontWeight(w int) Spec {
+	s.fontWeight = w
+	s.hasFontWeight = true
+	return s
+}
+
 // Radius sets corner radius in logical pixels.
 func (s Spec) Radius(r float32) Spec {
 	s.radius = r
@@ -151,6 +160,49 @@ func (s Spec) Border(t Token, width float32) Spec {
 func (s Spec) Padding(v float32) Spec {
 	s.pad = layout.Edges{Top: v, Right: v, Bottom: v, Left: v}
 	s.hasPad = true
+	return s
+}
+
+// PaddingXY sets horizontal and vertical padding.
+func (s Spec) PaddingXY(x, y float32) Spec {
+	s.pad = layout.Edges{Top: y, Right: x, Bottom: y, Left: x}
+	s.hasPad = true
+	return s
+}
+
+// PaddingLeft sets left padding, preserving other edges already set on s.
+func (s Spec) PaddingLeft(v float32) Spec {
+	if !s.hasPad {
+		s.hasPad = true
+	}
+	s.pad.Left = v
+	return s
+}
+
+// PaddingRight sets right padding, preserving other edges already set on s.
+func (s Spec) PaddingRight(v float32) Spec {
+	if !s.hasPad {
+		s.hasPad = true
+	}
+	s.pad.Right = v
+	return s
+}
+
+// PaddingTop sets top padding, preserving other edges already set on s.
+func (s Spec) PaddingTop(v float32) Spec {
+	if !s.hasPad {
+		s.hasPad = true
+	}
+	s.pad.Top = v
+	return s
+}
+
+// PaddingBottom sets bottom padding, preserving other edges already set on s.
+func (s Spec) PaddingBottom(v float32) Spec {
+	if !s.hasPad {
+		s.hasPad = true
+	}
+	s.pad.Bottom = v
 	return s
 }
 
@@ -235,6 +287,10 @@ func (s Spec) merge(p Spec) Spec {
 		s.fontSize = p.fontSize
 		s.hasFontSize = true
 	}
+	if p.hasFontWeight {
+		s.fontWeight = p.fontWeight
+		s.hasFontWeight = true
+	}
 	if p.hasJustify {
 		s.justify = p.justify
 		s.hasJustify = true
@@ -264,6 +320,8 @@ type resolvedSpec struct {
 	scaleX, scaleY  float32
 	fontSize        float32
 	hasFontSize     bool
+	fontWeight      int
+	hasFontWeight   bool
 }
 
 func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
@@ -317,6 +375,10 @@ func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
 	if out.hasFontSize {
 		r.fontSize = out.fontSize
 		r.hasFontSize = true
+	}
+	if out.hasFontWeight {
+		r.fontWeight = out.fontWeight
+		r.hasFontWeight = true
 	}
 	return r
 }

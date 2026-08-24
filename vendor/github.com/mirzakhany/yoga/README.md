@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" width="96" alt="Yoga">
+</p>
+
 # Yoga
 
 A from-scratch, cross-platform **native UI framework in Go** (module `github.com/mirzakhany/yoga`, Go 1.26.2). It renders with WebGPU + GLFW and lays out with a pure-Go flex/grid/stack engine.
@@ -7,13 +11,14 @@ This README is the human guide to **building UI** with Yoga. AI agents should al
 ## Demos
 
 ```bash
-go run ./cmd/todo        # smallest app (todos)
-go run ./cmd/example     # editor workspace + widget gallery
-go run ./cmd/apitest     # HTTP request tester
-go run ./cmd/chapar      # multi-page nav shell
+go run ./example/todo        # smallest app (todos)
+go run ./example/gallery     # editor workspace + widget gallery
+go run ./example/catalog     # component gallery (sidebar + showcases)
+go run ./example/apitest     # HTTP request tester
+go run ./example/chapar      # multi-page nav shell
 
 # Headless (no window / GPU) — same UI pipeline, for CI
-go run -tags nogpu ./cmd/todo
+go run -tags nogpu ./example/todo
 go build ./... && go build -tags nogpu ./... && go test ./...
 ```
 
@@ -21,10 +26,24 @@ There is no Makefile. `-tags nogpu` is the only special flag: it swaps GPU/GLFW 
 
 | Command | What it shows |
 |---|---|
-| `cmd/todo` | Form + list, controlled `TextField` / `Checkbox` |
-| `cmd/example` | File tree, tabs, code editor, component gallery, dialogs/toasts |
-| `cmd/apitest` | Splitter, `Select`, `Editor`, async work + `Animate` |
-| `cmd/chapar` | App chrome: top bar, nav, pages as `Layout` helpers |
+| `example/todo` | Form + list, controlled `TextField` / `Checkbox` |
+| `example/gallery` | File tree, tabs, code editor, component gallery, dialogs/toasts |
+| `example/catalog` | Sidebar catalog of widget categories with live showcases |
+| `example/apitest` | Splitter, `Select`, `Editor`, async work + `Animate` |
+| `example/chapar` | App chrome: top bar, nav, pages as `Layout` helpers |
+
+## Screenshots
+
+The component catalog (`go run ./example/catalog`) in the default `yoga-dark` theme:
+
+<p align="center">
+  <img src="docs/assets/catalog-surfaces.png" alt="Catalog surfaces: cards, alerts, badges, and links">
+</p>
+
+<p align="center">
+  <img src="docs/assets/catalog-form-rows.png" width="49%" alt="Catalog form rows">
+  <img src="docs/assets/catalog-commands.png" width="49%" alt="Command palette">
+</p>
 
 ## Mental model
 
@@ -49,8 +68,6 @@ package main
 
 import (
 	"github.com/mirzakhany/yoga"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -73,14 +90,11 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 	).Gap(th.Spacing.M).Padding(th.Spacing.L).Grow(1).Background(ui.TokenSurface)
 }
 
-func (a *App) ClearColor() render.Color { return theme.Current().Background }
-
 func main() {
 	cfg := yoga.Config{
-		Title:      "Hello",
-		Width:      640,
-		Height:     480,
-		ClearColor: theme.Current().Background,
+		Title:  "Hello",
+		Width:  640,
+		Height: 480,
 	}
 	if err := yoga.Run(cfg, Build); err != nil {
 		panic(err)
@@ -92,7 +106,6 @@ Ship a GPU `main` (`//go:build !nogpu`) and a headless `main` (`//go:build nogpu
 
 Optional capabilities (detected by type assertion):
 
-- `ClearColor() render.Color` — keep the framebuffer in sync with the theme.
 - `Close()` — stop workers / close files when the window closes.
 - `OnKey(c *ui.Ctx, k input.KeyEvent) bool` (`yoga.KeyHook`) — app-global shortcuts before focus routing; return `true` to consume.
 
@@ -114,7 +127,7 @@ The ergonomic API is package `ui`.
 | `ui.ViewOf(v)` | Wrap any `View` so modifiers chain |
 | `ui.Raw(el)` | Wrap a bare `*layout.Element` |
 | `ui.HLine` / `ui.VLine` | Rules |
-| `ui.Icon(name, size, color)` | Atlas sprite |
+| `ui.Icon(icon, size, color)` | Atlas sprite |
 
 Children are `ui.View`. `nil` is skipped. Split UI into helpers that return `ui.View`.
 
@@ -141,7 +154,7 @@ Pass the current value every frame. Callbacks write back to the app struct. Give
 ```go
 ui.TextField("url", app.url).
     Placeholder("https://…").
-    IconStart("search").
+    IconStart(icons.Search).
     OnChange(func(s string) { app.url = s }).
     OnSubmit(app.fetch).
     Grow(1)
@@ -152,42 +165,41 @@ ui.Radio("ra", "A").Check(app.mode == 0).OnClick(func() { app.mode = 0 })
 ui.Select("lang", opts).Width(200).Selected(i).OnChange(func(v string) { app.lang = v })
 ```
 
-Button variants: default **Secondary**; `.Primary()` and `.Subtle()`. Icon-only: `ui.IconButton(id, "settings")`.
+Button variants: default **Secondary**; `.Primary()`, `.Subtle()`, and `.Ghost()`. Ghost is text-like (no padding or chrome) for footers and status bars; chain `.HoverFill()` for a hover background. Supports `.IconStart()` and `.Tooltip()`. Icon-only: `ui.IconButton(id, icons.Settings)`.
 
 Typography: `Text`, `Title`, `Subtitle`, `Caption`, `Strong`, `Muted`. Color inherits from the parent (for example a button’s label uses the button’s text token) unless you override with `.Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted))`.
 
 ### Heavy widgets: construct once
 
-`Editor`, `Table`, `Tree`, `FileTree`, `ListView`, `DialogHost`, `FileDialog`, and `ToastHost` keep real state. Build them in `Build*`, then place them with `ui.ViewOf`:
+`Editor`, `Table`, `Tree`, `FileTree`, and `ListView` keep real state. Build them in `Build*`, then place them with `ui.ViewOf`:
 
 ```go
 func Build() *App {
 	app := &App{}
 	app.editor = ui.NewEditorFor("main.go", src)
 	app.table = ui.NewTable(cols, actions)
-	app.dialogs = ui.NewDialogHost()
-	app.files = ui.NewFileDialog()
-	app.toasts = ui.NewToastHost()
 	return app
 }
 
 func (a *App) Body(c *ui.Ctx) ui.View {
 	return ui.Column(
 		ui.ViewOf(a.editor).Grow(1),
-		a.dialogs, // always in the tree; they self-register overlays
-		a.files,
-		a.toasts,
 	).Grow(1)
 }
 ```
 
 Constructing these inside `Body` resets caret, scroll, and selection every frame.
 
-### Splitter, tabs, nav, menus
+### Splitter, drawer, tabs, nav, menus
 
 ```go
 ui.Splitter("split", ui.Horizontal, sidebar, main).Sizes(240, 0).Grow(1)
 // 0 = flex; drag sizes persist under the id. Axis: Horizontal | Vertical.
+
+ui.Drawer("inspector", panel, page).Open(open).Edge(ui.EdgeRight).Overlay().Size(320).Grow(1)
+// .Push() shrinks page; .Modal(true) adds scrim (overlay); .Swipe(true) for drag open/close.
+// Panel view should use .Grow(1); drawer owns main-axis size and clips overflow.
+// Nest drawers for IDE-style panels (e.g. bottom terminal + right chat).
 
 ui.Tabs("tabs", tabs).Selected(i).OnSelectItem(onSelect).OnTabClose(onClose)
 
@@ -195,17 +207,83 @@ ui.Nav("nav", ui.NavVertical, ui.NavIconTop, items...).
     Selected(i).OnSelectItem(func(i int, id string) { … }).Width(88)
 
 ui.Dropdown("file", "File", []ui.MenuItem{{Label: "Save", OnSelect: save}})
+ui.MenuButton("export", "Export", items).Primary().IconStart(icons.Save) // click opens menu
+ui.MenuButton("save", "Save", items).Primary().OnClick(save)        // split: label=action, chevron=menu
 ```
 
 ### Dialogs and toasts
 
-Keep hosts on the app and include them in Body even when closed:
+Window-owned hosts on `Ctx`. `BuildFrame` lays them out — do not put them in Body:
 
 ```go
-app.toasts.Show("Saved", ui.ToastInfo, 3*time.Second)
-app.dialogs.ShowError("Error", "request failed", nil)
-app.dialogs.ShowInput("Name", "placeholder", onOK, onCancel)
+c.Toasts().Show("Saved", ui.ToastInfo, 3*time.Second)
+c.Dialogs().ShowInfo("Info", "helpful note", nil)
+c.Dialogs().ShowWarning("Warning", "check before continuing", nil)
+c.Dialogs().ShowError("Error", "request failed", nil)
+c.Dialogs().ShowAction("Delete?", "This cannot be undone.", onYes, onNo)
+c.Dialogs().ShowInput("Name", "placeholder", onOK, onCancel)
+
+c.Dialogs().Show(ui.DialogOpts{
+	Title:  "Settings",
+	Width:  720,
+	Height: 520,
+	Body: func(c *ui.Ctx) ui.View {
+		return ui.Row(
+			ui.Nav("cats", ui.NavVertical, ui.NavIconLeft, items...).Width(200),
+			ui.VLine(th.Stroke.Thin, th.Border),
+			ui.Scroll("form", ui.Form("settings", rows...)).Grow(1),
+		).Align(ui.AlignStretch).Grow(1)
+	},
+	Actions: []ui.DialogAction{{Label: "Close", Primary: true}},
+})
 ```
+
+Custom dialogs use the same overlay/modal behavior as the file picker. Escape runs `OnDismiss`. Footer actions close the dialog before `OnClick`.
+
+### Form and Switch
+
+`ui.Form` renders labeled settings rows (icon, title, description, control):
+
+```go
+ui.Form("prefs",
+	ui.FormSwitch("notify", "Notifications", "Show alerts", on, func(v bool) { on = v }),
+	ui.FormSelect("theme", "Theme", "Color scheme", opts, idx, onChange),
+	ui.FormNumber("size", "Font size", "Editor size in pt", 14, 10, 24, 1, onSize),
+	ui.FormText("file", "Default file", "Open on startup", name, onName),
+)
+```
+
+`ui.Switch(id).Check(on).OnToggle(fn)` is an unlabeled pill toggle for compact rows.
+
+### File dialog
+
+Pure-Go file/folder picker (`ui.FileDialog`) — no native OS dialogs. Call `c.Files().Show` with options:
+
+```go
+c.Files().Show(ui.FileDialogOpts{
+	Mode: ui.FileDialogOpenFile, // FileDialogOpenFolder | FileDialogSaveFile
+	Title: "Open File",
+	Dir: "/path/to/start", // optional; defaults to home
+	Multiple: false,
+	Filters: []ui.FileFilter{
+		{Label: "Go files", Exts: []string{".go"}},
+		{Label: "All files", Exts: nil},
+	},
+	ShowHidden: false,
+	ShowSaveFilter: true,    // file-type filter in save mode (default off)
+	AllowCreateFolder: true, // New Folder button in the footer
+	OnConfirm: func(paths []string) { … },
+	OnCancel: func() { … },
+})
+```
+
+**Modes.** `FileDialogOpenFile` lists files (double-click or Open confirms). `FileDialogOpenFolder` selects folders only. `FileDialogSaveFile` adds a filename field; Save confirms the path and applies the selected filter extension when the name has none.
+
+**Layout.** Places sidebar, breadcrumb + searchable file table in the main pane, and a footer with filename (save mode), file-type filter, optional **New Folder** (next to Cancel/Save), and Cancel + Open/Select/Save. When creating a folder, an inline name field with Create/Cancel appears in the footer.
+
+**Keyboard.** Escape cancels. Enter confirms when valid. Tab cycles within the modal dialog.
+
+See `example/gallery/gallery.go` for open file, multi-select, folder pick, save, and a settings dialog demo.
 
 ## Theme
 
@@ -218,20 +296,22 @@ ui.Column(...).Background(ui.TokenChrome)
 ui.Text("status").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted))
 ```
 
-Default theme is `yoga-dark`. If you switch before opening the window, do it **before** filling `Config.ClearColor` (see `cmd/apitest`).
+Default theme is `yoga-dark`. If you switch before opening the window, call `theme.Use` **before** `yoga.Run` (see `example/apitest`).
 
 Shipped names include `yoga-dark`, `yoga-light`, `yoga-midnight`, `github-dark`, `catppuccin`, `dracula`, `nord`, and others (`theme.Names()`).
 
 Spacing, radius, stroke, and type ramps live on `c.Theme()` (`th.Spacing.M`, `th.Radius.Medium`, `th.Stroke.Thin`, `th.Typography.Body`).
 
-Icons are the stems of `render/assets/icons/*.svg` (`search`, `add`, `settings`, `folder`, `play_arrow`, …).
+Icons are pre-rasterized [Lucide](https://lucide.dev) symbols from `github.com/mirzakhany/yoga/icons` (e.g. `icons.Search`, `icons.Plus`, `icons.ChevronDown`). Unused icons are dropped by the Go linker. The full catalog lives in `icons/catalog` for the component gallery. Regenerate with `go run ./cmd/generate-lucide`. Custom SVGs: `render.RegisterIcon(name, svg)` before first draw.
+
+Lucide is licensed under the ISC License.
 
 ## Input, focus, overlays, async
 
 - **Focus.** Interactive DSL widgets register themselves. Tab order is Layout order. `.DefaultFocus()` / `c.Focus().EnsureFocus(w)` picks a fallback when nothing is focused. Open dialogs call `BeginModal` then `SetModal` so Tab and keys stay inside the dialog.
 - **Overlays.** Menus, selects, dialogs, and toasts call `c.Overlay(el)`. Overlays paint and hit-test on top of the body.
 - **Animation.** `c.Animate(d)` schedules a repaint within `d` (caret blink, spinner, polling). The runtime waits the minimum requested duration, or sleeps until the next OS event.
-- **Background work.** Safe to call `c.Invalidate()` from any goroutine (highlight finished, HTTP returned). Typical pattern: a result channel drained at the top of `Body`, plus `c.Animate(30*time.Millisecond)` while a request is in flight (`cmd/apitest`).
+- **Background work.** Safe to call `c.Invalidate()` from any goroutine (highlight finished, HTTP returned). Typical pattern: a result channel drained at the top of `Body`, plus `c.Animate(30*time.Millisecond)` while a request is in flight (`example/apitest`).
 - **Shortcuts.** Read `c.Keyboard()` in `Body`, or implement `yoga.KeyHook` when a focused editor would otherwise eat the key.
 
 Pointer handlers set `m.Consumed = true` to stop bubbling. Overlay hit-testing runs first.
@@ -276,7 +356,7 @@ layout.Paint(root, drawList, text)
 Dependency direction is strictly downward:
 
 ```
-cmd/*                 app: Body(c) trees
+example/*             app: Body(c) trees
   yoga                runtime: window, WebGPU, fonts, event loop
     ui                View DSL, Ctx, focus, widget store
       layout  theme   Element tree, flex/grid/stack, design tokens
@@ -292,4 +372,4 @@ For Cursor (and any agent you paste into):
 
 - [`.cursor/skills/yoga-ui/SKILL.md`](.cursor/skills/yoga-ui/SKILL.md) — rules and bootstrap
 - [`.cursor/skills/yoga-ui/widgets.md`](.cursor/skills/yoga-ui/widgets.md) — constructors
-- [`.cursor/skills/yoga-ui/examples.md`](.cursor/skills/yoga-ui/examples.md) — patterns from `cmd/`
+- [`.cursor/skills/yoga-ui/examples.md`](.cursor/skills/yoga-ui/examples.md) — patterns from `example/`

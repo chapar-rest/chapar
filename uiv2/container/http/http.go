@@ -10,6 +10,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/mirzakhany/yoga/highlight"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -223,12 +224,12 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Placeholder("https://…").
 				OnChange(func(s string) { http.URL = s; c.markDirty() }).
 				Grow(1),
-			ui.Button("http-save-"+id, ui.Text("Save")).IconStart("save").Disabled(!c.Dirty()).OnClick(func() {
+			ui.Button("http-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-			ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart("play_arrow").
+			ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
 		ui.HLine(th.Stroke.Thin, th.Border),

@@ -179,6 +179,7 @@ func (s Style) AlignSelf(a Align) Style  { s.SelfAlign = a; return s }
 func (s Style) FlexWrap(w Wrap) Style           { s.Wrap = w; return s }
 func (s Style) FlexGrow(v float32) Style  { s.Grow = v; return s }
 func (s Style) FlexShrink(v float32) Style { s.Shrink = v; return s }
+func (s Style) FlexBasis(v Px) Style       { s.Basis = v; return s }
 func (s Style) W(v Px) Style               { s.Width = v; return s }
 func (s Style) H(v Px) Style               { s.Height = v; return s }
 func (s Style) Size(w, h Px) Style         { s.Width, s.Height = w, h; return s }
@@ -188,8 +189,9 @@ func (s Style) Max(w, h Px) Style          { s.MaxWidth, s.MaxHeight = w, h; ret
 func (s Style) Gap(v Px) Style          { s.RowGap, s.ColGap = v, v; return s }
 func (s Style) GapXY(col, row Px) Style { s.ColGap, s.RowGap = col, row; return s }
 
-func (s Style) GridCols(tracks ...Track) Style  { s.Cols = append([]Track(nil), tracks...); return s }
-func (s Style) GridRows(tracks ...Track) Style  { s.Rows = append([]Track(nil), tracks...); return s }
+func (s Style) GridCols(tracks ...Track) Style { s.Cols = append([]Track(nil), tracks...); return s }
+func (s Style) GridRows(tracks ...Track) Style { s.Rows = append([]Track(nil), tracks...); return s }
+func (s Style) GridAutoRows(t Track) Style     { s.AutoRows = t; return s }
 func (s Style) GridArea(colStart, colSpan, rowStart, rowSpan int) Style {
 	s.ColStart, s.ColSpan = colStart, colSpan
 	s.RowStart, s.RowSpan = rowStart, rowSpan

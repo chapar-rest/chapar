@@ -14,6 +14,7 @@ func BuildFrame(c *Ctx, body func(*Ctx) View, w, h float32, m *input.Mouse, kb *
 	if v := body(c); v != nil {
 		root = v.Layout(c)
 	}
+	c.layoutWindowOverlays()
 	if c.Focus() != nil {
 		c.Focus().finishBuild()
 	}

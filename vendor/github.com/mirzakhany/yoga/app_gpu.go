@@ -14,6 +14,7 @@ import (
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
+	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -74,7 +75,7 @@ func New(cfg Config) (*Window, error) {
 		glfw.Terminate()
 		return nil, fmt.Errorf("yoga: create renderer: %w", err)
 	}
-	renderer.ClearColor = cfg.ClearColor
+	renderer.ClearColor = theme.Current().Surface
 
 	clip := input.Clipboard(&glfwClipboard{window: window})
 	icons := render.NewSpriteSheet(text.Atlas)
@@ -176,10 +177,6 @@ func (a *Window) runApp(app App) {
 	a.uiCtx.SetIcons(Icons())
 	a.uiCtx.SetClipboard(a.clip)
 
-	if cc, ok := app.(interface{ ClearColor() render.Color }); ok {
-		a.renderer.ClearColor = cc.ClearColor()
-	}
-
 	for !a.window.ShouldClose() {
 		fw, fh := a.window.GetSize()
 		if fw > 0 && fh > 0 {
@@ -190,6 +187,9 @@ func (a *Window) runApp(app App) {
 			inRoot := a.buildAppFrame(app, w, h)
 			layout.Dispatch(inRoot, a.mouse)
 			a.uiFocus.HandleMouse(a.mouse)
+			if a.uiCtx.Commands() != nil {
+				a.uiCtx.Commands().Dispatch(a.keyboard)
+			}
 			if hook, ok := app.(KeyHook); ok {
 				a.routeAppKeys(hook)
 			}
@@ -198,10 +198,6 @@ func (a *Window) runApp(app App) {
 			a.applyCursor()
 			a.mouse.EndFrame()
 			a.keyboard.EndFrame()
-
-			if cc, ok := app.(interface{ ClearColor() render.Color }); ok {
-				a.renderer.ClearColor = cc.ClearColor()
-			}
 
 			// Rebuild for paint so it reflects post-input state.
 			a.paintAppFrame(app, w, h)
@@ -230,6 +226,7 @@ func (a *Window) buildAppFrame(app App, w, h float32) *layout.Element {
 
 // paintAppFrame rebuilds the body and submits a GPU frame.
 func (a *Window) paintAppFrame(app App, w, h float32) {
+	a.renderer.ClearColor = theme.Current().Surface
 	root := a.buildAppFrame(app, w, h)
 	a.drawList.Reset()
 	layout.Paint(root, &a.drawList, a.text)
@@ -300,26 +297,128 @@ func mapKey(k glfw.Key) (input.Key, bool) {
 		return input.KeyEnter, true
 	case glfw.KeyTab:
 		return input.KeyTab, true
-	case glfw.KeyA:
-		return input.KeyA, true
-	case glfw.KeyC:
-		return input.KeyC, true
-	case glfw.KeyV:
-		return input.KeyV, true
-	case glfw.KeyX:
-		return input.KeyX, true
-	case glfw.KeyZ:
-		return input.KeyZ, true
-	case glfw.KeyS:
-		return input.KeyS, true
-	case glfw.KeyF:
-		return input.KeyF, true
-	case glfw.KeyH:
-		return input.KeyH, true
 	case glfw.KeyEscape:
 		return input.KeyEscape, true
 	case glfw.KeySpace:
 		return input.KeySpace, true
+	case glfw.KeyA:
+		return input.KeyA, true
+	case glfw.KeyB:
+		return input.KeyB, true
+	case glfw.KeyC:
+		return input.KeyC, true
+	case glfw.KeyD:
+		return input.KeyD, true
+	case glfw.KeyE:
+		return input.KeyE, true
+	case glfw.KeyF:
+		return input.KeyF, true
+	case glfw.KeyG:
+		return input.KeyG, true
+	case glfw.KeyH:
+		return input.KeyH, true
+	case glfw.KeyI:
+		return input.KeyI, true
+	case glfw.KeyJ:
+		return input.KeyJ, true
+	case glfw.KeyK:
+		return input.KeyK, true
+	case glfw.KeyL:
+		return input.KeyL, true
+	case glfw.KeyM:
+		return input.KeyM, true
+	case glfw.KeyN:
+		return input.KeyN, true
+	case glfw.KeyO:
+		return input.KeyO, true
+	case glfw.KeyP:
+		return input.KeyP, true
+	case glfw.KeyQ:
+		return input.KeyQ, true
+	case glfw.KeyR:
+		return input.KeyR, true
+	case glfw.KeyS:
+		return input.KeyS, true
+	case glfw.KeyT:
+		return input.KeyT, true
+	case glfw.KeyU:
+		return input.KeyU, true
+	case glfw.KeyV:
+		return input.KeyV, true
+	case glfw.KeyW:
+		return input.KeyW, true
+	case glfw.KeyX:
+		return input.KeyX, true
+	case glfw.KeyY:
+		return input.KeyY, true
+	case glfw.KeyZ:
+		return input.KeyZ, true
+	case glfw.Key0:
+		return input.Key0, true
+	case glfw.Key1:
+		return input.Key1, true
+	case glfw.Key2:
+		return input.Key2, true
+	case glfw.Key3:
+		return input.Key3, true
+	case glfw.Key4:
+		return input.Key4, true
+	case glfw.Key5:
+		return input.Key5, true
+	case glfw.Key6:
+		return input.Key6, true
+	case glfw.Key7:
+		return input.Key7, true
+	case glfw.Key8:
+		return input.Key8, true
+	case glfw.Key9:
+		return input.Key9, true
+	case glfw.KeyF1:
+		return input.KeyF1, true
+	case glfw.KeyF2:
+		return input.KeyF2, true
+	case glfw.KeyF3:
+		return input.KeyF3, true
+	case glfw.KeyF4:
+		return input.KeyF4, true
+	case glfw.KeyF5:
+		return input.KeyF5, true
+	case glfw.KeyF6:
+		return input.KeyF6, true
+	case glfw.KeyF7:
+		return input.KeyF7, true
+	case glfw.KeyF8:
+		return input.KeyF8, true
+	case glfw.KeyF9:
+		return input.KeyF9, true
+	case glfw.KeyF10:
+		return input.KeyF10, true
+	case glfw.KeyF11:
+		return input.KeyF11, true
+	case glfw.KeyF12:
+		return input.KeyF12, true
+	case glfw.KeyComma:
+		return input.KeyComma, true
+	case glfw.KeyPeriod:
+		return input.KeyPeriod, true
+	case glfw.KeySlash:
+		return input.KeySlash, true
+	case glfw.KeyMinus:
+		return input.KeyMinus, true
+	case glfw.KeyEqual:
+		return input.KeyEqual, true
+	case glfw.KeyLeftBracket:
+		return input.KeyLeftBracket, true
+	case glfw.KeyRightBracket:
+		return input.KeyRightBracket, true
+	case glfw.KeyGraveAccent:
+		return input.KeyBacktick, true
+	case glfw.KeySemicolon:
+		return input.KeySemicolon, true
+	case glfw.KeyApostrophe:
+		return input.KeyApostrophe, true
+	case glfw.KeyBackslash:
+		return input.KeyBackslash, true
 	}
 	return input.KeyNone, false
 }

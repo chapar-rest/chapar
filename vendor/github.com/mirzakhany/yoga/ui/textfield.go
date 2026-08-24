@@ -5,6 +5,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -18,8 +19,8 @@ const textFieldBlink = 500 * time.Millisecond
 type TextFieldConfig struct {
 	Placeholder string
 	Password    bool
-	IconStart   string
-	IconEnd     string
+	IconStart   icons.Icon
+	IconEnd     icons.Icon
 	Radius      float32
 	BorderWidth float32
 	Height      float32
@@ -71,10 +72,34 @@ func NewTextInput(cfg TextFieldConfig) *TextInput {
 		selAnchor:  -1,
 	}
 	padX := th.Spacing.MNudge
-	tf.host = layout.New(layout.Box().H(cfg.Height).Min(0, cfg.Height).FlexShrink(0).PaddingXY(padX, 0))
+	st := layout.Box().H(cfg.Height).FlexShrink(0).PaddingXY(padX, 0)
+	st.MinHeight = cfg.Height
+	tf.host = layout.New(st)
 	tf.host.Paint = tf.paint
 	tf.host.OnMouse = tf.onMouse
 	return tf
+}
+
+// minWidth is padding + icons + a short text slot. Icons and placeholder are
+// painted, not layout children, so the engine's intrinsic width is otherwise
+// only horizontal padding — a Row + Spacer would crush the field.
+func (tf *TextInput) minWidth() float32 {
+	th := theme.Current()
+	w := 2 * tf.padX()
+	if !tf.cfg.IconStart.Empty() {
+		w += tf.iconSize() + tf.iconGap()
+	}
+	if !tf.cfg.IconEnd.Empty() {
+		w += tf.iconSize() + tf.iconGap()
+	}
+	slot := "MMMMMMMM"
+	if text := frameText(); text != nil {
+		tw, _ := text.MeasureAt(slot, th.Typography.Body.Size)
+		w += tw
+	} else {
+		w += float32(len(slot)) * th.Typography.Body.Size
+	}
+	return w
 }
 
 // Focus grants keyboard focus to the field.
@@ -125,7 +150,7 @@ func (tf *TextInput) iconGap() float32 { return theme.Current().Spacing.SNudge }
 
 func (tf *TextInput) textLeft() float32 {
 	x := tf.host.Frame.X + tf.padX()
-	if tf.cfg.IconStart != "" {
+	if !tf.cfg.IconStart.Empty() {
 		x += tf.iconSize() + tf.iconGap()
 	}
 	return x
@@ -133,7 +158,7 @@ func (tf *TextInput) textLeft() float32 {
 
 func (tf *TextInput) textRight() float32 {
 	x := tf.host.Frame.X + tf.host.Frame.W - tf.padX()
-	if tf.cfg.IconEnd != "" {
+	if !tf.cfg.IconEnd.Empty() {
 		x -= tf.iconSize() + tf.iconGap()
 	}
 	return x
@@ -312,6 +337,7 @@ func (tf *TextInput) insertAtCaret(s string) {
 	tf.clampCaret()
 	tf.setValue(tf.Value[:tf.caret] + s + tf.Value[tf.caret:])
 	tf.caret += len(s)
+	tf.selAnchor = -1 // collapse click/drag anchor so the insert is not selected
 	tf.blinkStart = time.Now()
 	tf.caretShown = true
 }
@@ -332,11 +358,11 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 
 	iconSz := tf.iconSize()
 	iconY := f.Y + (f.H-iconSz)/2
-	if tf.cfg.IconStart != "" {
+	if !tf.cfg.IconStart.Empty() {
 		ix := f.X + tf.padX()
 		sheet.Draw(dl, tf.cfg.IconStart, render.Rect{X: ix, Y: iconY, W: iconSz, H: iconSz}, th.ForegroundMuted)
 	}
-	if tf.cfg.IconEnd != "" {
+	if !tf.cfg.IconEnd.Empty() {
 		ix := f.X + f.W - tf.padX() - iconSz
 		sheet.Draw(dl, tf.cfg.IconEnd, render.Rect{X: ix, Y: iconY, W: iconSz, H: iconSz}, th.ForegroundMuted)
 	}
@@ -418,6 +444,10 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 	}
 	if !m.Down {
 		tf.dragging = false
+		// Click without a drag is a caret placement, not a pending selection.
+		if tf.selAnchor == tf.caret {
+			tf.selAnchor = -1
+		}
 	}
 }
 
@@ -490,11 +520,11 @@ func (tf *TextInput) HandleText(runes []rune) {
 // Changed sets the OnChange callback.
 func (tf *TextInput) Changed(fn func(string)) *TextInput { tf.OnChange = fn; return tf }
 
-// WithIconStart sets the leading icon (name must exist in the sprite sheet).
-func (tf *TextInput) WithIconStart(name string) *TextInput { tf.cfg.IconStart = name; return tf }
+// WithIconStart sets the leading icon.
+func (tf *TextInput) WithIconStart(icon icons.Icon) *TextInput { tf.cfg.IconStart = icon; return tf }
 
 // WithIconEnd sets the trailing icon.
-func (tf *TextInput) WithIconEnd(name string) *TextInput { tf.cfg.IconEnd = name; return tf }
+func (tf *TextInput) WithIconEnd(icon icons.Icon) *TextInput { tf.cfg.IconEnd = icon; return tf }
 
 // AsPassword enables password masking (displays bullets instead of characters).
 func (tf *TextInput) AsPassword() *TextInput { tf.cfg.Password = true; return tf }

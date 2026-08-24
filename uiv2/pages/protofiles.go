@@ -6,6 +6,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -15,11 +16,11 @@ type ProtoFiles struct {
 	repo  repository.RepositoryV2
 	list  func() []*domain.ProtoFile
 	load  func() error
-	files *ui.FileDialog
+	files func() *ui.FileDialog
 	err   func(error)
 }
 
-func NewProtoFilesPage(repo repository.RepositoryV2, list func() []*domain.ProtoFile, load func() error, files *ui.FileDialog, errFn func(error)) *ProtoFiles {
+func NewProtoFilesPage(repo repository.RepositoryV2, list func() []*domain.ProtoFile, load func() error, files func() *ui.FileDialog, errFn func(error)) *ProtoFiles {
 	p := &ProtoFiles{repo: repo, list: list, load: load, files: files, err: errFn}
 	p.table = ui.NewTable([]ui.TableColumn{
 		{ID: "sel", Label: "", Kind: ui.TableColCheckbox, Width: 36},
@@ -27,7 +28,7 @@ func NewProtoFilesPage(repo repository.RepositoryV2, list func() []*domain.Proto
 		{ID: "path", Label: "Path", Kind: ui.TableColText, Width: 0},
 		{ID: "pkg", Label: "Package", Kind: ui.TableColText, Width: 160},
 		{ID: "act", Label: "", Kind: ui.TableColActions, Width: 40, Locked: true},
-	}, []ui.TableAction{{Icon: "delete", Tooltip: "Delete"}})
+	}, []ui.TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}})
 	p.table.Actions[0].OnClick = func(rowID string) { p.deleteID(rowID) }
 	p.table.Selectable = true
 	p.table.MultiSelect = true
@@ -41,7 +42,7 @@ func (p *ProtoFiles) Reload() {
 	for _, f := range files {
 		rows = append(rows, ui.TableRow{
 			ID:    f.MetaData.ID,
-			Icon:  "code",
+			Icon:  icons.Code,
 			Cells: map[string]string{"name": f.MetaData.Name, "path": f.Spec.Path, "pkg": f.Spec.Package},
 		})
 	}
@@ -75,7 +76,11 @@ func (p *ProtoFiles) add() {
 	if p.files == nil {
 		return
 	}
-	p.files.Show(ui.FileDialogOpts{
+	fd := p.files()
+	if fd == nil {
+		return
+	}
+	fd.Show(ui.FileDialogOpts{
 		Title:   "Add proto file",
 		Mode:    ui.FileDialogOpenFile,
 		Filters: []ui.FileFilter{{Label: "Proto", Exts: []string{".proto"}}},
@@ -100,7 +105,11 @@ func (p *ProtoFiles) addImportPath() {
 	if p.files == nil {
 		return
 	}
-	p.files.Show(ui.FileDialogOpts{
+	fd := p.files()
+	if fd == nil {
+		return
+	}
+	fd.Show(ui.FileDialogOpts{
 		Title: "Add import path",
 		Mode:  ui.FileDialogOpenFolder,
 		OnConfirm: func(paths []string) {
@@ -126,11 +135,11 @@ func (p *ProtoFiles) Layout(c *ui.Ctx) ui.View {
 		ui.Row(
 			ui.Strong("Proto files"),
 			ui.Spacer(),
-			ui.TextField("proto-search", p.query).Placeholder("Search...").IconStart("search").Width(220).
+			ui.TextField("proto-search", p.query).Placeholder("Search...").IconStart(icons.Search).Width(220).
 				OnChange(func(s string) { p.query = s; p.table.SetFilter(s) }),
 			ui.Button("proto-del", ui.Text("Delete selected")).OnClick(p.deleteSelected),
 			ui.Button("proto-import-path", ui.Text("Import path")).OnClick(p.addImportPath),
-			ui.Button("proto-add", ui.Text("Add")).Primary().IconStart("add").OnClick(p.add),
+			ui.Button("proto-add", ui.Text("Add")).Primary().IconStart(icons.Plus).OnClick(p.add),
 		).Gap(th.Spacing.S).Padding(th.Spacing.M),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.ViewOf(p.table).Grow(1),

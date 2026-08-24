@@ -6,6 +6,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -36,11 +37,11 @@ type Requests struct {
 	repo  repository.RepositoryV2
 	cat   RequestsCatalog
 	ws    workspace
-	files *ui.FileDialog
+	files func() *ui.FileDialog
 	err   func(error)
 }
 
-func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files *ui.FileDialog, errFn func(error)) *Requests {
+func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Requests {
 	p := &Requests{repo: repo, cat: cat, ws: ws, files: files, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root", Data: "root"})
 	p.tree.Background = &theme.Current().Panel
@@ -58,7 +59,7 @@ func (p *Requests) Rebuild() {
 		children = append(children, &ui.TreeNode{
 			Label: col.MetaData.Name,
 			Data:  NodeRef{Kind: domain.KindCollection, ID: col.MetaData.ID},
-			Icon:  "folder",
+			Icon:  icons.Folder,
 		})
 	}
 	for _, r := range reqs {
@@ -87,12 +88,12 @@ func (p *Requests) Rebuild() {
 }
 
 func requestNode(r *domain.Request) *ui.TreeNode {
-	icon := "file"
+	icon := icons.File
 	switch r.MetaData.Type {
 	case domain.RequestTypeGRPC:
-		icon = "code"
+		icon = icons.Code
 	case domain.RequestTypeGraphQL:
-		icon = "share"
+		icon = icons.Share2
 	}
 	return &ui.TreeNode{Label: r.MetaData.Name, Data: NodeRef{Kind: domain.KindRequest, ID: r.MetaData.ID}, Leaf: true, Icon: icon}
 }
@@ -203,7 +204,11 @@ func (p *Requests) importFile() {
 	if p.files == nil {
 		return
 	}
-	p.files.Show(ui.FileDialogOpts{
+	fd := p.files()
+	if fd == nil {
+		return
+	}
+	fd.Show(ui.FileDialogOpts{
 		Title:   "Import collection",
 		Mode:    ui.FileDialogOpenFile,
 		Filters: []ui.FileFilter{{Label: "JSON", Exts: []string{".json"}}},
@@ -239,11 +244,11 @@ func (p *Requests) side(c *ui.Ctx) ui.View {
 		ui.Row(
 			ui.Spacer(),
 			ui.Button("req-import", ui.Text("Import")).OnClick(p.importFile),
-			ui.Button("req-new", ui.Text("New")).Primary().IconStart("add").OnClick(func() {
+			ui.Button("req-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(func() {
 				p.createRequest(domain.RequestTypeHTTP, NodeRef{})
 			}),
 		).Gap(th.Spacing.S).MarginRight(th.Spacing.S),
-		ui.TextField("req-search", p.query).Placeholder("Search...").IconStart("search").
+		ui.TextField("req-search", p.query).Placeholder("Search...").IconStart(icons.Search).
 			OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
 		ui.ViewOf(p.tree).Grow(1),
 	).Gap(th.Spacing.S).Background(ui.TokenChrome).Grow(1)

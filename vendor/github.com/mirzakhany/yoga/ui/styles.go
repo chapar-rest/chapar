@@ -9,8 +9,11 @@ type ComponentStyles struct {
 	ButtonPrimary   Spec
 	ButtonSecondary Spec
 	ButtonSubtle    Spec
+	ButtonGhost     Spec
+	ButtonGhostHover Spec
 	TextField       Spec
 	Checkbox        Spec
+	Switch          Spec
 }
 
 // DefaultStyles returns token-based control specs. They recolor with theme.Use.
@@ -39,6 +42,17 @@ func DefaultStyles() ComponentStyles {
 			When(Hovered, Background(TokenListHover)).
 			When(Pressed, Background(TokenListActive)).
 			When(Disabled, Spec{}.TextColor(TokenForegroundDisabled)),
+		ButtonGhost: Spec{}.TextColor(TokenForegroundMuted).
+			Cursor(CursorPointer).
+			When(Hovered, Spec{}.TextColor(TokenForeground)).
+			When(Pressed, Spec{}.TextColor(TokenForegroundSubtle)).
+			When(Disabled, Spec{}.TextColor(TokenForegroundDisabled)),
+		ButtonGhostHover: Spec{}.TextColor(TokenForegroundMuted).
+			Radius(r).
+			Cursor(CursorPointer).
+			When(Hovered, Background(TokenListHover).TextColor(TokenForeground)).
+			When(Pressed, Background(TokenListActive).TextColor(TokenForegroundSubtle)).
+			When(Disabled, Spec{}.TextColor(TokenForegroundDisabled)),
 		TextField: Background(TokenChrome).
 			TextColor(TokenForeground).
 			Radius(r).
@@ -47,6 +61,11 @@ func DefaultStyles() ComponentStyles {
 		Checkbox: Background(TokenChrome).
 			TextColor(TokenForeground).
 			Radius(float32(theme.DefaultRadius().Small)).
+			Border(TokenBorder, stroke).
+			When(Hovered, Background(TokenListHover)).
+			When(Pressed, Background(TokenAccent)),
+		Switch: Background(TokenChromeMuted).
+			Radius(float32(theme.DefaultRadius().Large)).
 			Border(TokenBorder, stroke).
 			When(Hovered, Background(TokenListHover)).
 			When(Pressed, Background(TokenAccent)),

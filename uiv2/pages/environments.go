@@ -4,6 +4,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -16,11 +17,11 @@ type Environments struct {
 	get   func(id string) *domain.Environment
 	load  func() error
 	ws    workspace
-	files *ui.FileDialog
+	files func() *ui.FileDialog
 	err   func(error)
 }
 
-func NewEnvironmentsPage(repo repository.RepositoryV2, list func() []*domain.Environment, get func(id string) *domain.Environment, load func() error, ws workspace, files *ui.FileDialog, errFn func(error)) *Environments {
+func NewEnvironmentsPage(repo repository.RepositoryV2, list func() []*domain.Environment, get func(id string) *domain.Environment, load func() error, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Environments {
 	p := &Environments{repo: repo, list: list, get: get, load: load, ws: ws, files: files, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root"})
 	p.tree.Background = &theme.Current().Panel
@@ -38,7 +39,7 @@ func (p *Environments) Rebuild() {
 			Label: e.MetaData.Name,
 			Data:  NodeRef{Kind: domain.KindEnv, ID: e.MetaData.ID},
 			Leaf:  true,
-			Icon:  "list",
+			Icon:  icons.FolderPlus,
 		})
 	}
 	p.tree.Loader = func(n *ui.TreeNode) []*ui.TreeNode { return children }
@@ -96,7 +97,11 @@ func (p *Environments) importFile() {
 	if p.files == nil {
 		return
 	}
-	p.files.Show(ui.FileDialogOpts{
+	fd := p.files()
+	if fd == nil {
+		return
+	}
+	fd.Show(ui.FileDialogOpts{
 		Title:   "Import environment",
 		Mode:    ui.FileDialogOpenFile,
 		Filters: []ui.FileFilter{{Label: "JSON", Exts: []string{".json"}}},
@@ -125,9 +130,9 @@ func (p *Environments) side(c *ui.Ctx) ui.View {
 		ui.Row(
 			ui.Spacer(),
 			ui.Button("env-import", ui.Text("Import")).OnClick(p.importFile),
-			ui.Button("env-new", ui.Text("New")).Primary().IconStart("add").OnClick(p.create),
+			ui.Button("env-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(p.create),
 		).Gap(th.Spacing.S).MarginRight(th.Spacing.S),
-		ui.TextField("env-search", p.query).Placeholder("Search...").IconStart("search").
+		ui.TextField("env-search", p.query).Placeholder("Search...").IconStart(icons.Search).
 			OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
 		ui.ViewOf(p.tree).Grow(1),
 	).Gap(th.Spacing.S).Background(ui.TokenChrome).Grow(1)

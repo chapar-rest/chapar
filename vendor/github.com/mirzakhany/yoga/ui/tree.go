@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -33,12 +34,12 @@ type DropEvent struct {
 type TreeNode struct {
 	Label string
 
-	// Icon is the leaf glyph (default "file"). OpenIcon/ClosedIcon are the branch
-	// glyphs (defaults "folder_open"/"folder"). Any may be overridden globally by
+	// Icon is the leaf glyph (default File). OpenIcon/ClosedIcon are the branch
+	// glyphs (defaults FolderOpen/Folder). Any may be overridden globally by
 	// Tree.IconFor.
-	Icon       string
-	OpenIcon   string
-	ClosedIcon string
+	Icon       icons.Icon
+	OpenIcon   icons.Icon
+	ClosedIcon icons.Icon
 
 	// Leaf forces a node to be non-expandable even if it has (or could load)
 	// children.
@@ -47,11 +48,14 @@ type TreeNode struct {
 	// Data is an opaque payload the application can read back in callbacks.
 	Data any
 
+	// Children holds this node's child nodes. Populate directly for static trees,
+	// or leave empty and use Tree.Loader for lazy loading on first expand.
+	Children []*TreeNode
+
 	// internal flattening/expansion state
 	expanded bool
 	loaded   bool
 	depth    int
-	children []*TreeNode
 	parent   *TreeNode
 }
 
@@ -69,8 +73,8 @@ type Tree struct {
 	contentW, contentH float32
 
 	// ChevronOpen/ChevronClosed are the expand indicator glyphs for branches.
-	ChevronOpen   string
-	ChevronClosed string
+	ChevronOpen   icons.Icon
+	ChevronClosed icons.Icon
 
 	// Background overrides the panel fill color. When nil the tree uses
 	// theme.Chrome. A pointer lets it track live theme switches.
@@ -80,7 +84,7 @@ type Tree struct {
 	Loader func(n *TreeNode) []*TreeNode
 
 	// IconFor optionally overrides the icon (and its color) for a node.
-	IconFor func(n *TreeNode, expanded bool) (name string, color render.Color)
+	IconFor func(n *TreeNode, expanded bool) (icon icons.Icon, color render.Color)
 
 	// ContextMenu builds the right-click menu items for a node.
 	ContextMenu func(n *TreeNode) []MenuItem
@@ -90,7 +94,7 @@ type Tree struct {
 	OnToggle   func(n *TreeNode)
 	// OnDrop fires when the user drops a dragged node. Set this to enable
 	// drag-and-drop. The handler is responsible for mutating the data model
-	// and calling SetRoot or rebuild as needed.
+	// and calling Rebuild as needed.
 	OnDrop func(ev DropEvent)
 
 	hover    int
@@ -128,8 +132,8 @@ func NewTree(root *TreeNode) *Tree {
 		hover:         -1,
 		selected:      -1,
 		rowH:          th.Typography.Body.LineHeight + th.Spacing.S,
-		ChevronOpen:   "expand_more",
-		ChevronClosed: "chevron_right",
+		ChevronOpen:   icons.ChevronDown,
+		ChevronClosed: icons.ChevronRight,
 	}
 	if t.root == nil {
 		t.root = &TreeNode{}
@@ -181,16 +185,95 @@ func (t *Tree) ContentHeight() float32 { return t.contentH }
 // Root returns the (undrawn) root node.
 func (t *Tree) Root() *TreeNode { return t.root }
 
+// Parent returns the node's parent, or nil when detached.
+func (n *TreeNode) Parent() *TreeNode { return n.parent }
+
+// AddChild appends child to n, links parent pointers, and marks n as a branch.
+func (n *TreeNode) AddChild(child *TreeNode) {
+	if child == nil {
+		return
+	}
+	n.Children = append(n.Children, child)
+	child.parent = n
+	child.depth = n.depth + 1
+	n.loaded = true
+	n.Leaf = false
+}
+
+// InsertChild inserts child at index i in n's children.
+func (n *TreeNode) InsertChild(i int, child *TreeNode) {
+	if child == nil {
+		return
+	}
+	if i < 0 {
+		i = 0
+	}
+	if i > len(n.Children) {
+		i = len(n.Children)
+	}
+	n.Children = append(n.Children[:i], append([]*TreeNode{child}, n.Children[i:]...)...)
+	child.parent = n
+	child.depth = n.depth + 1
+	n.loaded = true
+	n.Leaf = false
+}
+
+// RemoveChild detaches child from n. Returns whether child was found.
+func (n *TreeNode) RemoveChild(child *TreeNode) bool {
+	for i, c := range n.Children {
+		if c == child {
+			n.Children = append(n.Children[:i], n.Children[i+1:]...)
+			child.parent = nil
+			return true
+		}
+	}
+	return false
+}
+
+// AddChild appends child under parent (nil parent means the tree root) and
+// rebuilds the visible rows. The parent is expanded so the new row is visible.
+func (t *Tree) AddChild(parent, child *TreeNode) {
+	if child == nil {
+		return
+	}
+	if parent == nil {
+		parent = t.root
+	}
+	parent.AddChild(child)
+	if !parent.Leaf {
+		parent.expanded = true
+	}
+	t.rebuild()
+}
+
+// Remove detaches n from its parent and rebuilds the visible rows.
+func (t *Tree) Remove(n *TreeNode) bool {
+	if n == nil || n.parent == nil {
+		return false
+	}
+	if !n.parent.RemoveChild(n) {
+		return false
+	}
+	if t.selected >= 0 && t.selected < len(t.visible) && t.visible[t.selected] == n {
+		t.selected = -1
+	}
+	t.rebuild()
+	return true
+}
+
+// Rebuild refreshes the flattened visible row list after structural changes.
+func (t *Tree) Rebuild() { t.rebuild() }
+
 // ensureLoaded populates a branch's children once, via Loader if provided.
 func (t *Tree) ensureLoaded(n *TreeNode) {
 	if n.loaded || n.Leaf {
 		return
 	}
 	n.loaded = true
-	if t.Loader != nil {
-		n.children = t.Loader(n)
+	if len(n.Children) == 0 && t.Loader != nil {
+		n.Children = t.Loader(n)
 	}
-	for _, c := range n.children {
+	for _, c := range n.Children {
 		c.parent = n
 		c.depth = n.depth + 1
 	}
@@ -217,7 +300,7 @@ func (t *Tree) subtreeMatches(n *TreeNode) bool {
 		return false
 	}
 	t.ensureLoaded(n)
-	for _, c := range n.children {
+	for _, c := range n.Children {
 		if t.subtreeMatches(c) {
 			return true
 		}
@@ -231,7 +314,7 @@ func (t *Tree) rebuild() {
 	if t.filter == "" {
 		var walk func(n *TreeNode)
 		walk = func(n *TreeNode) {
-			for _, c := range n.children {
+			for _, c := range n.Children {
 				c.parent = n
 				c.depth = n.depth + 1
 				t.visible = append(t.visible, c)
@@ -245,7 +328,7 @@ func (t *Tree) rebuild() {
 		var walk func(n *TreeNode)
 		walk = func(n *TreeNode) {
 			t.ensureLoaded(n)
-			for _, c := range n.children {
+			for _, c := range n.Children {
 				if !t.subtreeMatches(c) {
 					continue
 				}
@@ -359,28 +442,28 @@ func (t *Tree) toggle(n *TreeNode) {
 // branch reports whether a node should be treated as expandable.
 func (n *TreeNode) branch() bool { return !n.Leaf }
 
-func (t *Tree) iconFor(n *TreeNode) (string, render.Color) {
+func (t *Tree) iconFor(n *TreeNode) (icons.Icon, render.Color) {
 	th := theme.Current()
 	if t.IconFor != nil {
 		return t.IconFor(n, n.expanded)
 	}
 	if n.branch() {
 		name := n.ClosedIcon
-		if name == "" {
-			name = "folder"
+		if name.Empty() {
+			name = icons.Folder
 		}
 		if n.expanded {
-			if n.OpenIcon != "" {
+			if !n.OpenIcon.Empty() {
 				name = n.OpenIcon
 			} else {
-				name = "folder_open"
+				name = icons.FolderOpen
 			}
 		}
 		return name, th.Accent
 	}
 	name := n.Icon
-	if name == "" {
-		name = "file"
+	if name.Empty() {
+		name = icons.File
 	}
 	return name, th.ForegroundMuted
 }

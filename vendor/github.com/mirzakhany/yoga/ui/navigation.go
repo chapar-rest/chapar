@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -30,7 +31,7 @@ const (
 type NavItem struct {
 	ID    string
 	Label string
-	Icon  string
+	Icon  icons.Icon
 }
 
 type navData struct {
@@ -165,13 +166,13 @@ func navItemWidth(itemLayout NavItemLayout, item NavItem) float32 {
 	switch itemLayout {
 	case NavIconTop, NavIconBottom:
 		contentW := tw
-		if item.Icon != "" && iconSz > contentW {
+		if !item.Icon.Empty() && iconSz > contentW {
 			contentW = iconSz
 		}
 		return contentW + 2*padX
 	default:
 		w := tw + 2*padX
-		if item.Icon != "" {
+		if !item.Icon.Empty() {
 			w += gap + iconSz
 		}
 		return w
@@ -198,7 +199,7 @@ func navItemGeomOf(f render.Rect, itemLayout NavItemLayout, item NavItem) navIte
 	if itemLayout == NavIconTop || itemLayout == NavIconBottom {
 		gap = th.Spacing.XS
 	}
-	hasIcon := item.Icon != ""
+	hasIcon := !item.Icon.Empty()
 	var g navItemGeom
 	g.hasIcon = hasIcon
 	switch itemLayout {

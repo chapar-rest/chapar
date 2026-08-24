@@ -73,9 +73,19 @@ func (e *Engine) LineAt(text string, logicalSize render.Px) Line {
 	return e.Cache.GetAt(text, logicalSize)
 }
 
+// LineAtWeight returns a shaped UI line at logicalSize and CSS-like weight.
+func (e *Engine) LineAtWeight(text string, logicalSize render.Px, weight int) Line {
+	return e.Cache.GetAtWeight(text, logicalSize, weight)
+}
+
 // MeasureAt returns width and height for a single-line string at logicalSize.
 func (e *Engine) MeasureAt(s string, logicalSize render.Px) (w, h render.Px) {
 	return e.Shaper.MeasureAt(s, logicalSize)
+}
+
+// MeasureAtWeight returns width and height at logicalSize for the given weight.
+func (e *Engine) MeasureAtWeight(s string, logicalSize render.Px, weight int) (w, h render.Px) {
+	return e.Shaper.MeasureAtWeight(s, logicalSize, weight)
 }
 
 // DrawStringTop draws UI text with top-left y (convenience for UI chrome).
@@ -89,32 +99,27 @@ func (e *Engine) DrawStringTopMono(dl *render.DrawList, s string, x, topY float3
 	return e.DrawStringMono(dl, s, x, topY+m.Ascent, c)
 }
 
-// DrawStringTopAt draws at logicalSize with top-left y.
+// DrawStringTopAt draws at logicalSize with top-left y (Regular weight).
 func (e *Engine) DrawStringTopAt(dl *render.DrawList, s string, x, topY float32, c render.Color, logicalSize render.Px) float32 {
-	m := e.Fonts.MetricsAt(logicalSize)
-	return e.DrawStringAt(dl, s, x, topY+m.Ascent, c, logicalSize)
+	return e.DrawStringTopAtWeight(dl, s, x, topY, c, logicalSize, WeightRegular)
 }
 
-// DrawStringAt draws a single line at baseline y and logicalSize.
+// DrawStringTopAtWeight draws at logicalSize and weight with top-left y.
+func (e *Engine) DrawStringTopAtWeight(dl *render.DrawList, s string, x, topY float32, c render.Color, logicalSize render.Px, weight int) float32 {
+	m := e.Fonts.MetricsAt(logicalSize)
+	return e.DrawStringAtWeight(dl, s, x, topY+m.Ascent, c, logicalSize, weight)
+}
+
+// DrawStringAt draws a single line at baseline y and logicalSize (Regular).
 func (e *Engine) DrawStringAt(dl *render.DrawList, s string, x, baselineY float32, c render.Color, logicalSize render.Px) float32 {
-	ln := e.LineAt(s, logicalSize)
+	return e.DrawStringAtWeight(dl, s, x, baselineY, c, logicalSize, WeightRegular)
+}
+
+// DrawStringAtWeight draws a single UI line at baseline y, size, and weight.
+func (e *Engine) DrawStringAtWeight(dl *render.DrawList, s string, x, baselineY float32, c render.Color, logicalSize render.Px, weight int) float32 {
+	ln := e.LineAtWeight(s, logicalSize, weight)
 	topY := baselineY - e.Fonts.MetricsAt(logicalSize).Ascent
-	for _, g := range ln.Glyphs {
-		face := e.Fonts.Face(g.FaceID)
-		entry := e.Atlas.EnsureGlyph(g.FaceID, face, g.GID)
-		w, h := entry.W, entry.H
-		if logicalSize > 0 && logicalSize != DefaultLogicalSize() {
-			scale := logicalSize / DefaultLogicalSize()
-			w *= scale
-			h *= scale
-		}
-		dst := render.Rect{X: x + g.X, Y: topY + g.Y, W: w, H: h}
-		if entry.Color {
-			dl.AddGlyphQuad(dst, entry.UV, render.PageColor, c)
-		} else {
-			dl.AddGlyphQuad(dst, entry.UV, render.PageMono, c)
-		}
-	}
+	e.drawLineGlyphsTint(dl, ln, x, topY, func(int) render.Color { return c })
 	return ln.Width
 }
 
@@ -122,16 +127,7 @@ func (e *Engine) DrawStringAt(dl *render.DrawList, s string, x, baselineY float3
 func (e *Engine) DrawString(dl *render.DrawList, s string, x, baselineY float32, c render.Color) float32 {
 	ln := e.Line(s)
 	topY := baselineY - e.Metrics().Ascent
-	for _, g := range ln.Glyphs {
-		face := e.Fonts.Face(g.FaceID)
-		entry := e.Atlas.EnsureGlyph(g.FaceID, face, g.GID)
-		dst := render.Rect{X: x + g.X, Y: topY + g.Y, W: entry.W, H: entry.H}
-		if entry.Color {
-			dl.AddGlyphQuad(dst, entry.UV, render.PageColor, c)
-		} else {
-			dl.AddGlyphQuad(dst, entry.UV, render.PageMono, c)
-		}
-	}
+	e.drawLineGlyphsTint(dl, ln, x, topY, func(int) render.Color { return c })
 	return ln.Width
 }
 
@@ -139,25 +135,29 @@ func (e *Engine) DrawString(dl *render.DrawList, s string, x, baselineY float32,
 func (e *Engine) DrawStringMono(dl *render.DrawList, s string, x, baselineY float32, c render.Color) float32 {
 	ln := e.LineMono(s)
 	topY := baselineY - e.MetricsMono().Ascent
-	for _, g := range ln.Glyphs {
-		face := e.Fonts.Face(g.FaceID)
-		entry := e.Atlas.EnsureGlyph(g.FaceID, face, g.GID)
-		dst := render.Rect{X: x + g.X, Y: topY + g.Y, W: entry.W, H: entry.H}
-		if entry.Color {
-			dl.AddGlyphQuad(dst, entry.UV, render.PageColor, c)
-		} else {
-			dl.AddGlyphQuad(dst, entry.UV, render.PageMono, c)
-		}
-	}
+	e.drawLineGlyphsTint(dl, ln, x, topY, func(int) render.Color { return c })
 	return ln.Width
 }
 
 // DrawLineGlyphs draws an already-shaped line with per-glyph colors from tintAt byte offset.
 func (e *Engine) DrawLineGlyphs(dl *render.DrawList, ln Line, x, topY float32, tint func(byteOff int) render.Color) {
+	e.drawLineGlyphsTint(dl, ln, x, topY, tint)
+}
+
+// drawLineGlyphsTint places atlas quads so ink aligns with HarfBuzz bearings:
+// ink-left = pen + BearingX, then subtract atlas Pad so the padded bitmap
+// does not shift glyphs right/down.
+func (e *Engine) drawLineGlyphsTint(dl *render.DrawList, ln Line, x, topY float32, tint func(byteOff int) render.Color) {
+	ppem := e.glyphPpem(ln)
 	for _, g := range ln.Glyphs {
 		face := e.Fonts.Face(g.FaceID)
-		entry := e.Atlas.EnsureGlyph(g.FaceID, face, g.GID)
-		dst := render.Rect{X: x + g.X, Y: topY + g.Y, W: entry.W, H: entry.H}
+		entry := e.Atlas.EnsureGlyph(g.FaceID, face, g.GID, ppem)
+		dst := render.Rect{
+			X: x + g.X + g.BearingX - entry.Pad,
+			Y: topY + g.Y - entry.Pad,
+			W: entry.W,
+			H: entry.H,
+		}
 		col := tint(g.ClusterByte)
 		if entry.Color {
 			dl.AddGlyphQuad(dst, entry.UV, render.PageColor, col)
@@ -165,6 +165,17 @@ func (e *Engine) DrawLineGlyphs(dl *render.DrawList, ln Line, x, topY float32, t
 			dl.AddGlyphQuad(dst, entry.UV, render.PageMono, col)
 		}
 	}
+}
+
+// glyphPpem returns the device-pixel size used to bake glyphs for ln.
+func (e *Engine) glyphPpem(ln Line) uint16 {
+	if ln.LogicalSize > 0 {
+		return uint16(e.Fonts.ppem(ln.LogicalSize).Round())
+	}
+	if ln.Mono {
+		return uint16(e.Fonts.monoPixelSize.Round())
+	}
+	return uint16(e.Fonts.uiPixelSize.Round())
 }
 
 // FlushAtlas uploads dirty atlas regions to the GPU renderer when present.

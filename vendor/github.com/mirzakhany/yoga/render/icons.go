@@ -2,81 +2,81 @@ package render
 
 import (
 	"bytes"
-	"embed"
+	"fmt"
 	"image"
-	"sort"
 	"strings"
 
-	"github.com/srwiley/oksvg"
-	"github.com/srwiley/rasterx"
+	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
 
-// A curated Material-style icon set (Pictogrammers MDI, Apache-2.0) ships with
-// the framework. Each is a single-path 24px SVG; they are rasterized into the
-// font atlas at the device pixel scale so they stay crisp, and tinted at draw
-// time by the vertex color (same path as glyphs) so they follow the theme.
-//
-//go:embed assets/icons/*.svg
-var iconFS embed.FS
+// iconBakePx matches icons.BakePx — pre-rasterized Lucide icons are baked at this size.
+const iconBakePx = 40
 
-// iconRegistry maps an icon name to its raw SVG bytes. Built-ins are loaded in
-// init; applications may add or override icons with RegisterIcon before baking
-// the atlas (NewMonoAtlas*).
-var iconRegistry = map[string][]byte{}
+// svgOverrides maps icon names to raw SVG bytes registered at runtime via RegisterIcon.
+var svgOverrides = map[string][]byte{}
 
-// RegisterIcon adds or replaces a named icon from raw SVG bytes. Call it before
-// creating the atlas; to add icons after the atlas exists, re-bake and call
-// Renderer.UpdateAtlas.
+// RegisterIcon adds or replaces a named icon from raw SVG bytes. The SVG is
+// rasterized on first draw. Returns an Icon value for use with SpriteSheet.Draw.
 func RegisterIcon(name string, svg []byte) {
-	iconRegistry[name] = append([]byte(nil), svg...)
+	svgOverrides[name] = append([]byte(nil), svg...)
 }
 
-func init() {
-	entries, err := iconFS.ReadDir("assets/icons")
-	if err != nil {
-		return
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".svg") {
-			continue
+// HasSVGOverride reports whether name was registered via RegisterIcon.
+func HasSVGOverride(name string) bool {
+	_, ok := svgOverrides[name]
+	return ok
+}
+
+// RasterizeSVG renders an SVG into a px-by-px 8-bit coverage mask. Stroke and
+// fill SVGs (including Lucide) are supported via tdewolff/canvas.
+func RasterizeSVG(svg []byte, px int) (mask *image.Alpha, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("rasterize panic: %v", r)
 		}
-		data, err := iconFS.ReadFile("assets/icons/" + e.Name())
-		if err != nil {
-			continue
-		}
-		iconRegistry[strings.TrimSuffix(e.Name(), ".svg")] = data
-	}
-}
-
-// iconNames returns the registered icon names in stable sorted order (so atlas
-// packing is deterministic).
-func iconNames() []string {
-	names := make([]string, 0, len(iconRegistry))
-	for n := range iconRegistry {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	return names
-}
-
-// rasterizeIcon renders an SVG into a px-by-px 8-bit coverage mask. Material
-// icons fill with opaque black, so the rasterized alpha channel is exactly the
-// coverage we want for an R8 atlas cell.
-func rasterizeIcon(svg []byte, px int) (*image.Alpha, error) {
-	icon, err := oksvg.ReadIconStream(bytes.NewReader(svg))
+	}()
+	data := rewriteSVGColor(svg)
+	c, err := canvas.ParseSVG(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
-	icon.SetTarget(0, 0, float64(px), float64(px))
-
-	rgba := image.NewRGBA(image.Rect(0, 0, px, px))
-	scanner := rasterx.NewScannerGV(px, px, rgba, rgba.Bounds())
-	raster := rasterx.NewDasher(px, px, scanner)
-	icon.Draw(raster, 1.0)
-
-	alpha := image.NewAlpha(image.Rect(0, 0, px, px))
-	for i := 0; i < px*px; i++ {
-		alpha.Pix[i] = rgba.Pix[i*4+3] // copy the A channel as coverage
+	if c.W <= 0 || c.H <= 0 {
+		return image.NewAlpha(image.Rect(0, 0, px, px)), nil
 	}
-	return alpha, nil
+	dpm := canvas.DPMM(float64(px) / c.W)
+	img := rasterizer.Draw(c, dpm, canvas.DefaultColorSpace)
+	b := img.Bounds()
+	out := image.NewAlpha(image.Rect(0, 0, px, px))
+	for y := 0; y < px; y++ {
+		for x := 0; x < px; x++ {
+			sx := b.Min.X + x*b.Dx()/px
+			sy := b.Min.Y + y*b.Dy()/px
+			if sx >= b.Max.X {
+				sx = b.Max.X - 1
+			}
+			if sy >= b.Max.Y {
+				sy = b.Max.Y - 1
+			}
+			_, _, _, a := img.At(sx, sy).RGBA()
+			out.Pix[y*px+x] = uint8(a >> 8)
+		}
+	}
+	return out, nil
+}
+
+func rewriteSVGColor(svg []byte) []byte {
+	s := string(svg)
+	s = strings.ReplaceAll(s, "currentColor", "#000000")
+	s = strings.ReplaceAll(s, "currentcolor", "#000000")
+	return []byte(s)
+}
+
+// rasterizeOverrideSVG rasterizes a runtime-registered SVG at the given px size.
+func rasterizeOverrideSVG(name string, px int) (*image.Alpha, error) {
+	data, ok := svgOverrides[name]
+	if !ok {
+		return nil, nil
+	}
+	return RasterizeSVG(data, px)
 }

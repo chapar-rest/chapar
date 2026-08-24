@@ -1,6 +1,8 @@
 package container
 
 import (
+	"time"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/uiv2/sender"
@@ -40,13 +42,14 @@ type Reporter struct {
 }
 
 // Deps is everything a container needs to be self-service.
+// Dialogs/Files/Toasts are window services; prefer Report callbacks filled by the app.
 type Deps struct {
 	Repo      repository.RepositoryV2
 	Catalog   Catalog
 	Sender    *sender.Service
-	Dialogs   *ui.DialogHost
-	Files     *ui.FileDialog
-	Toasts    *ui.ToastHost
+	Dialogs   func() *ui.DialogHost
+	Files     func() *ui.FileDialog
+	Toasts    func() *ui.ToastHost
 	Wake      func()
 	ActiveEnv func() *domain.Environment
 	Report    Reporter
@@ -93,7 +96,9 @@ func (d Deps) ShowError(err error) {
 		return
 	}
 	if d.Dialogs != nil {
-		d.Dialogs.ShowError("Error", err.Error(), nil)
+		if host := d.Dialogs(); host != nil {
+			host.ShowError("Error", err.Error(), nil)
+		}
 	}
 }
 
@@ -104,7 +109,13 @@ func (d Deps) WakeNow() {
 }
 
 func (d Deps) Toast(msg string) {
+	if d.Report.Toast != nil {
+		d.Report.Toast(msg)
+		return
+	}
 	if d.Toasts != nil {
-		d.Toasts.Show(msg, ui.ToastInfo, 3e9)
+		if host := d.Toasts(); host != nil {
+			host.Show(msg, ui.ToastInfo, 3*time.Second)
+		}
 	}
 }

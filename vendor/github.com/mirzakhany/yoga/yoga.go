@@ -7,10 +7,11 @@
 //
 // Run creates the window, then drives the per-frame loop until the window
 // closes. An app's Body(c) builds its element tree each frame from the per-frame
-// ui.Ctx (invalidation, animation, overlays, focus).
+// ui.Ctx (invalidation, animation, overlays, focus, and window dialog/toast/file
+// hosts).
 //
-// Layering: yoga sits above render/input/layout/ui. An application supplies its
-// own theme and only hands yoga a ClearColor.
+// Layering: yoga sits above render/input/layout/ui. The runtime reads the active
+// theme for the GPU framebuffer clear color.
 //
 // Threading: the OS event/render loop must run on the thread that created the
 // window (a hard requirement of GLFW on macOS). yoga.New locks the OS thread and
@@ -21,7 +22,6 @@ package yoga
 
 import (
 	"github.com/mirzakhany/yoga/input"
-	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -30,9 +30,6 @@ import (
 type Config struct {
 	Title         string
 	Width, Height int
-	// ClearColor is the framebuffer clear color (typically the app theme's
-	// background). When left as the zero value (alpha 0) a dark default is used.
-	ClearColor render.Color
 }
 
 // applyDefaults fills any unset Config fields with sensible defaults.
@@ -46,9 +43,6 @@ func (c Config) applyDefaults() Config {
 	if c.Height <= 0 {
 		c.Height = 720
 	}
-	if c.ClearColor.A == 0 {
-		c.ClearColor = render.RGBA8(24, 24, 29, 255)
-	}
 	return c
 }
 
@@ -56,7 +50,7 @@ func (c Config) applyDefaults() Config {
 // builds the element tree for the current state, given the per-frame ui.Ctx
 // that carries invalidation, animation scheduling, overlay registration, and
 // focus. The runtime owns the window, per-frame rebuild, input dispatch, key
-// routing, and the portal/animation plumbing.
+// routing, portal/animation plumbing, and the window dialog/toast/file hosts.
 //
 // Run an App with yoga.Run(app).
 type App interface {
@@ -70,8 +64,9 @@ type Closer interface {
 }
 
 // KeyHook is an optional App capability for app-global shortcuts. OnKey runs for
-// each key event before focus routing; returning true consumes the event so the
-// focused widget does not also receive it.
+// each key event after command-palette Dispatch and before focus routing;
+// returning true consumes the event so the focused widget does not also receive it.
+// Prefer c.Commands().Register for actions that should appear in the palette.
 type KeyHook interface {
 	OnKey(c *ui.Ctx, k input.KeyEvent) bool
 }

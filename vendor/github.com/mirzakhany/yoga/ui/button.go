@@ -38,8 +38,28 @@ func (n *Node) buttonSpec(c *Ctx) Spec {
 		base = st.ButtonPrimary
 	case variantSubtle:
 		base = st.ButtonSubtle
+	case variantGhost:
+		base = st.ButtonGhost
+		if n.ghostHover {
+			base = st.ButtonGhostHover
+		}
 	}
 	return base.merge(n.spec)
+}
+
+// buttonMetrics returns padding, icon gap, and height for a button variant.
+func buttonMetrics(n *Node, th *theme.Theme) (padX, padY, iconGap, h float32) {
+	if n.variant == variantGhost {
+		if n.ghostHover {
+			padX = th.Spacing.XS
+			padY = th.Spacing.XXS
+			return padX, padY, th.Spacing.XS, th.Typography.Body.LineHeight + 2*padY
+		}
+		return 0, 0, th.Spacing.XS, th.Typography.Body.LineHeight
+	}
+	padX = th.Spacing.M
+	padY = th.Spacing.SNudge
+	return padX, padY, 8, th.Typography.Body.LineHeight + 2*padY
 }
 
 func (n *Node) layoutButton(c *Ctx) *layout.Element {
@@ -72,16 +92,14 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 	}
 	c.popEnv(old)
 
-	padX := th.Spacing.M
-	padY := th.Spacing.SNudge
-	h := th.Typography.Body.LineHeight + 2*padY
+	padX, _, iconGap, h := buttonMetrics(n, th)
 	minW := 2 * padX
 	if childEl != nil && childEl.Style.Width == childEl.Style.Width {
 		minW += float32(childEl.Style.Width)
 	}
 	padLeft, padRight := padX, padX
-	if n.iconStart != "" {
-		iconSlot := th.Metrics.IconSizeSM + 8
+	if !n.iconStart.Empty() {
+		iconSlot := th.Metrics.IconSizeSM + iconGap
 		minW += iconSlot
 		padLeft += iconSlot
 	}
@@ -136,7 +154,7 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 		}
 		x := frame.X + padX
 		cy := frame.Y + frame.H/2
-		if icon != "" {
+		if !icon.Empty() {
 			isz := th.Metrics.IconSizeSM
 			if sheet := frameIcons(); sheet != nil {
 				sheet.Draw(dl, icon, render.Rect{X: x, Y: cy - isz/2, W: isz, H: isz}, fg)

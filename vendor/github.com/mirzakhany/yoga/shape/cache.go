@@ -29,18 +29,23 @@ func (c *LineCache) GetMono(text string) Line {
 
 // GetAt shapes UI text at logicalSize, returning a cached line when possible.
 func (c *LineCache) GetAt(text string, logicalSize render.Px) Line {
-	h := hashLineAt(text, logicalSize, false)
+	return c.GetAtWeight(text, logicalSize, WeightRegular)
+}
+
+// GetAtWeight shapes UI text at logicalSize and weight.
+func (c *LineCache) GetAtWeight(text string, logicalSize render.Px, weight int) Line {
+	h := hashLineAt(text, logicalSize, false, weight)
 	if ln, ok := c.data[h]; ok {
 		return ln
 	}
-	ln := c.shaper.ShapeLineAt(text, logicalSize)
+	ln := c.shaper.ShapeLineAtWeight(text, logicalSize, weight)
 	c.data[h] = ln
 	return ln
 }
 
 // GetMonoAt shapes editor mono text at logicalSize, returning a cached line when possible.
 func (c *LineCache) GetMonoAt(text string, logicalSize render.Px) Line {
-	h := hashLineAt(text, logicalSize, true)
+	h := hashLineAt(text, logicalSize, true, WeightRegular)
 	if ln, ok := c.data[h]; ok {
 		return ln
 	}
@@ -54,7 +59,7 @@ func (c *LineCache) Invalidate() {
 	c.data = make(map[uint64]Line)
 }
 
-func hashLineAt(s string, logicalSize float32, mono bool) uint64 {
+func hashLineAt(s string, logicalSize float32, mono bool, weight int) uint64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(s))
 	if logicalSize != 0 {
@@ -68,6 +73,9 @@ func hashLineAt(s string, logicalSize float32, mono bool) uint64 {
 	}
 	if mono {
 		_, _ = h.Write([]byte{1})
+	}
+	if weight >= WeightSemiBold {
+		_, _ = h.Write([]byte{2})
 	}
 	return h.Sum64()
 }

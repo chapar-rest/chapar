@@ -10,10 +10,10 @@ import (
 func Run() error {
 	applyChaparTheme(prefs.GetGlobalConfig().Spec.General.Theme)
 	cfg := yoga.Config{
-		Title:      "Chapar",
-		Width:      1200,
-		Height:     800,
-		ClearColor: theme.Current().Background,
+		Title:  "Chapar",
+		Width:  1200,
+		Height: 800,
 	}
+	_ = theme.Current() // theme selected before Run so the first clear matches
 	return yoga.Run(cfg, BuildApp)
 }

@@ -106,15 +106,15 @@ func NewFileTree(rootPath string) *FileTree {
 		}
 
 		// Reload the directories that changed on disk.
-		dstParent := ev.Target.parent
+		dstParent := ev.Target.Parent()
 		if ev.Pos == DropInside {
 			dstParent = ev.Target
 		}
-		ft.reloadNode(ev.Source.parent)
-		if dstParent != ev.Source.parent {
+		ft.reloadNode(ev.Source.Parent())
+		if dstParent != ev.Source.Parent() {
 			ft.reloadNode(dstParent)
 		}
-		t.rebuild()
+		t.Rebuild()
 
 		if ft.OnMove != nil {
 			ft.OnMove(srcPath, dstPath)
@@ -189,7 +189,7 @@ func (ft *FileTree) reloadNode(n *TreeNode) {
 		n = ft.tree.root
 	}
 	n.loaded = false
-	n.children = nil
+	n.Children = nil
 	if n.expanded {
 		ft.tree.ensureLoaded(n)
 	}

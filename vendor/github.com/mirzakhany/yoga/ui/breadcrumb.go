@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -108,7 +109,7 @@ func paintBreadcrumb(dl *render.DrawList, text *shape.Engine, f render.Rect, seg
 			cx := loc.x + tw + th.Spacing.S
 			cr := render.Rect{X: cx, Y: f.Y + (f.H-chevSz)/2, W: chevSz, H: chevSz}
 			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, "chevron_right", cr, th.ForegroundSubtle)
+				sheet.Draw(dl, icons.ChevronRight, cr, th.ForegroundSubtle)
 			}
 		}
 	}

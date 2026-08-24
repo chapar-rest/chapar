@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
@@ -32,17 +33,33 @@ const (
 	kindSegmented
 	kindSelect
 	kindDropdown
+	kindMenuButton
 	kindNav
 	kindTabs
 	kindBreadcrumb
 	kindTagEdit
 	kindScroll
+	kindSwitch
+	kindForm
+	kindPopover
+	kindContextMenu
+	kindBadge
+	kindKbd
+	kindLink
+	kindDisclosure
+	kindAccordion
+	kindProgress
+	kindSkeleton
+	kindEmptyState
+	kindSlider
+	kindStepper
 )
 
 const (
 	variantSecondary = iota
 	variantPrimary
 	variantSubtle
+	variantGhost
 )
 
 // Node is the universal view value. Layout directives and widgets return *Node
@@ -64,11 +81,11 @@ type Node struct {
 	disabled     bool
 	variant      int
 	cols         int
-	icon         string
+	icon         icons.Icon
 	hint         string
 	placeholder  string
-	iconStart    string
-	iconEnd      string
+	iconStart    icons.Icon
+	iconEnd      icons.Icon
 	password     bool
 	lineThick    float32
 	lineColor    render.Color
@@ -77,10 +94,12 @@ type Node struct {
 	labelMuted   bool
 	labelStrike  bool
 	defaultFocus bool
+	ghostHover   bool
 	extra        any
 	selected     int
 	onSelectIdx  func(int, string)
 	onCloseIdx   func(int)
+	tooltip      string
 }
 
 var _ View = (*Node)(nil)
@@ -148,9 +167,9 @@ func VLine(thickness float32, color render.Color) *Node {
 	return &Node{kind: kindVLine, lineThick: thickness, lineColor: color}
 }
 
-// Icon draws a named sprite at size, tinted by color.
-func Icon(name string, size float32, color render.Color) *Node {
-	return &Node{kind: kindIcon, icon: name, iconSize: size, iconColor: color}
+// Icon draws a sprite at size, tinted by color.
+func Icon(icon icons.Icon, size float32, color render.Color) *Node {
+	return &Node{kind: kindIcon, icon: icon, iconSize: size, iconColor: color}
 }
 
 // Gap sets the gap between children.
@@ -278,6 +297,15 @@ func (n *Node) Size(v float32) *Node {
 	return n.Frame(v, v)
 }
 
+// Weight sets the CSS-like font weight on Text (400 Regular, 600 SemiBold).
+func (n *Node) Weight(w int) *Node {
+	if n.kind == kindText {
+		n.spec.fontWeight = w
+		n.spec.hasFontWeight = true
+	}
+	return n
+}
+
 // Align sets cross-axis alignment of children.
 func (n *Node) Align(a layout.Align) *Node {
 	n.spec.align = a
@@ -349,11 +377,17 @@ func (n *Node) Secondary() *Node { n.variant = variantSecondary; return n }
 // Subtle applies the theme's subtle button spec.
 func (n *Node) Subtle() *Node { n.variant = variantSubtle; return n }
 
-// IconStart sets a leading icon name (Button / TextField).
-func (n *Node) IconStart(name string) *Node { n.iconStart = name; return n }
+// Ghost applies the theme's ghost button spec: text-like, no padding or chrome.
+func (n *Node) Ghost() *Node { n.variant = variantGhost; return n }
 
-// IconEnd sets a trailing icon name (TextField).
-func (n *Node) IconEnd(name string) *Node { n.iconEnd = name; return n }
+// HoverFill enables a background fill on hover for Ghost buttons.
+func (n *Node) HoverFill() *Node { n.ghostHover = true; return n }
+
+// IconStart sets a leading icon (Button / TextField).
+func (n *Node) IconStart(icon icons.Icon) *Node { n.iconStart = icon; return n }
+
+// IconEnd sets a trailing icon (TextField).
+func (n *Node) IconEnd(icon icons.Icon) *Node { n.iconEnd = icon; return n }
 
 // Hint sets a keyboard-hint chip on a Button.
 func (n *Node) Hint(s string) *Node { n.hint = s; return n }
@@ -403,6 +437,18 @@ func (n *Node) Layout(c *Ctx) *layout.Element {
 	if n == nil {
 		return layout.New(layout.Box())
 	}
+	el := n.layoutKind(c)
+	if el != nil && n.tooltip != "" {
+		tipID := n.id
+		if tipID == "" {
+			tipID = autoID(c, "node")
+		}
+		attachNodeTooltip(c, tipID, n.tooltip, el)
+	}
+	return el
+}
+
+func (n *Node) layoutKind(c *Ctx) *layout.Element {
 	th := c.Theme()
 	switch n.kind {
 	case kindColumn:
@@ -438,7 +484,12 @@ func (n *Node) Layout(c *Ctx) *layout.Element {
 		for i := range tracks {
 			tracks[i] = layout.Fr(1)
 		}
-		st := applyLayoutSpec(layout.Box().Display(layout.DisplayGrid).GridCols(tracks...), n.spec)
+		// Content-sized rows by default. Equal-height fr rows still work when
+		// the grid has a definite height and AutoRows is set to Fr.
+		st := applyLayoutSpec(layout.Box().
+			Display(layout.DisplayGrid).
+			GridCols(tracks...).
+			GridAutoRows(layout.Auto()), n.spec)
 		el := layout.New(st, layoutViews(c, n.children)...)
 		applyVisualSpec(el, n.spec, th, interactState{})
 		return el
@@ -466,6 +517,8 @@ func (n *Node) Layout(c *Ctx) *layout.Element {
 		return n.layoutSelect(c)
 	case kindDropdown:
 		return n.layoutDropdown(c)
+	case kindMenuButton:
+		return n.layoutMenuButton(c)
 	case kindNav:
 		return n.layoutNav(c)
 	case kindTabs:
@@ -476,6 +529,34 @@ func (n *Node) Layout(c *Ctx) *layout.Element {
 		return n.layoutTagEdit(c)
 	case kindScroll:
 		return n.layoutScroll(c)
+	case kindSwitch:
+		return n.layoutSwitch(c)
+	case kindForm:
+		return n.layoutForm(c)
+	case kindPopover:
+		return n.layoutPopover(c)
+	case kindContextMenu:
+		return n.layoutContextMenu(c)
+	case kindBadge:
+		return n.layoutBadge(c)
+	case kindKbd:
+		return n.layoutKbd(c)
+	case kindLink:
+		return n.layoutLink(c)
+	case kindDisclosure:
+		return n.layoutDisclosure(c)
+	case kindAccordion:
+		return n.layoutAccordion(c)
+	case kindProgress:
+		return n.layoutProgress(c)
+	case kindSkeleton:
+		return n.layoutSkeleton(c)
+	case kindEmptyState:
+		return n.layoutEmptyState(c)
+	case kindSlider:
+		return n.layoutSlider(c)
+	case kindStepper:
+		return n.layoutStepper(c)
 	case kindWrap:
 		if n.inner == nil {
 			return layout.New(layout.Box())
@@ -504,12 +585,24 @@ func (n *Node) Layout(c *Ctx) *layout.Element {
 		if sz <= 0 {
 			sz = th.Metrics.IconSizeSM
 		}
-		st := applyLayoutSpec(layout.Box().Size(sz, sz).FlexShrink(0), n.spec)
+		var padL, padR, padT, padB float32
+		if n.spec.hasPad {
+			padL, padR = n.spec.pad.Left, n.spec.pad.Right
+			padT, padB = n.spec.pad.Top, n.spec.pad.Bottom
+		}
+		st := applyLayoutSpec(layout.Box().Size(sz+padL+padR, sz+padT+padB).FlexShrink(0), n.spec)
 		el := layout.New(st)
 		name, col := n.icon, n.iconColor
 		el.Paint = func(dl *render.DrawList, _ *shape.Engine) {
-			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, name, el.Frame, col)
+			if sheet := frameIcons(); sheet != nil && !name.Empty() {
+				pad := el.Style.Padding
+				iconFrame := render.Rect{
+					X: el.Frame.X + pad.Left,
+					Y: el.Frame.Y + pad.Top,
+					W: el.Frame.W - pad.Left - pad.Right,
+					H: el.Frame.H - pad.Top - pad.Bottom,
+				}
+				sheet.Draw(dl, name, iconFrame, col)
 			}
 		}
 		return el

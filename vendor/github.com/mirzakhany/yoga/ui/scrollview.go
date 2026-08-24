@@ -30,19 +30,29 @@ func NewScrollView(content *layout.Element) *ScrollView {
 	bar := th.Metrics.ScrollbarSize
 	sv.vbar = NewScrollbarAxis(Vertical, &sv.scrollY, &sv.contentH, bar)
 
-	sv.viewEl = layout.New(layout.Box().FlexGrow(1))
+	// Basis 0 + min 0: scroll panes must not publish content height as their
+	// flex basis, or a tall page forces ancestors to overflow and shrink chrome
+	// (top bars, sidebars). Same idea as CSS flex min-height:0 on overflow:auto.
+	sv.viewEl = layout.New(layout.Box().FlexGrow(1).FlexBasis(0).Min(0, 0))
 	sv.viewEl.Clip = true
 	sv.setContent(content)
 
-	sv.host = layout.New(layout.Box().FlexGrow(1), sv.viewEl, sv.vbar.host)
+	sv.host = layout.New(layout.Box().FlexGrow(1).FlexBasis(0).Min(0, 0), sv.viewEl, sv.vbar.host)
 	sv.host.Paint = sv.paint
 	sv.host.OnMouse = sv.onMouse
+	// Re-clamp after measure so a shorter content tree (e.g. page switch) does
+	// not paint with the previous tall contentH / scrollY until the next click.
+	sv.host.AfterLayout = sv.afterLayout
 	return sv
 }
 
 func (sv *ScrollView) setContent(content *layout.Element) {
-	if sv.Content != nil && sv.Content.Frame.H > 0 {
-		sv.contentH = sv.Content.Frame.H
+	if sv.Content != nil {
+		if _, h := sv.Content.LayoutSize(); h > 0 {
+			sv.contentH = h
+		} else if sv.Content.Frame.H > 0 {
+			sv.contentH = sv.Content.Frame.H
+		}
 	}
 	sv.Content = content
 	if content != nil {
@@ -54,10 +64,23 @@ func (sv *ScrollView) setContent(content *layout.Element) {
 }
 
 func (sv *ScrollView) contentHeight() float32 {
-	if sv.Content != nil && sv.Content.Frame.H > 0 {
-		sv.contentH = sv.Content.Frame.H
+	if sv.Content != nil {
+		if _, h := sv.Content.LayoutSize(); h > 0 {
+			sv.contentH = h
+		} else if sv.Content.Frame.H > 0 {
+			sv.contentH = sv.Content.Frame.H
+		}
 	}
 	return sv.contentH
+}
+
+// hostHeight prefers solver size (valid after layoutNode / during AfterLayout)
+// and falls back to Frame after Flatten.
+func (sv *ScrollView) hostHeight() float32 {
+	if _, h := sv.host.LayoutSize(); h > 0 {
+		return h
+	}
+	return sv.host.Frame.H
 }
 
 // viewport is the content area: the element frame minus the scrollbar strip
@@ -73,15 +96,18 @@ func (sv *ScrollView) viewport() render.Rect {
 	return render.Rect{X: f.X, Y: f.Y, W: w, H: f.H}
 }
 
-func (sv *ScrollView) syncScroll() {
+// syncScroll clamps offset and updates scrollbar gutter. Returns true when the
+// viewport right margin changed (caller may need another layout pass).
+func (sv *ScrollView) syncScroll() bool {
 	th := theme.Current()
 	ch := sv.contentHeight()
 	if sv.vbar.ContentHeight != nil {
 		*sv.vbar.ContentHeight = ch
 	}
-	f := sv.host.Frame
+	hostH := sv.hostHeight()
 	bar := th.Metrics.ScrollbarSize
-	vShow := ch > f.H
+	vShow := ch > hostH
+	prevMargin := sv.viewEl.Style.Margin.Right
 	if vShow {
 		sv.vbar.host.Style = layout.Box().W(bar).AbsTop(0).AbsRight(0).AbsBottom(0)
 		sv.vbar.host.ReapplyStyle()
@@ -89,9 +115,14 @@ func (sv *ScrollView) syncScroll() {
 	} else {
 		sv.viewEl.Style.Margin.Right = 0
 	}
-	maxOff := f32max(0, ch-f.H)
+	maxOff := f32max(0, ch-hostH)
 	sv.scrollY = clampf(sv.scrollY, 0, maxOff)
 	sv.viewEl.ScrollOffset = sv.scrollY
+	return sv.viewEl.Style.Margin.Right != prevMargin
+}
+
+func (sv *ScrollView) afterLayout(_ *layout.Element) bool {
+	return sv.syncScroll()
 }
 
 func (sv *ScrollView) paint(dl *render.DrawList, _ *shape.Engine) {
@@ -140,7 +171,9 @@ func (n *Node) layoutScroll(c *Ctx) *layout.Element {
 		content = n.child.Layout(c)
 	}
 	sv.setContent(content)
-	sv.host.Style = applyLayoutSpec(layout.Box().FlexGrow(1), n.spec)
+	// Re-apply each frame; keep basis/min so Grow(1) fills leftover space only.
+	sv.host.Style = applyLayoutSpec(layout.Box().FlexGrow(1).FlexBasis(0).Min(0, 0), n.spec)
+	sv.host.AfterLayout = sv.afterLayout
 	sv.Update(c.Mouse())
 	return sv.host
 }

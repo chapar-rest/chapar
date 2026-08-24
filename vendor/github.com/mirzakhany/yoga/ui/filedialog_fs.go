@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/mirzakhany/yoga/icons"
 )
 
 const fileDialogRecentLimit = 10
@@ -22,7 +24,7 @@ type fileEntry struct {
 type filePlace struct {
 	ID    string
 	Label string
-	Icon  string
+	Icon  icons.Icon
 	Path  string // empty for the Recent virtual place
 }
 
@@ -40,21 +42,21 @@ func defaultFileDialogDir() string {
 func listFilePlaces(recent []string) []filePlace {
 	var out []filePlace
 	if len(recent) > 0 {
-		out = append(out, filePlace{ID: "recent", Label: "Recent", Icon: "clock"})
+		out = append(out, filePlace{ID: "recent", Label: "Recent", Icon: icons.Clock})
 	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return out
 	}
-	out = append(out, filePlace{ID: "home", Label: "Home", Icon: "home", Path: home})
+	out = append(out, filePlace{ID: "home", Label: "Home", Icon: icons.House, Path: home})
 	for _, p := range []filePlace{
-		{ID: "desktop", Label: "Desktop", Icon: "folder", Path: filepath.Join(home, "Desktop")},
-		{ID: "documents", Label: "Documents", Icon: "folder", Path: filepath.Join(home, "Documents")},
-		{ID: "downloads", Label: "Downloads", Icon: "download", Path: filepath.Join(home, "Downloads")},
-		{ID: "pictures", Label: "Pictures", Icon: "folder", Path: filepath.Join(home, "Pictures")},
-		{ID: "music", Label: "Music", Icon: "folder", Path: filepath.Join(home, "Music")},
-		{ID: "videos", Label: "Videos", Icon: "folder", Path: filepath.Join(home, "Videos")},
-		{ID: "movies", Label: "Movies", Icon: "folder", Path: filepath.Join(home, "Movies")},
+		{ID: "desktop", Label: "Desktop", Icon: icons.Folder, Path: filepath.Join(home, "Desktop")},
+		{ID: "documents", Label: "Documents", Icon: icons.Folder, Path: filepath.Join(home, "Documents")},
+		{ID: "downloads", Label: "Downloads", Icon: icons.Download, Path: filepath.Join(home, "Downloads")},
+		{ID: "pictures", Label: "Pictures", Icon: icons.Folder, Path: filepath.Join(home, "Pictures")},
+		{ID: "music", Label: "Music", Icon: icons.Folder, Path: filepath.Join(home, "Music")},
+		{ID: "videos", Label: "Videos", Icon: icons.Folder, Path: filepath.Join(home, "Videos")},
+		{ID: "movies", Label: "Movies", Icon: icons.Folder, Path: filepath.Join(home, "Movies")},
 	} {
 		if st, err := os.Stat(p.Path); err == nil && st.IsDir() {
 			out = append(out, p)

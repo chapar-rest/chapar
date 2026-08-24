@@ -33,8 +33,9 @@ type ToastHost struct {
 	width  float32
 }
 
-// NewToastHost builds a toast overlay host. Place it in the view tree so
-// Layout can self-register the overlay.
+// NewToastHost builds a toast overlay host. The window Ctx owns a default
+// host (c.Toasts()); construct a dedicated one only for tests or a second
+// stack, and place that one in the view tree so Layout can register overlays.
 func NewToastHost() *ToastHost {
 	t := &ToastHost{margin: 16, width: 280}
 	t.host = layout.New(layout.Box())

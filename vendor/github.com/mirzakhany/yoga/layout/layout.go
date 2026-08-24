@@ -22,6 +22,11 @@ type PaintFunc func(dl *render.DrawList, text *shape.Engine)
 // behind them.
 type MouseFunc func(e *Element, m *input.Mouse)
 
+// AfterLayoutFunc runs after the solver assigns cw/ch and before Flatten.
+// Return true if the hook changed styles that require one more layout pass
+// (e.g. scrollbar gutter margin). The engine runs at most one relayout.
+type AfterLayoutFunc func(e *Element) (relayout bool)
+
 // Element is a node in the UI tree. It couples layout style, an optional paint
 // hook, and an optional input hook. Components (layer 3) build Elements and
 // attach those hooks.
@@ -32,8 +37,9 @@ type Element struct {
 	// Frame is the absolute screen-space rectangle filled in by Flatten (pass 2).
 	Frame render.Rect
 
-	Paint   PaintFunc
-	OnMouse MouseFunc
+	Paint       PaintFunc
+	OnMouse     MouseFunc
+	AfterLayout AfterLayoutFunc
 
 	// Overlay elements (dropdowns, context menus) are painted and hit-tested
 	// after — i.e. on top of — the normal tree, regardless of their position in
@@ -72,6 +78,12 @@ func (e *Element) WithPaint(fn PaintFunc) *Element { e.Paint = fn; return e }
 
 // WithMouse attaches an input hook and returns the element for chaining.
 func (e *Element) WithMouse(fn MouseFunc) *Element { e.OnMouse = fn; return e }
+
+// LayoutSize returns the solver-assigned width/height (cw/ch) from the last
+// layoutNode pass. Prefer this over Frame when reading size before Flatten.
+func (e *Element) LayoutSize() (w, h float32) {
+	return e.cw, e.ch
+}
 
 // WithBackground attaches a paint hook that fills the element's frame with c.
 func (e *Element) WithBackground(c render.Color) *Element {

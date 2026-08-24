@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -233,15 +234,15 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, tabs
 		if i == hoverClose {
 			dl.AddRect(c, th.ListHover)
 			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, "close", c, th.Foreground)
+				sheet.Draw(dl, icons.X, c, th.Foreground)
 			}
 		} else if tab.Modified {
 			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, "circle", shrinkRect(c, 0.5), th.ForegroundMuted)
+				sheet.Draw(dl, icons.Circle, shrinkRect(c, 0.5), th.ForegroundMuted)
 			}
 		} else if i == hoverTab || i == active {
 			if sheet := frameIcons(); sheet != nil {
-				sheet.Draw(dl, "close", c, th.ForegroundMuted)
+				sheet.Draw(dl, icons.X, c, th.ForegroundMuted)
 			}
 		}
 	}

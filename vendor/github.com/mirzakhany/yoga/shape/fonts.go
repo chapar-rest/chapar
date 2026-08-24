@@ -16,12 +16,19 @@ import (
 
 const logicalFontPx = 14.0
 
+// Font weights used by UI chrome. Values >= WeightSemiBold select Inter SemiBold.
+const (
+	WeightRegular  = 400
+	WeightSemiBold = 600
+)
+
 // FontSystem resolves faces (UI primary + mono editor + system fallback) for shaping.
 type FontSystem struct {
-	fontMap *fontscan.FontMap
-	primary *font.Face // UI sans-serif face
-	mono    *font.Face // editor monospace face
-	scale   float32
+	fontMap       *fontscan.FontMap
+	primary       *font.Face // UI sans-serif Regular
+	primaryStrong *font.Face // UI sans-serif SemiBold (Weight >= 600)
+	mono          *font.Face // editor monospace face
+	scale         float32
 
 	// Per-role shaping sizes, letter spacing, and line-height multipliers.
 	uiPixelSize    fixed.Int26_6
@@ -69,6 +76,12 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 	}
 	primary.SetPpem(uint16(px), uint16(px))
 
+	primaryStrong, err := font.ParseTTF(bytes.NewReader(render.InterSemiBoldTTF))
+	if err != nil {
+		return nil, err
+	}
+	primaryStrong.SetPpem(uint16(px), uint16(px))
+
 	mono, err := font.ParseTTF(bytes.NewReader(render.JetBrainsMonoTTF))
 	if err != nil {
 		return nil, err
@@ -78,6 +91,8 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 	fm := fontscan.NewFontMap(log.Default())
 	uiMD := primary.Describe()
 	fm.AddFace(primary, fontscan.Location{File: "Inter-Regular.ttf"}, uiMD)
+	strongMD := primaryStrong.Describe()
+	fm.AddFace(primaryStrong, fontscan.Location{File: "Inter-SemiBold.ttf"}, strongMD)
 	monoMD := mono.Describe()
 	fm.AddFace(mono, fontscan.Location{File: "JetBrainsMono-Regular.ttf"}, monoMD)
 	fm.SetQuery(fontscan.Query{
@@ -91,6 +106,7 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 	fs := &FontSystem{
 		fontMap:          fm,
 		primary:          primary,
+		primaryStrong:    primaryStrong,
 		mono:             mono,
 		scale:            scale,
 		uiPixelSize:      fixed.I(px),
@@ -102,6 +118,7 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 		monoMetricsCache: make(map[render.Px]Metrics),
 	}
 	fs.registerFace(primary)
+	fs.registerFace(primaryStrong)
 	fs.registerFace(mono)
 	fs.metrics = fs.computeMetrics(primary, fs.uiPixelSize, fs.uiLineFactor)
 	fs.monoMetrics = fs.computeMetrics(mono, fs.monoPixelSize, fs.monoLineFactor)
@@ -119,6 +136,10 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 	if err != nil {
 		return err
 	}
+	strongFace, err := font.ParseTTF(bytes.NewReader(render.InterSemiBoldTTF))
+	if err != nil {
+		return err
+	}
 	monoFace, err := fs.loadFace(cfg.Mono, render.JetBrainsMonoTTF)
 	if err != nil {
 		return err
@@ -129,11 +150,14 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 	uiPx := fs.ppem(uiSize)
 	monoPx := fs.ppem(monoSize)
 	uiFace.SetPpem(uint16(uiPx.Round()), uint16(uiPx.Round()))
+	strongFace.SetPpem(uint16(uiPx.Round()), uint16(uiPx.Round()))
 	monoFace.SetPpem(uint16(monoPx.Round()), uint16(monoPx.Round()))
 
 	fs.primary = uiFace
+	fs.primaryStrong = strongFace
 	fs.mono = monoFace
 	fs.registerFace(uiFace)
+	fs.registerFace(strongFace)
 	fs.registerFace(monoFace)
 	fs.uiPixelSize = uiPx
 	fs.monoPixelSize = monoPx
@@ -149,6 +173,7 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 
 	// Refresh the query so non-ASCII fallback prefers the chosen families.
 	fs.fontMap.AddFace(uiFace, fontscan.Location{File: "ui"}, uiFace.Describe())
+	fs.fontMap.AddFace(strongFace, fontscan.Location{File: "ui-strong"}, strongFace.Describe())
 	fs.fontMap.AddFace(monoFace, fontscan.Location{File: "mono"}, monoFace.Describe())
 
 	fs.metrics = fs.computeMetrics(uiFace, fs.uiPixelSize, fs.uiLineFactor)
@@ -226,40 +251,62 @@ func (m monoFontmap) ResolveFace(r rune) *font.Face {
 // SetScript implements shaping.FontmapScript.
 func (m monoFontmap) SetScript(s language.Script) { m.fs.SetScript(s) }
 
+// strongFontmap prefers Inter SemiBold for runes it can render, then falls back
+// to the normal UI/system resolution chain.
+type strongFontmap struct{ fs *FontSystem }
+
+// ResolveFace implements shaping.Fontmap.
+func (m strongFontmap) ResolveFace(r rune) *font.Face {
+	if strong := m.fs.primaryStrong; strong != nil {
+		if _, has := strong.NominalGlyph(r); has {
+			m.fs.registerFace(strong)
+			return strong
+		}
+	}
+	return m.fs.ResolveFace(r)
+}
+
+// SetScript implements shaping.FontmapScript.
+func (m strongFontmap) SetScript(s language.Script) { m.fs.SetScript(s) }
+
 // Metrics returns UI line metrics in logical pixels at the default size.
 func (fs *FontSystem) Metrics() Metrics { return fs.metrics }
 
 // MonoMetrics returns editor mono line metrics at the default size.
 func (fs *FontSystem) MonoMetrics() Metrics { return fs.monoMetrics }
 
-// MetricsAt returns UI line metrics scaled to logicalSize (logical px).
+// MetricsAt returns UI line metrics at logicalSize (logical px), shaped at
+// that size's ppem rather than linearly scaling the default metrics.
 func (fs *FontSystem) MetricsAt(logicalSize render.Px) Metrics {
-	return fs.metricsAt(logicalSize, fs.metrics, fs.metricsCache)
+	return fs.metricsAtSize(logicalSize, fs.primary, fs.metrics, fs.uiLineFactor, fs.uiPixelSize, fs.metricsCache)
 }
 
-// MonoMetricsAt returns editor mono line metrics scaled to logicalSize.
+// MonoMetricsAt returns editor mono line metrics at logicalSize.
 func (fs *FontSystem) MonoMetricsAt(logicalSize render.Px) Metrics {
-	return fs.metricsAt(logicalSize, fs.monoMetrics, fs.monoMetricsCache)
+	return fs.metricsAtSize(logicalSize, fs.mono, fs.monoMetrics, fs.monoLineFactor, fs.monoPixelSize, fs.monoMetricsCache)
 }
 
-func (fs *FontSystem) metricsAt(logicalSize render.Px, base Metrics, cache map[render.Px]Metrics) Metrics {
+func (fs *FontSystem) metricsAtSize(logicalSize render.Px, face *font.Face, base Metrics, lineFactor float32, basePx fixed.Int26_6, cache map[render.Px]Metrics) Metrics {
 	if logicalSize <= 0 {
 		return base
 	}
-	if logicalSize == float32(logicalFontPx) {
+	baseLogical := float32(basePx.Round()) / fs.scale
+	if abs32(logicalSize-baseLogical) < 0.01 {
 		return base
 	}
 	if m, ok := cache[logicalSize]; ok {
 		return m
 	}
-	scale := logicalSize / float32(logicalFontPx)
-	m := Metrics{
-		Ascent:     base.Ascent * scale,
-		Descent:    base.Descent * scale,
-		LineHeight: base.LineHeight * scale,
-	}
+	m := fs.computeMetrics(face, fs.ppem(logicalSize), lineFactor)
 	cache[logicalSize] = m
 	return m
+}
+
+func abs32(v float32) float32 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // DefaultLogicalSize is the base UI font size in logical pixels.
@@ -271,11 +318,22 @@ func (fs *FontSystem) Scale() float32 { return fs.scale }
 // PixelSize returns the UI shaping size in pixels.
 func (fs *FontSystem) PixelSize() fixed.Int26_6 { return fs.uiPixelSize }
 
-// Primary returns the UI sans-serif face.
+// Primary returns the UI sans-serif Regular face.
 func (fs *FontSystem) Primary() *font.Face { return fs.primary }
+
+// PrimaryStrong returns the UI sans-serif SemiBold face (Weight >= 600).
+func (fs *FontSystem) PrimaryStrong() *font.Face { return fs.primaryStrong }
 
 // Mono returns the editor monospace face.
 func (fs *FontSystem) Mono() *font.Face { return fs.mono }
+
+// uiFaceForWeight returns Regular or SemiBold for the given CSS-like weight.
+func (fs *FontSystem) uiFaceForWeight(weight int) *font.Face {
+	if weight >= WeightSemiBold && fs.primaryStrong != nil {
+		return fs.primaryStrong
+	}
+	return fs.primary
+}
 
 func (fs *FontSystem) computeMetrics(face *font.Face, size fixed.Int26_6, lineFactor float32) Metrics {
 	in := fs.baseInputFace([]rune("Ag"), face, size)

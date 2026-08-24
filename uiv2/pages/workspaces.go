@@ -5,6 +5,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -23,7 +24,7 @@ func NewWorkspacesPage(repo repository.RepositoryV2, list func() []*domain.Works
 	p.table = ui.NewTable([]ui.TableColumn{
 		{ID: "name", Label: "Name", Kind: ui.TableColEditable, Width: 0, Sortable: true},
 		{ID: "act", Label: "", Kind: ui.TableColActions, Width: 40, Locked: true},
-	}, []ui.TableAction{{Icon: "delete", Tooltip: "Delete"}})
+	}, []ui.TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}})
 	p.table.Actions[0].OnClick = func(rowID string) { p.deleteID(rowID) }
 	p.table.OnCellChange = func(rowID, colID, value string) {
 		if colID != "name" {
@@ -61,7 +62,7 @@ func (p *Workspaces) Reload() {
 		}
 		rows = append(rows, ui.TableRow{
 			ID:    w.MetaData.ID,
-			Icon:  "folder",
+			Icon:  icons.Folder,
 			Cells: map[string]string{"name": w.MetaData.Name},
 		})
 	}
@@ -101,9 +102,9 @@ func (p *Workspaces) Layout(c *ui.Ctx) ui.View {
 		ui.Row(
 			ui.Strong("Workspaces"),
 			ui.Spacer(),
-			ui.TextField("ws-search", p.query).Placeholder("Search...").IconStart("search").Width(220).
+			ui.TextField("ws-search", p.query).Placeholder("Search...").IconStart(icons.Search).Width(220).
 				OnChange(func(s string) { p.query = s; p.Reload() }),
-			ui.Button("ws-new", ui.Text("New")).Primary().IconStart("add").OnClick(p.create),
+			ui.Button("ws-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(p.create),
 		).Gap(th.Spacing.S).Padding(th.Spacing.M),
 		ui.Muted("Double-click a workspace to switch.").PaddingXY(th.Spacing.M, 0),
 		ui.HLine(th.Stroke.Thin, th.Border),

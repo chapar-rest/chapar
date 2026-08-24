@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
+	"github.com/mirzakhany/yoga/icons"
 	"golang.org/x/image/vector"
 )
 
@@ -22,18 +23,32 @@ const (
 type glyphKey struct {
 	faceID uint32
 	gid    font.GID
+	ppem   uint16
 }
+
+// GlyphRasterPad is the device-pixel padding around outline ink in the atlas.
+// Draw paths subtract PadLogical so the ink, not the pad, aligns with bearings.
+const GlyphRasterPad = 2
 
 // GlyphEntry describes a baked glyph in the atlas.
 type GlyphEntry struct {
-	Page     Page
-	UV       Rect
-	W, H     float32 // logical size
-	Color    bool
-	physW    int
-	physH    int
-	physX    int
-	physY    int
+	Page  Page
+	UV    Rect
+	W, H  float32 // logical size (includes Pad on each side for outlines)
+	Pad   float32 // logical px of raster pad around ink (0 for bitmaps)
+	Color bool
+	physW int
+	physH int
+	physX int
+	physY int
+}
+
+// PadLogical converts device-pixel GlyphRasterPad to logical px for this atlas scale.
+func (a *FontAtlas) PadLogical() float32 {
+	if a.scale < 1 {
+		return float32(GlyphRasterPad)
+	}
+	return float32(GlyphRasterPad) / a.scale
 }
 
 // DirtyRect is a sub-rectangle that changed in an atlas page.
@@ -59,9 +74,10 @@ type FontAtlas struct {
 	glyphs map[glyphKey]GlyphEntry
 	icons  map[string]Rect
 
-	monoShelf   shelf
-	colorShelf  shelf
-	iconStripH  int // mono-page rows reserved for baked icons (glyphs pack below)
+	packedIconSources map[string]icons.Icon
+
+	monoShelf  shelf
+	colorShelf shelf
 	dirty       []DirtyRect
 	fullRebuild bool
 
@@ -89,21 +105,21 @@ func NewAtlasScale(scale float32) *FontAtlas {
 		scale = 1
 	}
 	a := &FontAtlas{
-		scale:      scale,
-		monoW:      initialMonoW,
-		monoH:      initialMonoH,
-		colorW:     initialColorW,
-		colorH:     initialColorH,
-		W:          initialMonoW,
-		H:          initialMonoH,
-		glyphs:     make(map[glyphKey]GlyphEntry),
-		icons:      make(map[string]Rect, 32),
-		monoShelf:  shelf{pad: 1},
-		colorShelf: shelf{pad: 1},
+		scale:             scale,
+		monoW:             initialMonoW,
+		monoH:             initialMonoH,
+		colorW:            initialColorW,
+		colorH:            initialColorH,
+		W:                 initialMonoW,
+		H:                 initialMonoH,
+		glyphs:            make(map[glyphKey]GlyphEntry),
+		icons:             make(map[string]Rect, 32),
+		packedIconSources: make(map[string]icons.Icon),
+		monoShelf:         shelf{pad: 1},
+		colorShelf:        shelf{pad: 1},
 	}
 	a.monoPix = make([]byte, a.monoW*a.monoH)
 	a.colorPix = make([]byte, a.colorW*a.colorH*4)
-	a.packIcons()
 	a.CellW = logicalFontPx * 0.62
 	a.CellH = logicalFontPx + 3
 	return a
@@ -115,58 +131,92 @@ func NewMonoAtlasScale(scale float32) *FontAtlas { return NewAtlasScale(scale) }
 // NewMonoAtlas creates a 1x atlas.
 func NewMonoAtlas() *FontAtlas { return NewAtlasScale(1) }
 
-func (a *FontAtlas) packIcons() {
+func (a *FontAtlas) EnsureIcon(icon icons.Icon) (Rect, bool) {
+	if icon.Empty() {
+		return Rect{}, false
+	}
+	if uv, ok := a.icons[icon.Name]; ok {
+		return uv, true
+	}
 	iconPx := int(iconLogical*a.scale + 0.5)
 	if iconPx < 8 {
 		iconPx = 8
 	}
-	names := iconNames()
-	perRow := a.monoW / iconPx
-	if perRow < 1 {
-		perRow = 1
+	var mask *image.Alpha
+	var err error
+	if HasSVGOverride(icon.Name) {
+		mask, err = rasterizeOverrideSVG(icon.Name, iconPx)
+	} else {
+		am, aerr := icon.Alpha(iconPx)
+		if aerr != nil {
+			return Rect{}, false
+		}
+		mask = image.NewAlpha(image.Rect(0, 0, am.W, am.H))
+		copy(mask.Pix, am.Pix)
+		err = nil
 	}
-	regionY := a.monoShelf.y
-	for i, name := range names {
-		mask, err := rasterizeIcon(iconRegistry[name], iconPx)
-		if err != nil {
-			continue
-		}
-		col := i % perRow
-		row := i / perRow
-		ox := col * iconPx
-		oy := regionY + row*iconPx
-		if oy+iconPx > a.monoH {
-			a.growMono(a.monoH * 2)
-			a.packIcons()
-			return
-		}
-		for y := 0; y < iconPx; y++ {
-			for x := 0; x < iconPx; x++ {
-				a.monoPix[(oy+y)*a.monoW+(ox+x)] = mask.Pix[y*mask.Stride+x]
-			}
-		}
-		a.icons[name] = Rect{
-			X: float32(ox) / float32(a.monoW),
-			Y: float32(oy) / float32(a.monoH),
-			W: float32(iconPx) / float32(a.monoW),
-			H: float32(iconPx) / float32(a.monoH),
-		}
+	if err != nil || mask == nil {
+		return Rect{}, false
 	}
-	rows := (len(names) + perRow - 1) / perRow
-	if rows < 1 {
-		rows = 1
-	}
-	a.iconStripH = regionY + rows*iconPx + a.monoShelf.pad
-	a.monoShelf.x = 0
-	a.monoShelf.y = a.iconStripH
-	a.monoShelf.rowH = 0
+	uv := a.packIconMask(icon.Name, mask)
+	a.packedIconSources[icon.Name] = icon
+	return uv, true
 }
 
-// EnsureGlyph returns a baked glyph entry, rasterizing on miss.
-func (a *FontAtlas) EnsureGlyph(faceID uint32, face *font.Face, gid font.GID) GlyphEntry {
-	key := glyphKey{faceID: faceID, gid: gid}
+func (a *FontAtlas) packIconMask(name string, mask *image.Alpha) Rect {
+	w, h := mask.Bounds().Dx(), mask.Bounds().Dy()
+	x, y, ok := a.monoShelf.alloc(a, w, h, true)
+	if !ok {
+		a.growMono(a.monoH * 2)
+		x, y, _ = a.monoShelf.alloc(a, w, h, true)
+	}
+	blitAlpha(a.monoPix, a.monoW, x, y, mask)
+	a.markMonoDirty(x, y, w, h)
+	uv := Rect{
+		X: float32(x) / float32(a.monoW),
+		Y: float32(y) / float32(a.monoH),
+		W: float32(w) / float32(a.monoW),
+		H: float32(h) / float32(a.monoH),
+	}
+	a.icons[name] = uv
+	return uv
+}
+
+func (a *FontAtlas) growMono(newH int) {
+	if newH <= a.monoH {
+		newH = a.monoH * 2
+	}
+	savedIcons := make([]icons.Icon, 0, len(a.packedIconSources))
+	for _, ic := range a.packedIconSources {
+		savedIcons = append(savedIcons, ic)
+	}
+	pix := make([]byte, a.monoW*newH)
+	copy(pix, a.monoPix)
+	a.monoPix = pix
+	a.monoH = newH
+	a.H = newH
+	a.monoShelf = shelf{pad: 1}
+	a.glyphs = make(map[glyphKey]GlyphEntry)
+	a.icons = make(map[string]Rect, len(savedIcons))
+	a.packedIconSources = make(map[string]icons.Icon, len(savedIcons))
+	for _, ic := range savedIcons {
+		a.EnsureIcon(ic)
+	}
+	a.fullRebuild = true
+}
+
+// EnsureGlyph returns a baked glyph entry, rasterizing on miss at the given
+// device-pixel ppem. The face's ppem is set before baking so outlines match.
+func (a *FontAtlas) EnsureGlyph(faceID uint32, face *font.Face, gid font.GID, ppem uint16) GlyphEntry {
+	if ppem < 1 {
+		ppem = 1
+	}
+	key := glyphKey{faceID: faceID, gid: gid, ppem: ppem}
 	if e, ok := a.glyphs[key]; ok {
 		return e
+	}
+	if face != nil {
+		face.SetPpem(ppem, ppem)
 	}
 	e := a.bakeGlyph(face, gid)
 	a.glyphs[key] = e
@@ -191,9 +241,13 @@ func (a *FontAtlas) bakeGlyph(face *font.Face, gid font.GID) GlyphEntry {
 			return a.packMono(toAlpha(img))
 		}
 	case font.GlyphOutline:
-		return a.packMono(rasterizeOutline(face, d))
+		e := a.packMono(rasterizeOutline(face, d))
+		e.Pad = a.PadLogical()
+		return e
 	case font.GlyphSVG:
-		return a.packMono(rasterizeOutline(face, d.Outline))
+		e := a.packMono(rasterizeOutline(face, d.Outline))
+		e.Pad = a.PadLogical()
+		return e
 	}
 	img := image.NewAlpha(image.Rect(0, 0, 1, 1))
 	return a.packMono(img)
@@ -296,23 +350,6 @@ func pageH(a *FontAtlas, mono bool) int {
 	return a.colorH
 }
 
-func (a *FontAtlas) growMono(newH int) {
-	if newH <= a.monoH {
-		newH = a.monoH * 2
-	}
-	pix := make([]byte, a.monoW*newH)
-	copy(pix, a.monoPix)
-	a.monoPix = pix
-	a.monoH = newH
-	a.H = newH
-	a.monoShelf = shelf{pad: 1}
-	a.iconStripH = 0
-	// Glyph UVs are invalid after a resize; icons are repacked with fresh UVs.
-	a.glyphs = make(map[glyphKey]GlyphEntry)
-	a.packIcons()
-	a.fullRebuild = true
-}
-
 func (a *FontAtlas) growColor(newH int) {
 	if newH <= a.colorH {
 		newH = a.colorH * 2
@@ -374,7 +411,7 @@ func rasterizeOutline(face *font.Face, outline font.GlyphOutline) *image.Alpha {
 		scale = logicalFontPx / float32(face.Upem())
 	}
 	minX, minY, maxX, maxY := boundsOutline(outline, scale)
-	pad := 2
+	pad := GlyphRasterPad
 	w := int(maxX-minX) + pad*2
 	h := int(maxY-minY) + pad*2
 	if w < 2 {
@@ -474,7 +511,7 @@ func decodeBitmap(b font.GlyphBitmap) *image.RGBA {
 	return nil
 }
 
-// IconUV returns UV for a named icon.
+// IconUV returns UV for a named icon already packed in the atlas.
 func (a *FontAtlas) IconUV(name string) (Rect, bool) {
 	uv, ok := a.icons[name]
 	return uv, ok

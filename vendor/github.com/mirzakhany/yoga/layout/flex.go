@@ -7,7 +7,32 @@ type customEngine struct{}
 
 func (customEngine) Compute(root *Element, width, height float32) {
 	layoutNode(root, width, height, true)
+	// AfterLayout runs with cw/ch set but before Flatten so ScrollOffset and
+	// gutter margins can update before absolute frames are written. One
+	// relayout is allowed when a hook changes styles (e.g. scrollbar margin).
+	if runAfterLayout(root) {
+		layoutNode(root, width, height, true)
+		_ = runAfterLayout(root)
+	}
 	flatten(root, 0, 0)
+}
+
+// runAfterLayout walks the tree depth-first and invokes AfterLayout hooks.
+// Returns true if any hook requested a relayout.
+func runAfterLayout(e *Element) bool {
+	if e == nil {
+		return false
+	}
+	relayout := false
+	for _, c := range e.Children {
+		if runAfterLayout(c) {
+			relayout = true
+		}
+	}
+	if e.AfterLayout != nil && e.AfterLayout(e) {
+		relayout = true
+	}
+	return relayout
 }
 
 func layoutNode(e *Element, constraintW, constraintH float32, isRoot bool) {

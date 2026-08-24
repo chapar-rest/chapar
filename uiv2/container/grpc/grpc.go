@@ -8,6 +8,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/mirzakhany/yoga/highlight"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -179,12 +180,12 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Selected(optionIndex(spec.LasSelectedMethod, c.methods)).
 				OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }),
 			ui.Button("grpc-load-"+id, ui.Text("Methods")).OnClick(c.loadMethods),
-			ui.Button("grpc-save-"+id, ui.Text("Save")).IconStart("save").Disabled(!c.Dirty()).OnClick(func() {
+			ui.Button("grpc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-			ui.Button("grpc-send-"+id, ui.Text("Invoke")).Primary().IconStart("play_arrow").Hint("⌘↵").
+			ui.Button("grpc-send-"+id, ui.Text("Invoke")).Primary().IconStart(icons.Play).Hint("⌘↵").
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
 		ui.Text(c.status).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)).PaddingXY(th.Spacing.M, 0),

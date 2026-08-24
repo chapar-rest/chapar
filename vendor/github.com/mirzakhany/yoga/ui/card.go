@@ -51,7 +51,7 @@ func (n *Node) layoutCard(c *Ctx) *layout.Element {
 	pad := th.Spacing.L
 	var kids []View
 	if d.title != "" {
-		kids = append(kids, Text(d.title).Size(th.Typography.Subtitle.Size))
+		kids = append(kids, Text(d.title).Size(th.Typography.Subtitle.Size).Weight(th.Typography.Subtitle.Weight))
 	}
 	if d.subtitle != "" {
 		kids = append(kids, Text(d.subtitle).Size(th.Typography.Caption.Size).Style(Spec{}.TextColor(TokenForegroundMuted)))

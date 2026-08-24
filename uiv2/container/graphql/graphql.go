@@ -9,6 +9,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/mirzakhany/yoga/highlight"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -137,12 +138,12 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 			}).Width(160),
 			ui.TextField("gql-url-"+id, g.URL).Placeholder("https://…/graphql").
 				OnChange(func(s string) { g.URL = s; c.markDirty() }).Grow(1),
-			ui.Button("gql-save-"+id, ui.Text("Save")).IconStart("save").Disabled(!c.Dirty()).OnClick(func() {
+			ui.Button("gql-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-			ui.Button("gql-send-"+id, ui.Text("Send")).Primary().IconStart("play_arrow").Hint("⌘↵").
+			ui.Button("gql-send-"+id, ui.Text("Send")).Primary().IconStart(icons.Play).Hint("⌘↵").
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
 		ui.Text(c.status).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)).PaddingXY(th.Spacing.M, 0),

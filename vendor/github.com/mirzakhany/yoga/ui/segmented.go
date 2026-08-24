@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -10,7 +11,7 @@ import (
 
 // SegmentItem is one choice in a Segmented control.
 type SegmentItem struct {
-	Icon  string
+	Icon  icons.Icon
 	Label string
 	Value string
 }
@@ -89,12 +90,12 @@ func computeSegCellW(c *Ctx, items []SegmentItem) float32 {
 	var maxContent float32
 	for _, it := range items {
 		var cw float32
-		if it.Icon != "" {
+		if !it.Icon.Empty() {
 			cw += iconSz
 		}
 		if it.Label != "" && text != nil {
 			lw, _ := text.MeasureAt(it.Label, th.Typography.Body.Size)
-			if it.Icon != "" {
+			if !it.Icon.Empty() {
 				cw += segIconLabelGap
 			}
 			cw += lw
@@ -135,19 +136,19 @@ func paintSegmented(dl *render.DrawList, text *shape.Engine, f render.Rect, item
 		}
 		var content float32
 		var lw, lh float32
-		if it.Icon != "" {
+		if !it.Icon.Empty() {
 			content += iconSz
 		}
 		if it.Label != "" {
 			lw, lh = text.MeasureAt(it.Label, style.Size)
-			if it.Icon != "" {
+			if !it.Icon.Empty() {
 				content += segIconLabelGap
 			}
 			content += lw
 		}
 		x := cell.X + (cell.W-content)/2
 		cy := cell.Y + cell.H/2
-		if it.Icon != "" && frameIcons() != nil {
+		if !it.Icon.Empty() && frameIcons() != nil {
 			frameIcons().Draw(dl, it.Icon, render.Rect{X: x, Y: cy - iconSz/2, W: iconSz, H: iconSz}, fg)
 			x += iconSz + segIconLabelGap
 		}

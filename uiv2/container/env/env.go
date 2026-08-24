@@ -3,6 +3,7 @@ package env
 import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -65,10 +66,10 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 					c.deps.ReportTitle(s)
 				}).
 				Grow(1),
-			ui.Button("env-add-"+id, ui.Text("Add")).IconStart("add").OnClick(func() {
+			ui.Button("env-add-"+id, ui.Text("Add")).IconStart(icons.Plus).OnClick(func() {
 				container.AddKVRow(c.table, c.markDirty)
 			}),
-			ui.Button("env-save-"+id, ui.Text("Save")).Primary().IconStart("save").Hint("⌘S").
+			ui.Button("env-save-"+id, ui.Text("Save")).Primary().IconStart(icons.Save).Hint("⌘S").
 				Disabled(!c.dirty).
 				OnClick(func() {
 					if err := c.Save(); err != nil {

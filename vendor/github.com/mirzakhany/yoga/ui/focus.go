@@ -17,6 +17,13 @@ type Focusable interface {
 	FocusEl() *layout.Element
 }
 
+// KeyFilterer is an optional modal-host capability. When the modal implements
+// it, FilterKeys runs before keys are delivered to focused descendants so the
+// host can steal Up/Down/Enter (command palette) while leaving text input alone.
+type KeyFilterer interface {
+	FilterKeys(keys []input.KeyEvent) (pass []input.KeyEvent)
+}
+
 // FocusScope routes Tab traversal and keyboard input among focusables. It is
 // rebuilt every frame: widgets call Add during Layout(c), so beginFrame
 // clears the per-frame item list while preserving which widget is focused.
@@ -259,6 +266,9 @@ func (f *FocusScope) routeModal(kb *input.Keyboard) {
 			continue
 		}
 		rest = append(rest, ev)
+	}
+	if kf, ok := f.modal.(KeyFilterer); ok {
+		rest = kf.FilterKeys(rest)
 	}
 	items := f.modalItems()
 	if len(items) == 0 {

@@ -14,18 +14,12 @@ type Workspace struct {
 	docs    []container.Container
 	active  int
 	deps    func() container.Deps
-	confirm *confirm
+	confirm func(title, message string, onYes func())
 	onTrees func()
 }
 
-type confirm struct {
-	open    bool
-	message string
-	onYes   func()
-}
-
-func newWorkspace(deps func() container.Deps, confirmHost *confirm) *Workspace {
-	return &Workspace{deps: deps, confirm: confirmHost}
+func newWorkspace(deps func() container.Deps, confirm func(title, message string, onYes func())) *Workspace {
+	return &Workspace{deps: deps, confirm: confirm}
 }
 
 func (w *Workspace) OpenRequest(req *domain.Request) {
@@ -46,6 +40,7 @@ func (w *Workspace) containerDeps(id string) container.Deps {
 		Dirty: func(dirty bool) { w.setDirty(id, dirty) },
 		Title: func(title string) { w.setTitle(id, title) },
 		Error: d.Report.Error,
+		Toast: d.Report.Toast,
 		Saved: func() {
 			if d.Catalog != nil {
 				_ = d.Catalog.Load()
@@ -95,7 +90,7 @@ func (w *Workspace) setTitle(id, title string) {
 }
 
 func (w *Workspace) Active() container.Container {
-	if w.active < 0 || w.active >= len(w.docs) {
+	if len(w.docs) == 0 || w.active < 0 || w.active >= len(w.docs) {
 		return nil
 	}
 	return w.docs[w.active]
@@ -116,9 +111,9 @@ func (w *Workspace) requestClose(i int) {
 	}
 	if w.docs[i].Dirty() && w.confirm != nil {
 		idx := i
-		w.confirm.open = true
-		w.confirm.message = fmt.Sprintf("%q has unsaved changes. Close anyway?", w.docs[i].Title())
-		w.confirm.onYes = func() { w.drop(idx) }
+		w.confirm("Unsaved changes", fmt.Sprintf("%q has unsaved changes. Close anyway?", w.docs[i].Title()), func() {
+			w.drop(idx)
+		})
 		return
 	}
 	w.drop(i)

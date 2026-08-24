@@ -3,6 +3,7 @@ package container
 import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/google/uuid"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -12,7 +13,7 @@ func NewKVTable(idPrefix string, onChange func()) *ui.Table {
 		{ID: "key", Label: "Key", Kind: ui.TableColEditable, Width: 0},
 		{ID: "value", Label: "Value", Kind: ui.TableColEditable, Width: 0},
 		{ID: "act", Label: "", Kind: ui.TableColActions, Width: 40, Locked: true},
-	}, []ui.TableAction{{Icon: "delete", Tooltip: "Delete"}})
+	}, []ui.TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}})
 	t.Actions[0].OnClick = func(rowID string) {
 		t.RemoveRow(rowID)
 		if onChange != nil {

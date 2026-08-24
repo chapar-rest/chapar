@@ -106,8 +106,10 @@ func (m *Mouse) EndFrame() {
 	m.Consumed = false
 }
 
-// Key is a platform-agnostic keyboard key identifier. Only the subset the
-// editor needs is modeled; the example maps raw GLFW keys onto these.
+// Key is a platform-agnostic keyboard key identifier. The runtime maps raw
+// GLFW keys onto these. Existing letter constants keep their historic iota
+// values; missing letters, digits, F-keys, and punctuation were appended so
+// older values do not shift.
 type Key int
 
 const (
@@ -132,6 +134,61 @@ const (
 	KeyH
 	KeyEscape
 	KeySpace
+	// Remaining letters (A/C/F/H/S/V/X/Z already defined above).
+	KeyB
+	KeyD
+	KeyE
+	KeyG
+	KeyI
+	KeyJ
+	KeyK
+	KeyL
+	KeyM
+	KeyN
+	KeyO
+	KeyP
+	KeyQ
+	KeyR
+	KeyT
+	KeyU
+	KeyW
+	KeyY
+	// Digits
+	Key0
+	Key1
+	Key2
+	Key3
+	Key4
+	Key5
+	Key6
+	Key7
+	Key8
+	Key9
+	// Function keys
+	KeyF1
+	KeyF2
+	KeyF3
+	KeyF4
+	KeyF5
+	KeyF6
+	KeyF7
+	KeyF8
+	KeyF9
+	KeyF10
+	KeyF11
+	KeyF12
+	// Punctuation commonly used in shortcuts
+	KeyComma
+	KeyPeriod
+	KeySlash
+	KeyMinus
+	KeyEqual
+	KeyLeftBracket
+	KeyRightBracket
+	KeyBacktick
+	KeySemicolon
+	KeyApostrophe
+	KeyBackslash
 )
 
 // Mod is a bitset of active modifier keys.

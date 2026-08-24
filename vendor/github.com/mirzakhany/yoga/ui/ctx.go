@@ -16,8 +16,10 @@ import (
 // the widget store, and frame-wide state (viewport, theme, text engine).
 //
 // A Ctx is owned by the runtime and reset at the start of each build pass; do
-// not retain it across frames. App state lives in retained app structs; widget
-// micro-state (hover, caret, scroll) lives in the id-keyed store.
+// not retain per-frame fields (mouse, overlays, theme snapshot) across frames.
+// The Ctx pointer itself is window-lifetime, as are Dialogs/Files/Toasts and
+// Focus. App state lives in retained app structs; widget micro-state (hover,
+// caret, scroll) lives in the id-keyed store.
 type Ctx struct {
 	now      time.Time
 	vw, vh   float32
@@ -28,6 +30,10 @@ type Ctx struct {
 	overlays []*layout.Element
 	wakeIn   time.Duration // smallest Animate() request this frame; <0 = none
 	focus    *FocusScope   // runtime-owned, persists across frames
+	dialogs  *DialogHost   // window-owned; laid out by BuildFrame
+	files    *FileDialog
+	toasts   *ToastHost
+	commands *CommandsHost
 	mouse    *input.Mouse
 	keyboard *input.Keyboard
 	post     func() // thread-safe wake (glfw.PostEmptyEvent); may be nil
@@ -38,7 +44,17 @@ type Ctx struct {
 
 // New builds a Ctx bound to a text engine and an optional thread-safe wake.
 func New(text *shape.Engine, focus *FocusScope, post func()) *Ctx {
-	return &Ctx{text: text, focus: focus, post: post, wakeIn: -1, store: newStore()}
+	return &Ctx{
+		text:     text,
+		focus:    focus,
+		post:     post,
+		wakeIn:   -1,
+		store:    newStore(),
+		dialogs:  NewDialogHost(),
+		files:    NewFileDialog(),
+		toasts:   NewToastHost(),
+		commands: NewCommandsHost(),
+	}
 }
 
 // BeginFrame resets per-frame state and records the frame clock, viewport, and
@@ -58,6 +74,9 @@ func (c *Ctx) BeginFrame(vw, vh float32, m *input.Mouse, kb *input.Keyboard) {
 	if c.focus != nil {
 		c.focus.beginFrame()
 	}
+	if c.commands != nil {
+		c.commands.beginFrame()
+	}
 	SetViewport(vw, vh)
 }
 
@@ -76,6 +95,63 @@ func (c *Ctx) Invalidate() {
 
 // Focus returns the runtime-owned focus scope.
 func (c *Ctx) Focus() *FocusScope { return c.focus }
+
+// Dialogs returns the window-owned dialog host. Show from Body or OnClick;
+// BuildFrame lays it out so it does not need to be in the view tree.
+func (c *Ctx) Dialogs() *DialogHost {
+	if c.dialogs == nil {
+		c.dialogs = NewDialogHost()
+	}
+	return c.dialogs
+}
+
+// Files returns the window-owned file picker. Show from Body or OnClick;
+// BuildFrame lays it out so it does not need to be in the view tree.
+func (c *Ctx) Files() *FileDialog {
+	if c.files == nil {
+		c.files = NewFileDialog()
+	}
+	return c.files
+}
+
+// Toasts returns the window-owned toast stack. Show from Body or OnClick;
+// BuildFrame lays it out so it does not need to be in the view tree.
+func (c *Ctx) Toasts() *ToastHost {
+	if c.toasts == nil {
+		c.toasts = NewToastHost()
+	}
+	return c.toasts
+}
+
+// Commands returns the window-owned command registry and palette.
+// Register commands from Body; Show/Toggle from Body or OnClick; BuildFrame
+// lays the palette out so it does not need to be in the view tree.
+func (c *Ctx) Commands() *CommandsHost {
+	if c.commands == nil {
+		c.commands = NewCommandsHost()
+	}
+	return c.commands
+}
+
+// layoutWindowOverlays registers the window-owned overlay hosts after the
+// body so dialogs stack above the page, the file picker above dialogs,
+// the command palette above those, and toasts on top. Must run before
+// FocusScope.finishBuild so modal Add/SetModal participate in this frame's
+// focus list.
+func (c *Ctx) layoutWindowOverlays() {
+	if c.dialogs != nil {
+		c.dialogs.Layout(c)
+	}
+	if c.files != nil {
+		c.files.Layout(c)
+	}
+	if c.commands != nil {
+		c.commands.Layout(c)
+	}
+	if c.toasts != nil {
+		c.toasts.Layout(c)
+	}
+}
 
 // Animate requests a repaint within d. The runtime takes the minimum across
 // all Animate calls this frame as its wait budget.
