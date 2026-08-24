@@ -58,14 +58,8 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	th := ctx.Theme()
 	id := c.env.MetaData.ID
 	return ui.Column(
-		ui.Row(
-			ui.TextField("env-title-"+id, c.env.MetaData.Name).
-				OnChange(func(s string) {
-					c.env.MetaData.Name = s
-					c.markDirty()
-					c.deps.ReportTitle(s)
-				}).
-				Grow(1),
+		container.SimpleTitleRow(th, id, c.env.MetaData.Name,
+			func(s string) { container.RenameEnvironment(c.deps, c.env, s) },
 			ui.Button("env-add-"+id, ui.Text("Add")).IconStart(icons.Plus).OnClick(func() {
 				container.AddKVRow(c.table, c.markDirty)
 			}),
@@ -76,7 +70,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 						c.deps.ShowError(err)
 					}
 				}),
-		).Gap(th.Spacing.S).Padding(th.Spacing.M),
+		),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.ViewOf(c.table).Grow(1),
 	).Grow(1)

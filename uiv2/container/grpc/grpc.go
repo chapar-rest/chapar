@@ -7,6 +7,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	chapicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -168,23 +169,21 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 	spec := c.req.Spec.GRPC
 	return ui.Column(
-		ui.Row(
-			ui.TextField("grpc-title-"+id, c.req.MetaData.Name).OnChange(func(s string) {
-				c.req.MetaData.Name = s
-				c.markDirty()
-				c.deps.ReportTitle(s)
-			}).Width(160),
-			ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address).Placeholder("host:port").
-				OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }).Grow(1),
-			ui.Select("grpc-method-"+id, c.methods).Width(260).
-				Selected(optionIndex(spec.LasSelectedMethod, c.methods)).
-				OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }),
-			ui.Button("grpc-load-"+id, ui.Text("Methods")).OnClick(c.loadMethods),
+		container.TitleRow(th, id, "gRPC", c.req.CollectionName, c.req.MetaData.Name,
+			chapicons.Color(c.req, th),
+			func(s string) { container.RenameRequest(c.deps, c.req, s) },
 			ui.Button("grpc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
+		),
+		ui.Row(
+			ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address).Placeholder("host:port").
+				OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }).Grow(1),
+			ui.Select("grpc-method-"+id, c.methods).Width(260).
+				Selected(optionIndex(spec.LasSelectedMethod, c.methods)).
+				OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }),
 			ui.Button("grpc-send-"+id, ui.Text("Invoke")).Primary().IconStart(icons.Play).Hint("⌘↵").
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
@@ -215,12 +214,15 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 		)
 	case 2:
 		rows = append(rows,
-			ui.Checkbox("grpc-reflect-"+id, "Server reflection").
-				Check(spec.ServerInfo.ServerReflection).
-				OnToggle(func(v bool) { spec.ServerInfo.ServerReflection = v; c.markDirty() }),
-			ui.Checkbox("grpc-insecure-"+id, "Insecure").
-				Check(spec.Settings.Insecure).
-				OnToggle(func(v bool) { spec.Settings.Insecure = v; c.markDirty() }),
+			ui.Row(
+				ui.Checkbox("grpc-reflect-"+id, "Server reflection").
+					Check(spec.ServerInfo.ServerReflection).
+					OnToggle(func(v bool) { spec.ServerInfo.ServerReflection = v; c.markDirty() }),
+				ui.Checkbox("grpc-insecure-"+id, "Insecure").
+					Check(spec.Settings.Insecure).
+					OnToggle(func(v bool) { spec.Settings.Insecure = v; c.markDirty() }),
+				ui.Button("grpc-load-"+id, ui.Text("Methods")).Disabled(c.loading).OnClick(c.loadMethods),
+			).Gap(th.Spacing.S).Align(ui.AlignCenter),
 		)
 	}
 	return ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)

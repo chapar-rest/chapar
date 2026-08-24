@@ -8,6 +8,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	chapicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -130,19 +131,18 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 	g := c.req.Spec.GraphQL
 	return ui.Column(
-		ui.Row(
-			ui.TextField("gql-title-"+id, c.req.MetaData.Name).OnChange(func(s string) {
-				c.req.MetaData.Name = s
-				c.markDirty()
-				c.deps.ReportTitle(s)
-			}).Width(160),
-			ui.TextField("gql-url-"+id, g.URL).Placeholder("https://…/graphql").
-				OnChange(func(s string) { g.URL = s; c.markDirty() }).Grow(1),
+		container.TitleRow(th, id, "GraphQL", c.req.CollectionName, c.req.MetaData.Name,
+			chapicons.Color(c.req, th),
+			func(s string) { container.RenameRequest(c.deps, c.req, s) },
 			ui.Button("gql-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
+		),
+		ui.Row(
+			ui.TextField("gql-url-"+id, g.URL).Placeholder("https://…/graphql").
+				OnChange(func(s string) { g.URL = s; c.markDirty() }).Grow(1),
 			ui.Button("gql-send-"+id, ui.Text("Send")).Primary().IconStart(icons.Play).Hint("⌘↵").
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),

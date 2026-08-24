@@ -9,6 +9,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	chapicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -205,13 +206,21 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 		splitDir = ui.Vertical
 	}
 
+	prefix := http.Method
+	if prefix == "" {
+		prefix = domain.RequestMethodGET
+	}
 	return ui.Column(
+		container.TitleRow(th, id, prefix, c.req.CollectionName, c.req.MetaData.Name,
+			chapicons.Color(c.req, th),
+			func(s string) { container.RenameRequest(c.deps, c.req, s) },
+			ui.Button("http-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
+				if err := c.Save(); err != nil {
+					c.deps.ShowError(err)
+				}
+			}),
+		),
 		ui.Row(
-			ui.TextField("http-title-"+id, c.req.MetaData.Name).OnChange(func(s string) {
-				c.req.MetaData.Name = s
-				c.markDirty()
-				c.deps.ReportTitle(s)
-			}).Width(180),
 			ui.Select("http-method-"+id, methods).
 				Width(110).
 				Selected(optionIndex(http.Method, methods)).
@@ -224,11 +233,6 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Placeholder("https://…").
 				OnChange(func(s string) { http.URL = s; c.markDirty() }).
 				Grow(1),
-			ui.Button("http-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
-				if err := c.Save(); err != nil {
-					c.deps.ShowError(err)
-				}
-			}),
 			ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),

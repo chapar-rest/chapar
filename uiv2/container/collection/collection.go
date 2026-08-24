@@ -78,18 +78,14 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	th := ctx.Theme()
 	id := c.col.MetaData.ID
 	return ui.Column(
-		ui.Row(
-			ui.TextField("col-title-"+id, c.col.MetaData.Name).OnChange(func(s string) {
-				c.col.MetaData.Name = s
-				c.markDirty()
-				c.deps.ReportTitle(s)
-			}).Grow(1),
+		container.SimpleTitleRow(th, id, c.col.MetaData.Name,
+			func(s string) { container.RenameCollection(c.deps, c.col, s) },
 			ui.Button("col-save-"+id, ui.Text("Save")).Primary().IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-		).Gap(th.Spacing.S).Padding(th.Spacing.M),
+		),
 		ui.Tabs("col-tabs-"+id, c.tabs).Selected(c.active).OnSelectItem(func(i int, _ string) { c.active = i }),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		c.body(th),
