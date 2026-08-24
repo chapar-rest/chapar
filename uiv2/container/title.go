@@ -35,7 +35,7 @@ func TitleRow(th *theme.Theme, id, prefix, collection, name string, prefixColor 
 		ui.Row(right...).Gap(th.Spacing.S).Align(ui.AlignCenter),
 	).Justify(ui.JustifyBetween).
 		PaddingTop(th.Spacing.XS).
-		PaddingBottom(th.Spacing.M).
+		PaddingBottom(th.Spacing.XS).
 		PaddingLeft(th.Spacing.M).
 		PaddingRight(th.Spacing.M)
 }
@@ -53,7 +53,7 @@ func SimpleTitleRow(th *theme.Theme, id, name string, onSave func(string), actio
 		Justify(ui.JustifyBetween).
 		Align(ui.AlignCenter).
 		PaddingTop(th.Spacing.XS).
-		PaddingBottom(th.Spacing.M).
+		PaddingBottom(th.Spacing.S).
 		PaddingLeft(th.Spacing.M).
 		PaddingRight(th.Spacing.M)
 }

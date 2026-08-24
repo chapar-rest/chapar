@@ -224,10 +224,6 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 			ui.Select("http-method-"+id, methods).
 				Width(110).
 				Selected(optionIndex(http.Method, methods)).
-				OptionColor("GET", th.Success).
-				OptionColor("POST", th.Accent).
-				OptionColor("PUT", th.Warning).
-				OptionColor("DELETE", th.Error).
 				OnChange(func(v string) { http.Method = v; c.markDirty() }),
 			ui.TextField("http-url-"+id, http.URL).
 				Placeholder("https://…").
@@ -235,7 +231,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Grow(1),
 			ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).
 				Disabled(c.pending).OnClick(c.Send),
-		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
+		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.XS),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.Splitter("http-split-"+id, splitDir, c.reqPane(th), c.respPane(th)).
 			Sizes(0, 320).
