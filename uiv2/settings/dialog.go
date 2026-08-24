@@ -4,6 +4,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -155,14 +156,7 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			{Label: "HTTP/1.1", Value: "http/1.1"},
 			{Label: "HTTP/2", Value: "http/2"},
 		}
-		themeOpts := []ui.SelectOption{
-			{Label: "Light", Value: "light"},
-			{Label: "GitHub Light", Value: "github-light"},
-			{Label: "Dark", Value: "dark"},
-			{Label: "GitHub Dark", Value: "github-dark"},
-			{Label: "Catppuccin Mocha", Value: "catppuccin-mocha"},
-			{Label: "Catppuccin Frappe", Value: "catppuccin-frappe"},
-		}
+		themeOpts := yogaThemeOptions()
 		return ui.Form("settings-general",
 			ui.FormSelect("httpVersion", "HTTP version", "Version used for HTTP requests", httpOpts, selectIndex(g.General.HTTPVersion, httpOpts), func(v string) {
 				g.General.HTTPVersion = v
@@ -205,6 +199,15 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			}),
 		).Padding(th.Spacing.M)
 	}
+}
+
+func yogaThemeOptions() []ui.SelectOption {
+	names := theme.Names()
+	opts := make([]ui.SelectOption, 0, len(names))
+	for _, name := range names {
+		opts = append(opts, ui.SelectOption{Label: name, Value: name})
+	}
+	return opts
 }
 
 func selectIndex(v string, opts []ui.SelectOption) int {
