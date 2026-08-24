@@ -74,7 +74,7 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 	switch p.category {
 	case 1:
 		langOpts := []ui.SelectOption{{Label: "Python", Value: "python"}}
-		return ui.Form("settings-scripting",
+		items := []ui.FormItem{
 			ui.FormSwitch("enable", "Enable", "Enable scripting for pre/post request triggers", g.Scripting.Enabled, func(v bool) {
 				g.Scripting.Enabled = v
 				p.mark()
@@ -87,23 +87,29 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 				g.Scripting.UseDocker = v
 				p.mark()
 			}),
-			ui.FormText("dockerImage", "Docker image", "Image used when Docker is enabled", g.Scripting.DockerImage, func(v string) {
+		}
+		if g.Scripting.UseDocker {
+			items = append(items, ui.FormText("dockerImage", "Docker image", "Image used when Docker is enabled", g.Scripting.DockerImage, func(v string) {
 				g.Scripting.DockerImage = v
 				p.mark()
-			}),
-			ui.FormText("executablePath", "Executable path", "Local scripting binary", g.Scripting.ExecutablePath, func(v string) {
-				g.Scripting.ExecutablePath = v
-				p.mark()
-			}),
-			ui.FormText("serverScriptPath", "Server script path", "Where Chapar writes the server script", g.Scripting.ServerScriptPath, func(v string) {
-				g.Scripting.ServerScriptPath = v
-				p.mark()
-			}),
-			ui.FormNumber("port", "Port", "HTTP port for the scripting server", float64(g.Scripting.Port), 1, 65535, 1, func(v float64) {
-				g.Scripting.Port = int(v)
-				p.mark()
-			}),
-		).Padding(th.Spacing.M)
+			}))
+		} else {
+			items = append(items,
+				ui.FormText("executablePath", "Executable path", "Local scripting binary", g.Scripting.ExecutablePath, func(v string) {
+					g.Scripting.ExecutablePath = v
+					p.mark()
+				}),
+				ui.FormText("serverScriptPath", "Server script path", "Where Chapar writes the server script", g.Scripting.ServerScriptPath, func(v string) {
+					g.Scripting.ServerScriptPath = v
+					p.mark()
+				}),
+			)
+		}
+		items = append(items, ui.FormNumber("port", "Port", "HTTP port for the scripting server", float64(g.Scripting.Port), 1, 65535, 1, func(v float64) {
+			g.Scripting.Port = int(v)
+			p.mark()
+		}))
+		return ui.Form("settings-scripting", items...).Padding(th.Spacing.M)
 	case 2:
 		indentOpts := []ui.SelectOption{
 			{Label: "Spaces", Value: domain.IndentationSpaces},
