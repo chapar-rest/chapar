@@ -6,7 +6,9 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
+	reqicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -45,6 +47,7 @@ func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws works
 	p := &Requests{repo: repo, cat: cat, ws: ws, files: files, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root", Data: "root"})
 	p.tree.Background = &theme.Current().Panel
+	p.tree.IconFor = p.iconFor
 	p.tree.OnActivate = p.activate
 	p.tree.ContextMenu = p.menu
 	p.Rebuild()
@@ -87,15 +90,53 @@ func (p *Requests) Rebuild() {
 	p.tree.SetFilter(p.query)
 }
 
+const requestBadgeIconSize = float32(22)
+
 func requestNode(r *domain.Request) *ui.TreeNode {
-	icon := icons.File
-	switch r.MetaData.Type {
-	case domain.RequestTypeGRPC:
-		icon = icons.Code
-	case domain.RequestTypeGraphQL:
-		icon = icons.Share2
+	icon := reqicons.Badge(r)
+	return &ui.TreeNode{
+		Label:    r.MetaData.Name,
+		Data:     NodeRef{Kind: domain.KindRequest, ID: r.MetaData.ID},
+		Leaf:     true,
+		Icon:     icon,
+		IconSize: requestBadgeIconSize,
 	}
-	return &ui.TreeNode{Label: r.MetaData.Name, Data: NodeRef{Kind: domain.KindRequest, ID: r.MetaData.ID}, Leaf: true, Icon: icon}
+}
+
+func (p *Requests) iconFor(n *ui.TreeNode, expanded bool) (icons.Icon, render.Color) {
+	th := theme.Current()
+	ref, ok := n.Data.(NodeRef)
+	if !ok {
+		return icons.File, th.ForegroundMuted
+	}
+	switch ref.Kind {
+	case domain.KindCollection:
+		name := n.ClosedIcon
+		if name.Empty() {
+			name = icons.Folder
+		}
+		if expanded {
+			if !n.OpenIcon.Empty() {
+				name = n.OpenIcon
+			} else {
+				name = icons.FolderOpen
+			}
+		}
+		return name, th.Accent
+	case domain.KindRequest:
+		if req := p.cat.RequestByID(ref.ID); req != nil {
+			return reqicons.Badge(req), reqicons.Color(req, th)
+		}
+		if !n.Icon.Empty() {
+			return n.Icon, th.ForegroundMuted
+		}
+		return reqicons.Badge(nil), reqicons.Color(nil, th)
+	default:
+		if !n.Icon.Empty() {
+			return n.Icon, th.ForegroundMuted
+		}
+		return icons.File, th.ForegroundMuted
+	}
 }
 
 func (p *Requests) activate(n *ui.TreeNode) {

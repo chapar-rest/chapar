@@ -41,6 +41,9 @@ type TreeNode struct {
 	OpenIcon   icons.Icon
 	ClosedIcon icons.Icon
 
+	// IconSize overrides the tree's default icon width for this row (logical px).
+	IconSize float32
+
 	// Leaf forces a node to be non-expandable even if it has (or could load)
 	// children.
 	Leaf bool
@@ -79,6 +82,9 @@ type Tree struct {
 	// Background overrides the panel fill color. When nil the tree uses
 	// theme.Chrome. A pointer lets it track live theme switches.
 	Background *render.Color
+
+	// IconSize overrides Metrics.TreeIconSize when positive (logical px).
+	IconSize float32
 
 	// Loader returns a node's children the first time it is expanded.
 	Loader func(n *TreeNode) []*TreeNode
@@ -351,7 +357,19 @@ func (t *Tree) rebuild() {
 func (t *Tree) barSize() float32  { return theme.Current().Metrics.ScrollbarSize }
 func (t *Tree) indent() float32   { return theme.Current().Metrics.TreeIndent }
 func (t *Tree) padX() float32     { return theme.Current().Spacing.S }
-func (t *Tree) iconW() float32    { return theme.Current().Metrics.TreeIconSize }
+func (t *Tree) iconW() float32 {
+	if t.IconSize > 0 {
+		return t.IconSize
+	}
+	return theme.Current().Metrics.TreeIconSize
+}
+
+func (t *Tree) iconWFor(n *TreeNode) float32 {
+	if n != nil && n.IconSize > 0 {
+		return n.IconSize
+	}
+	return t.iconW()
+}
 func (t *Tree) chevW() float32    { return theme.Current().Metrics.TreeChevronSize }
 func (t *Tree) labelGap() float32 { return theme.Current().Spacing.SNudge }
 
@@ -415,7 +433,7 @@ func (t *Tree) computeContentSize() {
 	var maxW float32
 	for _, n := range t.visible {
 		lw, _ := frameText().Measure(n.Label)
-		rowW := t.padX() + float32(n.depth)*t.indent() + t.chevW() + t.iconW() + t.labelGap() + lw + t.padX()
+		rowW := t.padX() + float32(n.depth)*t.indent() + t.chevW() + t.iconWFor(n) + t.labelGap() + lw + t.padX()
 		if rowW > maxW {
 			maxW = rowW
 		}
@@ -503,7 +521,7 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 
 		baseX := f.X - t.scrollX + t.padX() + float32(n.depth)*t.indent()
 		chevW := t.chevW()
-		iconW := t.iconW()
+		iconW := t.iconWFor(n)
 		style := th.Typography.Body
 
 		if n.branch() {
@@ -545,7 +563,7 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 		src := t.dragNode
 		style := th.Typography.Body
 		lw, lh := text.MeasureAt(src.Label, style.Size)
-		iconW := t.iconW()
+		iconW := t.iconWFor(src)
 		chevW := t.chevW()
 		gw := t.padX() + chevW + iconW + t.labelGap() + lw + t.padX()
 		gx := t.dragX + 12
