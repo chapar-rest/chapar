@@ -199,6 +199,7 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	spec := c.req.Spec.GRPC
 	rows := []ui.View{
 		ui.Tabs("grpc-req-tabs-"+id, c.reqTabs).Selected(c.reqActive).
+			Closable(false).
 			OnSelectItem(func(i int, _ string) { c.reqActive = i }).TabBackground(th.Background),
 	}
 	switch c.reqActive {
@@ -229,6 +230,7 @@ func (c *Container) respPane(th *theme.Theme) ui.View {
 	id := c.req.MetaData.ID
 	return ui.Column(
 		ui.Tabs("grpc-resp-tabs-"+id, c.respTabs).Selected(c.respActive).
+			Closable(false).
 			OnSelectItem(func(i int, _ string) { c.respActive = i }).TabBackground(th.Background),
 		ui.ViewOf(c.respEd).Grow(1),
 	).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)

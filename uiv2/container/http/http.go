@@ -245,6 +245,7 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	body := []ui.View{
 		ui.Tabs("http-req-tabs-"+id, c.reqTabs).
 			Selected(c.reqActive).
+			Closable(false).
 			OnSelectItem(func(i int, _ string) { c.reqActive = i }).
 			TabBackground(th.Background),
 	}
@@ -407,6 +408,7 @@ func (c *Container) respPane(th *theme.Theme) ui.View {
 		c.statusLine(th),
 		ui.Tabs("http-resp-tabs-"+id, c.respTabs).
 			Selected(c.respActive).
+			Closable(false).
 			OnSelectItem(func(i int, _ string) { c.respActive = i }).
 			TabBackground(th.Background),
 		ui.HLine(th.Stroke.Thin, th.Border),
