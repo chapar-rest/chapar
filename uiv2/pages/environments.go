@@ -5,7 +5,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -24,7 +23,6 @@ type Environments struct {
 func NewEnvironmentsPage(repo repository.RepositoryV2, list func() []*domain.Environment, get func(id string) *domain.Environment, load func() error, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Environments {
 	p := &Environments{repo: repo, list: list, get: get, load: load, ws: ws, files: files, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root"})
-	p.tree.Background = &theme.Current().Panel
 	p.tree.OnActivate = p.activate
 	p.tree.ContextMenu = p.menu
 	p.Rebuild()
@@ -135,5 +133,5 @@ func (p *Environments) side(c *ui.Ctx) ui.View {
 		ui.TextField("env-search", p.query).Placeholder("Search...").IconStart(icons.Search).
 			OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
 		ui.ViewOf(p.tree).Grow(1),
-	).Gap(th.Spacing.S).Background(ui.TokenChrome).Grow(1)
+	).Gap(th.Spacing.S).Grow(1)
 }

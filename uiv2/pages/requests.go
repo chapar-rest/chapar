@@ -46,7 +46,6 @@ type Requests struct {
 func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Requests {
 	p := &Requests{repo: repo, cat: cat, ws: ws, files: files, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root", Data: "root"})
-	p.tree.Background = &theme.Current().Panel
 	p.tree.IconFor = p.iconFor
 	p.tree.OnActivate = p.activate
 	p.tree.ContextMenu = p.menu
@@ -291,5 +290,5 @@ func (p *Requests) side(c *ui.Ctx) ui.View {
 		ui.TextField("req-search", p.query).Placeholder("Search...").IconStart(icons.Search).
 			OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
 		ui.ViewOf(p.tree).Grow(1),
-	).Gap(th.Spacing.S).Background(ui.TokenChrome).Grow(1)
+	).Gap(th.Spacing.S).Grow(1)
 }

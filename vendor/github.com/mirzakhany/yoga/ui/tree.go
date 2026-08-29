@@ -76,8 +76,9 @@ type Tree struct {
 	ChevronOpen   icons.Icon
 	ChevronClosed icons.Icon
 
-	// Background overrides the panel fill color. When nil the tree uses
-	// theme.Chrome. A pointer lets it track live theme switches.
+	// Background overrides the panel fill color. When nil the tree is
+	// transparent and the parent view's background shows through. A pointer
+	// lets it track live theme switches.
 	Background *render.Color
 
 	// Loader returns a node's children the first time it is expanded.
@@ -472,11 +473,9 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 	th := theme.Current()
 	f := t.host.Frame
 	vp := t.contentViewport()
-	bg := th.Chrome
 	if t.Background != nil {
-		bg = *t.Background
+		dl.AddRect(f, *t.Background)
 	}
-	dl.AddRect(f, bg)
 
 	dl.PushClip(vp)
 
