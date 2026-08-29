@@ -133,11 +133,18 @@ func Names() []string {
 
 // Use switches the active theme to the named one, updating the shared instance
 // in place. Returns false if the name is unknown (active is left unchanged).
+// Use(SystemName) resolves to yoga-dark or yoga-light from the OS appearance.
 func Use(name string) bool {
+	if name == SystemName {
+		selectedName = SystemName
+		systemResolvedDark = PrefersDark()
+		return applyResolved(systemTarget())
+	}
 	t, ok := registry[name]
 	if !ok {
 		return false
 	}
+	selectedName = name
 	*active = t
 	return true
 }

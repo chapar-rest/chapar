@@ -44,6 +44,16 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 	}
 	tf.OnChange = n.onChange
 	tf.OnSubmit = n.onSubmit
+	// Re-apply height each frame so cached widgets follow theme metrics and
+	// an explicit .Height(...) on the node. EditableLabel passes Height via
+	// TextFieldConfig and paints into its own frame, so it is unaffected.
+	h := c.controlHeight()
+	if n.spec.hasH {
+		h = n.spec.height
+	}
+	tf.cfg.Height = h
+	tf.host.Style.Height = h
+	tf.host.Style.MinHeight = h
 	el := tf.Layout(c)
 	if n.defaultFocus && c.Focus() != nil {
 		c.Focus().EnsureFocus(tf)

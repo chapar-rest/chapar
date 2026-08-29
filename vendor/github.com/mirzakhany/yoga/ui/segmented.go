@@ -47,11 +47,10 @@ func (n *Node) layoutSegmented(c *Ctx) *layout.Element {
 	if d != nil {
 		items = d.items
 	}
-	th := c.Theme()
 	cellW := computeSegCellW(c, items)
 	nn := float32(len(items))
 	w := nn*cellW + f32max(0, nn-1)*segCellGap + 2*segPad
-	el := layout.New(applyLayoutSpec(layout.Box().W(w).H(th.Metrics.ControlHeight).FlexShrink(0), n.spec))
+	el := layout.New(applyLayoutSpec(layout.Box().W(w).H(c.controlHeight()).FlexShrink(0), n.spec))
 	selected := n.selected
 	onChange := n.onChange
 	onSelectIdx := n.onSelectIdx
@@ -105,7 +104,7 @@ func computeSegCellW(c *Ctx, items []SegmentItem) float32 {
 		}
 	}
 	cellW := maxContent + 2*segCellPadX
-	if min := th.Metrics.ControlHeight - 2*segPad; cellW < min {
+	if min := c.controlHeight() - 2*segPad; cellW < min {
 		cellW = min
 	}
 	return cellW

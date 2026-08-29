@@ -94,48 +94,37 @@ func yogaLight() Theme {
 
 // yogaHighContrast is an accessibility-oriented Yoga theme with strong contrast.
 func yogaHighContrast() Theme {
-	t := Theme{
-		Name: "yoga-high-contrast", Dark: true,
-
-		Surface:            rgb(0, 0, 0),
-		Chrome:             rgb(16, 16, 16),
-		ChromeMuted:        rgb(32, 32, 32),
-		Foreground:         rgb(255, 255, 255),
-		ForegroundMuted:    rgb(200, 200, 200),
-		ForegroundSubtle:   rgb(160, 160, 160),
-		ForegroundDisabled: rgba(160, 160, 160, 0.5),
-		Accent:             rgb(255, 213, 0),
-		AccentHover:        rgb(255, 230, 80),
-		AccentPressed:      rgb(220, 180, 0),
-		AccentForeground:   rgb(0, 0, 0),
-		Border:             rgb(255, 255, 255),
-		BorderStrong:       rgb(255, 255, 255),
-		ListHover:          rgb(48, 48, 48),
-		ListActive:         rgb(64, 64, 64),
-		FocusRing:          rgb(255, 213, 0),
-
-		Selection:        rgb(80, 80, 0),
-		ScrollTrack:      rgb(24, 24, 24),
-		ScrollThumb:      rgb(200, 200, 200),
-		ScrollThumbHover: rgb(255, 213, 0),
-
-		Error:   rgb(255, 100, 100),
-		Warning: rgb(255, 213, 0),
-		Success: rgb(100, 255, 100),
-
-		Spacing:    DefaultSpacing(),
-		Radius:     DefaultRadius(),
-		Stroke:     DefaultStroke(),
-		Typography: DefaultTypography(),
-		Metrics:    DefaultComponentMetrics(),
-		Elevation:  DefaultElevationDark(),
-
-		Syntax: syntax(
-			rgb(255, 255, 255), rgb(255, 180, 180), rgb(180, 255, 180),
-			rgb(180, 180, 180), rgb(255, 220, 140), rgb(140, 220, 255)),
-	}
-	syncLegacyFromYoga(&t)
-	return t
+	t := baseTheme("yoga-high-contrast", true)
+	t.Surface = rgb(0, 0, 0)
+	t.Chrome = rgb(16, 16, 16)
+	t.ChromeMuted = rgb(32, 32, 32)
+	t.Foreground = rgb(255, 255, 255)
+	t.ForegroundMuted = rgb(200, 200, 200)
+	t.ForegroundSubtle = rgb(160, 160, 160)
+	t.ForegroundDisabled = rgba(160, 160, 160, 0.5)
+	t.Accent = rgb(255, 213, 0)
+	t.AccentHover = rgb(255, 230, 80)
+	t.AccentPressed = rgb(220, 180, 0)
+	t.AccentForeground = rgb(0, 0, 0)
+	t.Border = rgb(200, 200, 200)
+	t.BorderStrong = rgb(255, 255, 255)
+	t.ListHover = rgb(48, 48, 48)
+	t.ListActive = rgb(64, 64, 64)
+	t.FocusRing = rgb(255, 213, 0)
+	t.Selection = rgb(80, 80, 0)
+	t.ScrollTrack = rgb(24, 24, 24)
+	t.ScrollThumb = rgb(200, 200, 200)
+	t.ScrollThumbHover = rgb(255, 213, 0)
+	t.Error = rgb(255, 100, 100)
+	t.Warning = rgb(255, 213, 0)
+	t.Success = rgb(100, 255, 100)
+	// Sharper chrome for accessibility: thicker strokes, squarer corners.
+	t.Stroke = Stroke{Thin: DefaultStroke().Thick, Thick: DefaultStroke().Thicker, Thicker: 4}
+	t.Radius = Radius{None: 0, Small: 0, Medium: 2, Large: 4, XLarge: 6, Circular: 9999}
+	t.Syntax = syntax(
+		rgb(255, 255, 255), rgb(255, 180, 180), rgb(180, 255, 180),
+		rgb(180, 180, 180), rgb(255, 220, 140), rgb(140, 220, 255))
+	return finishTheme(t)
 }
 
 // yogaMidnight is a cool blue-slate dark theme: deep slate surfaces, a vivid
@@ -146,52 +135,38 @@ func yogaHighContrast() Theme {
 // color. The visual tiering comes from Chrome (toolbar/tab strips) sitting one
 // step above Surface, plus the 1px Border around editor panels.
 func yogaMidnight() Theme {
-	t := Theme{
-		Name: "yoga-midnight", Dark: true,
-
-		Surface:            rgb(21, 26, 33),    // #151A21 editor / workspace
-		Chrome:             rgb(28, 35, 44),    // #1C232C toolbars, tab bars, controls
-		ChromeMuted:        rgb(30, 37, 46),    // #1E252E gutters, tracks
-		Foreground:         rgb(232, 236, 241), // #E8ECF1
-		ForegroundMuted:    rgb(154, 164, 178), // #9AA4B2
-		ForegroundSubtle:   rgb(90, 101, 115),  // #5A6573
-		ForegroundDisabled: rgba(154, 164, 178, 0.40),
-		Accent:             rgb(47, 111, 237), // #2F6FED
-		AccentHover:        rgb(59, 125, 240), // #3B7DF0
-		AccentPressed:      rgb(37, 96, 216),  // #2560D8
-		AccentForeground:   rgb(255, 255, 255),
-		Border:             rgb(42, 50, 61),   // #2A323D
-		BorderStrong:       rgb(58, 68, 82),   // #3A4452
-		ListHover:          rgb(34, 41, 51),   // #222933
-		ListActive:         rgb(42, 50, 61),   // #2A323D
-		FocusRing:          rgb(47, 111, 237), // #2F6FED
-
-		Selection:        rgb(40, 64, 110),  // #28406E
-		ScrollTrack:      rgb(26, 32, 39),   // #1A2027
-		ScrollThumb:      rgb(58, 68, 82),   // #3A4452
-		ScrollThumbHover: rgb(47, 111, 237), // #2F6FED
-
-		Error:   rgb(237, 106, 94), // #ED6A5E
-		Warning: rgb(224, 165, 59), // #E0A53B
-		Success: rgb(79, 184, 112), // #4FB870
-
-		Spacing:    DefaultSpacing(),
-		Radius:     DefaultRadius(),
-		Stroke:     DefaultStroke(),
-		Typography: DefaultTypography(),
-		Metrics:    DefaultComponentMetrics(),
-		Elevation:  DefaultElevationDark(),
-
-		// syntax(def, keyword, string, comment, number, type)
-		Syntax: syntax(
-			rgb(169, 177, 214), // default   #A9B1D6
-			rgb(187, 154, 247), // keyword   #BB9AF7  (true/false/null)
-			rgb(158, 206, 106), // string    #9ECE6A
-			rgb(96, 104, 128),  // comment   #60687F
-			rgb(255, 158, 100), // number    #FF9E64
-			rgb(122, 162, 247), // type      #7AA2F7  (JSON keys, if classed as type)
-		),
-	}
-	syncLegacyFromYoga(&t)
-	return t
+	t := baseTheme("yoga-midnight", true)
+	t.Surface = rgb(21, 26, 33)    // #151A21 editor / workspace
+	t.Chrome = rgb(28, 35, 44)   // #1C232C toolbars, tab bars, controls
+	t.ChromeMuted = rgb(14, 18, 24) // darker gutters/tracks — distinct from Chrome
+	t.Foreground = rgb(232, 236, 241)
+	t.ForegroundMuted = rgb(154, 164, 178)
+	t.ForegroundSubtle = rgb(90, 101, 115)
+	t.ForegroundDisabled = rgba(154, 164, 178, 0.40)
+	t.Accent = rgb(47, 111, 237)
+	t.AccentHover = rgb(59, 125, 240)
+	t.AccentPressed = rgb(37, 96, 216)
+	t.AccentForeground = rgb(255, 255, 255)
+	t.Border = rgb(42, 50, 61)
+	t.BorderStrong = rgb(58, 68, 82)
+	t.ListHover = rgb(34, 41, 51)
+	t.ListActive = rgb(42, 50, 61)
+	t.FocusRing = rgb(47, 111, 237)
+	t.Selection = rgb(40, 64, 110)
+	t.ScrollTrack = rgb(14, 18, 24)
+	t.ScrollThumb = rgb(58, 68, 82)
+	t.ScrollThumbHover = rgb(47, 111, 237)
+	t.Error = rgb(237, 106, 94)
+	t.Warning = rgb(224, 165, 59)
+	t.Success = rgb(79, 184, 112)
+	// Midnight-specific syntax (cobalt keys, slate comments, emerald strings).
+	t.Syntax = syntax(
+		rgb(220, 224, 232), // default
+		rgb(100, 149, 237), // keyword — cornflower blue
+		rgb(95, 191, 135),  // string — emerald
+		rgb(108, 118, 138), // comment — slate gray
+		rgb(240, 180, 100), // number — amber
+		rgb(130, 170, 255), // type — cobalt
+	)
+	return finishTheme(t)
 }

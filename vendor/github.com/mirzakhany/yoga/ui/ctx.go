@@ -34,6 +34,7 @@ type Ctx struct {
 	files    *FileDialog
 	toasts   *ToastHost
 	commands *CommandsHost
+	window   WindowHost
 	mouse    *input.Mouse
 	keyboard *input.Keyboard
 	post     func() // thread-safe wake (glfw.PostEmptyEvent); may be nil

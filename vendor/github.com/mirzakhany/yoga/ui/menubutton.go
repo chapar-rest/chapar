@@ -42,7 +42,7 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 	disabled := n.disabled
 	split := onClick != nil
 
-	padX, _, iconGap, h := buttonMetrics(n, th)
+	padX, _, iconGap, h := buttonMetrics(n, c)
 	iconSz := th.Metrics.IconSizeSM
 	chevronSlot := iconSz + padX
 	padLeft, padRight := padX, padX+chevronSlot

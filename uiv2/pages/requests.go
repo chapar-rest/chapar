@@ -95,11 +95,10 @@ const requestBadgeIconSize = float32(22)
 func requestNode(r *domain.Request) *ui.TreeNode {
 	icon := reqicons.Badge(r)
 	return &ui.TreeNode{
-		Label:    r.MetaData.Name,
-		Data:     NodeRef{Kind: domain.KindRequest, ID: r.MetaData.ID},
-		Leaf:     true,
-		Icon:     icon,
-		IconSize: requestBadgeIconSize,
+		Label: r.MetaData.Name,
+		Data:  NodeRef{Kind: domain.KindRequest, ID: r.MetaData.ID},
+		Leaf:  true,
+		Icon:  icon,
 	}
 }
 

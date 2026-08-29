@@ -319,7 +319,6 @@ func (a *App) pageView(c *ui.Ctx) ui.View {
 }
 
 func (a *App) topBar(c *ui.Ctx) ui.View {
-	th := c.Theme()
 	wsOpts := []ui.SelectOption{}
 	wsSel := 0
 	for i, w := range a.catalog.Workspaces {
@@ -341,7 +340,7 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 		}
 	}
 
-	return ui.Row(
+	return ui.TitleBar(
 		ui.Select("top-ws", wsOpts).Width(180).Selected(wsSel).OnChange(func(v string) {
 			if ws := a.catalog.WorkspaceByID(v); ws != nil {
 				a.switchWorkspace(ws)
@@ -358,9 +357,7 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 			_ = a.catalog.SetActiveEnv(v)
 		}),
 		ui.IconButton("top-settings", icons.Settings).OnClick(func() { a.openSettings(c) }),
-	).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.S).
-		Background(ui.TokenChrome).
-		Shrink(0)
+	)
 }
 
 func (a *App) openSettings(c *ui.Ctx) {

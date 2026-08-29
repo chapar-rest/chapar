@@ -48,7 +48,10 @@ func (n *Node) buttonSpec(c *Ctx) Spec {
 }
 
 // buttonMetrics returns padding, icon gap, and height for a button variant.
-func buttonMetrics(n *Node, th *theme.Theme) (padX, padY, iconGap, h float32) {
+func buttonMetrics(n *Node, c *Ctx) (padX, padY, iconGap, h float32) {
+	th := c.Theme()
+	h = c.controlHeight()
+	compact := c.env.hasControlHeight
 	if n.variant == variantGhost {
 		if n.ghostHover {
 			padX = th.Spacing.XS
@@ -57,9 +60,14 @@ func buttonMetrics(n *Node, th *theme.Theme) (padX, padY, iconGap, h float32) {
 		}
 		return 0, 0, th.Spacing.XS, th.Typography.Body.LineHeight
 	}
-	padX = th.Spacing.M
-	padY = th.Spacing.SNudge
-	return padX, padY, 8, th.Typography.Body.LineHeight + 2*padY
+	if compact {
+		padX = th.Spacing.S
+		padY = th.Spacing.XXS
+	} else {
+		padX = th.Spacing.M
+		padY = th.Spacing.SNudge
+	}
+	return padX, padY, 8, h
 }
 
 func (n *Node) layoutButton(c *Ctx) *layout.Element {
@@ -92,7 +100,7 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 	}
 	c.popEnv(old)
 
-	padX, _, iconGap, h := buttonMetrics(n, th)
+	padX, _, iconGap, h := buttonMetrics(n, c)
 	minW := 2 * padX
 	if childEl != nil && childEl.Style.Width == childEl.Style.Width {
 		minW += float32(childEl.Style.Width)

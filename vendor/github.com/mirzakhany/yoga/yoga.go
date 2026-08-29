@@ -30,6 +30,10 @@ import (
 type Config struct {
 	Title         string
 	Width, Height int
+	// CustomTitleBar opts into a VS Code-style title bar: the app draws chrome
+	// with ui.TitleBar and the framework supplies platform window controls
+	// (native traffic lights on macOS, drawn min/max/close on Windows/Linux).
+	CustomTitleBar bool
 }
 
 // applyDefaults fills any unset Config fields with sensible defaults.

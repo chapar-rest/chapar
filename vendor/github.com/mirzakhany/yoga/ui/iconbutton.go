@@ -25,7 +25,7 @@ func (n *Node) layoutIconButton(c *Ctx) *layout.Element {
 	}
 	st := c.Widget(id, func() any { return &iconButtonState{} }).(*iconButtonState)
 	th := c.Theme()
-	sz := th.Metrics.ControlHeight
+	sz := c.controlHeight()
 	if n.spec.hasH {
 		sz = n.spec.height
 	}

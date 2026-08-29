@@ -61,9 +61,8 @@ func NewTextInput(cfg TextFieldConfig) *TextInput {
 	if cfg.BorderWidth <= 0 {
 		cfg.BorderWidth = th.Stroke.Thin
 	}
-	style := th.Typography.Body
 	if cfg.Height <= 0 {
-		cfg.Height = style.LineHeight + th.Spacing.S*2
+		cfg.Height = th.Metrics.ControlHeight
 	}
 	tf := &TextInput{
 		cfg:        cfg,

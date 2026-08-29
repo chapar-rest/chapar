@@ -33,6 +33,7 @@ type Window struct {
 	cursors  map[input.Cursor]*glfw.Cursor
 	closed   bool
 	drawList render.DrawList
+	winHost  *glfwWindowHost
 
 	// ui app path: set by runApp.
 	uiApp   App
@@ -49,6 +50,7 @@ func New(cfg Config) (*Window, error) {
 	}
 
 	glfw.WindowHint(glfw.ClientAPI, glfw.NoAPI)
+	prepareCustomTitleBarHints(cfg.CustomTitleBar)
 	window, err := glfw.CreateWindow(cfg.Width, cfg.Height, cfg.Title, nil, nil)
 	if err != nil {
 		glfw.Terminate()
@@ -87,6 +89,7 @@ func New(cfg Config) (*Window, error) {
 		keyboard: &input.Keyboard{},
 		clip:     clip,
 	}
+	a.winHost = newGLFWWindowHost(window, cfg)
 	a.initCursors()
 	a.wireCallbacks()
 	SetResources(text, icons, clip)
@@ -177,8 +180,12 @@ func (a *Window) runApp(app App) {
 	a.uiCtx = ui.New(a.text, a.uiFocus, glfw.PostEmptyEvent)
 	a.uiCtx.SetIcons(Icons())
 	a.uiCtx.SetClipboard(a.clip)
+	a.uiCtx.SetWindow(a.winHost)
 
 	for !a.window.ShouldClose() {
+		if theme.SyncSystem() {
+			a.renderer.ClearColor = theme.Current().Surface
+		}
 		fw, fh := a.window.GetSize()
 		if fw > 0 && fh > 0 {
 			w, h := float32(fw), float32(fh)
@@ -195,6 +202,10 @@ func (a *Window) runApp(app App) {
 				a.routeAppKeys(hook)
 			}
 			a.uiFocus.Route(a.keyboard)
+
+			if a.winHost != nil {
+				a.winHost.updateFrame(a.mouse, w, h)
+			}
 
 			a.applyCursor()
 			a.mouse.EndFrame()

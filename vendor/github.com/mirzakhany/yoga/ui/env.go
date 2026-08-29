@@ -9,10 +9,12 @@ import (
 )
 
 type env struct {
-	textColor render.Color
-	fontSize  float32
-	hasColor  bool
-	hasSize   bool
+	textColor        render.Color
+	fontSize         float32
+	hasColor         bool
+	hasSize          bool
+	controlHeight    float32
+	hasControlHeight bool
 }
 
 func (c *Ctx) pushEnv(e env) env {
@@ -25,10 +27,23 @@ func (c *Ctx) pushEnv(e env) env {
 		c.env.fontSize = e.fontSize
 		c.env.hasSize = true
 	}
+	if e.hasControlHeight {
+		c.env.controlHeight = e.controlHeight
+		c.env.hasControlHeight = true
+	}
 	return old
 }
 
 func (c *Ctx) popEnv(old env) { c.env = old }
+
+// controlHeight returns the active compact control height. TitleBar pushes a
+// smaller TitleBarControlHeight so widgets fit with vertical breathing room.
+func (c *Ctx) controlHeight() float32 {
+	if c.env.hasControlHeight {
+		return c.env.controlHeight
+	}
+	return c.Theme().Metrics.ControlHeight
+}
 
 func autoID(c *Ctx, prefix string) string {
 	c.autoSeq++
@@ -70,3 +85,9 @@ func (c *Ctx) SetIcons(s *render.SpriteSheet) { c.icons = s }
 
 // SetClipboard attaches a clipboard used by text fields and the editor.
 func (c *Ctx) SetClipboard(clip input.Clipboard) { c.clip = clip }
+
+// Window returns the platform window host for custom title bars. Nil in headless builds.
+func (c *Ctx) Window() WindowHost { return c.window }
+
+// SetWindow attaches the platform window host used by TitleBar and WindowControls.
+func (c *Ctx) SetWindow(w WindowHost) { c.window = w }

@@ -67,7 +67,7 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 	}
 
 	th := c.Theme()
-	h := th.Metrics.ControlHeight
+	h := c.controlHeight()
 	w := n.spec.width
 	if !n.spec.hasW {
 		w = 160
