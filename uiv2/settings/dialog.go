@@ -18,19 +18,25 @@ const (
 
 // Panel is the settings dialog body. Open it with c.Dialogs().Show(DialogOpts{Body: panel.Layout, ...}).
 type Panel struct {
-	category int
-	draft    domain.GlobalConfig
-	dirty    bool
-	pathWarn bool
-	onTheme  func(string)
+	category     int
+	draft        domain.GlobalConfig
+	dirty        bool
+	pathWarn     bool
+	onAppearance func(domain.GlobalConfigSpec)
 }
 
-func New(onTheme func(string)) *Panel {
-	return &Panel{onTheme: onTheme}
+func New(onAppearance func(domain.GlobalConfigSpec)) *Panel {
+	return &Panel{onAppearance: onAppearance}
 }
 
 func (p *Panel) Prepare() {
 	p.draft = prefs.GetGlobalConfig()
+	if p.draft.Spec.General.UIFontSize <= 0 {
+		p.draft.Spec.General.UIFontSize = 14
+	}
+	if p.draft.Spec.Editor.FontSize <= 0 {
+		p.draft.Spec.Editor.FontSize = 12
+	}
 	p.dirty = false
 	p.pathWarn = false
 	p.category = catGeneral
@@ -45,14 +51,13 @@ func (p *Panel) Draft() domain.GlobalConfig {
 func (p *Panel) LoadDefaults() {
 	p.draft = *domain.GetDefaultGlobalConfig()
 	p.dirty = true
-	if p.onTheme != nil {
-		p.onTheme(p.draft.Spec.General.Theme)
-	}
+	p.previewAppearance()
 }
 
 func (p *Panel) Cancel() {
-	if p.onTheme != nil {
-		p.onTheme(prefs.GetGlobalConfig().Spec.General.Theme)
+	if p.onAppearance != nil {
+		saved := prefs.GetGlobalConfig()
+		p.onAppearance(saved.Spec)
 	}
 }
 
@@ -77,6 +82,12 @@ func (p *Panel) Layout(c *ui.Ctx) ui.View {
 
 func (p *Panel) mark() { p.dirty = true }
 
+func (p *Panel) previewAppearance() {
+	if p.onAppearance != nil {
+		p.onAppearance(p.draft.Spec)
+	}
+}
+
 func (p *Panel) form(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	g := &p.draft.Spec
@@ -87,9 +98,17 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			ui.FormSelect("theme", "Theme", "Application color scheme", themeOpts, selectIndex(g.General.Theme, themeOpts), func(v string) {
 				g.General.Theme = v
 				p.mark()
-				if p.onTheme != nil {
-					p.onTheme(v)
-				}
+				p.previewAppearance()
+			}),
+			ui.FormNumber("uiFontSize", "UI font size", "Application text size", float64(g.General.UIFontSize), 10, 22, 1, func(v float64) {
+				g.General.UIFontSize = int(v)
+				p.mark()
+				p.previewAppearance()
+			}),
+			ui.FormNumber("editorFontSize", "Editor font size", "Code editor text size", float64(g.Editor.FontSize), 8, 32, 1, func(v float64) {
+				g.Editor.FontSize = int(v)
+				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormSwitch("horizontalSplit", "Horizontal request/response split", "Stack request above response", g.General.UseHorizontalSplit, func(v bool) {
 				g.General.UseHorizontalSplit = v
@@ -107,10 +126,12 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			ui.FormText("fontFamily", "Font family", "Editor font", g.Editor.FontFamily, func(v string) {
 				g.Editor.FontFamily = v
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormNumber("fontSize", "Font size", "Editor font size", float64(g.Editor.FontSize), 8, 32, 1, func(v float64) {
 				g.Editor.FontSize = int(v)
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormSelect("indentation", "Indentation", "Spaces or tabs", indentOpts, selectIndex(g.Editor.Indentation, indentOpts), func(v string) {
 				g.Editor.Indentation = v
@@ -119,6 +140,7 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			ui.FormNumber("tabWidth", "Tab width", "Width of a tab stop", float64(g.Editor.TabWidth), 1, 16, 1, func(v float64) {
 				g.Editor.TabWidth = int(v)
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormSwitch("autoCloseBrackets", "Auto close brackets", "Insert matching brackets", g.Editor.AutoCloseBrackets, func(v bool) {
 				g.Editor.AutoCloseBrackets = v

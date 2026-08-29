@@ -52,8 +52,8 @@ var _ yoga.KeyHook = (*App)(nil)
 
 func BuildApp() *App {
 	a := &App{}
-	a.settings = settings.New(func(name string) {
-		applyChaparTheme(name)
+	a.settings = settings.New(func(spec domain.GlobalConfigSpec) {
+		applyChaparAppearance(spec.General, spec.Editor)
 	})
 
 	appState := prefs.GetAppState()
@@ -96,6 +96,9 @@ func BuildApp() *App {
 	a.spaces = pages.NewWorkspacesPage(repo,
 		func() []*domain.Workspace { return a.catalog.Workspaces },
 		a.catalog.Load, a.showError, a.switchWorkspace)
+
+	cfg := prefs.GetGlobalConfig()
+	applyChaparAppearance(cfg.Spec.General, cfg.Spec.Editor)
 
 	go a.initScripting()
 	return a
@@ -282,7 +285,7 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		for _, r := range col.Spec.Requests {
 			r := r
 			cmds = append(cmds, ui.Item("open.req."+r.MetaData.ID).
-				Title(r.MetaData.Name).
+				Title(domain.RequestDisplayName(r)).
 				Detail(col.MetaData.Name).
 				Icon(icons.File).
 				Run(func() {
@@ -294,7 +297,7 @@ func (a *App) registerCommands(c *ui.Ctx) {
 	for _, r := range a.catalog.Requests {
 		r := r
 		cmds = append(cmds, ui.Item("open.req."+r.MetaData.ID).
-			Title(r.MetaData.Name).
+			Title(domain.RequestDisplayName(r)).
 			Detail("Request").
 			Icon(icons.File).
 			Run(func() {

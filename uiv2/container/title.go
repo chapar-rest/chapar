@@ -4,41 +4,9 @@ import (
 	"strings"
 
 	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
-
-// TitleRow builds the breadcrumb title row used by request containers:
-// [PREFIX] [Collection /] [EditableLabel name] … actions (typically Save).
-func TitleRow(th *theme.Theme, id, prefix, collection, name string, prefixColor render.Color, onSave func(string), actions ...ui.View) ui.View {
-	breadcrumb := []ui.View{
-		ui.Strong(strings.ToUpper(prefix)).
-			Style(ui.Spec{}.TextColorLit(prefixColor)),
-	}
-	if collection != "" {
-		breadcrumb = append(breadcrumb,
-			ui.Text(collection+" /").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
-		)
-	}
-	breadcrumb = append(breadcrumb,
-		ui.EditableLabel("title-"+id, name).
-			Placeholder("Name").
-			OnSave(onSave),
-	)
-
-	right := make([]ui.View, 0, len(actions)+1)
-	right = append(right, actions...)
-	return ui.Row(
-		ui.Row(breadcrumb...).Gap(th.Spacing.XS).Align(ui.AlignCenter),
-		ui.Spacer(),
-		ui.Row(right...).Gap(th.Spacing.S).Align(ui.AlignCenter),
-	).Justify(ui.JustifyBetween).
-		PaddingTop(th.Spacing.XS).
-		PaddingBottom(th.Spacing.XS).
-		PaddingLeft(th.Spacing.M).
-		PaddingRight(th.Spacing.M)
-}
 
 // SimpleTitleRow is the title row for collection and environment containers:
 // [EditableLabel name] … actions.

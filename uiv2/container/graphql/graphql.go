@@ -8,7 +8,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/uiv2/container"
-	chapicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -27,6 +26,7 @@ type Container struct {
 	queryEd               *ui.Editor
 	varsEd                *ui.Editor
 	hdrEd                 *ui.Editor
+	descEd                *ui.Editor
 	respEd                *ui.Editor
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
@@ -46,27 +46,29 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		req:      r,
 		deps:     deps,
 		resultCh: make(chan result, 1),
-		reqTabs:  []ui.TabModel{{Title: "Query"}, {Title: "Variables"}, {Title: "Headers"}},
+		reqTabs:  []ui.TabModel{{Title: "Query"}, {Title: "Variables"}, {Title: "Headers"}, {Title: "Info"}},
 		respTabs: []ui.TabModel{{Title: "Response"}, {Title: "Headers"}},
 		status:   "Ready",
 	}
 	c.queryEd = ui.NewEditor([]byte(g.Query), highlight.Noop{})
 	c.varsEd = ui.NewEditor([]byte(g.Variables), highlight.NewJSON())
 	c.hdrEd = ui.NewEditor([]byte(domain.KeyValuesToText(g.Headers)), highlight.Noop{})
+	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.Noop{})
 	return c
 }
 
 func (c *Container) ID() string           { return c.req.MetaData.ID }
 func (c *Container) Kind() container.Kind { return container.KindGraphQL }
-func (c *Container) Title() string        { return c.req.MetaData.Name }
+func (c *Container) Title() string        { return domain.RequestDisplayName(c.req) }
 func (c *Container) Dirty() bool {
-	return c.dirty || c.queryEd.Modified() || c.varsEd.Modified() || c.hdrEd.Modified()
+	return c.dirty || c.queryEd.Modified() || c.varsEd.Modified() || c.hdrEd.Modified() || c.descEd.Modified()
 }
 func (c *Container) Close() {
 	c.queryEd.Close()
 	c.varsEd.Close()
 	c.hdrEd.Close()
+	c.descEd.Close()
 	c.respEd.Close()
 }
 func (c *Container) markDirty() { c.dirty = true; c.deps.ReportDirty(true) }
@@ -76,6 +78,7 @@ func (c *Container) flush() {
 	g.Query = string(c.queryEd.Bytes())
 	g.Variables = string(c.varsEd.Bytes())
 	g.Headers = domain.TextToKeyValue(string(c.hdrEd.Bytes()))
+	c.req.MetaData.Description = string(c.descEd.Bytes())
 	for i := range g.Headers {
 		g.Headers[i].Enable = true
 	}
@@ -94,6 +97,7 @@ func (c *Container) Save() error {
 	c.queryEd.MarkSaved()
 	c.varsEd.MarkSaved()
 	c.hdrEd.MarkSaved()
+	c.descEd.MarkSaved()
 	c.deps.ReportDirty(false)
 	if c.deps.Report.Saved != nil {
 		c.deps.Report.Saved()
@@ -131,18 +135,14 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 	g := c.req.Spec.GraphQL
 	return ui.Column(
-		container.TitleRow(th, id, "GraphQL", c.req.CollectionName, c.req.MetaData.Name,
-			chapicons.Color(c.req, th),
-			func(s string) { container.RenameRequest(c.deps, c.req, s) },
+		ui.Row(
+			ui.TextField("gql-url-"+id, g.URL).Placeholder("https://…/graphql").
+				OnChange(func(s string) { g.URL = s; c.markDirty() }).Grow(1),
 			ui.Button("gql-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-		),
-		ui.Row(
-			ui.TextField("gql-url-"+id, g.URL).Placeholder("https://…/graphql").
-				OnChange(func(s string) { g.URL = s; c.markDirty() }).Grow(1),
 			ui.Button("gql-send-"+id, ui.Text("Send")).Primary().IconStart(icons.Play).Hint("⌘↵").
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
@@ -154,18 +154,21 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 
 func (c *Container) reqPane(th *theme.Theme) ui.View {
 	id := c.req.MetaData.ID
-	ed := c.queryEd
-	switch c.reqActive {
-	case 1:
-		ed = c.varsEd
-	case 2:
-		ed = c.hdrEd
-	}
-	return ui.Column(
+	rows := []ui.View{
 		ui.Tabs("gql-req-tabs-"+id, c.reqTabs).Selected(c.reqActive).
 			OnSelectItem(func(i int, _ string) { c.reqActive = i }).TabBackground(th.Background),
-		ui.ViewOf(ed).Grow(1),
-	).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+	}
+	switch c.reqActive {
+	case 1:
+		rows = append(rows, ui.ViewOf(c.varsEd).Grow(1))
+	case 2:
+		rows = append(rows, ui.ViewOf(c.hdrEd).Grow(1))
+	case 3:
+		rows = append(rows, container.InfoPane(th, id, c.req, c.descEd, c.markDirty))
+	default:
+		rows = append(rows, ui.ViewOf(c.queryEd).Grow(1))
+	}
+	return ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
 }
 
 func (c *Container) respPane(th *theme.Theme) ui.View {

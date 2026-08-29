@@ -7,7 +7,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/uiv2/container"
-	chapicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -24,6 +23,7 @@ type Container struct {
 	deps                  container.Deps
 	dirty                 bool
 	bodyEd                *ui.Editor
+	descEd                *ui.Editor
 	respEd                *ui.Editor
 	meta                  *ui.Table
 	reqTabs               []ui.TabModel
@@ -45,11 +45,12 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		req:      r,
 		deps:     deps,
 		resultCh: make(chan result, 1),
-		reqTabs:  []ui.TabModel{{Title: "Body"}, {Title: "Metadata"}, {Title: "Server"}},
+		reqTabs:  []ui.TabModel{{Title: "Body"}, {Title: "Metadata"}, {Title: "Server"}, {Title: "Info"}},
 		respTabs: []ui.TabModel{{Title: "Response"}, {Title: "Metadata"}},
 		status:   "Ready",
 	}
 	c.bodyEd = ui.NewEditor([]byte(r.Spec.GRPC.Body), highlight.NewJSON())
+	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.Noop{})
 	c.meta = container.NewKVTable("grpc-md-"+r.MetaData.ID, c.markDirty)
 	container.LoadKV(c.meta, r.Spec.GRPC.Metadata)
@@ -59,10 +60,11 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 
 func (c *Container) ID() string           { return c.req.MetaData.ID }
 func (c *Container) Kind() container.Kind { return container.KindGRPC }
-func (c *Container) Title() string        { return c.req.MetaData.Name }
-func (c *Container) Dirty() bool          { return c.dirty || c.bodyEd.Modified() }
+func (c *Container) Title() string        { return domain.RequestDisplayName(c.req) }
+func (c *Container) Dirty() bool          { return c.dirty || c.bodyEd.Modified() || c.descEd.Modified() }
 func (c *Container) Close() {
 	c.bodyEd.Close()
+	c.descEd.Close()
 	c.respEd.Close()
 }
 func (c *Container) markDirty() { c.dirty = true; c.deps.ReportDirty(true) }
@@ -82,6 +84,7 @@ func (c *Container) refreshMethods() {
 func (c *Container) Save() error {
 	c.req.Spec.GRPC.Body = string(c.bodyEd.Bytes())
 	c.req.Spec.GRPC.Metadata = container.DumpKV(c.meta)
+	c.req.MetaData.Description = string(c.descEd.Bytes())
 	var col *domain.Collection
 	if c.req.CollectionID != "" && c.deps.Catalog != nil {
 		col = c.deps.Catalog.CollectionByID(c.req.CollectionID)
@@ -91,6 +94,7 @@ func (c *Container) Save() error {
 	}
 	c.dirty = false
 	c.bodyEd.MarkSaved()
+	c.descEd.MarkSaved()
 	c.deps.ReportDirty(false)
 	if c.deps.Report.Saved != nil {
 		c.deps.Report.Saved()
@@ -169,21 +173,17 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 	spec := c.req.Spec.GRPC
 	return ui.Column(
-		container.TitleRow(th, id, "gRPC", c.req.CollectionName, c.req.MetaData.Name,
-			chapicons.Color(c.req, th),
-			func(s string) { container.RenameRequest(c.deps, c.req, s) },
-			ui.Button("grpc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
-				if err := c.Save(); err != nil {
-					c.deps.ShowError(err)
-				}
-			}),
-		),
 		ui.Row(
 			ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address).Placeholder("host:port").
 				OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }).Grow(1),
 			ui.Select("grpc-method-"+id, c.methods).Width(260).
 				Selected(optionIndex(spec.LasSelectedMethod, c.methods)).
 				OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }),
+			ui.Button("grpc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
+				if err := c.Save(); err != nil {
+					c.deps.ShowError(err)
+				}
+			}),
 			ui.Button("grpc-send-"+id, ui.Text("Invoke")).Primary().IconStart(icons.Play).Hint("⌘↵").
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
@@ -224,6 +224,8 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 				ui.Button("grpc-load-"+id, ui.Text("Methods")).Disabled(c.loading).OnClick(c.loadMethods),
 			).Gap(th.Spacing.S).Align(ui.AlignCenter),
 		)
+	case 3:
+		rows = append(rows, container.InfoPane(th, id, c.req, c.descEd, c.markDirty))
 	}
 	return ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
 }

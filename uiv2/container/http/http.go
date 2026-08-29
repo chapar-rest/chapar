@@ -9,7 +9,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
-	chapicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -28,6 +27,7 @@ type Container struct {
 
 	bodyEd    *ui.Editor
 	headersEd *ui.Editor
+	descEd    *ui.Editor
 	respEd    *ui.Editor
 	respHdrEd *ui.Editor
 
@@ -68,6 +68,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		reqTabs: []ui.TabModel{
 			{Title: "Params"}, {Title: "Body"}, {Title: "Auth"},
 			{Title: "Headers"}, {Title: "Variables"}, {Title: "Pre"}, {Title: "Post"},
+			{Title: "Info"},
 		},
 		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}},
 		statusText: "Ready",
@@ -78,6 +79,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	}
 	c.bodyEd = ui.NewEditor([]byte(body), highlight.NewJSON())
 	c.headersEd = ui.NewEditor([]byte(domain.KeyValuesToText(http.Request.Headers)), highlight.Noop{})
+	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.Noop{})
 	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{})
 
@@ -110,12 +112,13 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 
 func (c *Container) ID() string           { return c.req.MetaData.ID }
 func (c *Container) Kind() container.Kind { return container.KindHTTP }
-func (c *Container) Title() string        { return c.req.MetaData.Name }
-func (c *Container) Dirty() bool          { return c.dirty || c.bodyEd.Modified() || c.headersEd.Modified() }
+func (c *Container) Title() string        { return domain.RequestDisplayName(c.req) }
+func (c *Container) Dirty() bool          { return c.dirty || c.bodyEd.Modified() || c.headersEd.Modified() || c.descEd.Modified() }
 
 func (c *Container) Close() {
 	c.bodyEd.Close()
 	c.headersEd.Close()
+	c.descEd.Close()
 	c.respEd.Close()
 	c.respHdrEd.Close()
 }
@@ -129,6 +132,7 @@ func (c *Container) flush() {
 	http := c.req.Spec.HTTP
 	http.Request.Body.Data = string(c.bodyEd.Bytes())
 	http.Request.Headers = domain.TextToKeyValue(string(c.headersEd.Bytes()))
+	c.req.MetaData.Description = string(c.descEd.Bytes())
 	for i := range http.Request.Headers {
 		http.Request.Headers[i].Enable = true
 		if http.Request.Headers[i].ID == "" {
@@ -163,6 +167,7 @@ func (c *Container) Save() error {
 	c.dirty = false
 	c.bodyEd.MarkSaved()
 	c.headersEd.MarkSaved()
+	c.descEd.MarkSaved()
 	c.deps.ReportDirty(false)
 	if c.deps.Report.Saved != nil {
 		c.deps.Report.Saved()
@@ -206,20 +211,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 		splitDir = ui.Vertical
 	}
 
-	prefix := http.Method
-	if prefix == "" {
-		prefix = domain.RequestMethodGET
-	}
 	return ui.Column(
-		container.TitleRow(th, id, prefix, c.req.CollectionName, c.req.MetaData.Name,
-			chapicons.Color(c.req, th),
-			func(s string) { container.RenameRequest(c.deps, c.req, s) },
-			ui.Button("http-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
-				if err := c.Save(); err != nil {
-					c.deps.ShowError(err)
-				}
-			}),
-		),
 		ui.Row(
 			ui.Select("http-method-"+id, methods).
 				Width(110).
@@ -229,6 +221,11 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Placeholder("https://…").
 				OnChange(func(s string) { http.URL = s; c.markDirty() }).
 				Grow(1),
+			ui.Button("http-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
+				if err := c.Save(); err != nil {
+					c.deps.ShowError(err)
+				}
+			}),
 			ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.XS),
@@ -317,6 +314,8 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 		if post.Type == domain.PrePostTypeSetEnv {
 			body = append(body, c.postSetForm(th))
 		}
+	case 7:
+		body = append(body, container.InfoPane(th, id, c.req, c.descEd, c.markDirty))
 	}
 	return ui.Column(body...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
 }
@@ -371,11 +370,11 @@ func (c *Container) triggerPick(th *theme.Theme) ui.View {
 	if c.deps.Catalog != nil {
 		for _, col := range c.deps.Catalog.AllCollections() {
 			for _, r := range col.Spec.Requests {
-				opts = append(opts, ui.SelectOption{Label: col.MetaData.Name + " / " + r.MetaData.Name, Value: r.MetaData.ID})
+				opts = append(opts, ui.SelectOption{Label: col.MetaData.Name + " / " + domain.RequestDisplayName(r), Value: r.MetaData.ID})
 			}
 		}
 		for _, r := range c.deps.Catalog.StandaloneRequests() {
-			opts = append(opts, ui.SelectOption{Label: r.MetaData.Name, Value: r.MetaData.ID})
+			opts = append(opts, ui.SelectOption{Label: domain.RequestDisplayName(r), Value: r.MetaData.ID})
 		}
 	}
 	return ui.Select("http-trigger-"+id, opts).Width(280).

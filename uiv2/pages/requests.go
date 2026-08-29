@@ -89,16 +89,33 @@ func (p *Requests) Rebuild() {
 	p.tree.SetFilter(p.query)
 }
 
-const requestBadgeIconSize = float32(22)
-
 func requestNode(r *domain.Request) *ui.TreeNode {
 	icon := reqicons.Badge(r)
 	return &ui.TreeNode{
-		Label: r.MetaData.Name,
+		Label: domain.RequestDisplayName(r),
 		Data:  NodeRef{Kind: domain.KindRequest, ID: r.MetaData.ID},
 		Leaf:  true,
 		Icon:  icon,
 	}
+}
+
+func (p *Requests) syncTreeLabels() {
+	root := p.tree.Root()
+	if root == nil {
+		return
+	}
+	var walk func(n *ui.TreeNode)
+	walk = func(n *ui.TreeNode) {
+		if ref, ok := n.Data.(NodeRef); ok && ref.Kind == domain.KindRequest {
+			if req := p.cat.RequestByID(ref.ID); req != nil {
+				n.Label = domain.RequestDisplayName(req)
+			}
+		}
+		for _, child := range n.Children {
+			walk(child)
+		}
+	}
+	walk(root)
 }
 
 func (p *Requests) iconFor(n *ui.TreeNode, expanded bool) (icons.Icon, render.Color) {
@@ -278,6 +295,7 @@ func (p *Requests) Layout(c *ui.Ctx) ui.View {
 
 func (p *Requests) side(c *ui.Ctx) ui.View {
 	th := c.Theme()
+	p.syncTreeLabels()
 	return ui.Column(
 		ui.Strong("Requests").Margin(th.Spacing.S),
 		ui.Row(
