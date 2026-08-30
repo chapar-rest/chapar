@@ -124,6 +124,13 @@ ui.Drawer("inspector", panel, page).
 // Panel content fills the drawer body (clipped viewport). Use .Grow(1) on the
 // panel view; avoid fixed .Width/.Height — the drawer owns main-axis sizing.
 
+// Bottom push drawer (console/terminal) — only shrink the workspace pane:
+ui.Splitter("page", ui.Horizontal, sidebar,
+    ui.Drawer("console", consolePanel, editorWorkspace).
+        Edge(ui.EdgeBottom).Push().Open(consoleOpen).Size(180).Resizable(true).
+        OnOpenChange(func(v bool) { consoleOpen = v }).Grow(1),
+).Sizes(280, 0).Grow(1)
+
 // Nested IDE chrome (terminal bottom + chat right):
 ui.Drawer("chat", chatPanel,
     ui.Drawer("term", termPanel, editor).
@@ -169,8 +176,13 @@ ui.Tooltip(id, child, "Hint")                            // wrapper form
 
 ui.Popover(id, trigger, content).
     Open(open).OnOpenChange(func(v bool) { open = v }).
-    Placement(ui.PlacementBottom). // Top, Left, Right
+    Placement(ui.PlacementBottom). // Top, Left, Right — use Top when trigger is in the footer
     Width(260).Height(140)
+
+// Footer notification history (no scrim; dismiss outside click / Escape):
+ui.Popover("notifs", notifButton, notifList).
+    Open(notifsOpen).OnOpenChange(func(v bool) { notifsOpen = v }).
+    Placement(ui.PlacementTop).Width(360).Height(280)
 
 ui.ContextMenu(id, child, []ui.MenuItem{
     {Label: "Copy", OnSelect: fn},

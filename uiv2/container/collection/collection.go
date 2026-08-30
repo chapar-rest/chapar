@@ -18,6 +18,7 @@ type Container struct {
 	tabs                        []ui.TabModel
 	active                      int
 	authType, token, user, pass string
+	key, val                    string
 }
 
 func Open(col *domain.Collection, deps container.Deps) *Container {
@@ -36,6 +37,10 @@ func Open(col *domain.Collection, deps container.Deps) *Container {
 	if c.col.Spec.Auth.BasicAuth != nil {
 		c.user = c.col.Spec.Auth.BasicAuth.Username
 		c.pass = c.col.Spec.Auth.BasicAuth.Password
+	}
+	if c.col.Spec.Auth.APIKeyAuth != nil {
+		c.key = c.col.Spec.Auth.APIKeyAuth.Key
+		c.val = c.col.Spec.Auth.APIKeyAuth.Value
 	}
 	if c.authType == "" {
 		c.authType = domain.AuthTypeNone
@@ -60,6 +65,8 @@ func (c *Container) Save() error {
 		c.col.Spec.Auth.TokenAuth = &domain.TokenAuth{Token: c.token}
 	case domain.AuthTypeBasic:
 		c.col.Spec.Auth.BasicAuth = &domain.BasicAuth{Username: c.user, Password: c.pass}
+	case domain.AuthTypeAPIKey:
+		c.col.Spec.Auth.APIKeyAuth = &domain.APIKeyAuth{Key: c.key, Value: c.val}
 	}
 	if err := c.deps.Repo.UpdateCollection(c.col); err != nil {
 		return err
@@ -105,6 +112,7 @@ func (c *Container) body(th *theme.Theme) ui.View {
 			{Label: "None", Value: domain.AuthTypeNone},
 			{Label: "Bearer", Value: domain.AuthTypeToken},
 			{Label: "Basic", Value: domain.AuthTypeBasic},
+			{Label: "API Key", Value: domain.AuthTypeAPIKey},
 		}
 		rows := []ui.View{
 			ui.Select("col-auth-"+id, opts).Width(180).Selected(optionIndex(c.authType, opts)).
@@ -118,6 +126,12 @@ func (c *Container) body(th *theme.Theme) ui.View {
 			rows = append(rows,
 				ui.TextField("col-user-"+id, c.user).Placeholder("Username").OnChange(func(s string) { c.user = s; c.markDirty() }),
 				ui.TextField("col-pass-"+id, c.pass).Placeholder("Password").Password(true).OnChange(func(s string) { c.pass = s; c.markDirty() }),
+			)
+		}
+		if c.authType == domain.AuthTypeAPIKey {
+			rows = append(rows,
+				ui.TextField("col-apikey-"+id, c.key).Placeholder("Header").OnChange(func(s string) { c.key = s; c.markDirty() }),
+				ui.TextField("col-apival-"+id, c.val).Placeholder("Value").OnChange(func(s string) { c.val = s; c.markDirty() }),
 			)
 		}
 		return ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)

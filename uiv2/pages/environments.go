@@ -62,10 +62,31 @@ func (p *Environments) menu(n *ui.TreeNode) []ui.MenuItem {
 		{Label: "Import", OnSelect: p.importFile},
 	}
 	if ref.Kind == domain.KindEnv {
-		items = append(items, ui.MenuItem{Label: "Delete", OnSelect: func() { p.deleteID(ref.ID) }})
+		items = append(items,
+			ui.MenuItem{Label: "Duplicate", OnSelect: func() { p.duplicateID(ref.ID) }},
+			ui.MenuItem{Label: "Delete", OnSelect: func() { p.deleteID(ref.ID) }},
+		)
 	}
 	return items
 }
+
+func (p *Environments) duplicateID(id string) {
+	env := p.get(id)
+	if env == nil {
+		return
+	}
+	newEnv := env.Clone()
+	newEnv.MetaData.Name += " (copy)"
+	if err := p.repo.CreateEnvironment(newEnv); err != nil {
+		p.err(err)
+		return
+	}
+	_ = p.load()
+	p.Rebuild()
+	p.ws.OpenEnv(newEnv)
+}
+
+func (p *Environments) Create() { p.create() }
 
 func (p *Environments) create() {
 	env := domain.NewEnvironment("New Environment")
@@ -87,6 +108,7 @@ func (p *Environments) deleteID(id string) {
 		p.err(err)
 		return
 	}
+	p.ws.CloseByID(id)
 	_ = p.load()
 	p.Rebuild()
 }

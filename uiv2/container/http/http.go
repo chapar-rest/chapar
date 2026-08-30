@@ -26,13 +26,18 @@ type Container struct {
 	dirty bool
 
 	bodyEd    *ui.Editor
-	headersEd *ui.Editor
 	descEd    *ui.Editor
 	respEd    *ui.Editor
 	respHdrEd *ui.Editor
+	respCkEd  *ui.Editor
+	preScript *ui.Editor
+	postScript *ui.Editor
 
-	params *ui.Table
-	vars   *ui.Table
+	queryParams *ui.Table
+	pathParams  *ui.Table
+	headers     *ui.Table
+	urlEncoded  *ui.Table
+	vars        *ui.Table
 
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
@@ -40,6 +45,7 @@ type Container struct {
 
 	pending  bool
 	resultCh chan result
+	lastResp *egress.Response
 
 	statusText string
 	haveResult bool
@@ -49,7 +55,7 @@ type Container struct {
 	respSize   int
 	respErr    bool
 
-	authUser, authPass, authToken, authKey, authVal string
+	authState container.AuthState
 }
 
 func Open(req *domain.Request, deps container.Deps) *Container {
@@ -70,42 +76,41 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 			{Title: "Headers"}, {Title: "Variables"}, {Title: "Pre"}, {Title: "Post"},
 			{Title: "Info"},
 		},
-		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}},
+		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Cookies"}},
 		statusText: "Ready",
 	}
 	body := ""
 	if http.Request.Body.Data != "" {
 		body = http.Request.Body.Data
 	}
-	c.bodyEd = ui.NewEditor([]byte(body), highlight.NewJSON())
-	c.headersEd = ui.NewEditor([]byte(domain.KeyValuesToText(http.Request.Headers)), highlight.Noop{})
+	c.bodyEd = ui.NewEditor([]byte(body), bodyHighlighter(http.Request.Body.Type))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.Noop{})
 	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{})
+	c.respCkEd = ui.NewEditor(nil, highlight.Noop{})
 
-	c.params = container.NewKVTable("params-"+r.MetaData.ID, c.markDirty)
-	container.LoadKV(c.params, append(append([]domain.KeyValue{}, http.Request.QueryParams...), http.Request.PathParams...))
-	if len(http.Request.QueryParams) > 0 {
-		container.LoadKV(c.params, http.Request.QueryParams)
-	}
+	id := r.MetaData.ID
+	c.queryParams = container.NewKVTable("query-"+id, c.markDirty)
+	c.pathParams = container.NewKVTable("path-"+id, c.markDirty)
+	c.headers = container.NewKVTable("hdr-"+id, c.markDirty)
+	c.urlEncoded = container.NewKVTable("urlenc-"+id, c.markDirty)
+	c.vars = container.NewVariablesTable("vars-"+id, nil, c.markDirty)
 
-	c.vars = container.NewKVTable("vars-"+r.MetaData.ID, c.markDirty)
-	varRows := make([]domain.KeyValue, 0, len(http.Request.Variables))
-	for _, v := range http.Request.Variables {
-		varRows = append(varRows, domain.KeyValue{ID: v.ID, Key: v.TargetEnvVariable, Value: v.JsonPath, Enable: v.Enable})
-	}
-	container.LoadKV(c.vars, varRows)
+	container.LoadKV(c.queryParams, http.Request.QueryParams)
+	container.LoadKV(c.pathParams, http.Request.PathParams)
+	container.LoadKV(c.headers, http.Request.Headers)
+	container.LoadKV(c.urlEncoded, http.Request.Body.URLEncoded)
+	container.LoadVariables(c.vars, http.Request.Variables)
 
-	if http.Request.Auth.BasicAuth != nil {
-		c.authUser = http.Request.Auth.BasicAuth.Username
-		c.authPass = http.Request.Auth.BasicAuth.Password
+	c.authState = container.LoadAuthState(http.Request.Auth)
+	c.authState.AllowInherit = true
+	c.authState.CollectionID = r.CollectionID
+
+	if http.Request.PreRequest.Type == domain.PrePostTypePython && http.Request.PreRequest.Script != "" {
+		c.preScript = ui.NewEditor([]byte(http.Request.PreRequest.Script), highlight.Noop{})
 	}
-	if http.Request.Auth.TokenAuth != nil {
-		c.authToken = http.Request.Auth.TokenAuth.Token
-	}
-	if http.Request.Auth.APIKeyAuth != nil {
-		c.authKey = http.Request.Auth.APIKeyAuth.Key
-		c.authVal = http.Request.Auth.APIKeyAuth.Value
+	if http.Request.PostRequest.Type == domain.PrePostTypePython && http.Request.PostRequest.Script != "" {
+		c.postScript = ui.NewEditor([]byte(http.Request.PostRequest.Script), highlight.Noop{})
 	}
 	return c
 }
@@ -114,15 +119,21 @@ func (c *Container) ID() string           { return c.req.MetaData.ID }
 func (c *Container) Kind() container.Kind { return container.KindHTTP }
 func (c *Container) Title() string        { return domain.RequestDisplayName(c.req) }
 func (c *Container) Dirty() bool {
-	return c.dirty || c.bodyEd.Modified() || c.headersEd.Modified() || c.descEd.Modified()
+	return c.dirty || c.bodyEd.Modified() || c.descEd.Modified()
 }
 
 func (c *Container) Close() {
 	c.bodyEd.Close()
-	c.headersEd.Close()
 	c.descEd.Close()
 	c.respEd.Close()
 	c.respHdrEd.Close()
+	c.respCkEd.Close()
+	if c.preScript != nil {
+		c.preScript.Close()
+	}
+	if c.postScript != nil {
+		c.postScript.Close()
+	}
 }
 
 func (c *Container) markDirty() {
@@ -133,28 +144,15 @@ func (c *Container) markDirty() {
 func (c *Container) flush() {
 	http := c.req.Spec.HTTP
 	http.Request.Body.Data = string(c.bodyEd.Bytes())
-	http.Request.Headers = domain.TextToKeyValue(string(c.headersEd.Bytes()))
+	http.Request.Headers = container.DumpKV(c.headers)
+	http.Request.QueryParams = container.DumpKV(c.queryParams)
+	http.Request.PathParams = container.DumpKV(c.pathParams)
+	http.Request.Body.URLEncoded = container.DumpKV(c.urlEncoded)
+	http.Request.Variables = container.DumpVariables(c.vars)
 	c.req.MetaData.Description = string(c.descEd.Bytes())
-	for i := range http.Request.Headers {
-		http.Request.Headers[i].Enable = true
-		if http.Request.Headers[i].ID == "" {
-			http.Request.Headers[i].ID = fmt.Sprintf("h-%d", i)
-		}
-	}
-	http.Request.QueryParams = container.DumpKV(c.params)
-	c.flushAuth()
-}
-
-func (c *Container) flushAuth() {
-	auth := &c.req.Spec.HTTP.Request.Auth
-	switch auth.Type {
-	case domain.AuthTypeBasic:
-		auth.BasicAuth = &domain.BasicAuth{Username: c.authUser, Password: c.authPass}
-	case domain.AuthTypeToken:
-		auth.TokenAuth = &domain.TokenAuth{Token: c.authToken}
-	case domain.AuthTypeAPIKey:
-		auth.APIKeyAuth = &domain.APIKeyAuth{Key: c.authKey, Value: c.authVal}
-	}
+	container.FlushAuth(&http.Request.Auth, c.authState)
+	container.FlushPreScript(&http.Request.PreRequest, c.preScript)
+	container.FlushPostScript(&http.Request.PostRequest, c.postScript)
 }
 
 func (c *Container) Save() error {
@@ -168,7 +166,6 @@ func (c *Container) Save() error {
 	}
 	c.dirty = false
 	c.bodyEd.MarkSaved()
-	c.headersEd.MarkSaved()
 	c.descEd.MarkSaved()
 	c.deps.ReportDirty(false)
 	if c.deps.Report.Saved != nil {
@@ -208,21 +205,36 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	http := c.req.Spec.HTTP
 	id := c.req.MetaData.ID
 	methods := methodOptions()
-	splitDir := ui.Horizontal
-	if prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit {
-		splitDir = ui.Vertical
+	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
+
+	breadcrumb := container.RequestBreadcrumb(c.req)
+	titleViews := []ui.View{}
+	if breadcrumb != "" {
+		titleViews = append(titleViews, ui.Caption(breadcrumb).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)))
 	}
+	titleViews = append(titleViews, ui.Caption(http.Method).Style(ui.Spec{}.TextColor(ui.TokenForeground)))
 
 	return ui.Column(
 		ui.Row(
+			ui.Row(titleViews...).Gap(th.Spacing.XS).Align(ui.AlignCenter).MarginRight(th.Spacing.S),
 			ui.Select("http-method-"+id, methods).
 				Width(110).
 				Selected(optionIndex(http.Method, methods)).
 				OnChange(func(v string) { http.Method = v; c.markDirty() }),
 			ui.TextField("http-url-"+id, http.URL).
 				Placeholder("https://…").
-				OnChange(func(s string) { http.URL = s; c.markDirty() }).
+				OnChange(func(s string) {
+					http.URL = s
+					q, p := container.SyncParamsFromURL(s, container.DumpKV(c.pathParams))
+					container.LoadKV(c.queryParams, q)
+					container.LoadKV(c.pathParams, p)
+					c.markDirty()
+				}).
+				OnSubmit(func(string) { c.Send() }).
 				Grow(1),
+			ui.Button("http-code-"+id, ui.Text("Code")).IconStart(icons.Code).OnClick(func() {
+				container.ShowCodeDialog(ctx, c.deps, c.req)
+			}),
 			ui.Button("http-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
@@ -232,7 +244,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
-		ui.Splitter("http-split-"+id, splitDir, c.reqPane(th), c.respPane(th)).
+		ui.Splitter("http-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).
 			Sizes(300, 0).
 			Grow(1),
 	).Grow(1)
@@ -250,76 +262,41 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	}
 	switch c.reqActive {
 	case 0:
-		body = append(body,
-			ui.Row(
-				ui.Text("Params"),
-				ui.Spacer(),
-				ui.IconButton("http-param-add-"+id, icons.Plus).OnClick(func() {
-					container.AddKVRow(c.params, c.markDirty)
-				}),
-			).PaddingXY(0, th.Spacing.S),
-			ui.ViewOf(c.params).Grow(1),
-		)
+		body = append(body, c.paramsTab(th, id)...)
 	case 1:
-		types := []ui.SelectOption{
-			{Label: "None", Value: domain.RequestBodyTypeNone},
-			{Label: "JSON", Value: domain.RequestBodyTypeJSON},
-			{Label: "XML", Value: domain.RequestBodyTypeXML},
-			{Label: "Text", Value: domain.RequestBodyTypeText},
-			{Label: "Binary", Value: domain.RequestBodyTypeBinary},
-		}
-		if http.Request.Body.Type == "" {
-			http.Request.Body.Type = domain.RequestBodyTypeJSON
-		}
-		body = append(body,
-			ui.Select("http-body-type-"+id, types).Width(140).
-				Selected(optionIndex(http.Request.Body.Type, types)).
-				OnChange(func(v string) { http.Request.Body.Type = v; c.markDirty() }),
-			ui.ViewOf(c.bodyEd).Grow(1),
-		)
+		body = append(body, c.bodyTab(th, id, http)...)
 	case 2:
-		body = append(body, c.authForm(th))
+		body = append(body, container.AuthForm(th, id, &http.Request.Auth, &c.authState, c.deps.Catalog, c.markDirty))
 	case 3:
-		body = append(body, ui.ViewOf(c.headersEd).Grow(1))
+		body = append(body, container.HeadersPane(th, id, c.headers, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 4:
 		body = append(body,
-			ui.Row(ui.Button("http-var-add-"+id, ui.Text("Add")).OnClick(func() {
-				container.AddKVRow(c.vars, c.markDirty)
-			})).PaddingXY(0, th.Spacing.S),
+			ui.Row(
+				ui.Button("http-var-add-"+id, ui.Text("Add")).OnClick(func() {
+					container.AddVariableRow(c.vars, 200, c.markDirty)
+				}),
+			).PaddingXY(0, th.Spacing.S),
 			ui.ViewOf(c.vars).Grow(1),
 		)
 	case 5:
-		pre := http.Request.PreRequest
-		opts := []ui.SelectOption{
-			{Label: "None", Value: domain.PrePostTypeNone},
-			{Label: "Trigger request", Value: domain.PrePostTypeTriggerRequest},
-		}
-		if pre.Type == "" {
-			pre.Type = domain.PrePostTypeNone
-		}
-		body = append(body, ui.Select("http-pre-"+id, opts).Width(200).
-			Selected(optionIndex(pre.Type, opts)).
-			OnChange(func(v string) { http.Request.PreRequest.Type = v; c.markDirty() }))
-		if pre.Type == domain.PrePostTypeTriggerRequest {
-			body = append(body, c.triggerPick(th))
-		}
+		body = append(body, container.PreRequestPane(th, c.deps, &http.Request.PreRequest, container.PrePostOpts{
+			ID: optsID(id, "pre"), AllowPython: true,
+		}, &c.preScript, c.markDirty))
 	case 6:
-		post := http.Request.PostRequest
-		opts := []ui.SelectOption{
-			{Label: "None", Value: domain.PrePostTypeNone},
-			{Label: "Set environment", Value: domain.PrePostTypeSetEnv},
+		preview := ""
+		if c.lastResp != nil {
+			preview = container.PreviewPostSet(http.Request.PostRequest.PostRequestSet, c.lastResp)
 		}
-		if post.Type == "" {
-			post.Type = domain.PrePostTypeNone
-		}
-		body = append(body, ui.Select("http-post-"+id, opts).Width(200).
-			Selected(optionIndex(post.Type, opts)).
-			OnChange(func(v string) { http.Request.PostRequest.Type = v; c.markDirty() }))
-		if post.Type == domain.PrePostTypeSetEnv {
-			body = append(body, c.postSetForm(th))
-		}
+		body = append(body, container.PostRequestPane(th, c.deps, &http.Request.PostRequest, container.PrePostOpts{
+			ID: optsID(id, "post"), AllowPython: true, AllowSetEnv: true,
+			FromOptions: container.HTTPPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
+			DefaultStatus: 200,
+		}, &c.postScript, preview, c.markDirty))
 	case 7:
-		body = append(body, container.InfoPane(th, id, c.req, c.descEd, c.markDirty))
+		body = append(body, container.InfoPane(th, id, c.req, c.descEd, func() {
+			c.markDirty()
+			c.deps.ReportTitle(domain.RequestDisplayName(c.req))
+		}))
 	}
 	return ui.Column(
 		ui.Column(body...).
@@ -331,92 +308,83 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	)
 }
 
-func (c *Container) authForm(th *theme.Theme) ui.View {
-	id := c.req.MetaData.ID
-	auth := &c.req.Spec.HTTP.Request.Auth
-	opts := []ui.SelectOption{
-		{Label: "None", Value: domain.AuthTypeNone},
-		{Label: "Inherit", Value: domain.AuthTypeInherit},
-		{Label: "Bearer", Value: domain.AuthTypeToken},
-		{Label: "Basic", Value: domain.AuthTypeBasic},
-		{Label: "API Key", Value: domain.AuthTypeAPIKey},
+func (c *Container) paramsTab(th *theme.Theme, id string) []ui.View {
+	return []ui.View{
+		ui.Row(ui.Text("Query"), ui.Spacer(),
+			ui.IconButton("http-query-add-"+id, icons.Plus).OnClick(func() {
+				container.AddKVRow(c.queryParams, func() {
+					http := c.req.Spec.HTTP
+					http.URL = container.SyncURLFromParams(http.URL, container.DumpKV(c.queryParams))
+					c.markDirty()
+				})
+			}),
+		).PaddingXY(0, th.Spacing.S),
+		ui.ViewOf(c.queryParams).Height(120),
+		ui.Row(ui.Text("Path"), ui.Spacer(),
+			ui.IconButton("http-path-add-"+id, icons.Plus).OnClick(func() {
+				container.AddKVRow(c.pathParams, c.markDirty)
+			}),
+		).PaddingXY(0, th.Spacing.S),
+		ui.Caption("path params inside bracket, for example: {id}"),
+		ui.ViewOf(c.pathParams).Grow(1),
 	}
-	if auth.Type == "" {
-		auth.Type = domain.AuthTypeNone
+}
+
+func (c *Container) bodyTab(th *theme.Theme, id string, http *domain.HTTPRequestSpec) []ui.View {
+	types := []ui.SelectOption{
+		{Label: "None", Value: domain.RequestBodyTypeNone},
+		{Label: "JSON", Value: domain.RequestBodyTypeJSON},
+		{Label: "XML", Value: domain.RequestBodyTypeXML},
+		{Label: "Text", Value: domain.RequestBodyTypeText},
+		{Label: "Form data", Value: domain.RequestBodyTypeFormData},
+		{Label: "Binary", Value: domain.RequestBodyTypeBinary},
+		{Label: "Urlencoded", Value: domain.RequestBodyTypeUrlencoded},
+	}
+	if http.Request.Body.Type == "" {
+		http.Request.Body.Type = domain.RequestBodyTypeJSON
 	}
 	rows := []ui.View{
-		ui.Select("http-auth-"+id, opts).Width(180).
-			Selected(optionIndex(auth.Type, opts)).
-			OnChange(func(v string) { auth.Type = v; c.markDirty() }),
+		ui.Select("http-body-type-"+id, types).Width(140).
+			Selected(optionIndex(http.Request.Body.Type, types)).
+			OnChange(func(v string) {
+				http.Request.Body.Type = v
+				c.bodyEd.Close()
+				c.bodyEd = ui.NewEditor(c.bodyEd.Bytes(), bodyHighlighter(v))
+				c.markDirty()
+			}),
 	}
-	switch auth.Type {
-	case domain.AuthTypeToken:
-		rows = append(rows, ui.TextField("http-token-"+id, c.authToken).Placeholder("Token").
-			OnChange(func(s string) { c.authToken = s; c.markDirty() }).Grow(1))
-	case domain.AuthTypeBasic:
+	switch http.Request.Body.Type {
+	case domain.RequestBodyTypeFormData:
+		rows = append(rows, container.FormDataPane(th, id, &http.Request.Body.FormData.Fields, c.deps, c.markDirty))
+	case domain.RequestBodyTypeBinary:
+		rows = append(rows, container.BinaryFilePicker(th, id, http.Request.Body.BinaryFilePath, c.deps, func(p string) {
+			http.Request.Body.BinaryFilePath = p
+			c.markDirty()
+		}))
+	case domain.RequestBodyTypeUrlencoded:
 		rows = append(rows,
-			ui.TextField("http-user-"+id, c.authUser).Placeholder("Username").
-				OnChange(func(s string) { c.authUser = s; c.markDirty() }).Grow(1),
-			ui.TextField("http-pass-"+id, c.authPass).Placeholder("Password").Password(true).
-				OnChange(func(s string) { c.authPass = s; c.markDirty() }).Grow(1),
+			ui.Button("urlenc-add-"+id, ui.Text("Add")).OnClick(func() { container.AddKVRow(c.urlEncoded, c.markDirty) }),
+			ui.ViewOf(c.urlEncoded).Grow(1),
 		)
-	case domain.AuthTypeAPIKey:
-		rows = append(rows,
-			ui.TextField("http-apikey-"+id, c.authKey).Placeholder("Header").
-				OnChange(func(s string) { c.authKey = s; c.markDirty() }).Grow(1),
-			ui.TextField("http-apival-"+id, c.authVal).Placeholder("Value").
-				OnChange(func(s string) { c.authVal = s; c.markDirty() }).Grow(1),
-		)
+	case domain.RequestBodyTypeNone:
+	default:
+		rows = append(rows, ui.ViewOf(c.bodyEd).Grow(1))
 	}
-	return ui.Column(rows...).Gap(th.Spacing.S).Grow(1)
+	return rows
 }
 
-func (c *Container) triggerPick(th *theme.Theme) ui.View {
-	id := c.req.MetaData.ID
-	if c.req.Spec.HTTP.Request.PreRequest.TriggerRequest == nil {
-		c.req.Spec.HTTP.Request.PreRequest.TriggerRequest = &domain.TriggerRequest{}
-	}
-	tr := c.req.Spec.HTTP.Request.PreRequest.TriggerRequest
-	opts := []ui.SelectOption{{Label: "None", Value: ""}}
-	if c.deps.Catalog != nil {
-		for _, col := range c.deps.Catalog.AllCollections() {
-			for _, r := range col.Spec.Requests {
-				opts = append(opts, ui.SelectOption{Label: col.MetaData.Name + " / " + domain.RequestDisplayName(r), Value: r.MetaData.ID})
-			}
-		}
-		for _, r := range c.deps.Catalog.StandaloneRequests() {
-			opts = append(opts, ui.SelectOption{Label: domain.RequestDisplayName(r), Value: r.MetaData.ID})
-		}
-	}
-	return ui.Select("http-trigger-"+id, opts).Width(280).
-		Selected(optionIndex(tr.RequestID, opts)).
-		OnChange(func(v string) { tr.RequestID = v; c.markDirty() })
-}
-
-func (c *Container) postSetForm(th *theme.Theme) ui.View {
-	id := c.req.MetaData.ID
-	set := &c.req.Spec.HTTP.Request.PostRequest.PostRequestSet
-	froms := []ui.SelectOption{
-		{Label: "Body", Value: domain.PostRequestSetFromResponseBody},
-		{Label: "Header", Value: domain.PostRequestSetFromResponseHeader},
-		{Label: "Cookie", Value: domain.PostRequestSetFromResponseCookie},
-	}
-	return ui.Column(
-		ui.TextField("http-post-target-"+id, set.Target).Placeholder("Env key").
-			OnChange(func(s string) { set.Target = s; c.markDirty() }),
-		ui.TextField("http-post-fromkey-"+id, set.FromKey).Placeholder("JSONPath or header").
-			OnChange(func(s string) { set.FromKey = s; c.markDirty() }),
-		ui.Select("http-post-from-"+id, froms).Width(160).
-			Selected(optionIndex(set.From, froms)).
-			OnChange(func(v string) { set.From = v; c.markDirty() }),
-	).Gap(th.Spacing.S)
-}
-
-func (c *Container) respPane(th *theme.Theme) ui.View {
+func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 	return ui.Column(
 		ui.Column(
 			c.statusLine(th),
+			ui.Row(
+				ui.Spacer(),
+				ui.Button("http-copy-"+id, ui.Text("Copy")).IconStart(icons.ClipboardCopy).OnClick(func() {
+					ctx.Clipboard().Set(string(c.activeResp().Bytes()))
+					c.deps.Toast("Copied")
+				}),
+			),
 			ui.Tabs("http-resp-tabs-"+id, c.respTabs).
 				Selected(c.respActive).
 				Closable(false).
@@ -432,20 +400,18 @@ func (c *Container) respPane(th *theme.Theme) ui.View {
 }
 
 func (c *Container) activeResp() *ui.Editor {
-	if c.respActive == 1 {
+	switch c.respActive {
+	case 1:
 		return c.respHdrEd
+	case 2:
+		return c.respCkEd
+	default:
+		return c.respEd
 	}
-	return c.respEd
 }
 
 func (c *Container) statusLine(th *theme.Theme) ui.View {
-	style := ui.Spec{}.TextColor(ui.TokenForegroundMuted)
-	if c.respErr {
-		style = ui.Spec{}.TextColor(ui.TokenError)
-	} else if c.haveResult && c.respCode >= 200 && c.respCode < 300 {
-		style = ui.Spec{}.TextColor(ui.TokenSuccess)
-	}
-	return ui.Text(c.statusText).Style(style)
+	return ui.Text(c.statusText).Style(container.StatusLineStyle(c.respErr, c.respCode, c.haveResult))
 }
 
 func (c *Container) handleResult(r result) {
@@ -453,11 +419,13 @@ func (c *Container) handleResult(r result) {
 	c.haveResult = true
 	if r.err != nil {
 		c.respErr = true
+		c.lastResp = nil
 		c.statusText = r.err.Error()
 		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()))
 		return
 	}
 	res := r.resp
+	c.lastResp = res
 	c.respErr = res.Error != nil
 	c.respCode = res.StatusCode
 	if c.respCode == 0 {
@@ -476,11 +444,23 @@ func (c *Container) handleResult(r result) {
 		body = []byte(res.JSON)
 	}
 	c.respEd = replaceEditor(c.respEd, body)
-	var b strings.Builder
-	for k, v := range res.ResponseHeaders {
-		fmt.Fprintf(&b, "%s: %s\n", k, v)
+	var hdr strings.Builder
+	fmt.Fprintf(&hdr, "# --- Request Headers ---\n")
+	for k, v := range res.RequestHeaders {
+		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
-	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(b.String()))
+	fmt.Fprintf(&hdr, "\n# --- Response Headers ---\n")
+	for k, v := range res.ResponseHeaders {
+		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
+	}
+	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()))
+	var ck strings.Builder
+	for _, cookie := range res.Cookies {
+		fmt.Fprintf(&ck, "%s=%s\n", cookie.Name, cookie.Value)
+	}
+	c.respCkEd = replaceEditor(c.respCkEd, []byte(ck.String()))
+	vars := container.DumpVariables(c.vars)
+	container.UpdateVariablePreviews(c.vars, vars, res)
 }
 
 func replaceEditor(old *ui.Editor, data []byte) *ui.Editor {
@@ -488,6 +468,17 @@ func replaceEditor(old *ui.Editor, data []byte) *ui.Editor {
 		old.Close()
 	}
 	return ui.NewEditor(data, highlight.NewJSON())
+}
+
+func bodyHighlighter(bodyType string) highlight.Highlighter {
+	switch bodyType {
+	case domain.RequestBodyTypeJSON:
+		return highlight.NewJSON()
+	case domain.RequestBodyTypeXML:
+		return highlight.Noop{}
+	default:
+		return highlight.Noop{}
+	}
 }
 
 func methodOptions() []ui.SelectOption {
@@ -506,3 +497,5 @@ func optionIndex(v string, opts []ui.SelectOption) int {
 	}
 	return 0
 }
+
+func optsID(id, suffix string) string { return id + "-" + suffix }

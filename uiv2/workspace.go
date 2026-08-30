@@ -120,6 +120,15 @@ func (w *Workspace) requestClose(i int) {
 	w.drop(i)
 }
 
+func (w *Workspace) CloseByID(id string) {
+	for i, d := range w.docs {
+		if d.ID() == id {
+			w.drop(i)
+			return
+		}
+	}
+}
+
 func (w *Workspace) drop(i int) {
 	if i < 0 || i >= len(w.docs) {
 		return

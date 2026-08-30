@@ -2,6 +2,7 @@ package pages
 
 import (
 	"os"
+	"strings"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
@@ -22,7 +23,12 @@ type workspace interface {
 	OpenRequest(*domain.Request)
 	OpenCollection(*domain.Collection)
 	OpenEnv(*domain.Environment)
+	CloseByID(string)
 	Layout(*ui.Ctx) ui.View
+}
+
+type consoleDrawer interface {
+	WrapWorkspace(c *ui.Ctx, workspace ui.View) ui.View
 }
 
 type RequestsCatalog interface {
@@ -34,17 +40,18 @@ type RequestsCatalog interface {
 }
 
 type Requests struct {
-	query string
-	tree  *ui.Tree
-	repo  repository.RepositoryV2
-	cat   RequestsCatalog
-	ws    workspace
-	files func() *ui.FileDialog
-	err   func(error)
+	query   string
+	tree    *ui.Tree
+	repo    repository.RepositoryV2
+	cat     RequestsCatalog
+	ws      workspace
+	console consoleDrawer
+	files   func() *ui.FileDialog
+	err     func(error)
 }
 
-func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Requests {
-	p := &Requests{repo: repo, cat: cat, ws: ws, files: files, err: errFn}
+func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error), console consoleDrawer) *Requests {
+	p := &Requests{repo: repo, cat: cat, ws: ws, console: console, files: files, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root", Data: "root"})
 	p.tree.IconFor = p.iconFor
 	p.tree.OnActivate = p.activate
@@ -184,9 +191,54 @@ func (p *Requests) menu(n *ui.TreeNode) []ui.MenuItem {
 		items = append([]ui.MenuItem{{Label: "Open", OnSelect: func() { p.activate(n) }}}, items...)
 	}
 	if ref.Kind == domain.KindRequest || ref.Kind == domain.KindCollection {
-		items = append(items, ui.MenuItem{Label: "Delete", OnSelect: func() { p.deleteRef(ref) }})
+		items = append(items,
+			ui.MenuItem{Label: "Duplicate", OnSelect: func() { p.duplicateRef(ref) }},
+			ui.MenuItem{Label: "Delete", OnSelect: func() { p.deleteRef(ref) }},
+		)
 	}
 	return items
+}
+
+func (p *Requests) duplicateRef(ref NodeRef) {
+	switch ref.Kind {
+	case domain.KindRequest:
+		req := p.cat.RequestByID(ref.ID)
+		if req == nil {
+			return
+		}
+		newReq := req.Clone()
+		newReq.MetaData.Name += " (copy)"
+		var col *domain.Collection
+		if req.CollectionID != "" {
+			col = p.cat.CollectionByID(req.CollectionID)
+		}
+		if err := p.repo.CreateRequest(newReq, col); err != nil {
+			p.err(err)
+			return
+		}
+		_ = p.cat.Load()
+		p.Rebuild()
+		p.ws.OpenRequest(newReq)
+	case domain.KindCollection:
+		col := p.cat.CollectionByID(ref.ID)
+		if col == nil {
+			return
+		}
+		colClone := col.Clone()
+		if err := p.repo.CreateCollection(colClone); err != nil {
+			p.err(err)
+			return
+		}
+		for _, req := range colClone.Spec.Requests {
+			if err := p.repo.CreateRequest(req, colClone); err != nil {
+				p.err(err)
+				return
+			}
+		}
+		_ = p.cat.Load()
+		p.Rebuild()
+		p.ws.OpenCollection(colClone)
+	}
 }
 
 func (p *Requests) createRequest(kind domain.RequestType, ref NodeRef) {
@@ -216,6 +268,18 @@ func (p *Requests) createRequest(kind domain.RequestType, ref NodeRef) {
 	p.ws.OpenRequest(req)
 }
 
+// CreateHTTP creates a new HTTP request in the sidebar tree.
+func (p *Requests) CreateHTTP() { p.createRequest(domain.RequestTypeHTTP, NodeRef{}) }
+
+// CreateGRPC creates a new gRPC request.
+func (p *Requests) CreateGRPC() { p.createRequest(domain.RequestTypeGRPC, NodeRef{}) }
+
+// CreateGraphQL creates a new GraphQL request.
+func (p *Requests) CreateGraphQL() { p.createRequest(domain.RequestTypeGraphQL, NodeRef{}) }
+
+// CreateCollection creates a new collection.
+func (p *Requests) CreateCollection() { p.createCollection() }
+
 func (p *Requests) createCollection() {
 	col := domain.NewCollection("New Collection")
 	if err := p.repo.CreateCollection(col); err != nil {
@@ -242,6 +306,7 @@ func (p *Requests) deleteRef(ref NodeRef) {
 			p.err(err)
 			return
 		}
+		p.ws.CloseByID(ref.ID)
 	case domain.KindCollection:
 		col := p.cat.CollectionByID(ref.ID)
 		if col == nil {
@@ -251,6 +316,7 @@ func (p *Requests) deleteRef(ref NodeRef) {
 			p.err(err)
 			return
 		}
+		p.ws.CloseByID(ref.ID)
 	}
 	_ = p.cat.Load()
 	p.Rebuild()
@@ -267,13 +333,28 @@ func (p *Requests) importFile() {
 	fd.Show(ui.FileDialogOpts{
 		Title:   "Import collection",
 		Mode:    ui.FileDialogOpenFile,
-		Filters: []ui.FileFilter{{Label: "JSON", Exts: []string{".json"}}},
+		Filters: []ui.FileFilter{
+			{Label: "JSON", Exts: []string{".json"}},
+			{Label: "YAML", Exts: []string{".yaml", ".yml"}},
+			{Label: "Proto", Exts: []string{".proto"}},
+		},
 		OnConfirm: func(paths []string) {
 			if len(paths) == 0 {
 				return
 			}
-			if err := importer.ImportPostmanCollectionFromFile(paths[0], p.repo); err != nil {
-				data, readErr := os.ReadFile(paths[0])
+			path := paths[0]
+			if strings.HasSuffix(strings.ToLower(path), ".proto") {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					p.err(err)
+					return
+				}
+				if err := importer.ImportProtoFile(data, p.repo, path); err != nil {
+					p.err(err)
+					return
+				}
+			} else if err := importer.ImportPostmanCollectionFromFile(path, p.repo); err != nil {
+				data, readErr := os.ReadFile(path)
 				if readErr != nil {
 					p.err(err)
 					return
@@ -290,7 +371,11 @@ func (p *Requests) importFile() {
 }
 
 func (p *Requests) Layout(c *ui.Ctx) ui.View {
-	return ui.Splitter("req-page-split", ui.Horizontal, p.side(c), p.ws.Layout(c)).Sizes(280, 0).Grow(1)
+	workspace := p.ws.Layout(c)
+	if p.console != nil {
+		workspace = p.console.WrapWorkspace(c, workspace)
+	}
+	return ui.Splitter("req-page-split", ui.Horizontal, p.side(c), workspace).Sizes(280, 0).Grow(1)
 }
 
 func (p *Requests) side(c *ui.Ctx) ui.View {

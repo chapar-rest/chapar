@@ -131,7 +131,7 @@ Select a theme **before** `yoga.Run` if the app is not dark-default (`example/ap
 - `FileDialog`: pure-Go picker with open file/folder and save modes. Footer holds filename (save), filter, optional New Folder (`AllowCreateFolder`), Cancel, and Open/Select/Save. See [widgets.md](widgets.md).
 - `c.Dialogs().Show(DialogOpts)`: custom size, body layout, and footer actions (same modal behavior as FileDialog). `ShowInfo` / `ShowWarning` / `ShowError` / `ShowAction` / `ShowInput` are built on this path.
 - `Form`: labeled settings rows (switch, select, number, text, slider, stepper). `Switch`: pill toggle for compact rows.
-- Anchored overlays: `.Tooltip(text)` on any node; `Popover` (no scrim); `ContextMenu` (right-click → `Menu`). Dropdowns/Selects/Menus call `c.Overlay` themselves.
+- Anchored overlays: `.Tooltip(text)` on any node; `Popover` (no scrim, click trigger to toggle); `ContextMenu` (right-click → `Menu`). Dropdowns/Selects/Menus call `c.Overlay` themselves. **Do not use `Dialog` for lightweight history panels** — use `Popover` anchored to a footer/toolbar button with `.Placement(ui.PlacementTop)` when the trigger sits at the bottom of the window.
 - `c.Focus().EnsureFocus(w)` / `.DefaultFocus()` on a control when nothing is focused. Tab order = Layout registration order.
 - Background work: mutate app state, then `c.Invalidate()` (any goroutine). Capture `c` only for the current frame’s `Invalidate` closure, or keep a wake func — prefer storing results on the app and calling `Invalidate` from a handle the runtime already has. Pattern in `example/apitest`: poll a channel in `Body`, `c.Animate(30*time.Millisecond)` while pending.
 - Caret blink / spinner / progress / skeleton: widget calls `c.Animate(d)` during Layout.
@@ -156,7 +156,9 @@ Store hover in `c.Widget(id, func() any { return &state{} })`.
 - Controlled values from the app; never treat TextField as owning the string.
 - `Row` children that should stretch vertically: parent `.Align(ui.AlignStretch)`.
 - Splitter: `ui.Splitter(id, ui.Horizontal|Vertical, a, b).Sizes(240, 0).Grow(1)` — `0` means flex.
-- Drawer: `ui.Drawer(id, panel, page).Open(v).Edge(ui.EdgeRight).Overlay().Size(320).Grow(1)` — or `.Push()`; nest for IDE-style terminal + chat; `.Swipe(true)` for drag gestures. Panel content fills a clipped viewport — use `.Grow(1)` on the panel view, not fixed width.
+- Drawer: `ui.Drawer(id, panel, page).Open(v).Edge(ui.EdgeRight).Overlay().Size(320).Grow(1)` — or `.Push()`; nest for IDE-style terminal + chat; `.Swipe(true)` for drag gestures. Panel content fills a clipped viewport — use `.Grow(1)` on the panel view, not fixed width/height (the drawer owns main-axis size).
+  - **Bottom console / terminal:** `.Edge(ui.EdgeBottom).Push().Resizable(true)` — wrap only the **editor/workspace** pane, not the whole page (e.g. inside a `Splitter` right child so the sidebar tree stays full height). Toggle `.Open(v)` from app state; sync with `.OnOpenChange`.
+  - **Avoid `ui.Stack` at the app root** for overlays — defaults center children and shrink the UI. Use `Drawer`, `Popover`, or window services (`c.Dialogs()`, `c.Overlay`) instead.
 - Icons: Lucide symbols from `github.com/mirzakhany/yoga/icons` (`icons.Search`, `icons.Plus`, `icons.Settings`, …). Full list in `icons/catalog` for the component gallery. Regenerate: `go run ./cmd/generate-lucide`.
 - After async HTTP/highlight: `Invalidate` or `Animate`; idle loop otherwise waits forever.
 - Tests/CI: `go test ./...` and `go build -tags nogpu ./...`.

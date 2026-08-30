@@ -44,6 +44,9 @@ type App struct {
 	wake     func()
 	uiCtx    *ui.Ctx
 	executor scripting.Executor
+	console  *ConsolePanel
+	notifs   NotificationHistory
+	notifsOpen bool
 }
 
 var _ yoga.App = (*App)(nil)
@@ -51,7 +54,7 @@ var _ yoga.Closer = (*App)(nil)
 var _ yoga.KeyHook = (*App)(nil)
 
 func BuildApp() *App {
-	a := &App{}
+	a := &App{console: &ConsolePanel{}}
 	a.settings = settings.New(func(spec domain.GlobalConfigSpec) {
 		applyChaparAppearance(spec.General, spec.Editor)
 	})
@@ -86,7 +89,7 @@ func BuildApp() *App {
 	}
 
 	files := a.files
-	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.showError)
+	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.showError, a.console)
 	a.envs = pages.NewEnvironmentsPage(repo,
 		func() []*domain.Environment { return a.catalog.Environments },
 		a.catalog.EnvironmentByID,
@@ -167,6 +170,7 @@ func (a *App) showError(err error) {
 }
 
 func (a *App) toast(msg string) {
+	a.notifs.Add(msg, ui.ToastInfo)
 	if host := a.toasts(); host != nil {
 		host.Show(msg, ui.ToastInfo, 3*time.Second)
 	}
@@ -220,6 +224,9 @@ func (a *App) initScripting() {
 		return
 	}
 	a.executor = exec
+	if a.sender != nil {
+		a.sender.SetExecutor(exec)
+	}
 }
 
 func (a *App) Body(c *ui.Ctx) ui.View {
@@ -236,17 +243,16 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 
 	a.registerCommands(c)
 
-	return ui.Column(
+	main := ui.Column(
 		a.topBar(c),
-		//ui.HLine(th.Stroke.Thin, th.Border),
 		ui.Row(
 			a.nav(c),
-			//ui.VLine(th.Stroke.Thin, th.Border),
 			ui.ViewOf(a.pageView(c)).Grow(1),
 		).Align(ui.AlignStretch).Grow(1),
-		//	ui.HLine(th.Stroke.Thin, th.Border),
 		a.footer(c),
-	).Grow(1).Background(ui.TokenSurface)
+	).Grow(1)
+
+	return ui.ViewOf(main).Grow(1).Background(ui.TokenSurface)
 }
 
 func (a *App) registerCommands(c *ui.Ctx) {
@@ -348,7 +354,7 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 				a.switchWorkspace(ws)
 			}
 		}),
-		ui.IconButton("top-add", icons.Plus).OnClick(func() {}),
+		ui.ContextMenu("top-add-menu", ui.IconButton("top-add", icons.Plus), a.createMenuItems()),
 		ui.Spacer(),
 		ui.Button("cmd-palette", ui.Text("Commands")).Width(300).
 			IconStart(icons.Search).
@@ -403,18 +409,47 @@ func (a *App) nav(c *ui.Ctx) ui.View {
 	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).Width(75)
 }
 
+func (a *App) createMenuItems() []ui.MenuItem {
+	return []ui.MenuItem{
+		{Label: "New HTTP request", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateHTTP() }},
+		{Label: "New gRPC request", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateGRPC() }},
+		{Label: "New GraphQL request", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateGraphQL() }},
+		{Label: "New collection", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateCollection() }},
+		{Label: "New environment", OnSelect: func() { a.navIndex = navEnvs; a.envs.Create() }},
+	}
+}
+
 func (a *App) footer(c *ui.Ctx) ui.View {
 	th := c.Theme()
+	cfg := prefs.GetGlobalConfig()
+	splitIcon := icons.PanelLeft
+	if cfg.Spec.General.UseHorizontalSplit {
+		splitIcon = icons.PanelTop
+	}
 	return ui.Row(
 		ui.Caption("Chapar "+version.GetAppVersion()).MarginLeft(th.Spacing.S),
 		ui.Spacer(),
-		ui.Button("footer-console", ui.Text("Console")).IconStart(icons.Terminal).Ghost().HoverFill().OnClick(func() {}),
-		ui.Button("footer-notifications", ui.Text("Notifications")).
-			IconStart(icons.Bell).
-			Ghost().
-			HoverFill().
-			MarginRight(th.Spacing.S).
-			OnClick(func() {}),
+		ui.Button("footer-split", ui.Text("Split")).IconStart(splitIcon).Ghost().HoverFill().OnClick(func() {
+			cfg := prefs.GetGlobalConfig()
+			cfg.Spec.General.UseHorizontalSplit = !cfg.Spec.General.UseHorizontalSplit
+			_ = prefs.UpdateGlobalConfig(cfg)
+		}),
+		ui.Button("footer-console", ui.Text("Console")).IconStart(icons.Terminal).Ghost().HoverFill().OnClick(func() {
+			a.console.Toggle()
+		}),
+		ui.Popover("footer-notifications-pop",
+			ui.Button("footer-notifications", ui.Text("Notifications")).
+				IconStart(icons.Bell).
+				Ghost().
+				HoverFill().
+				MarginRight(th.Spacing.S),
+			a.notifs.Layout(c),
+		).
+			Open(a.notifsOpen).
+			OnOpenChange(func(v bool) { a.notifsOpen = v }).
+			Placement(ui.PlacementTop).
+			Width(360).
+			Height(280),
 	).Background(ui.TokenChrome)
 }
 

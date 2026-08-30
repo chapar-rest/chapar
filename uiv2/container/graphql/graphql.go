@@ -7,6 +7,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
@@ -25,15 +26,20 @@ type Container struct {
 	dirty                 bool
 	queryEd               *ui.Editor
 	varsEd                *ui.Editor
-	hdrEd                 *ui.Editor
 	descEd                *ui.Editor
 	respEd                *ui.Editor
+	respHdrEd             *ui.Editor
+	headers               *ui.Table
+	preScript             *ui.Editor
+	postScript            *ui.Editor
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
 	reqActive, respActive int
 	pending               bool
 	resultCh              chan result
-	status                string
+	lastResp              *egress.Response
+	statusText            string
+	authState             container.AuthState
 }
 
 func Open(req *domain.Request, deps container.Deps) *Container {
@@ -46,15 +52,29 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		req:      r,
 		deps:     deps,
 		resultCh: make(chan result, 1),
-		reqTabs:  []ui.TabModel{{Title: "Query"}, {Title: "Variables"}, {Title: "Headers"}, {Title: "Info"}},
-		respTabs: []ui.TabModel{{Title: "Response"}, {Title: "Headers"}},
-		status:   "Ready",
+		reqTabs: []ui.TabModel{
+			{Title: "Query"}, {Title: "Variables"}, {Title: "Headers"},
+			{Title: "Auth"}, {Title: "Pre"}, {Title: "Post"}, {Title: "Info"},
+		},
+		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}},
+		statusText: "Ready",
 	}
 	c.queryEd = ui.NewEditor([]byte(g.Query), highlight.Noop{})
 	c.varsEd = ui.NewEditor([]byte(g.Variables), highlight.NewJSON())
-	c.hdrEd = ui.NewEditor([]byte(domain.KeyValuesToText(g.Headers)), highlight.Noop{})
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.Noop{})
+	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{})
+	c.headers = container.NewKVTable("gql-hdr-"+r.MetaData.ID, c.markDirty)
+	container.LoadKV(c.headers, g.Headers)
+	c.authState = container.LoadAuthState(g.Auth)
+	c.authState.AllowInherit = true
+	c.authState.CollectionID = r.CollectionID
+	if g.PreRequest.Type == domain.PrePostTypePython && g.PreRequest.Script != "" {
+		c.preScript = ui.NewEditor([]byte(g.PreRequest.Script), highlight.Noop{})
+	}
+	if g.PostRequest.Type == domain.PrePostTypePython && g.PostRequest.Script != "" {
+		c.postScript = ui.NewEditor([]byte(g.PostRequest.Script), highlight.Noop{})
+	}
 	return c
 }
 
@@ -62,14 +82,20 @@ func (c *Container) ID() string           { return c.req.MetaData.ID }
 func (c *Container) Kind() container.Kind { return container.KindGraphQL }
 func (c *Container) Title() string        { return domain.RequestDisplayName(c.req) }
 func (c *Container) Dirty() bool {
-	return c.dirty || c.queryEd.Modified() || c.varsEd.Modified() || c.hdrEd.Modified() || c.descEd.Modified()
+	return c.dirty || c.queryEd.Modified() || c.varsEd.Modified() || c.descEd.Modified()
 }
 func (c *Container) Close() {
 	c.queryEd.Close()
 	c.varsEd.Close()
-	c.hdrEd.Close()
 	c.descEd.Close()
 	c.respEd.Close()
+	c.respHdrEd.Close()
+	if c.preScript != nil {
+		c.preScript.Close()
+	}
+	if c.postScript != nil {
+		c.postScript.Close()
+	}
 }
 func (c *Container) markDirty() { c.dirty = true; c.deps.ReportDirty(true) }
 
@@ -77,11 +103,11 @@ func (c *Container) flush() {
 	g := c.req.Spec.GraphQL
 	g.Query = string(c.queryEd.Bytes())
 	g.Variables = string(c.varsEd.Bytes())
-	g.Headers = domain.TextToKeyValue(string(c.hdrEd.Bytes()))
+	g.Headers = container.DumpKV(c.headers)
 	c.req.MetaData.Description = string(c.descEd.Bytes())
-	for i := range g.Headers {
-		g.Headers[i].Enable = true
-	}
+	container.FlushAuth(&g.Auth, c.authState)
+	container.FlushPreScript(&g.PreRequest, c.preScript)
+	container.FlushPostScript(&g.PostRequest, c.postScript)
 }
 
 func (c *Container) Save() error {
@@ -96,7 +122,6 @@ func (c *Container) Save() error {
 	c.dirty = false
 	c.queryEd.MarkSaved()
 	c.varsEd.MarkSaved()
-	c.hdrEd.MarkSaved()
 	c.descEd.MarkSaved()
 	c.deps.ReportDirty(false)
 	if c.deps.Report.Saved != nil {
@@ -112,7 +137,7 @@ func (c *Container) Send() {
 	}
 	c.flush()
 	c.pending = true
-	c.status = "Sending…"
+	c.statusText = "Sending…"
 	req := container.CopyRequest(c.req)
 	env := c.deps.ActiveEnv()
 	go func() {
@@ -134,10 +159,13 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	th := ctx.Theme()
 	id := c.req.MetaData.ID
 	g := c.req.Spec.GraphQL
+	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
 	return ui.Column(
 		ui.Row(
 			ui.TextField("gql-url-"+id, g.URL).Placeholder("https://…/graphql").
-				OnChange(func(s string) { g.URL = s; c.markDirty() }).Grow(1),
+				OnChange(func(s string) { g.URL = s; c.markDirty() }).
+				OnSubmit(func(string) { c.Send() }).
+				Grow(1),
 			ui.Button("gql-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
@@ -147,12 +175,13 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
-		ui.Splitter("gql-split-"+id, ui.Horizontal, c.reqPane(th), c.respPane(th)).Sizes(300, 0).Grow(1),
+		ui.Splitter("gql-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).Sizes(300, 0).Grow(1),
 	).Grow(1)
 }
 
 func (c *Container) reqPane(th *theme.Theme) ui.View {
 	id := c.req.MetaData.ID
+	g := c.req.Spec.GraphQL
 	rows := []ui.View{
 		ui.Tabs("gql-req-tabs-"+id, c.reqTabs).Selected(c.reqActive).
 			Closable(false).
@@ -162,9 +191,28 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	case 1:
 		rows = append(rows, ui.ViewOf(c.varsEd).Grow(1))
 	case 2:
-		rows = append(rows, ui.ViewOf(c.hdrEd).Grow(1))
+		rows = append(rows, container.HeadersPane(th, id, c.headers, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 3:
-		rows = append(rows, container.InfoPane(th, id, c.req, c.descEd, c.markDirty))
+		rows = append(rows, container.AuthForm(th, id, &g.Auth, &c.authState, c.deps.Catalog, c.markDirty))
+	case 4:
+		rows = append(rows, container.PreRequestPane(th, c.deps, &g.PreRequest, container.PrePostOpts{
+			ID: id + "-pre", AllowPython: true,
+		}, &c.preScript, c.markDirty))
+	case 5:
+		preview := ""
+		if c.lastResp != nil {
+			preview = container.PreviewPostSet(g.PostRequest.PostRequestSet, c.lastResp)
+		}
+		rows = append(rows, container.PostRequestPane(th, c.deps, &g.PostRequest, container.PrePostOpts{
+			ID: id + "-post", AllowPython: true, AllowSetEnv: true,
+			FromOptions: container.HTTPPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
+			DefaultStatus: 200,
+		}, &c.postScript, preview, c.markDirty))
+	case 6:
+		rows = append(rows, container.InfoPane(th, id, c.req, c.descEd, func() {
+			c.markDirty()
+			c.deps.ReportTitle(domain.RequestDisplayName(c.req))
+		}))
 	default:
 		rows = append(rows, ui.ViewOf(c.queryEd).Grow(1))
 	}
@@ -178,14 +226,21 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	)
 }
 
-func (c *Container) respPane(th *theme.Theme) ui.View {
+func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 	return ui.Column(
 		ui.Column(
+			ui.Text(c.statusText).Style(container.StatusLineStyle(c.statusText != "" && strings.HasPrefix(c.statusText, "error"), 0, c.lastResp != nil)),
+			ui.Row(ui.Spacer(),
+				ui.Button("gql-copy-"+id, ui.Text("Copy")).IconStart(icons.ClipboardCopy).OnClick(func() {
+					ctx.Clipboard().Set(string(c.activeResp().Bytes()))
+					c.deps.Toast("Copied")
+				}),
+			),
 			ui.Tabs("gql-resp-tabs-"+id, c.respTabs).Selected(c.respActive).
 				Closable(false).
 				OnSelectItem(func(i int, _ string) { c.respActive = i }).TabBackground(th.Background),
-			ui.ViewOf(c.respEd).Grow(1),
+			ui.ViewOf(c.activeResp()).Grow(1),
 		).Radius(th.Radius.Medium).
 			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
 			BorderStyle(ui.BorderDotted).
@@ -194,28 +249,44 @@ func (c *Container) respPane(th *theme.Theme) ui.View {
 	)
 }
 
+func (c *Container) activeResp() *ui.Editor {
+	if c.respActive == 1 {
+		return c.respHdrEd
+	}
+	return c.respEd
+}
+
 func (c *Container) handle(r result) {
 	c.pending = false
 	if r.err != nil {
-		c.status = r.err.Error()
-		c.respEd.Close()
-		c.respEd = ui.NewEditor([]byte(r.err.Error()), highlight.Noop{})
+		c.statusText = r.err.Error()
+		c.lastResp = nil
+		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()))
 		return
 	}
 	res := r.resp
-	c.status = fmt.Sprintf("%d  %s  %d B", res.StatusCode, res.TimePassed.Round(time.Millisecond), len(res.Body))
+	c.lastResp = res
+	c.statusText = fmt.Sprintf("%d  %s  %d B", res.StatusCode, res.TimePassed.Round(time.Millisecond), len(res.Body))
 	body := res.Body
 	if len(body) == 0 {
 		body = []byte(res.JSON)
 	}
-	c.respEd.Close()
-	if c.respActive == 1 {
-		var b strings.Builder
-		for k, v := range res.ResponseHeaders {
-			fmt.Fprintf(&b, "%s: %s\n", k, v)
-		}
-		c.respEd = ui.NewEditor([]byte(b.String()), highlight.Noop{})
-		return
+	c.respEd = replaceEditor(c.respEd, body)
+	var hdr strings.Builder
+	fmt.Fprintf(&hdr, "# --- Request Headers ---\n")
+	for k, v := range res.RequestHeaders {
+		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
-	c.respEd = ui.NewEditor(body, highlight.NewJSON())
+	fmt.Fprintf(&hdr, "\n# --- Response Headers ---\n")
+	for k, v := range res.ResponseHeaders {
+		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
+	}
+	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()))
+}
+
+func replaceEditor(old *ui.Editor, data []byte) *ui.Editor {
+	if old != nil {
+		old.Close()
+	}
+	return ui.NewEditor(data, highlight.NewJSON())
 }

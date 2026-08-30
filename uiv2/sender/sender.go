@@ -1,6 +1,7 @@
 package sender
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -9,7 +10,10 @@ import (
 	grpcsvc "github.com/chapar-rest/chapar/internal/egress/grpc"
 	restsvc "github.com/chapar-rest/chapar/internal/egress/rest"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
+	"github.com/chapar-rest/chapar/internal/logger"
+	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/internal/scripting"
 )
 
 // RequestLookup finds a request by id without using internal/state.
@@ -28,6 +32,12 @@ type Service struct {
 	colls   CollectionLookup
 	proto   func() []*domain.ProtoFile
 	onEnv   func(*domain.Environment)
+	script  scripting.Executor
+}
+
+// SetExecutor wires the Python scripting executor for pre/post scripts.
+func (s *Service) SetExecutor(exec scripting.Executor) {
+	s.script = exec
 }
 
 // New builds a sender that never reads internal/state.
@@ -110,6 +120,9 @@ func (s *Service) preRequest(req *domain.Request, env *domain.Environment) error
 	if !domain.DoablePreRequest(preReq) {
 		return nil
 	}
+	if preReq.Type == domain.PrePostTypePython && preReq.Script != "" {
+		return s.executeScript(preReq.Script, req, nil, env)
+	}
 	if preReq.TriggerRequest == nil || s.lookup == nil {
 		return nil
 	}
@@ -122,11 +135,23 @@ func (s *Service) preRequest(req *domain.Request, env *domain.Environment) error
 }
 
 func (s *Service) postRequest(req *domain.Request, res *egress.Response, env *domain.Environment) error {
-	if env == nil || res == nil {
+	if res == nil {
 		return nil
 	}
 	postReq := req.Spec.GetPostRequest()
 	if !domain.DoablePostRequest(postReq) {
+		return nil
+	}
+	if postReq.Type == domain.PrePostTypePython && postReq.Script != "" {
+		if err := s.executeScript(postReq.Script, req, res, env); err != nil {
+			return err
+		}
+		if env == nil {
+			return nil
+		}
+		return s.persistEnv(env)
+	}
+	if env == nil {
 		return nil
 	}
 	if err := s.extractVariables(req.Spec, res, env); err != nil {
@@ -207,7 +232,58 @@ func (s *Service) extractVariables(spec domain.RequestSpec, res *egress.Response
 			if result, ok := res.ResponseHeaders[v.SourceKey]; ok {
 				env.SetKey(v.TargetEnvVariable, result)
 			}
+		case domain.VariableFromCookies:
+			for _, c := range res.Cookies {
+				if c.Name == v.SourceKey {
+					env.SetKey(v.TargetEnvVariable, c.Value)
+				}
+			}
+		case domain.VariableFromMetaData:
+			for _, item := range res.ResponseMetadata {
+				if item.Key == v.SourceKey {
+					env.SetKey(v.TargetEnvVariable, item.Value)
+				}
+			}
+		case domain.VariableFromTrailers:
+			for _, item := range res.Trailers {
+				if item.Key == v.SourceKey {
+					env.SetKey(v.TargetEnvVariable, item.Value)
+				}
+			}
 		}
+	}
+	return nil
+}
+
+func (s *Service) executeScript(script string, request *domain.Request, resp *egress.Response, env *domain.Environment) error {
+	if !prefs.GetGlobalConfig().Spec.Scripting.Enabled || s.script == nil {
+		logger.Warn("Scripting is disabled, cannot execute script")
+		return nil
+	}
+	params := &scripting.ExecParams{
+		Env: env,
+		Req: scripting.RequestDataFromDomain(request),
+	}
+	if resp != nil {
+		params.Res = &scripting.ResponseData{
+			StatusCode: resp.StatusCode,
+			Headers:    resp.ResponseHeaders,
+			Body:       resp.JSON,
+		}
+	}
+	result, err := s.script.Execute(context.Background(), script, params)
+	if err != nil {
+		return err
+	}
+	if env != nil {
+		for k, v := range result.SetEnvironments {
+			if data, ok := v.(string); ok {
+				env.SetKey(k, data)
+			}
+		}
+	}
+	for _, pt := range result.Prints {
+		logger.Print(pt)
 	}
 	return nil
 }
