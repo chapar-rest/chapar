@@ -296,6 +296,7 @@ func (p *Requests) Layout(c *ui.Ctx) ui.View {
 func (p *Requests) side(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	p.syncTreeLabels()
+
 	return ui.Column(
 		ui.Strong("Requests").Margin(th.Spacing.S),
 		ui.Row(

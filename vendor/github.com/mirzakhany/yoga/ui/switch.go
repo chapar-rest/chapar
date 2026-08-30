@@ -54,6 +54,14 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 		c.Focus().Add(st)
 	}
 
+	disabled := n.disabled
+	if disabled {
+		st.hovered = false
+		if st.focused {
+			st.Blur()
+		}
+	}
+
 	th := c.Theme()
 	el := layout.New(applyLayoutSpec(layout.Box().Size(switchTrackW, switchTrackH).FlexShrink(0), n.spec))
 	st.el = el
@@ -61,6 +69,9 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 	checked := n.checked
 	onToggle := n.onToggle
 	st.toggle = func() {
+		if disabled {
+			return
+		}
 		if onToggle != nil {
 			onToggle(!checked)
 		}
@@ -69,7 +80,7 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 
 	el.Paint = func(dl *render.DrawList, _ *shape.Engine) {
 		f := el.Frame
-		inter := interactState{hovered: st.hovered, focused: st.focused}
+		inter := interactStateFor(disabled, st.hovered, false, st.focused)
 		r := spec.resolve(th, inter)
 		trackR := switchTrackH / 2
 		fill := th.ChromeMuted
@@ -80,23 +91,20 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 		if r.hasBorder {
 			border = r.border
 		}
-		if checked {
+		if checked && !disabled {
 			fill = th.Accent
 			border = th.Accent
 			if st.hovered {
 				fill = th.AccentHover
 			}
-		} else if st.hovered {
+		} else if st.hovered && !disabled {
 			fill = th.ListHover
 		}
-		if st.focused {
+		if st.focused && !disabled {
 			border = th.FocusRing
 		}
-		bw := th.Stroke.Thin
-		if r.borderW > 0 {
-			bw = r.borderW
-		}
-		dl.AddRoundedRectBorder(f, trackR, bw, fill, border)
+		bw := uniformBorderWidth(r.borderW, th.Stroke.Thin)
+		paintChromeBox(dl, f, r, fill, border, bw, trackR)
 
 		pad := float32(2)
 		thumbD := switchTrackH - 2*pad
@@ -110,9 +118,15 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 		if checked {
 			thumbCol = th.AccentForeground
 		}
+		if disabled {
+			thumbCol = th.ForegroundDisabled
+		}
 		dl.AddRoundedRect(thumb, thumbD/2, thumbCol)
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
+		if disabled {
+			return
+		}
 		st.hovered = e.Frame.Contains(m.X, m.Y)
 		if st.hovered && m.Released {
 			st.toggle()

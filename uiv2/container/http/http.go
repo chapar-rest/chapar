@@ -113,7 +113,9 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 func (c *Container) ID() string           { return c.req.MetaData.ID }
 func (c *Container) Kind() container.Kind { return container.KindHTTP }
 func (c *Container) Title() string        { return domain.RequestDisplayName(c.req) }
-func (c *Container) Dirty() bool          { return c.dirty || c.bodyEd.Modified() || c.headersEd.Modified() || c.descEd.Modified() }
+func (c *Container) Dirty() bool {
+	return c.dirty || c.bodyEd.Modified() || c.headersEd.Modified() || c.descEd.Modified()
+}
 
 func (c *Container) Close() {
 	c.bodyEd.Close()
@@ -228,10 +230,10 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 			}),
 			ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).
 				Disabled(c.pending).OnClick(c.Send),
-		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.XS),
-		ui.HLine(th.Stroke.Thin, th.Border),
+		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
+			MarginTop(th.Spacing.S),
 		ui.Splitter("http-split-"+id, splitDir, c.reqPane(th), c.respPane(th)).
-			Sizes(0, 320).
+			Sizes(300, 0).
 			Grow(1),
 	).Grow(1)
 }
@@ -250,7 +252,9 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	case 0:
 		body = append(body,
 			ui.Row(
-				ui.Button("http-param-add-"+id, ui.Text("Add param")).OnClick(func() {
+				ui.Text("Params"),
+				ui.Spacer(),
+				ui.IconButton("http-param-add-"+id, icons.Plus).OnClick(func() {
 					container.AddKVRow(c.params, c.markDirty)
 				}),
 			).PaddingXY(0, th.Spacing.S),
@@ -317,7 +321,14 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	case 7:
 		body = append(body, container.InfoPane(th, id, c.req, c.descEd, c.markDirty))
 	}
-	return ui.Column(body...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+	return ui.Column(
+		ui.Column(body...).
+			Radius(th.Radius.Medium).
+			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
+			BorderStyle(ui.BorderDotted).
+			Padding(th.Spacing.S).
+			Gap(th.Spacing.S).Grow(1),
+	)
 }
 
 func (c *Container) authForm(th *theme.Theme) ui.View {
@@ -404,15 +415,20 @@ func (c *Container) postSetForm(th *theme.Theme) ui.View {
 func (c *Container) respPane(th *theme.Theme) ui.View {
 	id := c.req.MetaData.ID
 	return ui.Column(
-		c.statusLine(th),
-		ui.Tabs("http-resp-tabs-"+id, c.respTabs).
-			Selected(c.respActive).
-			Closable(false).
-			OnSelectItem(func(i int, _ string) { c.respActive = i }).
-			TabBackground(th.Background),
-		ui.HLine(th.Stroke.Thin, th.Border),
-		ui.ViewOf(c.activeResp()).Grow(1),
-	).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+		ui.Column(
+			c.statusLine(th),
+			ui.Tabs("http-resp-tabs-"+id, c.respTabs).
+				Selected(c.respActive).
+				Closable(false).
+				OnSelectItem(func(i int, _ string) { c.respActive = i }).
+				TabBackground(th.Background),
+			ui.ViewOf(c.activeResp()).Grow(1),
+		).Radius(th.Radius.Medium).
+			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
+			BorderStyle(ui.BorderDotted).
+			Padding(th.Spacing.S).
+			Gap(th.Spacing.S).Grow(1),
+	)
 }
 
 func (c *Container) activeResp() *ui.Editor {

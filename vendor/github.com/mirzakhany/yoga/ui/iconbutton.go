@@ -42,8 +42,8 @@ func (n *Node) layoutIconButton(c *Ctx) *layout.Element {
 		r := spec.resolve(th, interactState{hovered: st.hovered, pressed: st.pressed, disabled: disabled})
 		frame := scaledFrame(el.Frame, r.scaleX, r.scaleY)
 		radius := th.Radius.Medium
-		if r.hasRadius {
-			radius = r.radius
+		if r.hasRadii {
+			radius = uniformRadius(r.radii, th.Radius.Medium)
 		}
 		if r.hasBg && r.bg.A > 0 {
 			dl.AddRoundedRect(frame, radius, r.bg)

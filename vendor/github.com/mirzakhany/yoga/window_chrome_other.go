@@ -12,3 +12,8 @@ func applyCustomTitleBarChrome(window *glfw.Window, h *glfwWindowHost) {
 	h.controlsInset = 0
 	_ = window
 }
+
+func beginNativeWindowMove(window *glfw.Window) bool {
+	_ = window
+	return false
+}

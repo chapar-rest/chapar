@@ -284,14 +284,31 @@ func paintAll(e *Element, dl *render.DrawList, text *shape.Engine) {
 // Style.Background / Style.Border, before the element's own Paint hook.
 func paintDecoration(e *Element, dl *render.DrawList) {
 	s := e.Style
+	widths := s.EffectiveBorderWidths()
+	radii := s.EffectiveRadii()
 	hasBg := s.BgColor.A > 0
-	hasBorder := s.BorderWidth > 0 && s.BorderColor.A > 0
-	switch {
-	case hasBorder:
-		dl.AddRoundedRectBorder(e.Frame, float32(s.Radius), float32(s.BorderWidth), s.BgColor, s.BorderColor)
-	case hasBg:
-		dl.AddRoundedRect(e.Frame, float32(s.Radius), s.BgColor)
+	hasBorder := s.BorderColor.A > 0 && widths.AnyPositive()
+	if !hasBg && !hasBorder && !radii.AnyPositive() {
+		return
 	}
+	rc := render.Corners{
+		TopLeft: radii.TopLeft, TopRight: radii.TopRight,
+		BottomRight: radii.BottomRight, BottomLeft: radii.BottomLeft,
+	}
+	bw := render.BorderEdges{
+		Top: widths.Top, Right: widths.Right,
+		Bottom: widths.Bottom, Left: widths.Left,
+	}
+	fill := s.BgColor
+	if !hasBg {
+		fill = render.Color{}
+	}
+	border := s.BorderColor
+	if !hasBorder {
+		border = render.Color{}
+		bw = render.BorderEdges{}
+	}
+	dl.PaintBox(e.Frame, rc, bw, fill, border, s.BorderStyle)
 }
 
 func forEachOverlayRoot(e *Element, fn func(*Element)) {

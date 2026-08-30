@@ -50,6 +50,14 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		c.Focus().Add(st)
 	}
 
+	disabled := n.disabled
+	if disabled {
+		st.hovered = false
+		if st.focused {
+			st.Blur()
+		}
+	}
+
 	th := c.Theme()
 	box := th.Metrics.IconSizeSM
 	style := th.Typography.Body
@@ -71,6 +79,9 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 	checked := n.checked
 	onToggle := n.onToggle
 	st.toggle = func() {
+		if disabled {
+			return
+		}
 		if onToggle != nil {
 			onToggle(!checked)
 		}
@@ -85,7 +96,7 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		bx := f.X
 		by := f.Y + (f.H-box)/2
 		br := render.Rect{X: bx, Y: by, W: box, H: box}
-		inter := interactState{hovered: st.hovered, focused: st.focused}
+		inter := interactStateFor(disabled, st.hovered, false, st.focused)
 		r := spec.resolve(th, inter)
 		fill := th.Chrome
 		if r.hasBg {
@@ -95,27 +106,24 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		if r.hasBorder {
 			border = r.border
 		}
-		if checked {
+		if checked && !disabled {
 			fill = th.Accent
 			border = th.Accent
 			if st.hovered {
 				fill = th.AccentHover
 			}
-		} else if st.hovered {
+		} else if st.hovered && !disabled {
 			fill = th.ListHover
 		}
-		if st.focused {
+		if st.focused && !disabled {
 			border = th.FocusRing
 		}
 		radius := th.Radius.Small
-		if r.hasRadius {
-			radius = r.radius
+		if r.hasRadii {
+			radius = uniformRadius(r.radii, th.Radius.Small)
 		}
-		bw := th.Stroke.Thin
-		if r.borderW > 0 {
-			bw = r.borderW
-		}
-		dl.AddRoundedRectBorder(br, radius, bw, fill, border)
+		bw := uniformBorderWidth(r.borderW, th.Stroke.Thin)
+		paintChromeBox(dl, br, r, fill, border, bw, radius)
 		if checked {
 			inner := render.Rect{X: bx + 2, Y: by + 2, W: box - 4, H: box - 4}
 			if sheet := frameIcons(); sheet != nil {
@@ -126,6 +134,11 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		_, llh := text.MeasureAt(label, style.Size)
 		ty := f.Y + (f.H-llh)/2
 		col := th.Foreground
+		if disabled {
+			col = th.ForegroundDisabled
+		} else if r.hasFg {
+			col = r.fg
+		}
 		if muted {
 			col = th.ForegroundMuted
 		}
@@ -141,6 +154,9 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
+		if disabled {
+			return
+		}
 		st.hovered = e.Frame.Contains(m.X, m.Y)
 		if st.hovered && m.Released {
 			st.toggle()

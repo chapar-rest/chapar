@@ -30,6 +30,16 @@ type Menu struct {
 	hover int
 }
 
+// triggerMenuWidth returns the menu width for a trigger: at least the styled
+// width and as wide as the laid-out trigger frame when Grow expands it.
+func triggerMenuWidth(styleW, frameW float32) float32 {
+	w := styleW
+	if frameW > w {
+		w = frameW
+	}
+	return w
+}
+
 // NewMenu builds a closed overlay menu. Overlay positioning uses absolute
 // Left/Top as screen coordinates.
 func NewMenu(width float32, items []MenuItem) *Menu {

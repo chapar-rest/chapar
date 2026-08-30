@@ -47,7 +47,16 @@ func (n *Node) layoutRadio(c *Ctx) *layout.Element {
 		c.Focus().Add(st)
 	}
 
+	disabled := n.disabled
+	if disabled {
+		st.hovered = false
+		if st.focused {
+			st.Blur()
+		}
+	}
+
 	th := c.Theme()
+	spec := n.spec
 	box := th.Metrics.IconSizeSM
 	style := th.Typography.Body
 	var tw, lh float32
@@ -63,26 +72,40 @@ func (n *Node) layoutRadio(c *Ctx) *layout.Element {
 	st.el = el
 	selected := n.checked
 	onClick := n.onClick
-	st.selectFn = onClick
+	st.selectFn = func() {
+		if disabled {
+			return
+		}
+		if onClick != nil {
+			onClick()
+		}
+	}
 	label := n.text
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		f := el.Frame
 		bx := f.X
 		by := f.Y + (f.H-box)/2
 		br := render.Rect{X: bx, Y: by, W: box, H: box}
+		inter := interactStateFor(disabled, st.hovered, false, st.focused)
+		r := spec.resolve(th, inter)
 		border := th.Border
-		if st.focused {
+		if r.hasBorder {
+			border = r.border
+		} else if st.focused && !disabled {
 			border = th.FocusRing
 		}
 		fill := th.Chrome
-		if selected {
+		if r.hasBg {
+			fill = r.bg
+		}
+		if selected && !disabled {
 			border = th.Accent
 		}
-		if st.hovered {
+		if st.hovered && !disabled {
 			fill = th.ListHover
 		}
 		dl.AddRoundedRectBorder(br, box/2, th.Stroke.Thin, fill, border)
-		if selected {
+		if selected && !disabled {
 			dot := box * 0.35
 			dl.AddRoundedRect(render.Rect{
 				X: bx + (box-dot)/2, Y: by + (box-dot)/2, W: dot, H: dot,
@@ -90,15 +113,24 @@ func (n *Node) layoutRadio(c *Ctx) *layout.Element {
 		}
 		tx := bx + box + th.Spacing.S
 		_, hl := text.MeasureAt(label, style.Size)
-		text.DrawStringTopAt(dl, label, tx, f.Y+(f.H-hl)/2, th.Foreground, style.Size)
+		labelCol := th.Foreground
+		if disabled {
+			labelCol = th.ForegroundDisabled
+		} else if r.hasFg {
+			labelCol = r.fg
+		}
+		text.DrawStringTopAt(dl, label, tx, f.Y+(f.H-hl)/2, labelCol, style.Size)
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
+		if disabled {
+			return
+		}
 		st.hovered = e.Frame.Contains(m.X, m.Y)
 		if st.hovered {
 			m.SetCursor(CursorPointer)
 		}
-		if st.hovered && m.Released && onClick != nil {
-			onClick()
+		if st.hovered && m.Released {
+			st.selectFn()
 			m.Consumed = true
 		}
 	}

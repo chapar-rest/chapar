@@ -75,6 +75,18 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 	el := layout.New(applyLayoutSpec(layout.Box().W(w).H(h).FlexShrink(0), n.spec))
 	st.el = el
 
+	disabled := n.disabled
+	suppressHoverPressIfDisabled(disabled, &st.hovered, &st.pressed)
+	if disabled {
+		if st.focused {
+			st.Blur()
+		}
+		if st.menu != nil && st.menu.Open {
+			st.menu.Close()
+		}
+	}
+	spec := c.styles().Select.merge(n.spec)
+
 	sel := n.selected
 	if sel < 0 || sel >= len(d.options) {
 		sel = 0
@@ -111,17 +123,33 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		f := el.Frame
+		inter := interactStateFor(disabled, st.hovered, st.pressed, st.focused)
+		r := spec.resolve(th, inter)
 		bg := th.ChromeMuted
-		if st.hovered || st.pressed {
+		if r.hasBg {
+			bg = r.bg
+		} else if st.hovered || st.pressed {
 			bg = th.ListHover
 		}
 		border := th.Border
-		if st.focused {
+		if r.hasBorder {
+			border = r.border
+		} else if st.focused {
 			border = th.FocusRing
 		}
-		dl.AddRoundedRectBorder(f, th.Radius.Medium, th.Stroke.Thin, bg, border)
+		radius := th.Radius.Medium
+		if r.hasRadii {
+			radius = uniformRadius(r.radii, th.Radius.Medium)
+		}
+		bw := uniformBorderWidth(r.borderW, th.Stroke.Thin)
+		paintChromeBox(dl, f, r, bg, border, bw, radius)
 		labelCol := th.Foreground
-		if hasTint {
+		if disabled {
+			labelCol = th.ForegroundDisabled
+		} else if r.hasFg {
+			labelCol = r.fg
+		}
+		if hasTint && !disabled {
 			dl.PushClip(f)
 			dl.AddRect(render.Rect{X: f.X, Y: f.Y, W: 2, H: f.H}, tint)
 			dl.PopClip()
@@ -135,10 +163,17 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		ix := f.X + f.W - pad - iconSz
 		iy := f.Y + (f.H-iconSz)/2
 		if sheet := frameIcons(); sheet != nil {
-			sheet.Draw(dl, icons.ChevronDown, render.Rect{X: ix, Y: iy, W: iconSz, H: iconSz}, th.ForegroundMuted)
+			chevCol := th.ForegroundMuted
+			if disabled {
+				chevCol = th.ForegroundDisabled
+			}
+			sheet.Draw(dl, icons.ChevronDown, render.Rect{X: ix, Y: iy, W: iconSz, H: iconSz}, chevCol)
 		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
+		if disabled {
+			return
+		}
 		st.hovered = e.Frame.Contains(m.X, m.Y)
 		if st.hovered {
 			m.SetCursor(CursorPointer)
@@ -152,6 +187,7 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 				st.menu.Close()
 			} else {
 				fr := e.Frame
+				st.menu.width = triggerMenuWidth(width, fr.W)
 				st.menu.OpenAt(fr.X, fr.Y+fr.H)
 			}
 		}

@@ -12,6 +12,7 @@ type ComponentStyles struct {
 	ButtonGhost     Spec
 	ButtonGhostHover Spec
 	TextField       Spec
+	Select          Spec
 	Checkbox        Spec
 	Switch          Spec
 }
@@ -57,18 +58,28 @@ func DefaultStyles() ComponentStyles {
 			TextColor(TokenForeground).
 			Radius(r).
 			Border(TokenBorder, stroke).
-			When(Focused, Spec{}.Border(TokenFocusRing, stroke)),
+			When(Focused, Spec{}.Border(TokenFocusRing, stroke)).
+			When(Disabled, Background(TokenChromeMuted).TextColor(TokenForegroundDisabled)),
+		Select: Background(TokenChromeMuted).
+			TextColor(TokenForeground).
+			Radius(r).
+			Border(TokenBorder, stroke).
+			When(Hovered, Background(TokenListHover)).
+			When(Focused, Spec{}.Border(TokenFocusRing, stroke)).
+			When(Disabled, Background(TokenChromeMuted).TextColor(TokenForegroundDisabled)),
 		Checkbox: Background(TokenChrome).
 			TextColor(TokenForeground).
 			Radius(float32(theme.DefaultRadius().Small)).
 			Border(TokenBorder, stroke).
 			When(Hovered, Background(TokenListHover)).
-			When(Pressed, Background(TokenAccent)),
+			When(Pressed, Background(TokenAccent)).
+			When(Disabled, Background(TokenChromeMuted).TextColor(TokenForegroundDisabled)),
 		Switch: Background(TokenChromeMuted).
 			Radius(float32(theme.DefaultRadius().Large)).
 			Border(TokenBorder, stroke).
 			When(Hovered, Background(TokenListHover)).
-			When(Pressed, Background(TokenAccent)),
+			When(Pressed, Background(TokenAccent)).
+			When(Disabled, Background(TokenChromeMuted).TextColor(TokenForegroundDisabled)),
 	}
 }
 

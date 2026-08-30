@@ -32,14 +32,13 @@ type glfwWindowHost struct {
 	controlsInset  float32
 	undecorated    bool
 
-	dragging                         bool
-	dragWinX, dragWinY               int
-	dragMouseX, dragMouseY           float64
-	resizing                         bool
-	resizeEdge                       resizeEdge
-	resizeWinX, resizeWinY           int
-	resizeWinW, resizeWinH           int
-	resizeMouseX, resizeMouseY       float64
+	dragging                   bool
+	dragMouseX, dragMouseY     float64
+	resizing                   bool
+	resizeEdge                 resizeEdge
+	resizeWinX, resizeWinY     int
+	resizeWinW, resizeWinH     int
+	resizeMouseX, resizeMouseY float64
 }
 
 func newGLFWWindowHost(window *glfw.Window, cfg Config) *glfwWindowHost {
@@ -79,14 +78,39 @@ func (h *glfwWindowHost) IsMaximized() bool {
 }
 
 func (h *glfwWindowHost) BeginMove() {
-	if h.IsMaximized() {
+	if beginNativeWindowMove(h.window) {
 		return
 	}
-	x, y := h.window.GetPos()
 	mx, my := h.window.GetCursorPos()
+	if h.IsMaximized() {
+		h.restoreForMove(mx, my)
+	} else {
+		h.dragMouseX, h.dragMouseY = mx, my
+	}
 	h.dragging = true
-	h.dragWinX, h.dragWinY = x, y
-	h.dragMouseX, h.dragMouseY = mx, my
+}
+
+// restoreForMove unmaximizes and places the restored window so the grab point
+// stays under the cursor (standard Windows/Linux title-bar tear-off).
+func (h *glfwWindowHost) restoreForMove(mx, my float64) {
+	maxX, maxY := h.window.GetPos()
+	maxW, _ := h.window.GetSize()
+	h.window.Restore()
+	newW, _ := h.window.GetSize()
+	screenX := maxX + int(mx)
+	screenY := maxY + int(my)
+	grabX := int(mx)
+	if maxW > 0 && newW > 0 {
+		grabX = int(mx * float64(newW) / float64(maxW))
+	}
+	if grabX < 0 {
+		grabX = 0
+	} else if newW > 0 && grabX > newW {
+		grabX = newW
+	}
+	h.window.SetPos(screenX-grabX, screenY-int(my))
+	h.dragMouseX = float64(grabX)
+	h.dragMouseY = my
 }
 
 // updateFrame handles ongoing window drag and edge resize for undecorated windows.
@@ -98,10 +122,12 @@ func (h *glfwWindowHost) updateFrame(m *input.Mouse, w, hgt float32) {
 		if !m.Down {
 			h.dragging = false
 		} else {
+			curX, curY := h.window.GetPos()
 			mx, my := h.window.GetCursorPos()
-			nx := h.dragWinX + int(mx-h.dragMouseX)
-			ny := h.dragWinY + int(my-h.dragMouseY)
-			h.window.SetPos(nx, ny)
+			// Move by remaining window-relative error so the grab point stays
+			// under the cursor. A frozen origin plus window-relative cursor
+			// oscillates after each SetPos.
+			h.window.SetPos(curX+int(mx-h.dragMouseX), curY+int(my-h.dragMouseY))
 		}
 	}
 	if h.undecorated {

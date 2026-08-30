@@ -338,7 +338,7 @@ github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-pointer v0.0.1
 ## explicit
 github.com/mattn/go-pointer
-# github.com/mirzakhany/yoga v0.3.7 => ../yoga
+# github.com/mirzakhany/yoga v0.3.10 => ../yoga
 ## explicit; go 1.26.2
 github.com/mirzakhany/yoga
 github.com/mirzakhany/yoga/highlight

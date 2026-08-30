@@ -40,6 +40,32 @@ static void yogaApplyMacTitleBar(void* nsWindowPtr, float titleBarHeight, float*
 		*outInset = 78.0f;
 	}
 }
+
+static int yogaBeginWindowMove(void* nsWindowPtr) {
+	NSWindow* window = (__bridge NSWindow*)nsWindowPtr;
+	if (window == nil) {
+		return 0;
+	}
+	NSEvent* event = [NSApp currentEvent];
+	NSEventType t = event ? event.type : (NSEventType)0;
+	if (event == nil || (t != NSEventTypeLeftMouseDown && t != NSEventTypeLeftMouseDragged)) {
+		NSPoint loc = [window mouseLocationOutsideOfEventStream];
+		event = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown
+			location:loc
+			modifierFlags:0
+			timestamp:[[NSProcessInfo processInfo] systemUptime]
+			windowNumber:[window windowNumber]
+			context:nil
+			eventNumber:0
+			clickCount:1
+			pressure:1.0];
+	}
+	if (event == nil) {
+		return 0;
+	}
+	[window performWindowDragWithEvent:event];
+	return 1;
+}
 */
 import "C"
 
@@ -58,4 +84,12 @@ func applyCustomTitleBarChrome(window *glfw.Window, h *glfwWindowHost) {
 	titleBarH := float32(theme.DefaultComponentMetrics().TitleBarHeight)
 	C.yogaApplyMacTitleBar(unsafe.Pointer(nsWindow), C.float(titleBarH), &inset)
 	h.controlsInset = float32(inset)
+}
+
+func beginNativeWindowMove(window *glfw.Window) bool {
+	nsWindow := window.GetCocoaWindow()
+	if nsWindow == nil {
+		return false
+	}
+	return C.yogaBeginWindowMove(unsafe.Pointer(nsWindow)) != 0
 }

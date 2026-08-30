@@ -50,6 +50,9 @@ type TextInput struct {
 	lastClickTime time.Time
 	lastClickX    float32
 	clickCount    int
+
+	disabled   bool
+	visualSpec Spec
 }
 
 // NewTextField builds a text field with the given configuration.
@@ -118,7 +121,7 @@ func (tf *TextInput) Blur() { tf.focused = false }
 func (tf *TextInput) CapturesTab() bool { return false }
 
 // FocusOnClick reports that clicking the field should grant focus.
-func (tf *TextInput) FocusOnClick() bool { return true }
+func (tf *TextInput) FocusOnClick() bool { return !tf.disabled }
 
 // FocusEl returns the element used for click-to-focus hit testing.
 func (tf *TextInput) FocusEl() *layout.Element { return tf.host }
@@ -346,14 +349,24 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 	text := frameText()
 	sheet := frameIcons()
 	f := tf.host.Frame
+	inter := interactStateFor(tf.disabled, false, false, tf.focused)
+	r := tf.visualSpec.resolve(th, inter)
+	bg := th.Chrome
+	if r.hasBg {
+		bg = r.bg
+	}
 	border := th.Border
-	if tf.focused {
+	if r.hasBorder {
+		border = r.border
+	} else if tf.focused && !tf.disabled {
 		border = th.FocusRing
 		// Soft 2px accent glow around the field (box-shadow-style focus ring).
 		glow := render.Rect{X: f.X - 2, Y: f.Y - 2, W: f.W + 4, H: f.H + 4}
 		dl.AddRoundedRect(glow, tf.cfg.Radius+2, render.Color{R: th.FocusRing.R, G: th.FocusRing.G, B: th.FocusRing.B, A: 0.25})
 	}
-	dl.AddRoundedRectBorder(f, tf.cfg.Radius, tf.cfg.BorderWidth, th.Chrome, border)
+	bw := uniformBorderWidth(r.borderW, tf.cfg.BorderWidth)
+	radius := uniformRadius(r.radii, tf.cfg.Radius)
+	paintChromeBox(dl, f, r, bg, border, bw, radius)
 
 	iconSz := tf.iconSize()
 	iconY := f.Y + (f.H-iconSz)/2
@@ -377,9 +390,16 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 
 	show := tf.displayText()
 	col := th.Foreground
+	if tf.disabled {
+		col = th.ForegroundDisabled
+	} else if r.hasFg {
+		col = r.fg
+	}
 	if show == "" && !tf.focused {
 		show = tf.cfg.Placeholder
-		col = th.ForegroundMuted
+		if !tf.disabled {
+			col = th.ForegroundMuted
+		}
 	}
 	if show != "" || tf.hasSelection() {
 		dl.PushClip(render.Rect{X: tx, Y: f.Y, W: tr - tx, H: f.H})
@@ -397,13 +417,16 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 		dl.PopClip()
 	}
 
-	if tf.focused && tf.caretShown {
+	if tf.focused && tf.caretShown && !tf.disabled {
 		cx := clampf(tf.caretX(), tx, tr)
 		dl.AddRect(render.Rect{X: cx, Y: ty, W: th.Stroke.Thick, H: lh}, th.Accent)
 	}
 }
 
 func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
+	if tf.disabled {
+		return
+	}
 	if m.Pressed && e.Frame.Contains(m.X, m.Y) {
 		off := tf.offsetAtX(m.X)
 		now := time.Now()
@@ -508,7 +531,7 @@ func (tf *TextInput) Update(_ *input.Mouse) {
 
 // HandleText inserts text-producing characters for this frame.
 func (tf *TextInput) HandleText(runes []rune) {
-	if !tf.focused || len(runes) == 0 {
+	if !tf.focused || len(runes) == 0 || tf.disabled {
 		return
 	}
 	tf.insertAtCaret(string(runes))
@@ -530,7 +553,7 @@ func (tf *TextInput) AsPassword() *TextInput { tf.cfg.Password = true; return tf
 
 // HandleKeys processes navigation and editing keys for this frame.
 func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
-	if !tf.focused {
+	if !tf.focused || tf.disabled {
 		return
 	}
 	clip := frameClipboard()

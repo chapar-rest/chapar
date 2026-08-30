@@ -16,6 +16,7 @@ type sliderData struct {
 
 type sliderState struct {
 	hovered, dragging, focused bool
+	disabled                   bool
 	el                         *layout.Element
 	setValue                   func(float64)
 	min, max, step, value      float64
@@ -30,7 +31,7 @@ func (s *sliderState) FocusOnClick() bool       { return true }
 func (s *sliderState) FocusEl() *layout.Element { return s.el }
 
 func (s *sliderState) HandleKeys(keys []input.KeyEvent) {
-	if !s.focused || s.setValue == nil {
+	if !s.focused || s.setValue == nil || s.disabled {
 		return
 	}
 	step := s.step
@@ -133,7 +134,19 @@ func (n *Node) layoutSlider(c *Ctx) *layout.Element {
 		w = n.spec.width
 	}
 	el := layout.New(applyLayoutSpec(layout.Box().W(w).H(h).FlexShrink(0), n.spec))
+
+	disabled := n.disabled
+	suppressHoverPressIfDisabled(disabled, &st.hovered, nil)
+	if disabled {
+		st.dragging = false
+		if st.focused {
+			st.Blur()
+		}
+	}
+	spec := n.spec
+
 	st.el = el
+	st.disabled = disabled
 	st.min, st.max, st.step = d.min, d.max, d.step
 	if st.max <= st.min {
 		st.max = st.min + 1
@@ -151,30 +164,43 @@ func (n *Node) layoutSlider(c *Ctx) *layout.Element {
 
 	el.Paint = func(dl *render.DrawList, _ *shape.Engine) {
 		f := el.Frame
+		inter := interactStateFor(disabled, st.hovered, st.dragging, st.focused)
+		r := spec.resolve(th, inter)
+		trackBg := th.ChromeMuted
+		if r.hasBg {
+			trackBg = r.bg
+		}
 		ty := f.Y + (f.H-trackH)/2
 		track := render.Rect{X: f.X + thumbR, Y: ty, W: f.W - 2*thumbR, H: trackH}
-		dl.AddRoundedRect(track, trackH/2, th.ChromeMuted)
+		dl.AddRoundedRect(track, trackH/2, trackBg)
 		t := float32(0)
 		if st.max > st.min {
 			t = float32((st.value - st.min) / (st.max - st.min))
 		}
 		fillW := track.W * t
+		fillCol := th.Accent
+		if disabled {
+			fillCol = th.ForegroundDisabled
+		}
 		if fillW > 0 {
-			dl.AddRoundedRect(render.Rect{X: track.X, Y: track.Y, W: fillW, H: track.H}, trackH/2, th.Accent)
+			dl.AddRoundedRect(render.Rect{X: track.X, Y: track.Y, W: fillW, H: track.H}, trackH/2, fillCol)
 		}
 		tx := track.X + fillW
 		cy := f.Y + f.H/2
 		thumb := render.Rect{X: tx - thumbR, Y: cy - thumbR, W: thumbR * 2, H: thumbR * 2}
-		col := th.Accent
-		if st.hovered || st.dragging {
+		col := fillCol
+		if !disabled && (st.hovered || st.dragging) {
 			col = th.AccentHover
 		}
 		dl.AddRoundedRect(thumb, thumbR, col)
-		if st.focused {
+		if st.focused && !disabled {
 			paintFocusRing(dl, thumb, col, th)
 		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
+		if disabled {
+			return
+		}
 		f := e.Frame
 		trackX0 := f.X + thumbR
 		trackW := f.W - 2*thumbR

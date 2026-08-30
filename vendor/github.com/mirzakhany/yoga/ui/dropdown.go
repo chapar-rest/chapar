@@ -38,7 +38,7 @@ func (n *Node) layoutDropdown(c *Ctx) *layout.Element {
 		st.menu.SetItems(items)
 		st.menu.width = w
 	}
-	el := Button(id, Text(n.text)).OnClick(func() {
+	btn := Button(id, Text(n.text)).OnClick(func() {
 		bst := c.Widget(id, func() any { return &buttonState{} }).(*buttonState)
 		if st.menu.Open {
 			st.menu.Close()
@@ -46,9 +46,14 @@ func (n *Node) layoutDropdown(c *Ctx) *layout.Element {
 		}
 		if bst.el != nil {
 			f := bst.el.Frame
+			st.menu.width = triggerMenuWidth(w, f.W)
 			st.menu.OpenAt(f.X, f.Y+f.H)
 		}
-	}).Style(n.spec).Layout(c)
+	}).Style(n.spec)
+	if n.disabled {
+		btn = btn.Disabled(true)
+	}
+	el := btn.Layout(c)
 	if st.menu.Open {
 		c.Overlay(st.menu.overlay())
 	}

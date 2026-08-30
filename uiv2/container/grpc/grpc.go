@@ -175,10 +175,13 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	return ui.Column(
 		ui.Row(
 			ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address).Placeholder("host:port").
-				OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }).Grow(1),
-			ui.Select("grpc-method-"+id, c.methods).Width(260).
+				IconStart(icons.Server).
+				Width(300).
+				OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }),
+			ui.Select("grpc-method-"+id, c.methods).
 				Selected(optionIndex(spec.LasSelectedMethod, c.methods)).
-				OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }),
+				OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }).
+				Grow(1),
 			ui.Button("grpc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
@@ -186,10 +189,9 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 			}),
 			ui.Button("grpc-send-"+id, ui.Text("Invoke")).Primary().IconStart(icons.Play).Hint("⌘↵").
 				Disabled(c.pending).OnClick(c.Send),
-		).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.M),
-		ui.Text(c.status).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)).PaddingXY(th.Spacing.M, 0),
-		ui.HLine(th.Stroke.Thin, th.Border),
-		ui.Splitter("grpc-split-"+id, ui.Horizontal, c.reqPane(th), c.respPane(th)).Sizes(0, 320).Grow(1),
+		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
+			MarginTop(th.Spacing.S),
+		ui.Splitter("grpc-split-"+id, ui.Horizontal, c.reqPane(th), c.respPane(th)).Sizes(300, 0).Grow(1),
 	).Grow(1)
 }
 
@@ -227,17 +229,31 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	case 3:
 		rows = append(rows, container.InfoPane(th, id, c.req, c.descEd, c.markDirty))
 	}
-	return ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+
+	return ui.Column(
+		ui.Column(rows...).
+			Radius(th.Radius.Medium).
+			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
+			BorderStyle(ui.BorderDotted).
+			Padding(th.Spacing.S).
+			Gap(th.Spacing.S).Grow(1),
+	)
 }
 
 func (c *Container) respPane(th *theme.Theme) ui.View {
 	id := c.req.MetaData.ID
 	return ui.Column(
-		ui.Tabs("grpc-resp-tabs-"+id, c.respTabs).Selected(c.respActive).
-			Closable(false).
-			OnSelectItem(func(i int, _ string) { c.respActive = i }).TabBackground(th.Background),
-		ui.ViewOf(c.respEd).Grow(1),
-	).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+		ui.Column(
+			ui.Tabs("grpc-resp-tabs-"+id, c.respTabs).Selected(c.respActive).
+				Closable(false).
+				OnSelectItem(func(i int, _ string) { c.respActive = i }).TabBackground(th.Background),
+			ui.ViewOf(c.respEd).Grow(1),
+		).Radius(th.Radius.Medium).
+			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
+			BorderStyle(ui.BorderDotted).
+			Padding(th.Spacing.S).
+			Gap(th.Spacing.S).Grow(1),
+	)
 }
 
 func (c *Container) handle(r result) {

@@ -17,6 +17,7 @@ type stepperData struct {
 
 type stepperState struct {
 	focused               bool
+	disabled              bool
 	el                    *layout.Element
 	dec, inc              func()
 	value, min, max, step float64
@@ -32,7 +33,7 @@ func (s *stepperState) FocusOnClick() bool       { return true }
 func (s *stepperState) FocusEl() *layout.Element { return s.el }
 
 func (s *stepperState) HandleKeys(keys []input.KeyEvent) {
-	if !s.focused {
+	if !s.focused || s.disabled {
 		return
 	}
 	for _, ev := range keys {
@@ -97,11 +98,22 @@ func (n *Node) layoutStepper(c *Ctx) *layout.Element {
 	label := formatStepper(st.value)
 	dec := IconButton(id+"-dec", icons.Minus).OnClick(st.dec)
 	inc := IconButton(id+"-inc", icons.Plus).OnClick(st.inc)
+	if n.disabled {
+		dec = dec.Disabled(true)
+		inc = inc.Disabled(true)
+	}
 	val := Text(label).Style(Spec{}.TextColor(TokenForeground))
+	if n.disabled {
+		val = val.Style(Spec{}.TextColor(TokenForegroundDisabled))
+	}
 
 	row := Row(dec, val, inc).Gap(th.Spacing.S).Align(AlignCenter)
 	el := row.Style(n.spec).Layout(c)
 	st.el = el
+	st.disabled = n.disabled
+	if n.disabled {
+		st.focused = false
+	}
 	if st.focused {
 		prev := el.Paint
 		el.Paint = func(dl *render.DrawList, text *shape.Engine) {

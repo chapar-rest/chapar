@@ -94,6 +94,20 @@ type Edges struct {
 	Top, Right, Bottom, Left Px
 }
 
+// Corners holds independent corner radii (top-left clockwise).
+type Corners struct {
+	TopLeft, TopRight, BottomRight, BottomLeft Px
+}
+
+// BorderStyle selects how border strokes are painted.
+type BorderStyle = render.BorderStyle
+
+const (
+	BorderSolid  = render.BorderSolid
+	BorderDotted = render.BorderDotted
+	BorderDashed = render.BorderDashed
+)
+
 // Style is the declarative styling for an Element. Construct it with Box() and
 // refine it with the fluent setters below, e.g.
 //
@@ -140,10 +154,13 @@ type Style struct {
 
 	// Visual decoration painted by the layout pass before an element's own Paint
 	// hook and children. A zero-alpha color counts as unset.
-	BgColor     render.Color
-	BorderColor render.Color
-	BorderWidth Px
-	Radius      Px
+	BgColor      render.Color
+	BorderColor  render.Color
+	BorderWidth  Px // legacy uniform width; also sets BorderWidths when used via Border()
+	BorderWidths Edges
+	BorderStyle  BorderStyle
+	Radius       Px // legacy uniform radius; also sets Radii when used via CornerRadius()
+	Radii        Corners
 }
 
 // Box returns a Style with sensible flexbox defaults: a column container that
@@ -231,12 +248,47 @@ func (s Style) Background(c render.Color) Style { s.BgColor = c; return s }
 // corners rounded by radius. Painted automatically by the layout pass. Combine
 // with Background to fill inside the stroke.
 func (s Style) Border(c render.Color, width, radius Px) Style {
-	s.BorderColor, s.BorderWidth, s.Radius = c, width, radius
+	s.BorderColor = c
+	s.BorderWidth = width
+	s.BorderWidths = Edges{width, width, width, width}
+	s.Radius = radius
+	s.Radii = Corners{TopLeft: radius, TopRight: radius, BottomRight: radius, BottomLeft: radius}
 	return s
 }
 
 // CornerRadius rounds the element's Background corners without adding a border.
-func (s Style) CornerRadius(r Px) Style { s.Radius = r; return s }
+func (s Style) CornerRadius(r Px) Style {
+	s.Radius = r
+	s.Radii = Corners{TopLeft: r, TopRight: r, BottomRight: r, BottomLeft: r}
+	return s
+}
+
+// EffectiveBorderWidths returns per-side widths, falling back to the legacy
+// uniform BorderWidth when BorderWidths are unset.
+func (s Style) EffectiveBorderWidths() Edges {
+	w := s.BorderWidths
+	if w.Top == 0 && w.Right == 0 && w.Bottom == 0 && w.Left == 0 && s.BorderWidth > 0 {
+		return Edges{s.BorderWidth, s.BorderWidth, s.BorderWidth, s.BorderWidth}
+	}
+	return w
+}
+
+// EffectiveRadii returns per-corner radii, falling back to the legacy uniform Radius.
+func (s Style) EffectiveRadii() Corners {
+	r := s.Radii
+	if r.TopLeft == 0 && r.TopRight == 0 && r.BottomRight == 0 && r.BottomLeft == 0 && s.Radius > 0 {
+		return Corners{TopLeft: s.Radius, TopRight: s.Radius, BottomRight: s.Radius, BottomLeft: s.Radius}
+	}
+	return r
+}
+
+func (e Edges) AnyPositive() bool {
+	return e.Top > 0 || e.Right > 0 || e.Bottom > 0 || e.Left > 0
+}
+
+func (c Corners) AnyPositive() bool {
+	return c.TopLeft > 0 || c.TopRight > 0 || c.BottomRight > 0 || c.BottomLeft > 0
+}
 
 // Absolute positions the element out of normal flow at (left, top).
 func (s Style) Absolute(left, top Px) Style {

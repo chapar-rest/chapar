@@ -44,6 +44,11 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 	}
 	tf.OnChange = n.onChange
 	tf.OnSubmit = n.onSubmit
+	tf.disabled = n.disabled
+	tf.visualSpec = c.styles().TextField.merge(n.spec)
+	if n.disabled && tf.focused {
+		tf.Blur()
+	}
 	// Re-apply height each frame so cached widgets follow theme metrics and
 	// an explicit .Height(...) on the node. EditableLabel passes Height via
 	// TextFieldConfig and paints into its own frame, so it is unaffected.

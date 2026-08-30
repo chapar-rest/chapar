@@ -65,7 +65,7 @@ func (n *Node) layoutTagEdit(c *Ctx) *layout.Element {
 	chips := make([]View, 0, len(tags)+1)
 	for i, tag := range tags {
 		i, tag := i, tag
-		chips = append(chips, Button(id+"-chip-"+tag, Text(tag+" ×")).Subtle().OnClick(func() {
+		chips = append(chips, Button(id+"-chip-"+tag, Text(tag+" ×")).Subtle().Disabled(n.disabled).OnClick(func() {
 			next := append([]string(nil), tags...)
 			next = append(next[:i], next[i+1:]...)
 			emit(next)
@@ -75,6 +75,7 @@ func (n *Node) layoutTagEdit(c *Ctx) *layout.Element {
 		Placeholder("Add tag...").
 		OnChange(func(s string) { st.draft = s }).
 		OnSubmit(func(s string) { add(s) }).
+		Disabled(n.disabled).
 		Width(80))
 	return Row(chips...).
 		Gap(th.Spacing.XS).

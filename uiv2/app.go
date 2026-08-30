@@ -238,13 +238,13 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 
 	return ui.Column(
 		a.topBar(c),
-		ui.HLine(th.Stroke.Thin, th.Border),
+		//ui.HLine(th.Stroke.Thin, th.Border),
 		ui.Row(
 			a.nav(c),
-			ui.VLine(th.Stroke.Thin, th.Border),
+			//ui.VLine(th.Stroke.Thin, th.Border),
 			ui.ViewOf(a.pageView(c)).Grow(1),
 		).Align(ui.AlignStretch).Grow(1),
-		ui.HLine(th.Stroke.Thin, th.Border),
+		//	ui.HLine(th.Stroke.Thin, th.Border),
 		a.footer(c),
 	).Grow(1).Background(ui.TokenSurface)
 }
@@ -273,7 +273,6 @@ func (a *App) registerCommands(c *ui.Ctx) {
 			}))
 	}
 	for _, col := range a.catalog.Collections {
-		col := col
 		cmds = append(cmds, ui.Item("open.col."+col.MetaData.ID).
 			Title(col.MetaData.Name).
 			Detail("Collection").
@@ -416,7 +415,7 @@ func (a *App) footer(c *ui.Ctx) ui.View {
 			HoverFill().
 			MarginRight(th.Spacing.S).
 			OnClick(func() {}),
-	)
+	).Background(ui.TokenChrome)
 }
 
 func (a *App) Close() {

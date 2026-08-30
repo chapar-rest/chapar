@@ -59,10 +59,12 @@ type whenRule struct {
 // TextColor, and friends; attach interaction variants with When.
 type Spec struct {
 	bg, fg, border colorRef
-	borderW        float32
-	hasBorderW     bool
-	radius         float32
-	hasRadius      bool
+	borderW        layout.Edges
+	borderSet      uint8
+	borderStyle    BorderStyle
+	hasBorderStyle bool
+	radii          layout.Corners
+	radiusSet      uint8
 	cursor         Cursor
 	hasCursor      bool
 	scaleX, scaleY float32
@@ -128,13 +130,6 @@ func (s Spec) FontWeight(w int) Spec {
 	return s
 }
 
-// Radius sets corner radius in logical pixels.
-func (s Spec) Radius(r float32) Spec {
-	s.radius = r
-	s.hasRadius = true
-	return s
-}
-
 // Cursor sets the pointer shape while the pointer is inside the node.
 func (s Spec) Cursor(c Cursor) Spec {
 	s.cursor = c
@@ -146,14 +141,6 @@ func (s Spec) Cursor(c Cursor) Spec {
 func (s Spec) Scale(x, y float32) Spec {
 	s.scaleX, s.scaleY = x, y
 	s.hasScale = true
-	return s
-}
-
-// Border sets a token stroke.
-func (s Spec) Border(t Token, width float32) Spec {
-	s.border = colorRef{on: true, token: t}
-	s.borderW = width
-	s.hasBorderW = true
 	return s
 }
 
@@ -232,13 +219,25 @@ func (s Spec) merge(p Spec) Spec {
 	if p.border.on {
 		s.border = p.border
 	}
-	if p.hasBorderW {
-		s.borderW = p.borderW
-		s.hasBorderW = true
+	if p.borderSet != 0 {
+		if p.borderSet == borderSideAll {
+			s.borderW = p.borderW
+		} else {
+			s.borderW = mergeBorderSides(s.borderW, p.borderW, p.borderSet, p.borderSet)
+		}
+		s.borderSet |= p.borderSet
 	}
-	if p.hasRadius {
-		s.radius = p.radius
-		s.hasRadius = true
+	if p.hasBorderStyle {
+		s.borderStyle = p.borderStyle
+		s.hasBorderStyle = true
+	}
+	if p.radiusSet != 0 {
+		if p.radiusSet == radiusCornerAll {
+			s.radii = p.radii
+		} else {
+			s.radii = mergeRadiusCorners(s.radii, p.radii, p.radiusSet)
+		}
+		s.radiusSet |= p.radiusSet
 	}
 	if p.hasCursor {
 		s.cursor = p.cursor
@@ -311,18 +310,21 @@ type interactState struct {
 }
 
 type resolvedSpec struct {
-	bg, fg, border  render.Color
-	hasBg, hasFg    bool
-	hasBorder       bool
-	borderW, radius float32
-	hasRadius       bool
-	cursor          Cursor
-	hasCursor       bool
-	scaleX, scaleY  float32
-	fontSize        float32
-	hasFontSize     bool
-	fontWeight      int
-	hasFontWeight   bool
+	bg, fg, border render.Color
+	hasBg, hasFg   bool
+	hasBorder      bool
+	borderW        layout.Edges
+	radii          layout.Corners
+	hasRadii       bool
+	borderStyle    BorderStyle
+	hasBorderStyle bool
+	cursor         Cursor
+	hasCursor      bool
+	scaleX, scaleY float32
+	fontSize       float32
+	hasFontSize    bool
+	fontWeight     int
+	hasFontWeight  bool
 }
 
 func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
@@ -358,12 +360,16 @@ func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
 	r.bg, r.hasBg = out.bg.resolve(th)
 	r.fg, r.hasFg = out.fg.resolve(th)
 	r.border, r.hasBorder = out.border.resolve(th)
-	if out.hasBorderW {
+	if out.borderSet != 0 {
 		r.borderW = out.borderW
 	}
-	if out.hasRadius {
-		r.radius = out.radius
-		r.hasRadius = true
+	if out.radiusSet != 0 {
+		r.radii = out.radii
+		r.hasRadii = true
+	}
+	if out.hasBorderStyle {
+		r.borderStyle = out.borderStyle
+		r.hasBorderStyle = true
 	}
 	if out.hasCursor {
 		r.cursor = out.cursor
@@ -433,15 +439,22 @@ func applyVisualSpec(el *layout.Element, s Spec, th *theme.Theme, st interactSta
 	if r.hasBg {
 		el.Style.BgColor = r.bg
 	}
-	if r.hasRadius {
-		el.Style.Radius = r.radius
+	if r.hasRadii {
+		el.Style.Radii = r.radii
+		if r.radii.TopLeft == r.radii.TopRight && r.radii.TopLeft == r.radii.BottomRight && r.radii.TopLeft == r.radii.BottomLeft {
+			el.Style.Radius = r.radii.TopLeft
+		}
 	}
 	if r.hasBorder {
 		el.Style.BorderColor = r.border
-		el.Style.BorderWidth = r.borderW
-		if r.hasRadius {
-			el.Style.Radius = r.radius
+		el.Style.BorderWidths = r.borderW
+		el.Style.BorderWidth = 0
+		if r.borderW.Top == r.borderW.Right && r.borderW.Top == r.borderW.Bottom && r.borderW.Top == r.borderW.Left {
+			el.Style.BorderWidth = r.borderW.Top
 		}
+	}
+	if r.hasBorderStyle {
+		el.Style.BorderStyle = r.borderStyle
 	}
 }
 

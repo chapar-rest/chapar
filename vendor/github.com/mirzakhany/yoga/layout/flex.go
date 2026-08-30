@@ -38,12 +38,12 @@ func runAfterLayout(e *Element) bool {
 func layoutNode(e *Element, constraintW, constraintH float32, isRoot bool) {
 	s := &e.Style
 
-	w := resolveWidth(s, constraintW)
-	h := resolveHeight(s, constraintH)
-
+	var w, h float32
 	if isRoot {
 		e.cx = 0
 		e.cy = 0
+		w = resolveWidth(s, constraintW)
+		h = resolveHeight(s, constraintH)
 		if isUnset(s.Width) {
 			w = constraintW
 		}
@@ -52,6 +52,11 @@ func layoutNode(e *Element, constraintW, constraintH float32, isRoot bool) {
 		}
 		w = clampDim(w, s.MinWidth, s.MaxWidth)
 		h = clampDim(h, s.MinHeight, s.MaxHeight)
+	} else {
+		// Parent flex/grid/stack already resolved grow/shrink into the
+		// allocated size. Style.Width/Height are flex-basis hints only.
+		w = clampDim(constraintW, s.MinWidth, s.MaxWidth)
+		h = clampDim(constraintH, s.MinHeight, s.MaxHeight)
 	}
 
 	e.cw = w

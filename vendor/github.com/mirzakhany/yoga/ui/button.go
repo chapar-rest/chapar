@@ -139,16 +139,7 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 			hovered: st.hovered, pressed: st.pressed, focused: st.focused, disabled: disabled,
 		})
 		frame := scaledFrame(el.Frame, r.scaleX, r.scaleY)
-		radius := r.radius
-		if !r.hasRadius {
-			radius = th.Radius.Medium
-		}
-		switch {
-		case r.hasBorder && r.border.A > 0:
-			dl.AddRoundedRectBorder(frame, radius, r.borderW, r.bg, r.border)
-		case r.hasBg && r.bg.A > 0:
-			dl.AddRoundedRect(frame, radius, r.bg)
-		}
+		paintResolvedBox(dl, frame, r, th.Radius.Medium)
 		if st.focused {
 			fill := r.bg
 			if fill.A == 0 {

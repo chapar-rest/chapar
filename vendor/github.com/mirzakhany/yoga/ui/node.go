@@ -340,6 +340,102 @@ func (n *Node) BackgroundColor(c render.Color) *Node {
 	return n
 }
 
+// Border sets a uniform token stroke on all sides.
+func (n *Node) Border(t Token, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.Border(t, width))
+	return n
+}
+
+// BorderColor sets a uniform literal stroke on all sides.
+func (n *Node) BorderColor(c render.Color, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderColor(c, width))
+	return n
+}
+
+// BorderTop sets the top border width.
+func (n *Node) BorderTop(t Token, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderTop(t, width))
+	return n
+}
+
+// BorderRight sets the right border width.
+func (n *Node) BorderRight(t Token, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderRight(t, width))
+	return n
+}
+
+// BorderBottom sets the bottom border width.
+func (n *Node) BorderBottom(t Token, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderBottom(t, width))
+	return n
+}
+
+// BorderLeft sets the left border width.
+func (n *Node) BorderLeft(t Token, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderLeft(t, width))
+	return n
+}
+
+// BorderTopColor sets the top border with a literal color.
+func (n *Node) BorderTopColor(c render.Color, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderTopColor(c, width))
+	return n
+}
+
+// BorderRightColor sets the right border with a literal color.
+func (n *Node) BorderRightColor(c render.Color, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderRightColor(c, width))
+	return n
+}
+
+// BorderBottomColor sets the bottom border with a literal color.
+func (n *Node) BorderBottomColor(c render.Color, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderBottomColor(c, width))
+	return n
+}
+
+// BorderLeftColor sets the left border with a literal color.
+func (n *Node) BorderLeftColor(c render.Color, width float32) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderLeftColor(c, width))
+	return n
+}
+
+// BorderStyle sets dotted/dashed/solid stroke style.
+func (n *Node) BorderStyle(st BorderStyle) *Node {
+	n.spec = n.spec.merge(Spec{}.BorderStyle(st))
+	return n
+}
+
+// Radius sets a uniform corner radius.
+func (n *Node) Radius(r float32) *Node {
+	n.spec = n.spec.merge(Spec{}.Radius(r))
+	return n
+}
+
+// RadiusTopLeft sets the top-left corner radius.
+func (n *Node) RadiusTopLeft(r float32) *Node {
+	n.spec = n.spec.merge(Spec{}.RadiusTopLeft(r))
+	return n
+}
+
+// RadiusTopRight sets the top-right corner radius.
+func (n *Node) RadiusTopRight(r float32) *Node {
+	n.spec = n.spec.merge(Spec{}.RadiusTopRight(r))
+	return n
+}
+
+// RadiusBottomRight sets the bottom-right corner radius.
+func (n *Node) RadiusBottomRight(r float32) *Node {
+	n.spec = n.spec.merge(Spec{}.RadiusBottomRight(r))
+	return n
+}
+
+// RadiusBottomLeft sets the bottom-left corner radius.
+func (n *Node) RadiusBottomLeft(r float32) *Node {
+	n.spec = n.spec.merge(Spec{}.RadiusBottomLeft(r))
+	return n
+}
+
 // DefaultFocus asks the focus scope to focus this control when nothing else is focused.
 func (n *Node) DefaultFocus() *Node {
 	n.defaultFocus = true
