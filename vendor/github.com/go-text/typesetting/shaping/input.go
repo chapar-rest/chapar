@@ -3,14 +3,12 @@
 package shaping
 
 import (
-	"unicode"
-
 	"github.com/go-text/typesetting/di"
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/harfbuzz"
+	ucd "github.com/go-text/typesetting/internal/unicodedata"
 	"github.com/go-text/typesetting/language"
-	"github.com/go-text/typesetting/unicodedata"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/text/unicode/bidi"
 )
@@ -364,7 +362,7 @@ func (seg *Segmenter) enforceLanguages() {
 // assume the script has been resolved
 func (seg *Segmenter) splitByVertOrientation() {
 	for _, input := range seg.input {
-		vo := unicodedata.LookupVerticalOrientation(input.Script)
+		vo := ucd.LookupVerticalOrientation(input.Script)
 		currentInput := input
 
 		for i := input.RunStart; i < input.RunEnd; i++ {
@@ -472,11 +470,12 @@ func splitByFace(input Input, availableFaces Fontmap, buffer []Input) []Input {
 // https://bugzilla.gnome.org/show_bug.cgi?id=781123
 // for more details.
 func ignoreFaceChange(r rune) bool {
-	return unicode.Is(unicode.Cc, r) || // control
-		unicode.Is(unicode.Cs, r) || // surrogate
-		unicode.Is(unicode.Zl, r) || // line separator
-		unicode.Is(unicode.Zp, r) || // paragraph separator
-		(unicode.Is(unicode.Zs, r) && r != '\u1680') || // space separator != OGHAM SPACE MARK
+	g := ucd.LookupGeneralCategory(r)
+	return g == ucd.Cc || // control
+		g == ucd.Cs || // surrogate
+		g == ucd.Zl || // line separator
+		g == ucd.Zp || // paragraph separator
+		(g == ucd.Zs && r != '\u1680') || // space separator != OGHAM SPACE MARK
 		harfbuzz.IsDefaultIgnorable(r)
 }
 

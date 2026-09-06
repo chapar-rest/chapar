@@ -1,0 +1,7 @@
+/tests/*/fuzz-fuzz.zip
+/tests/*/crashers
+/tests/*/suppressions
+/tests/*/corpus/*
+!/tests/*/corpus/*.*
+!/testdata/**
+cmd/fontcmd/test

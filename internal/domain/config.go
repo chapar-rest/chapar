@@ -42,6 +42,7 @@ type GeneralConfig struct {
 	FollowRedirects        bool   `yaml:"followRedirects"`
 	VaidateTLSCertificates bool   `yaml:"validateTLSCertificates"`
 	Theme                  string `yaml:"theme"`
+	UIFontSize             int    `yaml:"uiFontSize"`
 }
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
@@ -53,7 +54,8 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.SendChaparAgentHeader != other.SendChaparAgentHeader ||
 		g.FollowRedirects != other.FollowRedirects ||
 		g.VaidateTLSCertificates != other.VaidateTLSCertificates ||
-		g.Theme != other.Theme
+		g.Theme != other.Theme ||
+		g.UIFontSize != other.UIFontSize
 }
 
 const (
@@ -147,6 +149,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				FollowRedirects:        true,
 				VaidateTLSCertificates: true,
 				Theme:                  "light",
+				UIFontSize:             14,
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -184,6 +187,7 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"followRedirects":        g.Spec.General.FollowRedirects,
 			"validateTLSCertificate": g.Spec.General.VaidateTLSCertificates,
 			"theme":                  g.Spec.General.Theme,
+			"uiFontSize":             g.Spec.General.UIFontSize,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -226,6 +230,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.General.FollowRedirects = getOrDefault(values, "followRedirects", g.Spec.General.FollowRedirects).(bool)
 	g.Spec.General.VaidateTLSCertificates = getOrDefault(values, "validateTLSCertificates", g.Spec.General.VaidateTLSCertificates).(bool)
 	g.Spec.General.Theme = getOrDefault(values, "theme", g.Spec.General.Theme).(string)
+	g.Spec.General.UIFontSize = getOrDefault(values, "uiFontSize", g.Spec.General.UIFontSize).(int)
 
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)
