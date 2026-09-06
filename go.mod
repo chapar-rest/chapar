@@ -16,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/inkeliz/giosvg v0.0.0-20240821232107-3208d4350d55
 	github.com/jhump/protoreflect v1.16.0
-	github.com/mirzakhany/yoga v0.3.10
+	github.com/mirzakhany/yoga v0.4.1
 	github.com/oligo/gioview v0.8.2
 	github.com/oligo/gvcode v0.4.0
 	github.com/stretchr/testify v1.12.1
@@ -81,10 +81,11 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388 // indirect
-	github.com/tdewolff/canvas v0.0.0-20260822211237-56e622de465a // indirect
+	github.com/tdewolff/canvas v0.0.0-20260901160717-dae8cd8e19a7 // indirect
 	github.com/tdewolff/font v0.0.0-20260822205238-d0d2f004b117 // indirect
 	github.com/tdewolff/minify/v2 v2.24.17 // indirect
 	github.com/tdewolff/parse/v2 v2.8.16 // indirect
+	github.com/tree-sitter-grammars/tree-sitter-xml v0.7.0 // indirect
 	github.com/tree-sitter/go-tree-sitter v0.25.0 // indirect
 	github.com/tree-sitter/tree-sitter-go v0.25.0 // indirect
 	github.com/tree-sitter/tree-sitter-json v0.24.8 // indirect
@@ -107,5 +108,3 @@ require (
 	modernc.org/token v1.1.0 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
 )
-
-replace github.com/mirzakhany/yoga => ../yoga
