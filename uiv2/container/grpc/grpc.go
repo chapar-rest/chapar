@@ -325,13 +325,16 @@ func (c *Container) settingsTab(th *theme.Theme, id string, spec *domain.GRPCReq
 			ui.TextField("grpc-override-"+id, spec.Settings.NameOverride).Placeholder("Server name override").
 				OnChange(func(s string) { spec.Settings.NameOverride = s; c.markDirty() }),
 			certPicker(id, "Root cert", spec.Settings.RootCertFile, c.deps, func(p string) {
-				spec.Settings.RootCertFile = p; c.markDirty()
+				spec.Settings.RootCertFile = p
+				c.markDirty()
 			}),
 			certPicker(id, "Client cert", spec.Settings.ClientCertFile, c.deps, func(p string) {
-				spec.Settings.ClientCertFile = p; c.markDirty()
+				spec.Settings.ClientCertFile = p
+				c.markDirty()
 			}),
 			certPicker(id, "Client key", spec.Settings.ClientKeyFile, c.deps, func(p string) {
-				spec.Settings.ClientKeyFile = p; c.markDirty()
+				spec.Settings.ClientKeyFile = p
+				c.markDirty()
 			}),
 		)
 	}
@@ -386,7 +389,7 @@ func (c *Container) handle(r result) {
 	c.pending = false
 	if r.err != nil {
 		c.statusText = r.err.Error()
-		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()))
+		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()), highlight.NewJSON())
 		return
 	}
 	if r.resp == nil {
@@ -395,13 +398,9 @@ func (c *Container) handle(r result) {
 	}
 	c.lastResp = r.resp
 	c.statusText = fmt.Sprintf("%s  %s  %d B", r.resp.Status, r.resp.TimePassed.Round(time.Millisecond), r.resp.Size)
-	body := r.resp.Body
-	if len(body) == 0 {
-		body = []byte(r.resp.JSON)
-	}
-	c.respEd = replaceEditor(c.respEd, body)
-	c.respMetaEd = replaceEditor(c.respMetaEd, []byte(formatMeta(r.resp)))
-	c.respTrailEd = replaceEditor(c.respTrailEd, []byte(container.FormatKeyValues(r.resp.Trailers, "Trailers")))
+	c.respEd = replaceEditor(c.respEd, container.DisplayBody(r.resp), highlight.NewJSON())
+	c.respMetaEd = replaceEditor(c.respMetaEd, []byte(formatMeta(r.resp)), highlight.Noop{})
+	c.respTrailEd = replaceEditor(c.respTrailEd, []byte(container.FormatKeyValues(r.resp.Trailers, "Trailers")), highlight.Noop{})
 	vars := container.DumpVariables(c.vars)
 	container.UpdateVariablePreviews(c.vars, vars, r.resp)
 }
@@ -414,11 +413,11 @@ func formatMeta(res *egress.Response) string {
 	return b.String()
 }
 
-func replaceEditor(old *ui.Editor, data []byte) *ui.Editor {
+func replaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
 	if old != nil {
 		old.Close()
 	}
-	return ui.NewEditor(data, highlight.NewJSON())
+	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
 }
 
 func optionIndex(v string, opts []ui.SelectOption) int {

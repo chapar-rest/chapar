@@ -131,33 +131,38 @@ func (n *Node) layoutTabs(c *Ctx) *layout.Element {
 		paintTabs(dl, text, el, tabs, active, st.hoverTab, st.hoverClose, st.focused, bg, closable)
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
-		st.hoverTab, st.hoverClose = -1, -1
-		if !e.Frame.Contains(m.X, m.Y) {
-			return
-		}
-		ext := tabExtents(e, tabs, closable)
-		for i, te := range ext {
-			if m.X < te.x || m.X > te.x+te.w {
-				continue
-			}
-			st.hoverTab = i
-			if closable && te.close.Contains(m.X, m.Y) {
-				st.hoverClose = i
+		hoverTab, hoverClose := -1, -1
+		if e.Frame.Contains(m.X, m.Y) {
+			ext := tabExtents(e, tabs, closable)
+			for i, te := range ext {
+				if m.X < te.x || m.X > te.x+te.w {
+					continue
+				}
+				hoverTab = i
+				if closable && te.close.Contains(m.X, m.Y) {
+					hoverClose = i
+					if m.Pressed {
+						m.Consumed = true
+						if onClose != nil {
+							onClose(i)
+						}
+						c.MarkNeedsPaint()
+					}
+					break
+				}
 				if m.Pressed {
 					m.Consumed = true
-					if onClose != nil {
-						onClose(i)
+					if onActivate != nil {
+						onActivate(i, "")
 					}
+					c.MarkNeedsPaint()
 				}
-				return
+				break
 			}
-			if m.Pressed {
-				m.Consumed = true
-				if onActivate != nil {
-					onActivate(i, "")
-				}
-			}
-			return
+		}
+		if st.hoverTab != hoverTab || st.hoverClose != hoverClose {
+			st.hoverTab, st.hoverClose = hoverTab, hoverClose
+			c.MarkNeedsPaint()
 		}
 	}
 	return el

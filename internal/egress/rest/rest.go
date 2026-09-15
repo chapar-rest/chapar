@@ -217,11 +217,11 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	if util.IsJSON(string(body)) {
 		response.IsJSON = true
-		if js, err := util.PrettyJSON(body); err != nil {
+		js, err := util.PrettyJSON(body)
+		if err != nil {
 			return nil, err
-		} else {
-			response.JSON = js
 		}
+		response.JSON = js
 	}
 
 	// handle headers

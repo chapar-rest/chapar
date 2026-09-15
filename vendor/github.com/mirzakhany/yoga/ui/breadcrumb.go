@@ -45,21 +45,22 @@ func (n *Node) layoutBreadcrumb(c *Ctx) *layout.Element {
 		paintBreadcrumb(dl, text, el.Frame, segs, st.hover)
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
-		st.hover = -1
-		if !e.Frame.Contains(m.X, m.Y) {
-			return
-		}
-		locs := breadcrumbLayout(e.Frame, segs)
-		for i, loc := range locs {
-			if m.X >= loc.x && m.X <= loc.x+loc.w {
-				st.hover = i
-				m.SetCursor(CursorPointer)
-				if m.Released && i < len(segs)-1 && segs[i].OnSelect != nil {
-					segs[i].OnSelect()
+		hover := -1
+		if e.Frame.Contains(m.X, m.Y) {
+			locs := breadcrumbLayout(e.Frame, segs)
+			for i, loc := range locs {
+				if m.X >= loc.x && m.X <= loc.x+loc.w {
+					hover = i
+					m.SetCursor(CursorPointer)
+					if m.Released && i < len(segs)-1 && segs[i].OnSelect != nil {
+						segs[i].OnSelect()
+						c.MarkNeedsPaint()
+					}
+					break
 				}
-				return
 			}
 		}
+		trackHoverIdx(c, &st.hover, hover)
 	}
 	return el
 }

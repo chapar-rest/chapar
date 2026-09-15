@@ -98,10 +98,11 @@ func (n *Node) layoutNav(c *Ctx) *layout.Element {
 			if !e.Frame.Contains(m.X, m.Y) {
 				return
 			}
-			st.hover = idx
+			trackHoverIdx(c, &st.hover, idx)
 			m.SetCursor(CursorPointer)
 			if m.Released && onSelect != nil {
 				onSelect(idx, it.ID)
+				c.MarkNeedsPaint()
 				m.Consumed = true
 			}
 		}
@@ -118,7 +119,7 @@ func (n *Node) layoutNav(c *Ctx) *layout.Element {
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		if !e.Frame.Contains(m.X, m.Y) {
-			st.hover = -1
+			trackHoverIdx(c, &st.hover, -1)
 		}
 	}
 	return el

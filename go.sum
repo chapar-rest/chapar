@@ -138,8 +138,6 @@ github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/mattn/go-pointer v0.0.1 h1:n+XhsuGeVO6MEAp7xyEukFINEa+Quek5psIR/ylA6o0=
 github.com/mattn/go-pointer v0.0.1/go.mod h1:2zXcozF6qYGgmsG+SeTZz3oAbFLdD3OWqnUbNvJZAlc=
-github.com/mirzakhany/yoga v0.4.0 h1:KIZydJxl/uV01A6jhkN2+7CcXPD3svn4jlZDgHA2lHo=
-github.com/mirzakhany/yoga v0.4.0/go.mod h1:hFlWC0fp4yB7xdLPUK+motZm/mWu4Nofhf6rPQXg35I=
 github.com/mirzakhany/yoga v0.4.1 h1:WvDYhUMqWoWm3Ad3bJ/Bzv36uZbviHV24w5M3Pi2GtI=
 github.com/mirzakhany/yoga v0.4.1/go.mod h1:hFlWC0fp4yB7xdLPUK+motZm/mWu4Nofhf6rPQXg35I=
 github.com/moby/docker-image-spec v1.3.1 h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=
@@ -195,8 +193,6 @@ github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
-github.com/tdewolff/canvas v0.0.0-20260822211237-56e622de465a h1:riaFBiYaIv1gM31xdcU0Yo7bdp3WebF4dggO/JK0g/8=
-github.com/tdewolff/canvas v0.0.0-20260822211237-56e622de465a/go.mod h1:K9Ux3cwFtyAFRITZ46g7v+ORXgI3ENtQa5rL9yjNz5Y=
 github.com/tdewolff/canvas v0.0.0-20260901160717-dae8cd8e19a7 h1:/EAPdALfW5LK6JdiTNTDJdWaHx7teiehPJHouJYN3iU=
 github.com/tdewolff/canvas v0.0.0-20260901160717-dae8cd8e19a7/go.mod h1:K9Ux3cwFtyAFRITZ46g7v+ORXgI3ENtQa5rL9yjNz5Y=
 github.com/tdewolff/font v0.0.0-20260822205238-d0d2f004b117 h1:5vSJjsbV9AH0U+Ex0uej8ROrpOBlOVBrw0mGlVef7oo=

@@ -208,7 +208,7 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 			st.field.host.Frame = e.Frame
 			st.field.onMouse(st.field.host, m)
 			inside := e.Frame.Contains(m.X, m.Y)
-			st.hovered = inside
+			trackHover(c, &st.hovered, inside)
 			if inside {
 				m.SetCursor(CursorText)
 			}
@@ -241,12 +241,13 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 				return
 			}
 			inside := e.Frame.Contains(m.X, m.Y)
-			st.hovered = inside
+			trackHover(c, &st.hovered, inside)
 			if inside {
 				m.SetCursor(CursorText)
 			}
 			if inside && m.Released {
 				st.startEdit(labelValue)
+				c.MarkNeedsPaint()
 				m.Consumed = true
 			}
 			if inside && m.Pressed {

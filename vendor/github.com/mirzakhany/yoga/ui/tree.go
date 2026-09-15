@@ -102,6 +102,7 @@ type Tree struct {
 	selected int
 	focused  bool
 	rowH     float32
+	markPaint func()
 
 	// drag-and-drop state
 	dragging      bool
@@ -173,8 +174,10 @@ func (t *Tree) SetRoot(root *TreeNode) {
 // focus scope and, while open, self-registers its context menu as an overlay.
 func (t *Tree) Layout(c *Ctx) *layout.Element {
 	c.Focus().Add(t)
+	t.markPaint = c.MarkNeedsPaint
 	t.Update(c.Mouse())
 	if t.menu.Open {
+		t.menu.BindPaint(c)
 		c.Overlay(t.menu.overlay())
 	}
 	return t.host
@@ -591,24 +594,37 @@ func (t *Tree) onMouse(el *layout.Element, m *input.Mouse) {
 		return
 	}
 
+	prevHover := t.hover
 	t.hover = -1
 	if el.Frame.Contains(m.X, m.Y) && (m.ScrollY != 0 || m.ScrollX != 0) {
 		vp := t.contentViewport()
 		t.vbar.ApplyWheel(m, el.Frame)
 		t.hbar.ApplyWheel(m, vp)
 		t.clampScroll()
+		if t.markPaint != nil {
+			t.markPaint()
+		}
 	}
 	if !el.Frame.Contains(m.X, m.Y) || t.overScrollbar(m) {
 		if !m.Down {
 			t.dragNode = nil
 		}
+		if prevHover != -1 && t.markPaint != nil {
+			t.markPaint()
+		}
 		return
 	}
 	idx := int((m.Y - el.Frame.Y + t.scrollY) / t.rowH)
 	if idx < 0 || idx >= len(t.visible) {
+		if prevHover != -1 && t.markPaint != nil {
+			t.markPaint()
+		}
 		return
 	}
 	t.hover = idx
+	if t.hover != prevHover && t.markPaint != nil {
+		t.markPaint()
+	}
 	t.selected = idx
 	n := t.visible[idx]
 
@@ -617,6 +633,9 @@ func (t *Tree) onMouse(el *layout.Element, m *input.Mouse) {
 			t.menu.SetItems(items)
 			t.menu.OpenAt(m.X, m.Y)
 			m.Consumed = true
+			if t.markPaint != nil {
+				t.markPaint()
+			}
 			return
 		}
 	}

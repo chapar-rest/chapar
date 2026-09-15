@@ -175,19 +175,20 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 			return
 		}
 		inside := e.Frame.Contains(m.X, m.Y)
-		st.hovered = inside
+		trackHover(c, &st.hovered, inside)
 		if inside {
 			m.SetCursor(CursorPointer)
 		}
 		if inside && m.Pressed {
-			st.pressed = true
+			trackBool(c, &st.pressed, true)
 			m.Consumed = true
 		}
 		if m.Released {
 			if st.pressed && inside && onClick != nil {
 				onClick()
+				c.MarkNeedsPaint()
 			}
-			st.pressed = false
+			trackBool(c, &st.pressed, false)
 		}
 	}
 	return el

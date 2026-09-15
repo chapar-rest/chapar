@@ -149,14 +149,14 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 			return
 		}
 		inside := e.Frame.Contains(m.X, m.Y)
-		st.hovered = inside
+		trackHover(c, &st.hovered, inside)
 		if inside {
 			m.SetCursor(CursorPointer)
 		}
 		chevronLeft := e.Frame.X + e.Frame.W - chevronSlot
 		inChevron := inside && m.X >= chevronLeft
 		if inside && m.Pressed {
-			st.pressed = true
+			trackBool(c, &st.pressed, true)
 			m.Consumed = true
 		}
 		if m.Released {
@@ -170,12 +170,14 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 				} else {
 					toggleMenu()
 				}
+				c.MarkNeedsPaint()
 			}
-			st.pressed = false
+			trackBool(c, &st.pressed, false)
 		}
 	}
 
 	if mst.menu.Open {
+		mst.menu.BindPaint(c)
 		c.Overlay(mst.menu.overlay())
 	}
 	return el

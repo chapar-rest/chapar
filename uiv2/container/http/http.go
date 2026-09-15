@@ -25,12 +25,12 @@ type Container struct {
 	deps  container.Deps
 	dirty bool
 
-	bodyEd    *ui.Editor
-	descEd    *ui.Editor
-	respEd    *ui.Editor
-	respHdrEd *ui.Editor
-	respCkEd  *ui.Editor
-	preScript *ui.Editor
+	bodyEd     *ui.Editor
+	descEd     *ui.Editor
+	respEd     *ui.Editor
+	respHdrEd  *ui.Editor
+	respCkEd   *ui.Editor
+	preScript  *ui.Editor
 	postScript *ui.Editor
 
 	queryParams *ui.Table
@@ -85,9 +85,9 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	}
 	c.bodyEd = ui.NewEditor([]byte(body), bodyHighlighter(http.Request.Body.Type))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
-	c.respEd = ui.NewEditor(nil, highlight.Noop{})
-	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{})
-	c.respCkEd = ui.NewEditor(nil, highlight.Noop{})
+	c.respEd = ui.NewEditor(nil, highlight.NewJSON(), ui.WithSoftWrap(true))
+	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
+	c.respCkEd = ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
 
 	id := r.MetaData.ID
 	c.queryParams = container.NewKVTable("query-"+id, c.markDirty)
@@ -421,7 +421,7 @@ func (c *Container) handleResult(r result) {
 		c.respErr = true
 		c.lastResp = nil
 		c.statusText = r.err.Error()
-		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()))
+		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()), highlight.NewJSON())
 		return
 	}
 	res := r.resp
@@ -439,11 +439,7 @@ func (c *Container) handleResult(r result) {
 	} else {
 		c.statusText = fmt.Sprintf("%d %s  %s  %d B", c.respCode, strings.TrimSpace(c.respStatus), c.respDur.Round(time.Millisecond), c.respSize)
 	}
-	body := res.Body
-	if len(body) == 0 && res.JSON != "" {
-		body = []byte(res.JSON)
-	}
-	c.respEd = replaceEditor(c.respEd, body)
+	c.respEd = replaceEditor(c.respEd, container.DisplayBody(res), highlight.NewJSON())
 	var hdr strings.Builder
 	fmt.Fprintf(&hdr, "# --- Request Headers ---\n")
 	for k, v := range res.RequestHeaders {
@@ -453,21 +449,21 @@ func (c *Container) handleResult(r result) {
 	for k, v := range res.ResponseHeaders {
 		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
-	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()))
+	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
 	var ck strings.Builder
 	for _, cookie := range res.Cookies {
 		fmt.Fprintf(&ck, "%s=%s\n", cookie.Name, cookie.Value)
 	}
-	c.respCkEd = replaceEditor(c.respCkEd, []byte(ck.String()))
+	c.respCkEd = replaceEditor(c.respCkEd, []byte(ck.String()), highlight.Noop{})
 	vars := container.DumpVariables(c.vars)
 	container.UpdateVariablePreviews(c.vars, vars, res)
 }
 
-func replaceEditor(old *ui.Editor, data []byte) *ui.Editor {
+func replaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
 	if old != nil {
 		old.Close()
 	}
-	return ui.NewEditor(data, highlight.NewJSON())
+	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
 }
 
 func bodyHighlighter(bodyType string) highlight.Highlighter {

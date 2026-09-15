@@ -57,14 +57,17 @@ func attachNodeTooltip(c *Ctx, id, text string, el *layout.Element) {
 				st.hovered = true
 				st.hoverAt = now
 				st.visible = false
+				c.MarkNeedsPaint()
 			}
 			st.anchor = e.Frame
 			if !st.visible && now.Sub(st.hoverAt) >= tooltipDelay {
 				st.visible = true
+				c.MarkNeedsPaint()
 			}
-		} else {
+		} else if st.hovered || st.visible {
 			st.hovered = false
 			st.visible = false
+			c.MarkNeedsPaint()
 		}
 	}
 

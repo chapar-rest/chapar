@@ -199,7 +199,6 @@ func (e *Editor) trackHover(m *input.Mouse) {
 		e.lspUI.hoverReqID = e.lsp.Hover(e.lspPos(off))
 		e.lspUI.hovRequested = true
 		e.lspUI.hoverX, e.lspUI.hoverY = m.X, m.Y
-		e.markParsePending()
 	}
 }
 
@@ -403,7 +402,7 @@ func (e *Editor) acceptCompletion() {
 // Diagnostics painting (called from Editor.paint per line)
 // ---------------------------------------------------------------------------
 
-func (e *Editor) paintDiagnosticsLine(dl *render.DrawList, _ int, ls, lineEnd int, sline shape.Line, x0, y float32) {
+func (e *Editor) paintDiagnosticsLine(dl *render.DrawList, ls, lineEnd int, sline shape.Line, drawX float32, winLo, winHi int, y float32) {
 	if len(e.lspUI.diagSpans) == 0 {
 		return
 	}
@@ -422,8 +421,8 @@ func (e *Editor) paintDiagnosticsLine(dl *render.DrawList, _ int, ls, lineEnd in
 		if sp.sev >= lsp.SeverityWarning {
 			col = th.Warning
 		}
-		for _, rect := range sline.SelectionRects(a-ls, b-ls, y, e.lineH) {
-			e.paintSquiggle(dl, x0+rect[0], underY, rect[2], col)
+		for _, rect := range e.windowRects(sline, a-ls, b-ls, winLo, winHi, y, e.lineH) {
+			e.paintSquiggle(dl, drawX+rect[0], underY, rect[2], col)
 		}
 	}
 }
@@ -450,10 +449,10 @@ func (e *Editor) paintSquiggle(dl *render.DrawList, x, y, w float32, col render.
 
 // completionRect is the screen rectangle of the completion popup.
 func (e *Editor) completionRect() render.Rect {
-	ln := e.lineOf(e.lspUI.compAnchor)
+	r := e.rowOfByte(e.lspUI.compAnchor)
 	x0 := e.viewport.Frame.X + e.gutterW + e.textPad - e.ScrollX
-	cx := x0 + e.caretXInLine(ln, e.lspUI.compAnchor)
-	cy := e.viewport.Frame.Y + float32(ln+1)*e.lineH - e.ScrollPx
+	cx := x0 + e.xInRow(e.lspUI.compAnchor)
+	cy := e.viewport.Frame.Y + float32(r+1)*e.lineH - e.ScrollPx
 	rows := minInt(len(e.lspUI.compItems), maxCompletionRows)
 	w := float32(completionWidth)
 	h := float32(rows) * completionRowH

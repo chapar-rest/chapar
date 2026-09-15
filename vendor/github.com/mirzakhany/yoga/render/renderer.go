@@ -83,13 +83,20 @@ func NewRenderer(sd *wgpu.SurfaceDescriptor, fbW, fbH, logicalW, logicalH int, a
 	}
 	r.queue = r.device.GetQueue()
 	caps := r.surface.GetCapabilities(r.adapter)
+	if len(caps.Formats) == 0 {
+		return r, fmt.Errorf("yoga: surface reported no supported pixel formats")
+	}
+	alphaMode := wgpu.CompositeAlphaModeAuto
+	if len(caps.AlphaModes) > 0 {
+		alphaMode = caps.AlphaModes[0]
+	}
 	r.config = &wgpu.SurfaceConfiguration{
 		Usage:       wgpu.TextureUsageRenderAttachment,
 		Format:      pickFormat(caps.Formats),
 		Width:       uint32(fbW),
 		Height:      uint32(fbH),
-		PresentMode: wgpu.PresentModeFifo,
-		AlphaMode:   caps.AlphaModes[0],
+		PresentMode: pickPresentMode(caps.PresentModes),
+		AlphaMode:   alphaMode,
 	}
 	r.surface.Configure(r.adapter, r.device, r.config)
 	if err = r.createPipeline(); err != nil {
@@ -120,7 +127,7 @@ func (r *Renderer) createPipeline() error {
 			EntryPoint: "vs_main",
 			Buffers:    []wgpu.VertexBufferLayout{vertexBufferLayout},
 		},
-		Primitive: wgpu.PrimitiveState{Topology: wgpu.PrimitiveTopologyTriangleList, FrontFace: wgpu.FrontFaceCCW, CullMode: wgpu.CullModeNone},
+		Primitive:   wgpu.PrimitiveState{Topology: wgpu.PrimitiveTopologyTriangleList, FrontFace: wgpu.FrontFaceCCW, CullMode: wgpu.CullModeNone},
 		Multisample: wgpu.MultisampleState{Count: 1, Mask: 0xFFFFFFFF},
 		Fragment: &wgpu.FragmentState{
 			Module: shader, EntryPoint: "fs_main",
@@ -224,23 +231,42 @@ func (r *Renderer) UpdateAtlas(atlas *FontAtlas) error {
 	return nil
 }
 
+// atlasStage is a reusable staging buffer for padding texture rows to the
+// 256-byte alignment WebGPU requires for bytesPerRow.
+var atlasStage []byte
+
 // UpdateAtlasRegion uploads a dirty sub-rectangle.
 func (r *Renderer) UpdateAtlasRegion(d DirtyRect) error {
 	var tex *wgpu.Texture
-	var bpr uint32
+	var bpp int
 	if d.Page == PageMono {
 		tex = r.monoTex
-		bpr = uint32(d.W)
+		bpp = 1
 	} else {
 		tex = r.colorTex
-		bpr = uint32(d.W * 4)
+		bpp = 4
 	}
-	if tex == nil {
+	if tex == nil || d.W <= 0 || d.H <= 0 {
 		return nil
+	}
+	if len(d.Pix) < d.W*d.H*bpp {
+		return fmt.Errorf("render: dirty rect %dx%d page %d has %d bytes, want %d", d.W, d.H, d.Page, len(d.Pix), d.W*d.H*bpp)
+	}
+	// WebGPU requires bytesPerRow to be a multiple of 256 for multi-row
+	// copies; dirty rects are tightly packed, so copy rows into a padded
+	// staging buffer (reused across uploads to avoid per-frame allocation).
+	bpr := ((d.W*bpp + 255) / 256) * 256
+	need := bpr * d.H
+	if cap(atlasStage) < need {
+		atlasStage = make([]byte, need)
+	}
+	stage := atlasStage[:need]
+	for row := 0; row < d.H; row++ {
+		copy(stage[row*bpr:(row+1)*bpr], d.Pix[row*d.W*bpp:(row+1)*d.W*bpp])
 	}
 	extent := wgpu.Extent3D{Width: uint32(d.W), Height: uint32(d.H), DepthOrArrayLayers: 1}
 	origin := wgpu.Origin3D{X: uint32(d.X), Y: uint32(d.Y), Z: 0}
-	r.queue.WriteTexture(&wgpu.ImageCopyTexture{Texture: tex, Origin: origin}, d.Pix, &wgpu.TextureDataLayout{BytesPerRow: bpr, RowsPerImage: uint32(d.H)}, &extent)
+	r.queue.WriteTexture(&wgpu.ImageCopyTexture{Texture: tex, Origin: origin}, stage, &wgpu.TextureDataLayout{BytesPerRow: uint32(bpr), RowsPerImage: uint32(d.H)}, &extent)
 	return nil
 }
 
@@ -319,6 +345,18 @@ func pickFormat(formats []wgpu.TextureFormat) wgpu.TextureFormat {
 	return formats[0]
 }
 
+func pickPresentMode(modes []wgpu.PresentMode) wgpu.PresentMode {
+	if len(modes) == 0 {
+		return wgpu.PresentModeFifo
+	}
+	for _, m := range modes {
+		if m == wgpu.PresentModeFifo {
+			return m
+		}
+	}
+	return modes[0]
+}
+
 func grow(cur, need int) int {
 	n := cur
 	if n == 0 {
@@ -385,30 +423,6 @@ func (r *Renderer) Render(dl *DrawList) error {
 	r.queue.Submit(cmd)
 	r.surface.Present()
 	return nil
-}
-
-func (r *Renderer) setScissor(pass *wgpu.RenderPassEncoder, clip Rect) {
-	fbW, fbH := r.config.Width, r.config.Height
-	if clip.W < 0 || clip.H < 0 {
-		pass.SetScissorRect(0, 0, fbW, fbH)
-		return
-	}
-	x0 := clampU32(clip.X*r.scaleX, fbW)
-	y0 := clampU32(clip.Y*r.scaleY, fbH)
-	x1 := clampU32((clip.X+clip.W)*r.scaleX, fbW)
-	y1 := clampU32((clip.Y+clip.H)*r.scaleY, fbH)
-	pass.SetScissorRect(x0, y0, x1-x0, y1-y0)
-}
-
-func clampU32(v float32, hi uint32) uint32 {
-	if v <= 0 {
-		return 0
-	}
-	u := uint32(v + 0.5)
-	if u > hi {
-		return hi
-	}
-	return u
 }
 
 func (r *Renderer) Destroy() {

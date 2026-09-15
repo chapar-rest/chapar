@@ -174,12 +174,12 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		if disabled {
 			return
 		}
-		st.hovered = e.Frame.Contains(m.X, m.Y)
+		trackHover(c, &st.hovered, e.Frame.Contains(m.X, m.Y))
 		if st.hovered {
 			m.SetCursor(CursorPointer)
 		}
 		if st.hovered && m.Pressed {
-			st.pressed = true
+			trackBool(c, &st.pressed, true)
 			m.Consumed = true
 		}
 		if m.Released && st.pressed && st.hovered {
@@ -190,12 +190,14 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 				st.menu.width = triggerMenuWidth(width, fr.W)
 				st.menu.OpenAt(fr.X, fr.Y+fr.H)
 			}
+			c.MarkNeedsPaint()
 		}
 		if !m.Down {
-			st.pressed = false
+			trackBool(c, &st.pressed, false)
 		}
 	}
 	if st.menu.Open {
+		st.menu.BindPaint(c)
 		c.Overlay(st.menu.overlay())
 	}
 	return el

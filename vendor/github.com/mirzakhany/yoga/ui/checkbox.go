@@ -157,9 +157,10 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		if disabled {
 			return
 		}
-		st.hovered = e.Frame.Contains(m.X, m.Y)
+		trackHover(c, &st.hovered, e.Frame.Contains(m.X, m.Y))
 		if st.hovered && m.Released {
 			st.toggle()
+			c.MarkNeedsPaint()
 			m.Consumed = true
 		}
 	}

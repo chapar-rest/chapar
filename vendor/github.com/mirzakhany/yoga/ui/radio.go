@@ -125,12 +125,13 @@ func (n *Node) layoutRadio(c *Ctx) *layout.Element {
 		if disabled {
 			return
 		}
-		st.hovered = e.Frame.Contains(m.X, m.Y)
+		trackHover(c, &st.hovered, e.Frame.Contains(m.X, m.Y))
 		if st.hovered {
 			m.SetCursor(CursorPointer)
 		}
 		if st.hovered && m.Released {
 			st.selectFn()
+			c.MarkNeedsPaint()
 			m.Consumed = true
 		}
 	}

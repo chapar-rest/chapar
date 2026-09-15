@@ -55,6 +55,7 @@ func (n *Node) layoutDropdown(c *Ctx) *layout.Element {
 	}
 	el := btn.Layout(c)
 	if st.menu.Open {
+		st.menu.BindPaint(c)
 		c.Overlay(st.menu.overlay())
 	}
 	return el

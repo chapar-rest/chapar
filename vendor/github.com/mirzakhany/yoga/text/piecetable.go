@@ -130,14 +130,53 @@ func (pt *PieceTable) Line(i int) string {
 		return ""
 	}
 	start := pt.lineStarts[i]
+	end := pt.lineEnd(i)
+	return string(pt.flat[start:end])
+}
+
+// lineEnd returns the flat-cache end offset of line i (exclusive of '\n').
+// pt.rebuildCache must have run.
+func (pt *PieceTable) lineEnd(i int) int {
 	end := len(pt.flat)
 	if i+1 < len(pt.lineStarts) {
 		end = pt.lineStarts[i+1] - 1 // drop the '\n'
 	}
-	if end < start {
-		end = start
+	if end < pt.lineStarts[i] {
+		end = pt.lineStarts[i]
 	}
-	return string(pt.flat[start:end])
+	return end
+}
+
+// LineLen returns the byte length of line i without its trailing newline.
+// Unlike Line it does not allocate.
+func (pt *PieceTable) LineLen(i int) int {
+	pt.rebuildCache()
+	if i < 0 || i >= len(pt.lineStarts) {
+		return 0
+	}
+	return pt.lineEnd(i) - pt.lineStarts[i]
+}
+
+// LineSlice returns a zero-copy view of line i's bytes [lo, hi) (relative to
+// the line, excluding the newline). The result aliases the internal flat cache
+// and is only valid until the next Insert/Delete; callers must not mutate it.
+func (pt *PieceTable) LineSlice(i, lo, hi int) []byte {
+	pt.rebuildCache()
+	if i < 0 || i >= len(pt.lineStarts) {
+		return nil
+	}
+	start := pt.lineStarts[i]
+	end := pt.lineEnd(i)
+	if lo < 0 {
+		lo = 0
+	}
+	if hi > end-start {
+		hi = end - start
+	}
+	if hi < lo {
+		hi = lo
+	}
+	return pt.flat[start+lo : start+hi]
 }
 
 // LineStart returns the byte offset where line i begins, enabling callers to map

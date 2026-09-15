@@ -4,7 +4,7 @@
 
 # Yoga
 
-A from-scratch, cross-platform **native UI framework in Go** (module `github.com/mirzakhany/yoga`, Go 1.26.2). It renders with WebGPU + GLFW and lays out with a pure-Go flex/grid/stack engine.
+A from-scratch, cross-platform **UI framework in Go** (module `github.com/mirzakhany/yoga`, Go 1.26.2). It renders with WebGPU (desktop via GLFW + wgpu-native; browser via WASM) and lays out with a pure-Go flex/grid/stack engine.
 
 This README is the human guide to **building UI** with Yoga. AI agents should also load the project skill at [`.cursor/skills/yoga-ui/`](.cursor/skills/yoga-ui/SKILL.md).
 
@@ -22,7 +22,7 @@ go run -tags nogpu ./example/todo
 go build ./... && go build -tags nogpu ./... && go test ./...
 ```
 
-There is no Makefile. `-tags nogpu` is the only special flag: it swaps GPU/GLFW files for stubs.
+There is no Makefile. `-tags nogpu` is the only special Go build flag: it swaps GPU/GLFW files for stubs. Use the `yoga` CLI for packaging (web, DMG, AppImage, zip).
 
 | Command | What it shows |
 |---|---|
@@ -31,6 +31,72 @@ There is no Makefile. `-tags nogpu` is the only special flag: it swaps GPU/GLFW 
 | `example/catalog` | Sidebar catalog of widget categories; **custom title bar** (`CustomTitleBar`) |
 | `example/apitest` | Splitter, `Select`, `Editor`, async work + `Animate` |
 | `example/chapar` | App chrome: top bar, nav, pages as `Layout` helpers |
+
+## Packaging CLI
+
+Install and use the `yoga` tool to build distributables:
+
+```bash
+go install github.com/mirzakhany/yoga/cmd/yoga@latest
+# or from this repo:
+go run ./cmd/yoga package -os web ./example/todo
+```
+
+| Command | Output |
+|---|---|
+| `yoga package -os web` | `dist/web/` — `index.html`, `app.wasm`, `wasm_exec.js`, `yoga_loader.js` |
+| `yoga package -os darwin` | `Name.app` + DMG and/or PKG (see `[darwin]` in yoga.toml) |
+| `yoga package -os linux` | `tar.gz` (+ AppImage if `appimagetool` is on PATH) |
+| `yoga package -os windows` | portable `.zip` with `.exe` |
+| `yoga serve [dir]` | static server (default `dist/web`) |
+| `yoga run` | `go run` the app on the host |
+| `yoga build -os …` | compile only into `dist/<os>/` |
+
+Optional `yoga.toml` in the app directory:
+
+```toml
+name = "Todos"
+id = "com.example.todo"
+version = "0.1.0"
+main = "."
+icon = "assets/icon.png"
+
+[window]
+title = "Todos"
+
+[darwin]
+display_name = "Todos"
+copyright = "Copyright © 2026"
+category = "public.app-category.productivity"
+min_system = "13.0"
+bundle_version = "1"
+formats = ["dmg", "pkg"]          # pkg for App Store upload when signed
+
+[darwin.dmg]
+background = "assets/dmg-background.png"
+volume_name = "Todos"
+window_width = 660
+window_height = 400
+icon_size = 128
+app_pos = [180, 200]
+applications_pos = [480, 200]
+
+[darwin.sign]
+identity = "Developer ID Application: …"
+installer_identity = "3rd Party Mac Developer Installer: …"
+entitlements = "assets/entitlements.plist"
+```
+
+CLI overrides: `-id com.example.todo`, `-format dmg,pkg`.
+
+**Web** requires a browser with WebGPU (`navigator.gpu`). Desktop packaging needs CGO (GLFW / wgpu-native) and generally must run on the target OS.
+
+```bash
+go run ./cmd/yoga package -os web ./example/todo
+go run ./cmd/yoga serve -addr 127.0.0.1:8080          # serves ./dist/web
+go run ./cmd/yoga serve ./path/to/web-output          # or any packaged dir
+# open http://127.0.0.1:8080/
+```
 
 ## Screenshots
 
@@ -404,7 +470,7 @@ example/*             app: Body(c) trees
           input text highlight   mouse/kb, piece table, tree-sitter
 ```
 
-Cgo exists only in `app_gpu.go` (GLFW + WebGPU) and `render/renderer.go`. Everything else is pure Go. `layout.Element` is the node type; `Calculate` solves then flattens to absolute `Frame`s; `Dispatch` delivers mouse events front-to-back.
+Cgo exists in the desktop GPU path (`app_gpu.go`, GLFW + wgpu-native), macOS title-bar chrome, and Tree-sitter highlighting. The browser path (`app_js.go`, `GOOS=js`) uses browser WebGPU via cogentcore’s JS bindings and skips CGO. Everything above the platform host is pure Go. `layout.Element` is the node type; `Calculate` solves then flattens to absolute `Frame`s; `Dispatch` delivers mouse events front-to-back.
 
 ## Agent skill
 

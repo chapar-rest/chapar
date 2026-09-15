@@ -46,7 +46,7 @@ func (r Rect) Contains(px, py float32) bool {
 // the shader only checks the sign.
 const solidUV = -1.0
 
-// Vertex is the interleaved vertex format streamed to the GPU (40 bytes).
+// Vertex is the interleaved vertex format streamed to the GPU (36 bytes).
 // Page: 0 = flat fill (uv.x < 0), 1 = mono atlas tint, 2 = color atlas sample.
 type Vertex struct {
 	Pos  [2]float32 // screen pixel coordinates (top-left origin)
@@ -90,6 +90,23 @@ func (d *DrawList) Reset() {
 	d.clipStack = d.clipStack[:0]
 }
 
+// ScalePageUVY multiplies V texture coords for textured quads on page by vScale.
+// Called when an atlas page grows mid-paint so already-emitted verts stay aligned
+// with the new page height. Solid fills (UV.x < 0) are left untouched.
+func (d *DrawList) ScalePageUVY(page Page, vScale float32) {
+	if d == nil || vScale == 1 || vScale <= 0 {
+		return
+	}
+	p := float32(page)
+	for i := range d.Vertices {
+		v := &d.Vertices[i]
+		if v.Page != p || v.UV[0] < 0 {
+			continue
+		}
+		v.UV[1] *= vScale
+	}
+}
+
 // PushClip restricts subsequent geometry to r (intersected with any clip already
 // in effect), in logical pixels. Always pair with PopClip.
 func (d *DrawList) PushClip(r Rect) {
@@ -112,6 +129,18 @@ func (d *DrawList) curClip() Rect {
 		return d.clipStack[n-1]
 	}
 	return noClip
+}
+
+// clipCulled reports whether the active clip is a concrete rectangle with no
+// area (e.g. content scrolled entirely outside its viewport). Nothing drawn
+// under such a clip can be visible (the scissor would discard it), so geometry
+// can be skipped to save CPU, memory, and atlas bakes.
+func (d *DrawList) clipCulled() bool {
+	c := d.curClip()
+	if c.W < 0 || c.H < 0 {
+		return false // noClip sentinel: full-surface clip
+	}
+	return c.W <= 0 || c.H <= 0
 }
 
 // ensureCmd returns the command that new indices should extend, starting a new
@@ -161,6 +190,9 @@ func f32minr(a, b float32) float32 {
 
 // quad appends two triangles (4 vertices, 6 indices) describing a rectangle.
 func (d *DrawList) quad(r Rect, uv Rect, c Color, page float32) {
+	if d.clipCulled() {
+		return
+	}
 	base := uint32(len(d.Vertices))
 	col := [4]float32{c.R, c.G, c.B, c.A}
 	cmd := d.ensureCmd()
@@ -198,6 +230,9 @@ func clampRadius(r Rect, radius float32) float32 {
 
 // addSolidTriangle appends one filled triangle (flat color).
 func (d *DrawList) addSolidTriangle(x0, y0, x1, y1, x2, y2 float32, c Color) {
+	if d.clipCulled() {
+		return
+	}
 	base := uint32(len(d.Vertices))
 	col := [4]float32{c.R, c.G, c.B, c.A}
 	uv := [2]float32{solidUV, solidUV}

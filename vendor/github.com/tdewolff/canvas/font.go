@@ -747,7 +747,8 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64) 
 		y += glyph.YAdvance
 	}
 
-	if face.FauxBold != 0.0 {
+	if 0.0005 <= face.FauxBold {
+		// only apply a meaningful amount of faux-bold offset
 		d := face.FauxBold * face.Size
 		if face.Font.IsTrueType {
 			// TrueType is CW oriented for filling contours.
@@ -781,8 +782,8 @@ func (face *FontFace) renderTo(r Renderer, m Matrix, glyphs []text.Glyph, ppem u
 	if ppem != 0 && face.Hinting != font.NoHinting && !m.HasRotation() {
 		// grid-align vertically on pixel raster, this improves font sharpness
 		dpmm := float64(ppem) / face.MmPerEm / float64(face.Font.Head.UnitsPerEm)
-		_, y := m.Pos()
-		m = m.Translate(0.0, float64(int(y*dpmm+0.5))/dpmm-y)
+		_, dy := m.Pos()
+		m = m.Translate(0.0, float64(int(dy*dpmm+0.5))/dpmm-dy)
 	}
 	if face.Deco != nil {
 		for _, deco := range face.Deco {
@@ -1249,7 +1250,7 @@ func (deco fontStroke) Decorate(r Renderer, m Matrix, face *FontFace, text *Path
 	if deco.Width < 0.0 || Equal(deco.Width, 0.0) {
 		return
 	}
-	p := text.Offset(deco.Width, Tolerance)
+	p := text.Offset(deco.Width, Tolerance).Not(text) // TODO; properly stroke and draw after text? see comments in https://github.com/anaelorlinski/tdewolff-canvas/commit/42d98e876d246ab256e075055f18e8d1876e7af8
 
 	style := DefaultStyle
 	if deco.Fill.Has() {

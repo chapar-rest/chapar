@@ -338,7 +338,7 @@ github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-pointer v0.0.1
 ## explicit
 github.com/mattn/go-pointer
-# github.com/mirzakhany/yoga v0.3.10 => ../yoga
+# github.com/mirzakhany/yoga v0.4.1
 ## explicit; go 1.26.2
 github.com/mirzakhany/yoga
 github.com/mirzakhany/yoga/highlight
@@ -420,7 +420,7 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/internal/difflib
 github.com/stretchr/testify/internal/spew
-# github.com/tdewolff/canvas v0.0.0-20260822211237-56e622de465a
+# github.com/tdewolff/canvas v0.0.0-20260901160717-dae8cd8e19a7
 ## explicit; go 1.26.0
 github.com/tdewolff/canvas
 github.com/tdewolff/canvas/color
@@ -443,6 +443,9 @@ github.com/tdewolff/parse/v2/xml
 # github.com/tidwall/pretty v1.2.1
 ## explicit; go 1.16
 github.com/tidwall/pretty
+# github.com/tree-sitter-grammars/tree-sitter-xml v0.7.0
+## explicit; go 1.22
+github.com/tree-sitter-grammars/tree-sitter-xml/bindings/go
 # github.com/tree-sitter/go-tree-sitter v0.25.0
 ## explicit; go 1.23
 github.com/tree-sitter/go-tree-sitter
@@ -726,4 +729,3 @@ star-tex.org/x/tex/font/tfm
 star-tex.org/x/tex/internal/iobuf
 star-tex.org/x/tex/internal/tds
 star-tex.org/x/tex/kpath
-# github.com/mirzakhany/yoga => ../yoga

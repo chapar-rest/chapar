@@ -41,21 +41,35 @@ type Ctx struct {
 	store    *widgetStore
 	env      env
 	autoSeq  int
+
+	// needsPaint persists across BeginFrame. Set by Invalidate, theme/resize,
+	// Animate carry-over, focus changes, and widget visual micro-state changes.
+	// Cleared after a successful paint (then re-set when Animate is still pending).
+	needsPaint bool
+	// inputPhase/inputDirty track MarkNeedsPaint calls during the input pass so
+	// the runtime can rebuild Body before paint only when handlers mutated state.
+	inputPhase bool
+	inputDirty bool
 }
 
 // New builds a Ctx bound to a text engine and an optional thread-safe wake.
 func New(text *shape.Engine, focus *FocusScope, post func()) *Ctx {
-	return &Ctx{
-		text:     text,
-		focus:    focus,
-		post:     post,
-		wakeIn:   -1,
-		store:    newStore(),
-		dialogs:  NewDialogHost(),
-		files:    NewFileDialog(),
-		toasts:   NewToastHost(),
-		commands: NewCommandsHost(),
+	c := &Ctx{
+		text:       text,
+		focus:      focus,
+		post:       post,
+		wakeIn:     -1,
+		store:      newStore(),
+		dialogs:    NewDialogHost(),
+		files:      NewFileDialog(),
+		toasts:     NewToastHost(),
+		commands:   NewCommandsHost(),
+		needsPaint: true, // first wake must present a frame
 	}
+	if focus != nil {
+		focus.onChange = c.MarkNeedsPaint
+	}
+	return c
 }
 
 // BeginFrame resets per-frame state and records the frame clock, viewport, and
@@ -89,9 +103,46 @@ func (c *Ctx) Keyboard() *input.Keyboard { return c.keyboard }
 
 // Invalidate requests a repaint. Safe to call from any goroutine.
 func (c *Ctx) Invalidate() {
+	c.MarkNeedsPaint()
 	if c.post != nil {
 		c.post()
 	}
+}
+
+// MarkNeedsPaint records that the next present must run. During the input
+// phase this also marks inputDirty so Body is rebuilt before paint.
+func (c *Ctx) MarkNeedsPaint() {
+	c.needsPaint = true
+	if c.inputPhase {
+		c.inputDirty = true
+	}
+}
+
+// NeedsPaint reports whether a GPU present is pending.
+func (c *Ctx) NeedsPaint() bool { return c.needsPaint }
+
+// InputDirty reports whether MarkNeedsPaint ran during the current input phase.
+func (c *Ctx) InputDirty() bool { return c.inputDirty }
+
+// BeginInputPhase starts tracking handler-driven paint dirtiness.
+func (c *Ctx) BeginInputPhase() {
+	c.inputPhase = true
+	c.inputDirty = false
+}
+
+// EndInputPhase stops tracking handler-driven paint dirtiness.
+func (c *Ctx) EndInputPhase() { c.inputPhase = false }
+
+// ClearNeedsPaint clears the paint flag after a successful present.
+func (c *Ctx) ClearNeedsPaint() { c.needsPaint = false }
+
+// FramePaintPlan decides skip/rebuild after the input pass.
+// paint=false → skip GPU present; rebuild=true → second Body+Layout before paint.
+func FramePaintPlan(needsPaint, inputDirty bool) (paint, rebuild bool) {
+	if !needsPaint {
+		return false, false
+	}
+	return true, inputDirty
 }
 
 // Focus returns the runtime-owned focus scope.

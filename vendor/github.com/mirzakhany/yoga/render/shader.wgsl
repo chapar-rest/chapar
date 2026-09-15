@@ -1,5 +1,8 @@
 // UI shader: screen-space pixels -> NDC via uniform; three fragment modes:
 // flat fill, mono atlas tint, color atlas sample.
+//
+// textureSample calls must be in uniform control flow (browser WebGPU);
+// always sample, then select the result.
 
 struct Uniforms {
     screen : vec4<f32>,
@@ -36,13 +39,16 @@ fn vs_main(
 
 @fragment
 fn fs_main(in : VSOut) -> @location(0) vec4<f32> {
+    // Clamp so flat-fill vertices (uv.x < 0) still sample a defined texel.
+    let sampleUV = clamp(in.uv, vec2<f32>(0.0), vec2<f32>(1.0));
+    let mono = textureSample(monoAtlas, atlasSampler, sampleUV);
+    let colorSamp = textureSample(colorAtlas, atlasSampler, sampleUV);
+
     if (in.uv.x < 0.0 || in.page < 0.5) {
         return in.color;
     }
     if (in.page < 1.5) {
-        let coverage = textureSample(monoAtlas, atlasSampler, in.uv).r;
-        return vec4<f32>(in.color.rgb, in.color.a * coverage);
+        return vec4<f32>(in.color.rgb, in.color.a * mono.r);
     }
-    let col = textureSample(colorAtlas, atlasSampler, in.uv);
-    return vec4<f32>(col.rgb, col.a * in.color.a);
+    return vec4<f32>(colorSamp.rgb, colorSamp.a * in.color.a);
 }

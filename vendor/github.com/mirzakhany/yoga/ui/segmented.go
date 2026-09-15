@@ -65,14 +65,14 @@ func (n *Node) layoutSegmented(c *Ctx) *layout.Element {
 		if disabled {
 			return
 		}
-		st.hover = -1
+		hover := -1
 		cw := segCellWidth(el.Frame, itemCount, cellW)
 		for i := range items {
 			cell := segCellRect(el.Frame, i, cw)
 			if !cell.Contains(m.X, m.Y) {
 				continue
 			}
-			st.hover = i
+			hover = i
 			m.SetCursor(CursorPointer)
 			if m.Pressed {
 				m.Consumed = true
@@ -84,8 +84,10 @@ func (n *Node) layoutSegmented(c *Ctx) *layout.Element {
 				if onChange != nil {
 					onChange(items[i].Value)
 				}
+				c.MarkNeedsPaint()
 			}
 		}
+		trackHoverIdx(c, &st.hover, hover)
 	}
 	return el
 }

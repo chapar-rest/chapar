@@ -76,6 +76,7 @@ func (n *Node) layoutAlert(c *Ctx) *layout.Element {
 		el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 			if m.Released && e.Frame.Contains(m.X, m.Y) && onDismiss != nil {
 				onDismiss()
+				c.MarkNeedsPaint()
 			}
 		}
 	}

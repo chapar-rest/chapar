@@ -3,5 +3,11 @@
 /apitest
 /chapar
 
+# Package output
+dist/
+**/dist/
+
 # Lucide SVG cache for cmd/generate-lucide
 .cache/
+
+.DS_Store

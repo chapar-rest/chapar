@@ -54,12 +54,21 @@ func (a *FontAtlas) PadLogical() float32 {
 
 // ImageEntry describes a baked bitmap image in the color atlas page.
 type ImageEntry struct {
-	UV       Rect
-	W, H     float32 // logical size
-	physW    int
-	physH    int
-	physX    int
-	physY    int
+	UV    Rect
+	W, H  float32 // logical size
+	physW int
+	physH int
+	physX int
+	physY int
+}
+
+// IconEntry describes a packed icon mask in the mono atlas page.
+type IconEntry struct {
+	UV    Rect
+	physW int
+	physH int
+	physX int
+	physY int
 }
 
 // DirtyRect is a sub-rectangle that changed in an atlas page.
@@ -83,15 +92,21 @@ type FontAtlas struct {
 	colorH   int
 
 	glyphs map[glyphKey]GlyphEntry
-	icons  map[string]Rect
+	icons  map[string]IconEntry
 	images map[string]ImageEntry
 
-	packedIconSources map[string]icons.Icon
+	// iconFails remembers icons whose rasterization failed so we don't retry
+	// (re-parse + re-rasterize SVG) on every single frame.
+	iconFails map[string]bool
 
-	monoShelf  shelf
-	colorShelf shelf
+	monoShelf   shelf
+	colorShelf  shelf
 	dirty       []DirtyRect
 	fullRebuild bool
+
+	// drawList is optionally bound during paint so mid-paint page growth can
+	// rescale V coords already written into the current frame's geometry.
+	drawList *DrawList
 
 	// Legacy monospace metrics (approximate, for gutter numbers etc.).
 	CellW float32
@@ -117,19 +132,19 @@ func NewAtlasScale(scale float32) *FontAtlas {
 		scale = 1
 	}
 	a := &FontAtlas{
-		scale:             scale,
-		monoW:             initialMonoW,
-		monoH:             initialMonoH,
-		colorW:            initialColorW,
-		colorH:            initialColorH,
-		W:                 initialMonoW,
-		H:                 initialMonoH,
-		glyphs:            make(map[glyphKey]GlyphEntry),
-		icons:             make(map[string]Rect, 32),
-		images:            make(map[string]ImageEntry, 8),
-		packedIconSources: make(map[string]icons.Icon),
-		monoShelf:         shelf{pad: 1},
-		colorShelf:        shelf{pad: 1},
+		scale:     scale,
+		monoW:     initialMonoW,
+		monoH:     initialMonoH,
+		colorW:    initialColorW,
+		colorH:    initialColorH,
+		W:         initialMonoW,
+		H:         initialMonoH,
+		glyphs:    make(map[glyphKey]GlyphEntry),
+		icons:     make(map[string]IconEntry, 32),
+		images:    make(map[string]ImageEntry, 8),
+		iconFails: make(map[string]bool),
+		monoShelf: shelf{pad: 1},
+		colorShelf: shelf{pad: 1},
 	}
 	a.monoPix = make([]byte, a.monoW*a.monoH)
 	a.colorPix = make([]byte, a.colorW*a.colorH*4)
@@ -144,12 +159,25 @@ func NewMonoAtlasScale(scale float32) *FontAtlas { return NewAtlasScale(scale) }
 // NewMonoAtlas creates a 1x atlas.
 func NewMonoAtlas() *FontAtlas { return NewAtlasScale(1) }
 
+// BindDrawList attaches the frame's draw list so atlas growth can rescale
+// already-emitted textured quads. Pass nil to clear after paint.
+func (a *FontAtlas) BindDrawList(dl *DrawList) {
+	if a == nil {
+		return
+	}
+	a.drawList = dl
+}
+
 func (a *FontAtlas) EnsureIcon(icon icons.Icon) (Rect, bool) {
 	if icon.Empty() {
 		return Rect{}, false
 	}
-	if uv, ok := a.icons[icon.Name]; ok {
-		return uv, true
+	if e, ok := a.icons[icon.Name]; ok {
+		return e.UV, true
+	}
+	if a.iconFails[icon.Name] {
+		// Rasterization failed before; retrying every frame would burn CPU.
+		return Rect{}, false
 	}
 	iconPx := int(iconLogical*a.scale + 0.5)
 	if iconPx < 8 {
@@ -160,60 +188,73 @@ func (a *FontAtlas) EnsureIcon(icon icons.Icon) (Rect, bool) {
 	if HasSVGOverride(icon.Name) {
 		mask, err = rasterizeOverrideSVG(icon.Name, iconPx)
 	} else {
-		am, aerr := icon.Alpha(iconPx)
-		if aerr != nil {
-			return Rect{}, false
+		if am, aerr := icon.Alpha(iconPx); aerr != nil {
+			err = aerr
+		} else {
+			mask = image.NewAlpha(image.Rect(0, 0, am.W, am.H))
+			copy(mask.Pix, am.Pix)
 		}
-		mask = image.NewAlpha(image.Rect(0, 0, am.W, am.H))
-		copy(mask.Pix, am.Pix)
-		err = nil
 	}
 	if err != nil || mask == nil {
+		a.iconFails[icon.Name] = true
 		return Rect{}, false
 	}
-	uv := a.packIconMask(icon.Name, mask)
-	a.packedIconSources[icon.Name] = icon
-	return uv, true
+	return a.packIconMask(icon.Name, mask), true
 }
 
 func (a *FontAtlas) packIconMask(name string, mask *image.Alpha) Rect {
 	w, h := mask.Bounds().Dx(), mask.Bounds().Dy()
-	x, y, ok := a.monoShelf.alloc(a, w, h, true)
+	x, y, ok := a.allocMono(w, h)
 	if !ok {
-		a.growMono(a.monoH * 2)
-		x, y, _ = a.monoShelf.alloc(a, w, h, true)
+		// Cannot happen for icons (page is at least 512 wide), but never blit
+		// out of bounds.
+		return Rect{}
 	}
 	blitAlpha(a.monoPix, a.monoW, x, y, mask)
 	a.markMonoDirty(x, y, w, h)
-	uv := Rect{
-		X: float32(x) / float32(a.monoW),
-		Y: float32(y) / float32(a.monoH),
-		W: float32(w) / float32(a.monoW),
-		H: float32(h) / float32(a.monoH),
+	uv := insetUV(x, y, w, h, a.monoW, a.monoH)
+	a.icons[name] = IconEntry{
+		UV:    uv,
+		physW: w, physH: h, physX: x, physY: y,
 	}
-	a.icons[name] = uv
 	return uv
+}
+
+// allocMono finds space in the mono shelf, growing the page height until the
+// cell fits. The caller must guarantee w fits the fixed page width.
+func (a *FontAtlas) allocMono(w, h int) (int, int, bool) {
+	x, y, ok := a.monoShelf.alloc(a, w, h, true)
+	for !ok {
+		a.growMono(a.monoH * 2)
+		x, y, ok = a.monoShelf.alloc(a, w, h, true)
+	}
+	return x, y, ok
+}
+
+// allocColor finds space in the color shelf, growing the page height until the
+// cell fits. The caller must guarantee w fits the fixed page width.
+func (a *FontAtlas) allocColor(w, h int) (int, int, bool) {
+	x, y, ok := a.colorShelf.alloc(a, w, h, false)
+	for !ok {
+		a.growColor(a.colorH * 2)
+		x, y, ok = a.colorShelf.alloc(a, w, h, false)
+	}
+	return x, y, ok
 }
 
 func (a *FontAtlas) growMono(newH int) {
 	if newH <= a.monoH {
 		newH = a.monoH * 2
 	}
-	savedIcons := make([]icons.Icon, 0, len(a.packedIconSources))
-	for _, ic := range a.packedIconSources {
-		savedIcons = append(savedIcons, ic)
-	}
+	oldH := a.monoH
 	pix := make([]byte, a.monoW*newH)
 	copy(pix, a.monoPix)
 	a.monoPix = pix
 	a.monoH = newH
 	a.H = newH
-	a.monoShelf = shelf{pad: 1}
-	a.glyphs = make(map[glyphKey]GlyphEntry)
-	a.icons = make(map[string]Rect, len(savedIcons))
-	a.packedIconSources = make(map[string]icons.Icon, len(savedIcons))
-	for _, ic := range savedIcons {
-		a.EnsureIcon(ic)
+	a.recomputeMonoUVs()
+	if oldH > 0 {
+		a.drawList.ScalePageUVY(PageMono, float32(oldH)/float32(newH))
 	}
 	a.fullRebuild = true
 }
@@ -274,22 +315,24 @@ func (a *FontAtlas) packMono(src *image.Alpha) GlyphEntry {
 	if h < 1 {
 		h = 1
 	}
-	x, y, ok := a.monoShelf.alloc(a, w, h, true)
-	if !ok {
-		a.growMono(a.monoH * 2)
-		x, y, _ = a.monoShelf.alloc(a, w, h, true)
+	// The page width is fixed, so a cell wider than the page can never fit;
+	// downscale it instead of writing out of bounds or looping forever.
+	if maxW := a.monoW - 2*a.monoShelf.pad; w > maxW {
+		nh := int(float64(h) * float64(maxW) / float64(w))
+		if nh < 1 {
+			nh = 1
+		}
+		dst := image.NewAlpha(image.Rect(0, 0, maxW, nh))
+		draw.ApproxBiLinear.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Src, nil)
+		src, w, h = dst, maxW, nh
 	}
+	x, y, _ := a.allocMono(w, h)
 	blitAlpha(a.monoPix, a.monoW, x, y, src)
 	a.markMonoDirty(x, y, w, h)
 	return GlyphEntry{
 		Page: PageMono,
-		UV: Rect{
-			X: float32(x) / float32(a.monoW),
-			Y: float32(y) / float32(a.monoH),
-			W: float32(w) / float32(a.monoW),
-			H: float32(h) / float32(a.monoH),
-		},
-		W: float32(w) / a.scale, H: float32(h) / a.scale,
+		UV:   insetUV(x, y, w, h, a.monoW, a.monoH),
+		W:    float32(w) / a.scale, H: float32(h) / a.scale,
 		physW: w, physH: h, physX: x, physY: y,
 	}
 }
@@ -302,22 +345,24 @@ func (a *FontAtlas) packColor(src *image.RGBA, isColor bool) GlyphEntry {
 	if h < 1 {
 		h = 1
 	}
-	x, y, ok := a.colorShelf.alloc(a, w, h, false)
-	if !ok {
-		a.growColor(a.colorH * 2)
-		x, y, _ = a.colorShelf.alloc(a, w, h, false)
+	// The page width is fixed, so a cell wider than the page can never fit;
+	// downscale it instead of writing out of bounds or looping forever.
+	if maxW := a.colorW - 2*a.colorShelf.pad; w > maxW {
+		nh := int(float64(h) * float64(maxW) / float64(w))
+		if nh < 1 {
+			nh = 1
+		}
+		dst := image.NewRGBA(image.Rect(0, 0, maxW, nh))
+		draw.ApproxBiLinear.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Src, nil)
+		src, w, h = dst, maxW, nh
 	}
+	x, y, _ := a.allocColor(w, h)
 	blitRGBA(a.colorPix, a.colorW, x, y, src)
 	a.markColorDirty(x, y, w, h)
 	return GlyphEntry{
 		Page: PageColor, Color: isColor,
-		UV: Rect{
-			X: float32(x) / float32(a.colorW),
-			Y: float32(y) / float32(a.colorH),
-			W: float32(w) / float32(a.colorW),
-			H: float32(h) / float32(a.colorH),
-		},
-		W: float32(w) / a.scale, H: float32(h) / a.scale,
+		UV: insetUV(x, y, w, h, a.colorW, a.colorH),
+		W:  float32(w) / a.scale, H: float32(h) / a.scale,
 		physW: w, physH: h, physX: x, physY: y,
 	}
 }
@@ -326,6 +371,27 @@ type shelf struct {
 	x, y int
 	rowH int
 	pad  int
+}
+
+// insetUV shrinks a packed cell's UV rect by half a texel on each side so the
+// linear sampler never bleeds neighbouring shelf cells at quad edges. A 1px
+// wide/tall cell gets a zero-span UV so it samples its single texel exactly.
+func insetUV(x, y, w, h, pageW, pageH int) Rect {
+	const half = 0.5
+	uw := w - 1
+	if uw < 0 {
+		uw = 0
+	}
+	uh := h - 1
+	if uh < 0 {
+		uh = 0
+	}
+	return Rect{
+		X: (float32(x) + half) / float32(pageW),
+		Y: (float32(y) + half) / float32(pageH),
+		W: float32(uw) / float32(pageW),
+		H: float32(uh) / float32(pageH),
+	}
 }
 
 func (s *shelf) alloc(a *FontAtlas, w, h int, mono bool) (int, int, bool) {
@@ -367,35 +433,42 @@ func (a *FontAtlas) growColor(newH int) {
 	if newH <= a.colorH {
 		newH = a.colorH * 2
 	}
+	oldH := a.colorH
 	pix := make([]byte, a.colorW*newH*4)
 	copy(pix, a.colorPix)
 	a.colorPix = pix
 	a.colorH = newH
 	a.recomputeColorUVs()
+	if oldH > 0 {
+		a.drawList.ScalePageUVY(PageColor, float32(oldH)/float32(newH))
+	}
 	a.fullRebuild = true
 }
 
+func (a *FontAtlas) recomputeMonoUVs() {
+	for k, e := range a.glyphs {
+		if e.Page != PageMono {
+			continue
+		}
+		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.monoW, a.monoH)
+		a.glyphs[k] = e
+	}
+	for k, e := range a.icons {
+		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.monoW, a.monoH)
+		a.icons[k] = e
+	}
+}
+
 func (a *FontAtlas) recomputeColorUVs() {
-	cw, ch := float32(a.colorW), float32(a.colorH)
 	for k, e := range a.glyphs {
 		if e.Page != PageColor {
 			continue
 		}
-		e.UV = Rect{
-			X: float32(e.physX) / cw,
-			Y: float32(e.physY) / ch,
-			W: float32(e.physW) / cw,
-			H: float32(e.physH) / ch,
-		}
+		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.colorW, a.colorH)
 		a.glyphs[k] = e
 	}
 	for k, e := range a.images {
-		e.UV = Rect{
-			X: float32(e.physX) / cw,
-			Y: float32(e.physY) / ch,
-			W: float32(e.physW) / cw,
-			H: float32(e.physH) / ch,
-		}
+		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.colorW, a.colorH)
 		a.images[k] = e
 	}
 }
@@ -450,13 +523,8 @@ func (a *FontAtlas) packImage(key string, src *image.RGBA) ImageEntry {
 			blitRGBA(a.colorPix, a.colorW, x, y, src)
 			a.markColorDirty(x, y, w, h)
 			e := ImageEntry{
-				UV: Rect{
-					X: float32(x) / float32(a.colorW),
-					Y: float32(y) / float32(a.colorH),
-					W: float32(w) / float32(a.colorW),
-					H: float32(h) / float32(a.colorH),
-				},
-				W: float32(w) / a.scale, H: float32(h) / a.scale,
+				UV: insetUV(x, y, w, h, a.colorW, a.colorH),
+				W:  float32(w) / a.scale, H: float32(h) / a.scale,
 				physW: w, physH: h, physX: x, physY: y,
 			}
 			a.images[key] = e
@@ -623,8 +691,8 @@ func decodeBitmap(b font.GlyphBitmap) *image.RGBA {
 
 // IconUV returns UV for a named icon already packed in the atlas.
 func (a *FontAtlas) IconUV(name string) (Rect, bool) {
-	uv, ok := a.icons[name]
-	return uv, ok
+	e, ok := a.icons[name]
+	return e.UV, ok
 }
 
 // MonoPixels returns the mono page bytes.

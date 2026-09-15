@@ -18,6 +18,24 @@ import (
 	"github.com/mirzakhany/yoga/theme"
 )
 
+// wrapRow is one visual row of a logical line: a byte range relative to the
+// line's start (end excludes the newline).
+type wrapRow struct {
+	start, end int32
+}
+
+// paintRow is one visual row to paint: either a whole logical line (wrap
+// off, or a huge line's visible window) or one wrapped segment of a line.
+type paintRow struct {
+	line     int     // logical line index
+	rowStart int     // byte offset within the line where painting starts
+	rowEnd   int     // byte offset within the line where painting ends
+	lineEnd  int     // byte offset within the line of the full line end
+	visual   int     // visual row index (drives y; == line when wrap is off)
+	first    bool    // first row of the logical line (gutter number, guides)
+	xoff     float32 // x of the painted slice relative to the line's text origin
+}
+
 // bracketClose maps an opening bracket to its matching closing bracket.
 var bracketClose = map[rune]rune{
 	'(': ')',
@@ -51,9 +69,9 @@ type matchRange struct{ lo, hi int }
 
 // indentDepth returns the column depth of leading whitespace in s,
 // counting spaces as 1 and tabs as advancing to the next tabW stop.
-func indentDepth(s string, tabW int) int {
+func indentDepth(s []byte, tabW int) int {
 	n := 0
-	for _, ch := range s {
+	for _, ch := range string(s) {
 		if ch == ' ' {
 			n++
 		} else if ch == '\t' {
@@ -122,10 +140,28 @@ type Editor struct {
 	textPad float32
 	goalX   float32
 
-	tabW    int    // tab width in columns, mirrors engine config
-	fontGen uint64 // last-seen engine font generation
+	tabW    int     // tab width in columns, mirrors engine config
+	fontGen uint64  // last-seen engine font generation
+	cellW   float32 // mono cell advance width, mirrors fontGen
+
+	// Soft wrap: when true, long logical lines are laid out into visual rows
+	// that fit the viewport width. lineRows holds each line's row segments as
+	// line-relative byte ranges, so an edit only invalidates the touched
+	// lines; rowPrefix maps global visual row indexes to lines. Rebuilt fully
+	// on resize/font changes, incrementally on edits.
+	SoftWrap                 bool
+	WrapWords                bool
+	lineRows                 [][]wrapRow
+	rowPrefix                []int   // rowPrefix[i] = visual rows before logical line i (len = LineCount+1)
+	wrapCols                 int     // columns per visual row used when wrapping
+	lastWrapW                float32 // last client width the wrap table was built for
+	wrapFull                 bool    // next sync must rebuild every line
+	wrapDirtyLo, wrapDirtyHi int     // line range touched by pending edits
+	wrapDirtySet             bool
 
 	search searchState
+
+	paintRows []paintRow // scratch reused across paints
 
 	lspOverlay *layout.Element
 }
@@ -141,19 +177,37 @@ type editOp struct {
 
 const editorBarSize = 14 // scrollbar thickness (vertical and horizontal)
 
+// EditorDefaults are applied to every new Editor before any options. Apps
+// embedding the editor can set these once at startup instead of configuring
+// each editor individually.
+var EditorDefaults = struct {
+	SoftWrap  bool // wrap long lines at the viewport width
+	WrapWords bool // prefer breaking wrapped rows at word boundaries
+}{WrapWords: true}
+
+// EditorOption configures an Editor at construction time.
+type EditorOption func(*Editor)
+
+// WithSoftWrap sets the initial soft-wrap state.
+func WithSoftWrap(v bool) EditorOption { return func(e *Editor) { e.SoftWrap = v } }
+
+// WithWrapWords toggles word-boundary wrapping of wrapped rows.
+func WithWrapWords(v bool) EditorOption { return func(e *Editor) { e.WrapWords = v } }
+
 // NewEditor creates a scratch editor over initial content with the given highlighter.
-func NewEditor(initial []byte, hl highlight.Highlighter) *Editor {
-	return newEditor("", initial, hl)
+func NewEditor(initial []byte, hl highlight.Highlighter, opts ...EditorOption) *Editor {
+	return newEditor("", initial, hl, opts...)
 }
 
 // NewEditorFor creates an editor for a real file.
-func NewEditorFor(path string, content []byte) *Editor {
-	return newEditor(path, content, highlight.ForPath(path))
+func NewEditorFor(path string, content []byte, opts ...EditorOption) *Editor {
+	return newEditor(path, content, highlight.ForPath(path), opts...)
 }
 
-func newEditor(path string, content []byte, hl highlight.Highlighter) *Editor {
+func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...EditorOption) *Editor {
 	engine := frameText()
 	m := engine.MetricsMono()
+	cellW, _ := engine.MeasureMono("n")
 	e := &Editor{
 		pt:               text.New(content),
 		hl:               hl,
@@ -165,7 +219,14 @@ func newEditor(path string, content []byte, hl highlight.Highlighter) *Editor {
 		textPad:          8,
 		tabW:             engine.TabWidth(),
 		fontGen:          engine.FontGen(),
+		cellW:            cellW,
+		WrapWords:        EditorDefaults.WrapWords,
+		SoftWrap:         EditorDefaults.SoftWrap,
+		wrapFull:         true,
 		contentSizeDirty: true,
+	}
+	for _, opt := range opts {
+		opt(e)
 	}
 	e.viewport = layout.New(layout.Box().FlexGrow(1))
 	e.viewport.Clip = true
@@ -200,6 +261,16 @@ func (e *Editor) Close() {
 	}
 }
 
+// VisualRowCount returns the number of visual rows the document currently
+// lays out as: the wrapped row count when soft wrap is on, otherwise the
+// logical line count.
+func (e *Editor) VisualRowCount() int {
+	if e.SoftWrap && len(e.rowPrefix) > 0 {
+		return e.rowPrefix[len(e.rowPrefix)-1]
+	}
+	return e.pt.LineCount()
+}
+
 // Bytes returns the current document content.
 func (e *Editor) Bytes() []byte { return e.pt.Bytes() }
 
@@ -215,7 +286,20 @@ func (e *Editor) Update(m *input.Mouse) {
 		e.fontGen = gen
 		e.lineH = frameText().MetricsMono().LineHeight
 		e.tabW = frameText().TabWidth()
+		w, _ := frameText().MeasureMono("n")
+		e.cellW = w
+		e.wrapFull = true
 		e.contentSizeDirty = true
+	}
+	if e.SoftWrap {
+		// Wrapping depends on the viewport width; relayout when it changes.
+		if _, cw, _, _ := e.scrollMetrics(); cw != e.lastWrapW {
+			e.lastWrapW = cw
+			e.contentSizeDirty = true
+			// Do not set wrapFull: syncWrap already rebuilds when wrapCols
+			// actually changes. A few pixels of scrollbar width must not
+			// re-wrap hundreds of thousands of lines at the same column count.
+		}
 	}
 	if toks, ok := e.hl.Poll(); ok {
 		e.tokens = toks
@@ -237,7 +321,56 @@ func (e *Editor) Update(m *input.Mouse) {
 
 const editorLargeDocLines = 500
 
+// maxShapedLine bounds how many bytes of a line the editor ever shapes in one
+// piece. Files like minified JSON/XML can hold megabytes on a single line;
+// shaping such a line takes minutes and gigabytes, so lines longer than this
+// are shaped one visible window at a time and use mono-cell arithmetic for
+// caret/hit-test geometry instead of the shaped line.
+const maxShapedLine = 8192
+
+// SetSoftWrap toggles soft wrapping of long lines at the viewport width.
+func (e *Editor) SetSoftWrap(v bool) {
+	if e.SoftWrap == v {
+		return
+	}
+	e.SoftWrap = v
+	if !v {
+		e.lineRows = nil
+		e.rowPrefix = nil
+		e.ScrollX = 0
+	}
+	e.wrapFull = true
+	e.contentSizeDirty = true
+	if _, clientH, _, _ := e.scrollMetrics(); clientH > 0 {
+		e.clampScroll()
+		e.ensureCaretVisible()
+	}
+}
+
+// SetWrapWords toggles breaking wrapped rows at word boundaries (falling back
+// to hard cell breaks for words longer than a row).
+func (e *Editor) SetWrapWords(v bool) {
+	if e.WrapWords == v {
+		return
+	}
+	e.WrapWords = v
+	e.wrapFull = true
+	e.contentSizeDirty = true
+}
+
 func (e *Editor) recomputeContentSize() {
+	if e.SoftWrap {
+		e.syncWrap()
+		e.ContentHeight = float32(e.rowPrefix[len(e.rowPrefix)-1]) * e.lineH
+		// The viewport fits the wrapped rows, so there is never horizontal
+		// scrolling in wrap mode.
+		e.ContentWidth = e.gutterW + e.textPad + float32(e.wrapCols)*e.cellW
+		if cw := e.contentViewport().W; cw > 0 && e.ContentWidth > cw {
+			e.ContentWidth = cw
+		}
+		e.contentSizeDirty = false
+		return
+	}
 	engine := frameText()
 	e.ContentHeight = float32(e.pt.LineCount()) * e.lineH
 	lc := e.pt.LineCount()
@@ -257,11 +390,347 @@ func (e *Editor) recomputeContentSize() {
 	e.contentSizeDirty = false
 }
 
+// wrapTargetCols returns the row width in cells for the current viewport.
+func (e *Editor) wrapTargetCols() int {
+	textW := e.textClientW(e.contentViewport().W)
+	cols := 80 // fallback until the viewport has been laid out
+	if e.cellW > 0 && textW >= 8*e.cellW {
+		cols = int(textW / e.cellW)
+	}
+	if cols < 1 {
+		cols = 1
+	}
+	return cols
+}
+
+// syncWrap brings the wrap tables up to date with the document and viewport.
+// Pure text edits re-wrap only the touched lines (line-relative row offsets
+// stay valid for untouched lines); resizes, font changes, and line-count
+// changes rebuild fully, with a consistency check that falls back to a full
+// rebuild if the incremental bookkeeping is ever inconsistent.
+func (e *Editor) syncWrap() {
+	cols := e.wrapTargetCols()
+	lc := e.pt.LineCount()
+	if e.wrapFull || cols != e.wrapCols || len(e.lineRows) != lc {
+		e.wrapCols = cols
+		e.rebuildWrapFull()
+		return
+	}
+	e.wrapCols = cols
+	if !e.wrapDirtySet {
+		return
+	}
+	lo, hi := e.wrapDirtyLo, e.wrapDirtyHi
+	e.rebuildWrapRange(lo, hi)
+}
+
+// rebuildWrapFull re-wraps every logical line.
+func (e *Editor) rebuildWrapFull() {
+	lc := e.pt.LineCount()
+	e.lineRows = make([][]wrapRow, lc)
+	for ln := 0; ln < lc; ln++ {
+		e.lineRows[ln] = e.wrapLineRows(e.lineView(ln))
+	}
+	e.rebuildRowPrefix()
+	e.wrapFull = false
+	e.wrapDirtySet = false
+}
+
+// rebuildWrapRange re-wraps lines [lo, hi]. Rows are line-relative, so lines
+// outside the range keep their segments; any line-count change (adds, joins,
+// undo/redo) is handled by resizing lineRows first.
+func (e *Editor) rebuildWrapRange(lo, hi int) {
+	lc := e.pt.LineCount()
+	if lc == 0 {
+		e.lineRows = nil
+		e.rebuildRowPrefix()
+		return
+	}
+	if lo < 0 {
+		lo = 0
+	}
+	if lo >= lc {
+		lo = lc - 1
+	}
+	if hi < lo {
+		hi = lo
+	}
+	if hi >= lc {
+		hi = lc - 1
+	}
+	// Resize to match the document: append empties or truncate, then fill the
+	// dirty range. Lines beyond the range were not re-wrapped, so for undo/redo
+	// (which can shift everything after the edit) the syncWrap caller widens
+	// the range; the consistency check in syncWrap catches anything else.
+	for len(e.lineRows) < lc {
+		e.lineRows = append(e.lineRows, nil)
+	}
+	if len(e.lineRows) > lc {
+		e.lineRows = e.lineRows[:lc]
+	}
+	for ln := lo; ln <= hi; ln++ {
+		e.lineRows[ln] = e.wrapLineRows(e.lineView(ln))
+	}
+	e.rebuildRowPrefix()
+	e.wrapDirtySet = false
+}
+
+// rebuildRowPrefix recomputes the cumulative visual-row counts per line.
+func (e *Editor) rebuildRowPrefix() {
+	lc := len(e.lineRows)
+	if cap(e.rowPrefix) >= lc+1 {
+		e.rowPrefix = e.rowPrefix[:lc+1]
+	} else {
+		e.rowPrefix = make([]int, lc+1)
+	}
+	e.rowPrefix[0] = 0
+	for i := 0; i < lc; i++ {
+		e.rowPrefix[i+1] = e.rowPrefix[i] + len(e.lineRows[i])
+	}
+}
+
+// wrapLineRows splits view into visual rows of at most cols mono cells each
+// (tab stops included; no font shaping). With WrapWords on, rows break at the
+// last word boundary that fits, falling back to a hard cell break for runs
+// longer than a row.
+func (e *Editor) wrapLineRows(view []byte) []wrapRow {
+	cols := e.wrapCols
+	rows := make([]wrapRow, 0, len(view)/cols+2)
+	rowStart := 0
+	for rowStart < len(view) {
+		col := 0
+		i := rowStart
+		lastBreak := -1
+		for i < len(view) {
+			adv := 1
+			if view[i] == '\t' {
+				adv = e.tabW - col%e.tabW
+			}
+			if col+adv > cols {
+				break
+			}
+			col += adv
+			i++
+			if e.WrapWords && breakAfter(view, i) {
+				lastBreak = i
+			}
+		}
+		if i >= len(view) { // the rest of the line fits in this row
+			rows = append(rows, wrapRow{int32(rowStart), int32(len(view))})
+			break
+		}
+		// Overflow at byte i. If a word straddles the boundary, break before it
+		// (the trailing space stays on the ending row); if the overflow byte is
+		// itself a space, swallow the space run into the ending row — trailing
+		// spaces are invisible when clipped past the row width.
+		if e.WrapWords && lastBreak > rowStart && view[i] != ' ' {
+			i = lastBreak
+		} else if view[i] == ' ' {
+			for i < len(view) && view[i] == ' ' {
+				i++
+			}
+		}
+		if i <= rowStart { // a single cell wider than a row
+			i = rowStart + 1
+		}
+		if i < len(view) && !utf8.RuneStart(view[i]) { // never split a rune
+			if b := monoRuneBoundary(view, i); b > rowStart {
+				i = b
+			}
+		}
+		rows = append(rows, wrapRow{int32(rowStart), int32(i)})
+		rowStart = i
+	}
+	if len(rows) == 0 { // empty line: one empty row
+		rows = append(rows, wrapRow{0, int32(len(view))})
+	}
+	return rows
+}
+
+// breakAfter reports whether position p in view is a word-wrap opportunity:
+// a space ends at p-1, so the break keeps trailing whitespace on the row that
+// is ending. Runs with no whitespace (minified XML, long words) never break
+// here and fall back to hard cell breaks.
+func breakAfter(view []byte, p int) bool {
+	if p <= 0 || p >= len(view) {
+		return false
+	}
+	return view[p-1] == ' ' || view[p-1] == '\t'
+}
+
+// wrapRowAbs returns the logical line and absolute byte range of visual row r.
+func (e *Editor) wrapRowAbs(r int) (line, absStart, absEnd int) {
+	line = e.rowOfVisual(r)
+	ls := e.pt.LineStart(line)
+	row := e.lineRows[line][r-e.rowPrefix[line]]
+	return line, ls + int(row.start), ls + int(row.end)
+}
+
+// rowOfVisual returns the logical line containing global visual row r.
+func (e *Editor) rowOfVisual(r int) int {
+	lo, hi := 0, len(e.rowPrefix)-2
+	for lo < hi {
+		mid := (lo + hi) / 2 // lower midpoint: both branches shrink the range
+		if e.rowPrefix[mid+1] <= r {
+			lo = mid + 1
+		} else {
+			hi = mid
+		}
+	}
+	return lo
+}
+
 func (e *Editor) shapedLine(ln int) shape.Line {
 	return frameText().LineMono(e.pt.Line(ln))
 }
 
+// isHuge reports whether line ln exceeds the windowed-shaping threshold.
+func (e *Editor) isHuge(ln int) bool {
+	return e.pt.LineLen(ln) > maxShapedLine
+}
+
+// rowOfByte returns the visual row index containing byte offset off. With soft
+// wrap off there is one row per line, so this is the logical line index.
+func (e *Editor) rowOfByte(off int) int {
+	if !e.SoftWrap || len(e.rowPrefix) < 2 {
+		return e.lineOf(off)
+	}
+	if off < 0 {
+		off = 0
+	}
+	if n := e.pt.Len(); off > n {
+		off = n
+	}
+	ln := e.lineOf(off)
+	rel := off - e.pt.LineStart(ln)
+	rows := e.lineRows[ln]
+	lo, hi := 0, len(rows)-1
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if int(rows[mid].start) <= rel {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	return e.rowPrefix[ln] + lo
+}
+
+// xInRow returns the x of byte offset off relative to its visual row's left
+// edge (the row's left edge in wrap mode, the line's left edge otherwise).
+func (e *Editor) xInRow(off int) float32 {
+	if !e.SoftWrap || len(e.rowPrefix) < 2 {
+		return e.caretXInLine(e.lineOf(off), off)
+	}
+	ln, absStart, _ := e.wrapRowAbs(e.rowOfByte(off))
+	ls := e.pt.LineStart(ln)
+	view := e.lineView(ln)
+	rel := off - ls
+	start := absStart - ls
+	if rel < start {
+		rel = start
+	}
+	return e.monoPrefixWidth(view[start:], rel-start)
+}
+
+// lineView returns a zero-copy view of line ln's bytes.
+func (e *Editor) lineView(ln int) []byte {
+	return e.pt.LineSlice(ln, 0, e.pt.LineLen(ln))
+}
+
+// monoPrefixWidth returns the x width of view[:off] in mono cells, expanding
+// tabs to tab stops (the column of a byte equals its index for non-tab bytes).
+func (e *Editor) monoPrefixWidth(view []byte, off int) float32 {
+	if off > len(view) {
+		off = len(view)
+	}
+	cells := 0
+	for i := 0; i < off; i++ {
+		if view[i] == '\t' {
+			cells += e.tabW - cells%e.tabW
+		} else {
+			cells++
+		}
+	}
+	return float32(cells) * e.cellW
+}
+
+// monoLineWidth returns the full rendered width of a mono line via a byte
+// scan (no shaping), tab-aware.
+func (e *Editor) monoLineWidth(view []byte) float32 {
+	return e.monoPrefixWidth(view, len(view))
+}
+
+// monoByteForX maps an x offset (relative to the line's text origin) to a byte
+// offset within view using mono-cell arithmetic, tab-aware.
+func (e *Editor) monoByteForX(view []byte, x float32) int {
+	if x <= 0 || e.cellW <= 0 {
+		return 0
+	}
+	cells := int(x/e.cellW + 0.5)
+	col := 0
+	for i := 0; i < len(view); i++ {
+		adv := 1
+		if view[i] == '\t' {
+			adv = e.tabW - col%e.tabW
+		}
+		if col+adv > cells {
+			// Snap to the nearer side of the cell the click landed in.
+			if cells-col >= adv/2+adv%2 {
+				return i + 1
+			}
+			return i
+		}
+		col += adv
+	}
+	return len(view)
+}
+
+// monoRuneBoundary returns the nearest rune boundary at or before off.
+func monoRuneBoundary(view []byte, off int) int {
+	if off >= len(view) {
+		return len(view)
+	}
+	if off < 0 {
+		return 0
+	}
+	for off > 0 && !utf8.RuneStart(view[off]) {
+		off--
+	}
+	return off
+}
+
+// visibleWindow returns the byte window [lo, hi) of txt that covers the
+// horizontal viewport (with margin), for windowed shaping of huge lines.
+func (e *Editor) visibleWindow(txt []byte) (lo, hi int) {
+	if e.cellW <= 0 {
+		return 0, len(txt)
+	}
+	textW := e.textClientW(e.contentViewport().W)
+	lo = int(e.ScrollX/e.cellW) - 64
+	hi = int((e.ScrollX+textW)/e.cellW) + 128
+	if lo < 0 {
+		lo = 0
+	}
+	// Every byte advances at least one cell, so taking hi cells worth of bytes
+	// always reaches the right edge even in tab-heavy lines.
+	if hi > len(txt) {
+		hi = len(txt)
+	}
+	if hi < lo {
+		hi = lo
+	}
+	lo = monoRuneBoundary(txt, lo)
+	hi = monoRuneBoundary(txt, hi)
+	return lo, hi
+}
+
+// lineTextWidth returns the rendered width of a line; huge lines are measured
+// with a mono-cell byte scan instead of shaping.
 func (e *Editor) lineTextWidth(line int) float32 {
+	if e.isHuge(line) {
+		return e.monoLineWidth(e.lineView(line))
+	}
 	return e.shapedLine(line).Width
 }
 
@@ -400,16 +869,22 @@ func (e *Editor) AnimationWait() (time.Duration, bool) {
 	const half = 500 * time.Millisecond
 	since := time.Since(e.blinkStart) % (2 * half)
 	wait := half - (since % half)
-	if e.dragging || time.Now().Before(e.parseUntil) {
+	if e.dragging {
 		if fast := 16 * time.Millisecond; wait > fast {
 			wait = fast
+		}
+	}
+	if time.Now().Before(e.parseUntil) {
+		// Fast enough to pick up highlighter results; not a 60fps pin.
+		if poll := 100 * time.Millisecond; wait > poll {
+			wait = poll
 		}
 	}
 	if hoverPending && hoverWake < wait {
 		wait = hoverWake
 	}
-	if wait < 0 {
-		wait = 0
+	if wait < 16*time.Millisecond && !e.dragging {
+		wait = 16 * time.Millisecond
 	}
 	return wait, true
 }
@@ -473,6 +948,7 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, coalesceTyping bool) int
 
 func (e *Editor) afterMutation(edit highlight.Edit) {
 	e.hl.UpdateEdit(e.pt.Bytes(), edit)
+	e.contentSizeDirty = true // Undo/Redo don't set this themselves
 	e.markParsePending()
 	e.blinkStart = time.Now()
 	e.ensureCaretVisible()
@@ -480,6 +956,35 @@ func (e *Editor) afterMutation(edit highlight.Edit) {
 		e.runSearch()
 	}
 	e.lspDidChange()
+	e.markWrapDirty(edit)
+}
+
+// markWrapDirty records which logical lines an edit touched so the next wrap
+// sync re-wraps only those. Any edit that adds or removes lines (or anything
+// else that shifts line numbering) falls back to a full rebuild.
+func (e *Editor) markWrapDirty(edit highlight.Edit) {
+	if !e.SoftWrap {
+		return
+	}
+	if edit.NewEnd.Row != edit.OldEnd.Row {
+		e.wrapFull = true
+		return
+	}
+	lo, hi := edit.Start.Row, edit.NewEnd.Row
+	if hi < lo {
+		hi = lo
+	}
+	if e.wrapDirtySet {
+		if lo < e.wrapDirtyLo {
+			e.wrapDirtyLo = lo
+		}
+		if hi > e.wrapDirtyHi {
+			e.wrapDirtyHi = hi
+		}
+	} else {
+		e.wrapDirtyLo, e.wrapDirtyHi = lo, hi
+		e.wrapDirtySet = true
+	}
 }
 
 func (e *Editor) selRange() (int, int) {
@@ -647,6 +1152,10 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 				e.openSearch(false)
 			case input.KeyH:
 				e.openSearch(true)
+			case input.KeyW:
+				if ev.Mods.Has(input.ModAlt) {
+					e.SetSoftWrap(!e.SoftWrap)
+				}
 			}
 			continue
 		}
@@ -752,19 +1261,88 @@ func (e *Editor) moveTo(off int, extend bool) {
 func (e *Editor) moveCluster(dir int, extend bool) {
 	ln := e.lineOf(e.caret)
 	ls := e.pt.LineStart(ln)
-	line := e.shapedLine(ln)
 	off := e.caret - ls
+	view := e.lineView(ln)
 	var next int
-	if dir < 0 {
-		next = line.PrevCluster(off)
-	} else {
-		next = line.NextCluster(off, len(e.pt.Line(ln)))
+	var gx float32
+	switch {
+	case e.SoftWrap:
+		// Rune-step horizontally; the row's left edge anchors the goal x.
+		next = monoRuneStep(view, off, dir)
+		rowStart := e.rowOfByte(ls + next)
+		_, absStart, _ := e.wrapRowAbs(rowStart)
+		gx = e.monoPrefixWidth(view, next) - e.monoPrefixWidth(view, absStart-ls)
+	case e.isHuge(ln):
+		if off < 0 {
+			off = 0
+		}
+		if off > len(view) {
+			off = len(view)
+		}
+		if dir < 0 {
+			if off > 0 {
+				_, sz := utf8.DecodeLastRune(view[:off])
+				next = off - sz
+			}
+		} else {
+			if off < len(view) {
+				_, sz := utf8.DecodeRune(view[off:])
+				next = off + sz
+			} else {
+				next = off
+			}
+		}
+		gx = e.monoPrefixWidth(view, next)
+	default:
+		line := e.shapedLine(ln)
+		if dir < 0 {
+			next = line.PrevCluster(off)
+		} else {
+			next = line.NextCluster(off, len(e.pt.Line(ln)))
+		}
+		gx = line.XForByte(next)
 	}
-	e.goalX = line.XForByte(next)
+	e.goalX = gx
 	e.moveTo(ls+next, extend)
 }
 
+// monoRuneStep moves off by one rune within view, clamped to the ends.
+func monoRuneStep(view []byte, off, dir int) int {
+	if dir < 0 {
+		if off <= 0 {
+			return 0
+		}
+		_, sz := utf8.DecodeLastRune(view[:off])
+		return off - sz
+	}
+	if off >= len(view) {
+		return len(view)
+	}
+	_, sz := utf8.DecodeRune(view[off:])
+	return off + sz
+}
+
 func (e *Editor) moveVertical(dir int, extend bool) {
+	if e.SoftWrap && len(e.rowPrefix) > 1 {
+		// Up/Down move one visual row, preserving the goal x within the row.
+		r := e.rowOfByte(e.caret)
+		if e.goalX == 0 {
+			e.goalX = e.xInRow(e.caret)
+		}
+		r += dir
+		if r < 0 {
+			r = 0
+		}
+		if total := e.rowPrefix[len(e.rowPrefix)-1]; r >= total {
+			r = total - 1
+		}
+		ln, absStart, absEnd := e.wrapRowAbs(r)
+		ls := e.pt.LineStart(ln)
+		view := e.pt.LineSlice(ln, absStart-ls, absEnd-ls)
+		off := e.monoByteForX(view, e.goalX)
+		e.moveTo(absStart+off, extend)
+		return
+	}
 	line, _ := e.lineColOf(e.caret)
 	if e.goalX == 0 {
 		e.goalX = e.caretXInLine(e.lineOf(e.caret), e.caret)
@@ -777,8 +1355,12 @@ func (e *Editor) moveVertical(dir int, extend bool) {
 		line = lc - 1
 	}
 	ls := e.pt.LineStart(line)
-	ln := e.shapedLine(line)
-	off := ln.ByteForX(e.goalX)
+	var off int
+	if e.isHuge(line) {
+		off = e.monoByteForX(e.lineView(line), e.goalX)
+	} else {
+		off = e.shapedLine(line).ByteForX(e.goalX)
+	}
 	e.moveTo(ls+off, extend)
 }
 
@@ -951,11 +1533,31 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 
 func (e *Editor) caretXInLine(ln, caret int) float32 {
 	ls := e.pt.LineStart(ln)
+	if e.isHuge(ln) {
+		return e.monoPrefixWidth(e.lineView(ln), caret-ls)
+	}
 	return e.shapedLine(ln).XForByte(caret - ls)
 }
 
 func (e *Editor) offsetAtPoint(px, py float32) int {
 	f := e.viewport.Frame
+	if e.SoftWrap && len(e.rowPrefix) > 1 {
+		total := e.rowPrefix[len(e.rowPrefix)-1]
+		row := int((py - f.Y + e.ScrollPx) / e.lineH)
+		if row < 0 {
+			row = 0
+		}
+		if row >= total {
+			row = total - 1
+		}
+		x0 := f.X + e.gutterW + e.textPad - e.ScrollX
+		ln, absStart, absEnd := e.wrapRowAbs(row)
+		ls := e.pt.LineStart(ln)
+		view := e.pt.LineSlice(ln, absStart-ls, absEnd-ls)
+		off := e.monoByteForX(view, px-x0)
+		e.goalX = e.monoPrefixWidth(view, off)
+		return absStart + off
+	}
 	line := int((py - f.Y + e.ScrollPx) / e.lineH)
 	if line < 0 {
 		line = 0
@@ -965,9 +1567,16 @@ func (e *Editor) offsetAtPoint(px, py float32) int {
 	}
 	ls := e.pt.LineStart(line)
 	x0 := f.X + e.gutterW + e.textPad - e.ScrollX
-	ln := e.shapedLine(line)
-	off := ln.ByteForX(px - x0)
-	e.goalX = ln.XForByte(off)
+	var off int
+	if e.isHuge(line) {
+		view := e.lineView(line)
+		off = e.monoByteForX(view, px-x0)
+		e.goalX = e.monoPrefixWidth(view, off)
+	} else {
+		ln := e.shapedLine(line)
+		off = ln.ByteForX(px - x0)
+		e.goalX = ln.XForByte(off)
+	}
 	return ls + off
 }
 
@@ -1072,8 +1681,8 @@ func (e *Editor) ensureCaretVisible() {
 	if clientH <= 0 {
 		return
 	}
-	line := e.lineOf(e.caret)
-	top := float32(line) * e.lineH
+	row := e.rowOfByte(e.caret)
+	top := float32(row) * e.lineH
 	if top < e.ScrollPx {
 		e.ScrollPx = top
 	} else if top+e.lineH > e.ScrollPx+clientH {
@@ -1082,13 +1691,17 @@ func (e *Editor) ensureCaretVisible() {
 	if e.ScrollPx < 0 {
 		e.ScrollPx = 0
 	}
+	if e.SoftWrap {
+		e.ScrollX = 0 // rows always fit the viewport
+		return
+	}
 
 	clientW, _, _, _ := e.scrollMetrics()
 	textW := e.textClientW(clientW)
 	if textW <= 0 {
 		return
 	}
-	relX := e.caretXInLine(line, e.caret)
+	relX := e.caretXInLine(row, e.caret)
 	if relX < e.ScrollX {
 		e.ScrollX = relX
 	} else if relX+2 > e.ScrollX+textW {
@@ -1104,19 +1717,49 @@ func (e *Editor) ensureCaretVisible() {
 // ---------------------------------------------------------------------------
 
 func (e *Editor) colorAt(byteOffset int) highlight.ColorClass {
+	c, _ := e.colorAtHint(byteOffset, 0)
+	return c
+}
+
+// colorAtHint is colorAt with a token-index cursor. Glyphs are painted in
+// increasing byte order, so a 460k-token file is an amortized O(1) walk
+// instead of a cache-miss binary search per glyph.
+func (e *Editor) colorAtHint(byteOffset, hint int) (highlight.ColorClass, int) {
 	tok := e.tokens
+	n := len(tok)
+	if n == 0 {
+		return highlight.ClassDefault, 0
+	}
+	i := hint
+	if i < 0 {
+		i = 0
+	}
+	if i > n {
+		i = n
+	}
+	for i > 0 && tok[i-1].Start > byteOffset {
+		i--
+	}
+	for i < n && tok[i].End <= byteOffset {
+		i++
+	}
+	if i < n && byteOffset >= tok[i].Start && byteOffset < tok[i].End {
+		return tok[i].Class, i
+	}
+	return highlight.ClassDefault, i
+}
+
+func tokenIndexAt(tok []highlight.Token, off int) int {
 	lo, hi := 0, len(tok)
 	for lo < hi {
 		mid := (lo + hi) / 2
-		if byteOffset < tok[mid].Start {
-			hi = mid
-		} else if byteOffset >= tok[mid].End {
+		if tok[mid].End <= off {
 			lo = mid + 1
 		} else {
-			return tok[mid].Class
+			hi = mid
 		}
 	}
-	return highlight.ClassDefault
+	return lo
 }
 
 func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
@@ -1136,15 +1779,51 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 
 	dl.AddRect(f, th.Background)
 
+	// paintRow is one visual row to paint: either a whole logical line (wrap
+	// off, or a huge line's visible window) or one wrapped segment of a line.
+	rows := e.paintRows[:0]
 	first := int(e.ScrollPx / e.lineH)
 	if first < 0 {
 		first = 0
 	}
 	visibleCount := int(vp.H/e.lineH) + 2
-	last := first + visibleCount
-	if lc := e.pt.LineCount(); last > lc {
-		last = lc
+	if e.SoftWrap && len(e.rowPrefix) > 1 {
+		total := e.rowPrefix[len(e.rowPrefix)-1]
+		first := minInt(first, total-1) // guard against stale scroll vs tables
+		rLast := minInt(first+visibleCount, total)
+		ln := e.rowOfVisual(first)
+		ri := first - e.rowPrefix[ln]
+		for r := first; r < rLast; r++ {
+			for ln < len(e.lineRows) && ri >= len(e.lineRows[ln]) {
+				ln++
+				ri = 0
+			}
+			if ln >= len(e.lineRows) {
+				break // tables stale; next Update rebuilds them
+			}
+			row := e.lineRows[ln][ri]
+			rows = append(rows, paintRow{
+				line: ln, rowStart: int(row.start), rowEnd: int(row.end),
+				lineEnd: e.pt.LineLen(ln), visual: r, first: row.start == 0,
+			})
+			ri++
+		}
+	} else {
+		lc := e.pt.LineCount()
+		rLast := minInt(first+visibleCount, lc)
+		for ln := first; ln < rLast; ln++ {
+			ll := e.pt.LineLen(ln)
+			pr := paintRow{line: ln, rowStart: 0, rowEnd: ll, lineEnd: ll, visual: ln, first: true}
+			// Windowed shaping: huge lines only paint their visible byte window.
+			if ll > maxShapedLine {
+				pr.rowStart, pr.rowEnd = e.visibleWindow(e.lineView(ln))
+				// The window sits at the scrolled-to position within the line.
+				pr.xoff = e.monoPrefixWidth(e.lineView(ln), pr.rowStart)
+			}
+			rows = append(rows, pr)
+		}
 	}
+	e.paintRows = rows
 
 	selLo, selHi := e.selRange()
 	hasSel := selLo != selHi
@@ -1152,8 +1831,8 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 
 	// Current line highlight — drawn before text clips so it spans full width.
 	if e.focused {
-		cl := e.lineOf(e.caret)
-		lineY := f.Y + float32(cl)*e.lineH - e.ScrollPx
+		r := e.rowOfByte(e.caret)
+		lineY := f.Y + float32(r)*e.lineH - e.ScrollPx
 		if lineY >= vp.Y-e.lineH && lineY < vp.Y+vp.H {
 			lineHL := render.Color{
 				R: th.Foreground.R, G: th.Foreground.G, B: th.Foreground.B, A: 0.05,
@@ -1166,31 +1845,47 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 
 	// Bracket match positions (computed once, used inside the loop).
 	bracketA, bracketB, hasBrackets := e.bracketMatchOffset()
+	var doc []byte
+	if hasBrackets {
+		doc = e.pt.Bytes()
+	}
 
 	dl.PushClip(vp)
 	dl.PushClip(textArea)
-	for ln := first; ln < last; ln++ {
-		y := f.Y + float32(ln)*e.lineH - e.ScrollPx
+	tokHint := 0
+	if len(rows) > 0 && len(e.tokens) > 0 {
+		tokHint = tokenIndexAt(e.tokens, e.pt.LineStart(rows[0].line)+rows[0].rowStart)
+	}
+	for _, pr := range rows {
+		y := f.Y + float32(pr.visual)*e.lineH - e.ScrollPx
 		if y >= vp.Y+vp.H {
 			break
 		}
-		ls := e.pt.LineStart(ln)
-		txt := e.pt.Line(ln)
-		lineEnd := ls + len(txt)
-		sline := e.shapedLine(ln)
+		ls := e.pt.LineStart(pr.line)
+		txt := e.lineView(pr.line)
+		lineEnd := ls + pr.lineEnd
 
-		if w := e.gutterW + e.textPad + sline.Width; w > e.ContentWidth {
-			e.ContentWidth = w
+		// The painted slice is small in every mode: whole line, wrapped row, or
+		// a huge line's visible window. Wrapped rows always start at the text
+		// origin; only a non-wrapped huge line's window is offset within it.
+		sline := frameText().LineMono(string(txt[pr.rowStart:pr.rowEnd]))
+		drawX := x0 + pr.xoff
+		if !e.SoftWrap && pr.rowStart == 0 {
+			if w := e.gutterW + e.textPad + sline.Width; w > e.ContentWidth {
+				e.ContentWidth = w
+			}
 		}
 
 		// Block guide lines at each tab-stop within the line's indentation.
-		if depth := indentDepth(txt, e.tabW); depth > 0 {
-			guideCol := render.Color{
-				R: th.Border.R, G: th.Border.G, B: th.Border.B, A: 0.98,
-			}
-			for col := e.tabW; col < depth; col += e.tabW {
-				gx := x0 + float32(col)*cellW
-				dl.AddRect(render.Rect{X: gx, Y: y, W: 1, H: e.lineH}, guideCol)
+		if pr.first {
+			if depth := indentDepth(txt, e.tabW); depth > 0 {
+				guideCol := render.Color{
+					R: th.Border.R, G: th.Border.G, B: th.Border.B, A: 0.98,
+				}
+				for col := e.tabW; col < depth; col += e.tabW {
+					gx := x0 + float32(col)*cellW
+					dl.AddRect(render.Rect{X: gx, Y: y, W: 1, H: e.lineH}, guideCol)
+				}
 			}
 		}
 
@@ -1208,8 +1903,8 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 				if i == e.search.current {
 					col = activeCol
 				}
-				for _, rect := range sline.SelectionRects(a-ls, b-ls, y, e.lineH) {
-					dl.AddRect(render.Rect{X: x0 + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, col)
+				for _, rect := range e.windowRects(sline, a-ls, b-ls, pr.rowStart, pr.rowEnd, y, e.lineH) {
+					dl.AddRect(render.Rect{X: drawX + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, col)
 				}
 			}
 		}
@@ -1218,36 +1913,38 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		if hasSel && selLo <= lineEnd && selHi >= ls {
 			a := maxInt(selLo, ls)
 			b := minInt(selHi, lineEnd)
-			for _, rect := range sline.SelectionRects(a-ls, b-ls, y, e.lineH) {
-				dl.AddRect(render.Rect{X: x0 + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, th.Selection)
+			for _, rect := range e.windowRects(sline, a-ls, b-ls, pr.rowStart, pr.rowEnd, y, e.lineH) {
+				dl.AddRect(render.Rect{X: drawX + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, th.Selection)
 			}
 		}
 
 		// Bracket match highlights.
 		if hasBrackets {
 			bracketHL := render.Color{R: 0.35, G: 0.90, B: 0.55, A: 0.40}
-			doc := e.pt.Bytes()
 			for _, bpos := range [2]int{bracketA, bracketB} {
-				if bpos >= ls && bpos < lineEnd {
+				if bpos >= ls+pr.rowStart && bpos < ls+pr.rowEnd {
 					_, bsz := utf8.DecodeRune(doc[bpos:])
-					for _, rect := range sline.SelectionRects(bpos-ls, bpos-ls+bsz, y, e.lineH) {
-						dl.AddRect(render.Rect{X: x0 + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, bracketHL)
+					for _, rect := range e.windowRects(sline, bpos-ls, bpos-ls+bsz, pr.rowStart, pr.rowEnd, y, e.lineH) {
+						dl.AddRect(render.Rect{X: drawX + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, bracketHL)
 					}
 				}
 			}
 		}
 
 		topY := y + vpad
-		engine.DrawLineGlyphs(dl, sline, x0, topY, func(byteOff int) render.Color {
-			return th.SyntaxColor(e.colorAt(ls + byteOff))
+		tintBase := ls + pr.rowStart
+		engine.DrawLineGlyphs(dl, sline, drawX, topY, func(byteOff int) render.Color {
+			col, h := e.colorAtHint(tintBase+byteOff, tokHint)
+			tokHint = h
+			return th.SyntaxColor(col)
 		})
 
-		e.paintDiagnosticsLine(dl, ln, ls, lineEnd, sline, x0, y)
+		e.paintDiagnosticsLine(dl, ls, lineEnd, sline, drawX, pr.rowStart, pr.rowEnd, y)
 	}
 	if e.focused && e.caretVisible() {
-		cl := e.lineOf(e.caret)
-		cx := x0 + e.caretXInLine(cl, e.caret)
-		cy := f.Y + float32(cl)*e.lineH - e.ScrollPx
+		r := e.rowOfByte(e.caret)
+		cx := x0 + e.xInRow(e.caret)
+		cy := f.Y + float32(r)*e.lineH - e.ScrollPx
 		dl.AddRect(render.Rect{X: cx, Y: cy + vpad, W: 2, H: textH}, th.Accent)
 	}
 	dl.PopClip()
@@ -1257,12 +1954,15 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 	// 1px divider between gutter and text area.
 	dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
 	dl.PushClip(render.Rect{X: gutter.X, Y: gutter.Y, W: gutter.W, H: vp.H})
-	for ln := first; ln < last; ln++ {
-		y := f.Y + float32(ln)*e.lineH - e.ScrollPx
+	for _, pr := range rows {
+		y := f.Y + float32(pr.visual)*e.lineH - e.ScrollPx
 		if y >= vp.Y+vp.H {
 			break
 		}
-		num := strconv.Itoa(ln + 1)
+		if !pr.first {
+			continue // continuation rows carry no gutter number
+		}
+		num := strconv.Itoa(pr.line + 1)
 		numW, _ := engine.MeasureMono(num)
 		engine.DrawStringTopMono(dl, num, f.X+e.gutterW-numW-8, y+vpad, th.ForegroundSubtle)
 	}
@@ -1296,6 +1996,19 @@ func minInt(a, b int) int {
 	return b
 }
 
+// windowRects returns selection rectangles for the line-relative byte range
+// [a, b), clamped to the shaped window [winLo, winHi) and translated into
+// window-relative coordinates. For non-windowed lines winLo is 0 and winHi is
+// the line length, so this is a plain SelectionRects call.
+func (e *Editor) windowRects(sline shape.Line, a, b, winLo, winHi int, y, lineH float32) [][4]float32 {
+	na := maxInt(a, winLo)
+	nb := minInt(b, winHi)
+	if nb <= na {
+		return nil
+	}
+	return sline.SelectionRects(na-winLo, nb-winLo, y, lineH)
+}
+
 // ---------------------------------------------------------------------------
 // Bracket matching
 // ---------------------------------------------------------------------------
@@ -1303,6 +2016,9 @@ func minInt(a, b int) int {
 // bracketMatchOffset returns the byte positions of a matched bracket pair
 // adjacent to the caret. Returns (posA, posB, true) when a match is found.
 func (e *Editor) bracketMatchOffset() (int, int, bool) {
+	if !e.focused {
+		return 0, 0, false
+	}
 	b := e.pt.Bytes()
 	// Check the character to the left of the caret first.
 	if e.caret > 0 {
@@ -1336,10 +2052,18 @@ func (e *Editor) bracketMatchOffset() (int, int, bool) {
 // findMatchForward scans forward from `from`, counting nesting of same/other
 // brackets, and returns the byte position where depth reaches 0.
 // `same` increases depth (it's the bracket we already have), `other` decreases.
+// maxBracketScan bounds how far a match search may walk. Files of hundreds of
+// thousands of lines would otherwise spend ~12ms per paint scanning for a pair.
+const maxBracketScan = 64 * 1024
+
 func (e *Editor) findMatchForward(from int, same, other rune) int {
 	b := e.pt.Bytes()
+	limit := from + maxBracketScan
+	if limit > len(b) {
+		limit = len(b)
+	}
 	depth := 1
-	for i := from; i < len(b); {
+	for i := from; i < limit; {
 		r, sz := utf8.DecodeRune(b[i:])
 		if r == same {
 			depth++
@@ -1359,8 +2083,12 @@ func (e *Editor) findMatchForward(from int, same, other rune) int {
 // `same` increases depth, `other` decreases.
 func (e *Editor) findMatchBackward(from int, same, other rune) int {
 	b := e.pt.Bytes()[:from]
+	start := 0
+	if len(b) > maxBracketScan {
+		start = len(b) - maxBracketScan
+	}
 	depth := 1
-	for i := len(b); i > 0; {
+	for i := len(b); i > start; {
 		r, sz := utf8.DecodeLastRune(b[:i])
 		if r == same {
 			depth++

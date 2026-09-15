@@ -97,7 +97,7 @@ func (n *Node) layoutDisclosure(c *Ctx) *layout.Element {
 	}
 	header.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		inside := e.Frame.Contains(m.X, m.Y)
-		st.hovered = inside
+		trackHover(c, &st.hovered, inside)
 		if inside {
 			m.SetCursor(CursorPointer)
 		}
@@ -105,6 +105,7 @@ func (n *Node) layoutDisclosure(c *Ctx) *layout.Element {
 			if onToggle != nil {
 				onToggle(!open)
 			}
+			c.MarkNeedsPaint()
 			m.Consumed = true
 		}
 		if inside && m.Pressed {

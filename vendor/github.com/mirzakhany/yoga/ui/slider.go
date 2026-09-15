@@ -205,7 +205,7 @@ func (n *Node) layoutSlider(c *Ctx) *layout.Element {
 		trackX0 := f.X + thumbR
 		trackW := f.W - 2*thumbR
 		inside := e.Frame.Contains(m.X, m.Y)
-		st.hovered = inside || st.dragging
+		trackHover(c, &st.hovered, inside || st.dragging)
 		if inside {
 			m.SetCursor(CursorPointer)
 		}
@@ -217,16 +217,18 @@ func (n *Node) layoutSlider(c *Ctx) *layout.Element {
 			return st.min + clampFloat(t, 0, 1)*(st.max-st.min)
 		}
 		if m.Pressed && inside {
-			st.dragging = true
+			trackBool(c, &st.dragging, true)
 			st.setValue(fromX(m.X))
+			c.MarkNeedsPaint()
 			m.Consumed = true
 		}
 		if st.dragging && m.Down {
 			st.setValue(fromX(m.X))
+			c.MarkNeedsPaint()
 			m.Consumed = true
 		}
 		if m.Released {
-			st.dragging = false
+			trackBool(c, &st.dragging, false)
 		}
 	}
 	return el

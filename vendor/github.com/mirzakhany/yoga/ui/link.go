@@ -87,12 +87,13 @@ func (n *Node) layoutLink(c *Ctx) *layout.Element {
 			return
 		}
 		inside := e.Frame.Contains(m.X, m.Y)
-		st.hovered = inside
+		trackHover(c, &st.hovered, inside)
 		if inside {
 			m.SetCursor(CursorPointer)
 		}
 		if inside && m.Released && onClick != nil {
 			onClick()
+			c.MarkNeedsPaint()
 			m.Consumed = true
 		}
 		if inside && m.Pressed {

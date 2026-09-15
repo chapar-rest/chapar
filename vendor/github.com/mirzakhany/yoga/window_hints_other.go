@@ -1,4 +1,4 @@
-//go:build !nogpu && !darwin
+//go:build !nogpu && !js && !darwin
 
 package yoga
 

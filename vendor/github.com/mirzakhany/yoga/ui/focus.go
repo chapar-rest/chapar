@@ -33,6 +33,7 @@ type FocusScope struct {
 	modal        Focusable // when set, Tab/keys stay inside the modal region
 	modalFrom    int       // items[modalFrom:] are descendants of the open modal
 	defaultFocus Focusable // first EnsureFocus this frame; applied in finishBuild
+	onChange     func()    // optional; called when focused identity changes
 }
 
 // NewFocusScope creates an empty scope. The runtime owns one for the lifetime
@@ -146,6 +147,9 @@ func (f *FocusScope) focusTo(w Focusable) {
 	f.focused = w
 	if w != nil {
 		w.Focus()
+	}
+	if f.onChange != nil {
+		f.onChange()
 	}
 }
 

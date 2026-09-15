@@ -63,6 +63,7 @@ func (n *Node) layoutContextMenu(c *Ctx) *layout.Element {
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		if e.Frame.Contains(m.X, m.Y) && m.RightPressed {
 			st.menu.OpenAt(m.X, m.Y)
+			c.MarkNeedsPaint()
 			m.Consumed = true
 		}
 	}
@@ -72,10 +73,12 @@ func (n *Node) layoutContextMenu(c *Ctx) *layout.Element {
 			for _, ev := range kb.Keys {
 				if ev.Key == input.KeyEscape {
 					st.menu.Close()
+					c.MarkNeedsPaint()
 					break
 				}
 			}
 		}
+		st.menu.BindPaint(c)
 		c.Overlay(st.menu.overlay())
 	}
 	return el

@@ -188,19 +188,20 @@ func (b *winCtrlButton) Layout(c *Ctx) *layout.Element {
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		inside := e.Frame.Contains(m.X, m.Y)
-		st.hovered = inside
+		trackHover(c, &st.hovered, inside)
 		if inside {
 			m.SetCursor(CursorPointer)
 		}
 		if inside && m.Pressed {
-			st.pressed = true
+			trackBool(c, &st.pressed, true)
 			m.Consumed = true
 		}
 		if m.Released {
 			if st.pressed && inside && onClick != nil {
 				onClick()
+				c.MarkNeedsPaint()
 			}
-			st.pressed = false
+			trackBool(c, &st.pressed, false)
 		}
 	}
 	return el

@@ -28,6 +28,8 @@ type Menu struct {
 
 	Open  bool
 	hover int
+
+	markPaint func()
 }
 
 // triggerMenuWidth returns the menu width for a trigger: at least the styled
@@ -49,6 +51,13 @@ func NewMenu(width float32, items []MenuItem) *Menu {
 	mu.host.Paint = mu.paint
 	mu.host.OnMouse = mu.onMouse
 	return mu
+}
+
+// BindPaint marks the menu so hover/open changes request a frame present.
+func (mu *Menu) BindPaint(c *Ctx) {
+	if c != nil {
+		mu.markPaint = c.MarkNeedsPaint
+	}
 }
 
 func (mu *Menu) itemHeight() float32 {
@@ -116,6 +125,7 @@ func (mu *Menu) onMouse(e *layout.Element, m *input.Mouse) {
 	if !mu.Open {
 		return
 	}
+	prev := mu.hover
 	if e.Frame.Contains(m.X, m.Y) {
 		idx := int((m.Y - e.Frame.Y) / mu.itemHeight())
 		mu.hover = idx
@@ -125,12 +135,21 @@ func (mu *Menu) onMouse(e *layout.Element, m *input.Mouse) {
 				fn()
 			}
 			mu.Close()
+			if mu.markPaint != nil {
+				mu.markPaint()
+			}
 		}
 	} else {
 		mu.hover = -1
 		if m.Pressed { // click outside closes the menu
 			mu.Close()
 			m.Consumed = true
+			if mu.markPaint != nil {
+				mu.markPaint()
+			}
 		}
+	}
+	if mu.hover != prev && mu.markPaint != nil {
+		mu.markPaint()
 	}
 }

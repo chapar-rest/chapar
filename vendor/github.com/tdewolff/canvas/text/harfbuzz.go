@@ -58,7 +58,8 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	buf.Props.Direction = harfbuzz.Direction(direction)
 	buf.Props.Script = language.Script(script)
 	buf.Props.Language = language.NewLanguage(lang)
-	buf.GuessSegmentProperties() // only sets direction, script, and language if unset
+	buf.GuessSegmentProperties()               // only sets direction, script, and language if unset
+	direction = Direction(buf.Props.Direction) // direction may have been overridden
 	buf.Shape(s.font, parseFeatures(features))
 
 	runeMap := make([]int, len(rtext)+1)
@@ -72,6 +73,10 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	glyphs := make([]Glyph, len(buf.Info))
 	for i := 0; i < len(buf.Info); i++ {
 		info := buf.Info[i]
+		if len(runeMap) < info.Cluster {
+			continue // should not happen
+		}
+
 		position := buf.Pos[i]
 		glyphs[i].ID = uint16(info.Glyph)
 		glyphs[i].Cluster = uint32(runeMap[info.Cluster])
@@ -87,6 +92,9 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 			}
 		} else if i+1 < len(buf.Info) {
 			end = buf.Info[i+1].Cluster
+		}
+		if end < int(info.Cluster) || len(rtext) < end {
+			continue // should not happen
 		}
 		glyphs[i].Text = string(rtext[info.Cluster:end])
 	}

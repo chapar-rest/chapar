@@ -261,17 +261,13 @@ func (c *Container) handle(r result) {
 	if r.err != nil {
 		c.statusText = r.err.Error()
 		c.lastResp = nil
-		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()))
+		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()), highlight.NewJSON())
 		return
 	}
 	res := r.resp
 	c.lastResp = res
 	c.statusText = fmt.Sprintf("%d  %s  %d B", res.StatusCode, res.TimePassed.Round(time.Millisecond), len(res.Body))
-	body := res.Body
-	if len(body) == 0 {
-		body = []byte(res.JSON)
-	}
-	c.respEd = replaceEditor(c.respEd, body)
+	c.respEd = replaceEditor(c.respEd, container.DisplayBody(res), highlight.NewJSON())
 	var hdr strings.Builder
 	fmt.Fprintf(&hdr, "# --- Request Headers ---\n")
 	for k, v := range res.RequestHeaders {
@@ -281,12 +277,12 @@ func (c *Container) handle(r result) {
 	for k, v := range res.ResponseHeaders {
 		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
-	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()))
+	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
 }
 
-func replaceEditor(old *ui.Editor, data []byte) *ui.Editor {
+func replaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
 	if old != nil {
 		old.Close()
 	}
-	return ui.NewEditor(data, highlight.NewJSON())
+	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
 }

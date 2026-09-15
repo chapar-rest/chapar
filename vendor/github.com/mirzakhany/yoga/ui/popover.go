@@ -103,6 +103,7 @@ func (n *Node) layoutPopover(c *Ctx) *layout.Element {
 			if onChange != nil {
 				onChange(!open)
 			}
+			c.MarkNeedsPaint()
 		}
 	}
 	// Keep anchor fresh while the trigger is painted (scroll / layout shifts).
@@ -122,6 +123,7 @@ func (n *Node) layoutPopover(c *Ctx) *layout.Element {
 				if onChange != nil {
 					onChange(false)
 				}
+				c.MarkNeedsPaint()
 				break
 			}
 		}

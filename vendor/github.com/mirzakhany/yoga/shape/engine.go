@@ -183,13 +183,17 @@ func (e *Engine) FlushAtlas(r *render.Renderer) error {
 	if r == nil {
 		return nil
 	}
+	// A full rebuild re-uploads both pages, so skip (and drop) any pending
+	// per-region uploads; otherwise the stale dirty rects would be re-uploaded
+	// on every subsequent frame and the dirty list would grow without bound.
+	if e.Atlas.NeedsFullRebuild() {
+		defer e.Atlas.ClearDirty()
+		return r.UpdateAtlas(e.Atlas)
+	}
 	for _, d := range e.Atlas.DirtyRects() {
 		if err := r.UpdateAtlasRegion(d); err != nil {
 			return err
 		}
-	}
-	if e.Atlas.NeedsFullRebuild() {
-		return r.UpdateAtlas(e.Atlas)
 	}
 	e.Atlas.ClearDirty()
 	return nil

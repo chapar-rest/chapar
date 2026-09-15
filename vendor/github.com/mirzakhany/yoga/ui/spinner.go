@@ -10,8 +10,27 @@ import (
 	"github.com/mirzakhany/yoga/theme"
 )
 
+// spinnerFrame is the wake interval for a visible spinner. 60fps rebuilds the
+// whole app (double layout + paint) for a 24px indicator; ~20fps is smooth
+// enough and cuts that cost roughly 3×.
+const spinnerFrame = 50 * time.Millisecond
+
+// spinnerRadPerSec keeps rotation speed independent of the frame interval
+// (legacy was +0.12 rad every 16ms ≈ 7.5 rad/s).
+const spinnerRadPerSec = 0.12 / 0.016
+
 type spinnerState struct {
-	angle float32
+	angle     float32
+	lastTick  time.Time
+	lastFrame render.Rect // previous paint; used to skip off-screen wakes
+	haveFrame bool
+}
+
+func spinnerIntersectsViewport(f render.Rect, vw, vh float32) bool {
+	if f.W <= 0 || f.H <= 0 {
+		return false
+	}
+	return f.X+f.W > 0 && f.Y+f.H > 0 && f.X < vw && f.Y < vh
 }
 
 // Spinner is an indeterminate loading indicator. id keys rotation across frames.
@@ -28,8 +47,23 @@ func (n *Node) layoutSpinner(c *Ctx) *layout.Element {
 		id = autoID(c, "spinner")
 	}
 	st := c.Widget(id, func() any { return &spinnerState{} }).(*spinnerState)
-	st.angle += 0.12
-	c.Animate(16 * time.Millisecond)
+	vw, vh := c.Viewport()
+	// Advance and request frames only when the spinner is (or has not yet
+	// been) on screen. An off-screen demo spinner was pinning the whole app
+	// at 16ms forever.
+	visible := !st.haveFrame || spinnerIntersectsViewport(st.lastFrame, vw, vh)
+	if visible {
+		now := c.Now()
+		dt := spinnerFrame.Seconds()
+		if !st.lastTick.IsZero() {
+			dt = now.Sub(st.lastTick).Seconds()
+		}
+		st.angle += float32(dt * spinnerRadPerSec)
+		st.lastTick = now
+		c.Animate(spinnerFrame)
+	} else {
+		st.lastTick = time.Time{}
+	}
 
 	sz := n.iconSize
 	el := layout.New(applyLayoutSpec(layout.Box().Size(sz, sz).FlexShrink(0), n.spec))
@@ -37,6 +71,7 @@ func (n *Node) layoutSpinner(c *Ctx) *layout.Element {
 	el.Paint = func(dl *render.DrawList, _ *shape.Engine) {
 		th := theme.Current()
 		f := el.Frame
+		st.lastFrame, st.haveFrame = f, true
 		cx := f.X + f.W/2
 		cy := f.Y + f.H/2
 		r := f.W/2 - 2
