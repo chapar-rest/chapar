@@ -39,14 +39,15 @@ type App struct {
 	protos   *pages.ProtoFiles
 	spaces   *pages.Workspaces
 
-	navIndex int
-	initErr  error
-	wake     func()
-	uiCtx    *ui.Ctx
-	executor scripting.Executor
-	console  *ConsolePanel
-	notifs   NotificationHistory
+	navIndex   int
+	initErr    error
+	wake       func()
+	uiCtx      *ui.Ctx
+	executor   scripting.Executor
+	console    *ConsolePanel
+	notifs     NotificationHistory
 	notifsOpen bool
+	navOpen    bool
 }
 
 var _ yoga.App = (*App)(nil)
@@ -54,7 +55,7 @@ var _ yoga.Closer = (*App)(nil)
 var _ yoga.KeyHook = (*App)(nil)
 
 func BuildApp() *App {
-	a := &App{console: &ConsolePanel{}}
+	a := &App{console: &ConsolePanel{}, navOpen: true}
 	a.settings = settings.New(func(spec domain.GlobalConfigSpec) {
 		applyChaparAppearance(spec.General, spec.Editor)
 	})
@@ -348,24 +349,35 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 		}
 	}
 
+	toggleIcon := icons.PanelLeft
+	if a.navOpen {
+		toggleIcon = icons.PanelLeftClose
+	}
+
 	return ui.TitleBar(
-		ui.Select("top-ws", wsOpts).Width(180).Selected(wsSel).OnChange(func(v string) {
+		ui.IconButton("toggle-nav", toggleIcon).OnClick(func() { a.toggleNav() }),
+		ui.Select("top-ws", wsOpts).Width(170).Selected(wsSel).OnChange(func(v string) {
 			if ws := a.catalog.WorkspaceByID(v); ws != nil {
 				a.switchWorkspace(ws)
 			}
 		}),
-		ui.ContextMenu("top-add-menu", ui.IconButton("top-add", icons.Plus), a.createMenuItems()),
 		ui.Spacer(),
 		ui.Button("cmd-palette", ui.Text("Commands")).Width(300).
 			IconStart(icons.Search).
 			Hint(c.Commands().ToggleLabel()).
 			OnClick(func() { c.Commands().Show() }),
 		ui.Spacer(),
+		ui.IconButton("top-website", icons.Globe).OnClick(func() {}),
+		ui.IconButton("top-cookies", icons.Cookie).OnClick(func() {}),
 		ui.Select("top-env", envOpts).Width(180).Selected(envSel).OnChange(func(v string) {
 			_ = a.catalog.SetActiveEnv(v)
 		}),
 		ui.IconButton("top-settings", icons.Settings).OnClick(func() { a.openSettings(c) }),
 	)
+}
+
+func (a *App) toggleNav() {
+	a.navOpen = !a.navOpen
 }
 
 func (a *App) openSettings(c *ui.Ctx) {
@@ -401,12 +413,18 @@ func (a *App) showSettingsDialog(c *ui.Ctx) {
 }
 
 func (a *App) nav(c *ui.Ctx) ui.View {
+	if !a.navOpen {
+		return nil
+	}
+
+	th := c.Theme()
 	return ui.Nav("main-nav", ui.NavVertical, ui.NavIconTop,
 		ui.NavItem{ID: "requests", Label: "Requests", Icon: icons.Send},
 		ui.NavItem{ID: "environments", Label: "Envs", Icon: icons.FolderPlus},
 		ui.NavItem{ID: "protofiles", Label: "Protos", Icon: icons.Code},
 		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: icons.Boxes},
-	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).Width(75)
+	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).
+		Width(75).NavBackground(&th.ChromeMuted)
 }
 
 func (a *App) createMenuItems() []ui.MenuItem {

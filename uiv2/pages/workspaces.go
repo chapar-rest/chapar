@@ -109,5 +109,5 @@ func (p *Workspaces) Layout(c *ui.Ctx) ui.View {
 		ui.Muted("Double-click a workspace to switch.").PaddingXY(th.Spacing.M, 0),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.ViewOf(p.table).Grow(1),
-	).Grow(1)
+	).Grow(1).Background(ui.TokenSurface)
 }

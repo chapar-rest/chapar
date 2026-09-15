@@ -143,5 +143,5 @@ func (p *ProtoFiles) Layout(c *ui.Ctx) ui.View {
 		).Gap(th.Spacing.S).Padding(th.Spacing.M),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.ViewOf(p.table).Grow(1),
-	).Grow(1)
+	).Grow(1).Background(ui.TokenSurface)
 }

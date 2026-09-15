@@ -382,17 +382,21 @@ func (p *Requests) side(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	p.syncTreeLabels()
 
+	// Outer column is the Splitter pane root (yoga clears its BgColor);
+	// keep TokenChrome on the inner column so the fill survives.
 	return ui.Column(
-		ui.Strong("Requests").Margin(th.Spacing.S),
-		ui.Row(
-			ui.Spacer(),
-			ui.Button("req-import", ui.Text("Import")).OnClick(p.importFile),
-			ui.Button("req-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(func() {
-				p.createRequest(domain.RequestTypeHTTP, NodeRef{})
-			}),
-		).Gap(th.Spacing.S).MarginRight(th.Spacing.S),
-		ui.TextField("req-search", p.query).Placeholder("Search...").IconStart(icons.Search).
-			OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
-		ui.ViewOf(p.tree).Grow(1),
-	).Gap(th.Spacing.S).Grow(1)
+		ui.Column(
+			ui.Strong("Requests").Margin(th.Spacing.S),
+			ui.Row(
+				ui.Spacer(),
+				ui.Button("req-import", ui.Text("Import")).OnClick(p.importFile),
+				ui.Button("req-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(func() {
+					p.createRequest(domain.RequestTypeHTTP, NodeRef{})
+				}),
+			).Gap(th.Spacing.S).MarginRight(th.Spacing.S),
+			ui.TextField("req-search", p.query).Placeholder("Search...").IconStart(icons.Search).
+				OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
+			ui.ViewOf(p.tree).Grow(1),
+		).Gap(th.Spacing.S).Grow(1).Background(ui.TokenChrome),
+	).Grow(1)
 }

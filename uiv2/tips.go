@@ -22,19 +22,22 @@ func (w *Workspace) emptyWorkspace(c *ui.Ctx) ui.View {
 	}
 
 	// ui.Center loses JustifyCenter when this pane sits inside a Splitter — the
-	// splitter overwrites the pane root style with flex-grow only. Spacers center
-	// vertically; AlignCenter on the inner column handles horizontal alignment.
+	// splitter overwrites the pane root style with flex-grow only (also clears
+	// BgColor). Spacers center vertically; AlignCenter on the content column
+	// handles horizontal alignment. TokenSurface lives on the inner column.
 	return ui.Column(
-		ui.Spacer(),
 		ui.Column(
-			ui.Image("workspace-chapar", assets.ChaparPNG).Width(128),
-			ui.Subtitle("Chapar").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
-			ui.Column(rows...).
-				Gap(th.Spacing.XS).
-				Width(emptyWorkspaceWidth).
-				MarginTop(th.Spacing.XL),
-		).Gap(th.Spacing.M).Align(ui.AlignCenter),
-		ui.Spacer(),
+			ui.Spacer(),
+			ui.Column(
+				ui.Image("workspace-chapar", assets.ChaparPNG).Width(128),
+				ui.Subtitle("Chapar").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+				ui.Column(rows...).
+					Gap(th.Spacing.XS).
+					Width(emptyWorkspaceWidth).
+					MarginTop(th.Spacing.XL),
+			).Gap(th.Spacing.M).Align(ui.AlignCenter),
+			ui.Spacer(),
+		).Grow(1).Background(ui.TokenSurface),
 	).Grow(1)
 }
 
