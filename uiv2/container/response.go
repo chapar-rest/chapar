@@ -94,10 +94,23 @@ func ResponseEditorMenu(id string, ed *ui.Editor, ctx *ui.Ctx, deps Deps, defaul
 	}
 	// Do not set Width on ContextMenu — that sizes the wrapper (and shrinks the
 	// editor). Menu width defaults to 180 inside layoutContextMenu.
+	primary := input.ModCtrl | input.ModSuper
 	return ui.ContextMenu(id+"-menu", ui.ViewOf(ed).Grow(1), []ui.MenuItem{
-		{Label: "Select All", OnSelect: func() { ed.SelectAll() }},
+		{Label: "Select All", OnSelect: func() {
+			ed.HandleKeys([]input.KeyEvent{{Key: input.KeyA, Mods: primary}})
+		}},
 		{Label: "Copy", OnSelect: func() {
-			ed.CopySelection(ctx.Clipboard())
+			clip := ctx.Clipboard()
+			if clip == nil {
+				return
+			}
+			// Prefer selection (Cmd/Ctrl+C). If nothing was selected, copy() is a
+			// no-op — fall back to the whole buffer (former CopySelection).
+			prev := clip.Get()
+			ed.HandleKeys([]input.KeyEvent{{Key: input.KeyC, Mods: primary}})
+			if clip.Get() == prev {
+				clip.Set(string(ed.Bytes()))
+			}
 			deps.Toast("Copied")
 		}},
 		{Label: "Save…", OnSelect: func() {

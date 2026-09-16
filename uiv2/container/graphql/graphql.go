@@ -178,7 +178,10 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
-		ui.Splitter("gql-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).Sizes(300, 0).Grow(1),
+		ui.Splitter("gql-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).
+			Percents(50, 50).
+			HandleOnHover().
+			Grow(1),
 	).Grow(1)
 }
 

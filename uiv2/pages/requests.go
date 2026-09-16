@@ -332,8 +332,8 @@ func (p *Requests) importFile() {
 		return
 	}
 	fd.Show(ui.FileDialogOpts{
-		Title:   "Import collection",
-		Mode:    ui.FileDialogOpenFile,
+		Title: "Import collection",
+		Mode:  ui.FileDialogOpenFile,
 		Filters: []ui.FileFilter{
 			{Label: "JSON", Exts: []string{".json"}},
 			{Label: "YAML", Exts: []string{".yaml", ".yml"}},
@@ -379,7 +379,10 @@ func (p *Requests) Layout(c *ui.Ctx) ui.View {
 	if !p.SideOpen {
 		return workspace
 	}
-	return ui.Splitter("req-page-split", ui.Horizontal, p.side(c), workspace).Sizes(280, 0).Grow(1)
+	return ui.Splitter("req-page-split", ui.Horizontal, p.side(c), workspace).
+		Percents(20, 80).
+		HandleOnHover().
+		Grow(1)
 }
 
 func (p *Requests) side(c *ui.Ctx) ui.View {

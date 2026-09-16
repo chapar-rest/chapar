@@ -71,6 +71,20 @@ type Table struct {
 	Selectable bool
 	// MultiSelect allows Cmd/Ctrl toggle and Shift range selection.
 	MultiSelect bool
+	// HighlightSelected paints ListActive behind selected rows. Default true.
+	HighlightSelected bool
+	// Editable allows click-to-edit on TableColEditable columns. Default true.
+	Editable bool
+
+	// Background fills the table body. nil = transparent (parent surface shows through).
+	Background *render.Color
+	// HeaderBackground fills the header strip. nil = theme ChromeMuted.
+	HeaderBackground *render.Color
+
+	// MinHeight is the preferred/min host height when not collapsed. Default 200.
+	MinHeight float32
+	// CollapseEmpty sizes the host to header height only when there are no visible rows.
+	CollapseEmpty bool
 
 	vbar *Scrollbar
 
@@ -117,21 +131,23 @@ const (
 func NewTable(columns []TableColumn, actions []TableAction) *Table {
 	th := theme.Current()
 	t := &Table{
-		Columns:        columns,
-		Actions:        actions,
-		hoverRow:       -1,
-		hoverResizeCol: -1,
-		rowH:           th.Typography.Body.LineHeight + th.Spacing.S,
-		headerH:        th.Typography.Body.LineHeight + th.Spacing.S,
+		Columns:           columns,
+		Actions:           actions,
+		HighlightSelected: true,
+		Editable:          true,
+		MinHeight:         200,
+		hoverRow:          -1,
+		hoverResizeCol:    -1,
 	}
 	if len(t.Actions) == 0 {
 		t.Actions = []TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}}
 	}
+	t.syncMetrics()
 
-	chipH := t.rowH - th.Spacing.XS
+	chipH := t.rowH - 2*th.Spacing.XS
 	t.editField = NewTextInput(TextFieldConfig{
 		Height:      chipH,
-		Radius:      th.Radius.Small,
+		Radius:      th.Radius.Medium,
 		BorderWidth: th.Stroke.Thin,
 	})
 	t.editField.host.Overlay = true
@@ -139,7 +155,7 @@ func NewTable(columns []TableColumn, actions []TableAction) *Table {
 	barSize := th.Metrics.ScrollbarSize
 	t.vbar = NewScrollbarAxis(Vertical, &t.scrollY, &t.contentH, barSize)
 
-	t.host = layout.New(layout.Box().FlexGrow(1).H(200).Min(0, 200).FlexShrink(0), t.vbar.host)
+	t.host = layout.New(layout.Box(), t.vbar.host)
 	t.host.Clip = true
 	t.host.Paint = t.paint
 	t.host.OnMouse = t.onMouse
@@ -154,6 +170,8 @@ func NewTable(columns []TableColumn, actions []TableAction) *Table {
 }
 
 func (t *Table) Layout(c *Ctx) *layout.Element {
+	t.syncMetrics()
+	t.applyHostSize()
 	if c.Focus() != nil {
 		c.Focus().Add(t)
 	}
@@ -163,6 +181,34 @@ func (t *Table) Layout(c *Ctx) *layout.Element {
 	}
 	t.layoutActionTooltip(c)
 	return t.host
+}
+
+func (t *Table) syncMetrics() {
+	th := theme.Current()
+	t.rowH = th.Metrics.ControlHeight
+	t.headerH = th.Metrics.ControlHeight
+	if t.editField != nil {
+		chipH := t.rowH - 2*th.Spacing.XS
+		t.editField.cfg.Height = chipH
+		t.editField.cfg.Radius = th.Radius.Medium
+		t.editField.host.Style.Height = chipH
+		t.editField.host.Style.MinHeight = chipH
+	}
+}
+
+func (t *Table) applyHostSize() {
+	h := t.MinHeight
+	if h <= 0 {
+		h = 200
+	}
+	grow := float32(1)
+	shrink := float32(0)
+	if t.CollapseEmpty && len(t.visible) == 0 {
+		h = t.headerH
+		grow = 0
+	}
+	st := t.host.Style
+	t.host.Style = st.FlexGrow(grow).H(h).Min(st.MinWidth, h).FlexShrink(shrink)
 }
 
 func (t *Table) layoutActionTooltip(c *Ctx) {
@@ -321,6 +367,9 @@ func (t *Table) rebuildVisible() {
 	}
 	t.sortVisible()
 	t.contentH = float32(len(t.visible)) * t.rowH
+	if t.host != nil {
+		t.applyHostSize()
+	}
 }
 
 func (t *Table) sortVisible() {
@@ -497,7 +546,11 @@ func (t *Table) paintHeader(dl *render.DrawList, text *shape.Engine, widths, off
 	th := theme.Current()
 	f := t.host.Frame
 	hdr := render.Rect{X: f.X, Y: f.Y, W: f.W, H: t.headerH}
-	dl.AddRect(hdr, th.ChromeMuted)
+	if t.HeaderBackground != nil {
+		dl.AddRect(hdr, *t.HeaderBackground)
+	} else {
+		dl.AddRect(hdr, th.ChromeMuted)
+	}
 	dl.PushClip(hdr)
 	style := th.Typography.BodyStrong
 	iconSz := th.Metrics.IconSizeSM
@@ -510,7 +563,7 @@ func (t *Table) paintHeader(dl *render.DrawList, text *shape.Engine, widths, off
 			tx := cr.X + t.padX()
 			if col.Label != "" {
 				lw, lh := text.MeasureAtWeight(col.Label, style.Size, style.Weight)
-				text.DrawStringTopAtWeight(dl, col.Label, tx, cr.Y+(t.rowH-lh)/2, th.Foreground, style.Size, style.Weight)
+				text.DrawStringTopAtWeight(dl, col.Label, tx, cr.Y+(t.headerH-lh)/2, th.Foreground, style.Size, style.Weight)
 				tx += lw + th.Spacing.XS
 			}
 			if t.colSortable(col) && t.sortColID == col.ID {
@@ -518,7 +571,7 @@ func (t *Table) paintHeader(dl *render.DrawList, text *shape.Engine, widths, off
 				if t.sortAsc {
 					icon = icons.ChevronUp
 				}
-				ir := render.Rect{X: tx, Y: cr.Y + (t.rowH-iconSz)/2, W: iconSz, H: iconSz}
+				ir := render.Rect{X: tx, Y: cr.Y + (t.headerH-iconSz)/2, W: iconSz, H: iconSz}
 				frameIcons().Draw(dl, icon, ir, th.Accent)
 			}
 		}
@@ -549,12 +602,15 @@ func (t *Table) allVisibleSelected() bool {
 	return true
 }
 
-func (t *Table) padX() float32 { return theme.Current().Spacing.S }
+func (t *Table) padX() float32 { return theme.Current().Spacing.MNudge }
 
 func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
+	t.syncMetrics()
 	th := theme.Current()
 	f := t.host.Frame
-	dl.AddRect(f, th.Chrome)
+	if t.Background != nil {
+		dl.AddRect(f, *t.Background)
+	}
 
 	cw, _, _ := t.bodyMetrics()
 	widths, offsets := t.columnLayout(cw)
@@ -575,7 +631,7 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 			break
 		}
 
-		if row.Selected {
+		if row.Selected && t.HighlightSelected {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
 		} else if vi == t.hoverRow {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListHover)
@@ -599,7 +655,7 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 						sz := th.Metrics.IconSizeSM
 						ir := render.Rect{X: tx, Y: cr.Y + (t.rowH-sz)/2, W: sz, H: sz}
 						sheet.Draw(dl, row.Icon, ir, th.ForegroundMuted)
-						tx += sz + t.padX()
+						tx += sz + th.Spacing.SNudge
 					}
 				}
 				clipR := render.Rect{X: tx, Y: cr.Y, W: f32max(0, cr.X+cr.W-tx-t.padX()), H: cr.H}
@@ -778,6 +834,7 @@ func (t *Table) handleHeaderMouse(el *layout.Element, m *input.Mouse, widths, of
 }
 
 func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
+	t.syncMetrics()
 	t.hoverRow = -1
 	t.hoverAction = -1
 	if !t.resizeDragging {
@@ -843,17 +900,19 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 			}
 			handled = true
 		case TableColEditable:
-			if m.Released {
-				if t.editingRowID != "" && (t.editingRowID != row.ID || t.editingColID != col.ID) {
-					t.commitEdit()
+			if t.Editable {
+				if m.Released {
+					if t.editingRowID != "" && (t.editingRowID != row.ID || t.editingColID != col.ID) {
+						t.commitEdit()
+					}
+					t.startEdit(row.ID, col.ID)
+					m.Consumed = true
 				}
-				t.startEdit(row.ID, col.ID)
-				m.Consumed = true
+				if m.Pressed {
+					m.Consumed = true
+				}
+				handled = true
 			}
-			if m.Pressed {
-				m.Consumed = true
-			}
-			handled = true
 		case TableColActions:
 			_, slot := t.actionSlotSize()
 			for ai, act := range t.Actions {
@@ -944,6 +1003,9 @@ func (t *Table) fireAction(act TableAction, rowID string) {
 }
 
 func (t *Table) startEdit(rowID, colID string) {
+	if !t.Editable {
+		return
+	}
 	rowIdx, ok := t.rowByID(rowID)
 	if !ok {
 		return

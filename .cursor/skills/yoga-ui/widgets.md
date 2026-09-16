@@ -45,6 +45,10 @@ ui.TextField(id, value).
     OnSubmit(func(s string) { … }). // Enter
     DefaultFocus().Grow(1)
 
+ui.EditableLabel(id, value).
+    Placeholder("Untitled").
+    OnSave(func(s string) { … }) // Enter commits; Escape / blur cancels
+
 ui.Checkbox(id, "Label").Check(on).OnToggle(func(v bool) { … }).
     LabelMuted(done).LabelStrike(done)
 
@@ -85,9 +89,24 @@ ui.NumberStepper(id, value).Min(0).Max(20).Step(1).
 
 `TextField` is **controlled**: pass `app.field` every frame; store edits in `OnChange`. Caret/focus live in the widget store under `id`.
 
+`EditableLabel` is **controlled** for display but edits a local draft until **Enter** (`OnSave`). Hover shows an I-beam cursor; **Escape** or blur discards changes.
+
 ## Navigation / chrome
 
 ```go
+// Opt in at startup: yoga.Config{CustomTitleBar: true}
+ui.TitleBar(
+    ui.Dropdown("menu-file", "File", items),
+    ui.Spacer(),
+    ui.TextField("q", query).Placeholder("Search…").Width(240).Grow(1),
+    ui.IconButton("settings", icons.Settings).OnClick(openSettings),
+)
+// TitleBar uses TokenChrome, th.Metrics.TitleBarHeight, Shrink(0).
+// Child widgets auto-size to th.Metrics.TitleBarControlHeight (26px) with
+// vertical centering — no need to set .Height() on each control.
+// macOS: leading inset for traffic lights. Windows/Linux: trailing WindowControls.
+// Drag empty area to move; double-click toggles maximize.
+
 ui.Nav(id, ui.NavVertical, ui.NavIconTop,
     ui.NavItem{ID: "home", Label: "Home", Icon: "folder"},
 ).Selected(i).OnSelectItem(func(i int, id string) { … }).Width(88).
@@ -97,6 +116,7 @@ ui.Tabs(id, []ui.TabModel{{Title: "a.go", Modified: true, Badge: "2"}}).
     Selected(active).
     OnSelectItem(func(i int, _ string) { … }).
     OnTabClose(func(i int) { … }).
+    Closable(false). // hide close buttons for section-style tabs
     TabBackground(th.Background)
 
 ui.Dropdown(id, "File", []ui.MenuItem{
@@ -109,7 +129,8 @@ ui.Breadcrumb(id,
 )
 
 ui.Splitter(id, ui.Horizontal, left, right).Sizes(240, 0).Grow(1)
-// ui.Vertical; size 0 = flex remainder. Drag state keyed by id.
+// Or .Percents(30, 70); .MinSizes(120, 200); .MaxSizes(400, 0); .HandleOnHover()
+// ui.Vertical; size/percent 0 = flex remainder. Drag state keyed by id.
 
 ui.Drawer("inspector", panel, page).
     Open(open).
@@ -123,13 +144,6 @@ ui.Drawer("inspector", panel, page).
     Grow(1)
 // Panel content fills the drawer body (clipped viewport). Use .Grow(1) on the
 // panel view; avoid fixed .Width/.Height — the drawer owns main-axis sizing.
-
-// Bottom push drawer (console/terminal) — only shrink the workspace pane:
-ui.Splitter("page", ui.Horizontal, sidebar,
-    ui.Drawer("console", consolePanel, editorWorkspace).
-        Edge(ui.EdgeBottom).Push().Open(consoleOpen).Size(180).Resizable(true).
-        OnOpenChange(func(v bool) { consoleOpen = v }).Grow(1),
-).Sizes(280, 0).Grow(1)
 
 // Nested IDE chrome (terminal bottom + chat right):
 ui.Drawer("chat", chatPanel,
@@ -166,6 +180,14 @@ ui.EmptyState("No results", "Try another filter").
 ui.HLine(th.Stroke.Thin, th.Border)
 ui.VLine(1, th.Border)
 ui.Icon("circle", 12, th.Accent)
+ui.Image("logo", pngBytes).Width(120)
+ui.ImageFile("photo", "cat.jpg").Width(240)
+ui.ImageFS("logo", assets, "logo.png").Height(48)
+ui.Image("hero", data).Frame(320, 180).Fit(ui.FitContain) // FitCover, FitFill
+ui.SVG("mark", svgBytes).Width(96)
+ui.SVGFile("logo", "assets/logo.svg").Width(120)
+ui.SVGFS("logo", assets, "logo.svg").Height(48)
+ui.SVG("mark", data).Size(48).Style(ui.Spec{}.TextColor(ui.TokenAccent)) // currentColor
 ```
 
 ## Anchored overlays
@@ -176,13 +198,8 @@ ui.Tooltip(id, child, "Hint")                            // wrapper form
 
 ui.Popover(id, trigger, content).
     Open(open).OnOpenChange(func(v bool) { open = v }).
-    Placement(ui.PlacementBottom). // Top, Left, Right — use Top when trigger is in the footer
+    Placement(ui.PlacementBottom). // Top, Left, Right
     Width(260).Height(140)
-
-// Footer notification history (no scrim; dismiss outside click / Escape):
-ui.Popover("notifs", notifButton, notifList).
-    Open(notifsOpen).OnOpenChange(func(v bool) { notifsOpen = v }).
-    Placement(ui.PlacementTop).Width(360).Height(280)
 
 ui.ContextMenu(id, child, []ui.MenuItem{
     {Label: "Copy", OnSelect: fn},
@@ -227,9 +244,9 @@ func (a *App) Body(c *ui.Ctx) ui.View {
     c.Commands().Register(
         ui.Section("Recent"),
         ui.Item("recent.main").Title("main.go").Detail("cmd/app/main.go").
-            Icon(icons.File).Run(func() { a.open("cmd/app/main.go") }),
+            Icon("file").Run(func() { a.open("cmd/app/main.go") }),
         ui.Section("Commands"),
-        ui.Cmd("file.save").Title("Save File").Shortcut("⌘S").Icon(icons.Save).Run(a.save),
+        ui.Cmd("file.save").Title("Save File").Shortcut("⌘S").Icon("save").Run(a.save),
         ui.Cmd("view.theme").Title("Toggle Theme").Group("View").Shortcut("⌘T").Run(a.toggleTheme),
     )
     return ui.Column(
@@ -282,6 +299,10 @@ ui.ViewOf(t).Height(220)
 
 Row click: set `t.Selectable = true` (and `t.MultiSelect` for Cmd/Ctrl toggle + Shift range). `OnRowClick` / `OnRowActivate` (double-click or Enter). `TableRow.Icon` draws in the first text column.
 
+`t.Editable` (default true) gates click-to-edit on `TableColEditable` columns; set false for read-only. Prefer `TableColText` when a column should never edit. `t.HighlightSelected` (default true) paints `ListActive` behind selected rows; set false to keep checkbox/selection without a row band.
+
+Background matches Tree: `t.Background` nil = transparent body (parent surface shows through); set a `*render.Color` for an opaque panel. `t.HeaderBackground` nil = `ChromeMuted`; override similarly. Height: `t.MinHeight` (default 200); `t.CollapseEmpty = true` sizes the host to the header only when there are no visible rows.
+
 Column kinds: `TableColText`, `TableColEditable`, `TableColCheckbox`, `TableColActions`. Width `0` = flex.
 
 ### Tree / FileTree
@@ -305,7 +326,6 @@ tree.Loader = func(n *ui.TreeNode) []*ui.TreeNode {
 }
 tree.OnActivate = func(n *ui.TreeNode) { … }
 tree.SetFilter(q)
-tree.Background = &theme.Current().Panel
 ui.ViewOf(tree).Grow(1)
 
 ft := ui.NewFileTree(cwd)
@@ -330,12 +350,18 @@ ui.Background(ui.TokenAccent).
     TextColor(ui.TokenAccentForeground).
     Radius(4).
     Border(ui.TokenBorder, 1).
+    BorderStyle(ui.BorderSolid). // or BorderDotted, BorderDashed
     Cursor(ui.CursorPointer).
     Padding(8).Gap(8).
     When(ui.Hovered, ui.Background(ui.TokenAccentHover)).
     When(ui.Pressed, ui.Background(ui.TokenAccentPressed).Scale(0.96, 0.96)).
     When(ui.Focused, ui.Spec{}.Border(ui.TokenFocusRing, 1)).
     When(ui.Disabled, ui.Background(ui.TokenChromeMuted).TextColor(ui.TokenForegroundDisabled))
+
+// Per-side / per-corner (Node modifiers chain the same way):
+ui.Column(...).Padding(th.Spacing.M).
+    BorderBottom(ui.TokenBorder, th.Stroke.Thin).
+    RadiusTopRight(th.Radius.Large)
 ```
 
 Attach with `.Style(spec)` or `.Background(token)`. Conditions: `Hovered`, `Pressed`, `Focused`, `Disabled`. Pressed overrides Hovered; Disabled last.
@@ -378,4 +404,4 @@ Common: `icons.Plus`, `icons.Search`, `icons.Settings`, `icons.Pencil`, `icons.T
 
 ## Theme names
 
-`yoga-dark` (default), `yoga-light`, `yoga-high-contrast`, `yoga-midnight`, `dark`, `light`, `github-dark`, `github-light`, `catppuccin`, `dracula`, `nord`, `solarized-dark`, `gruvbox-dark`, `gruvbox-light`, `one-dark`, `monokai`, `tokyo-night`, `rose-pine`. List: `theme.Names()`. Switch: `theme.Use(name)`.
+`yoga-dark` (default), `yoga-light`, `system` (follows OS dark/light via `yoga-dark` / `yoga-light`), `yoga-high-contrast`, `yoga-midnight`, `github-dark`, `github-light`, `catppuccin`, `catppuccin-latte`, `dracula`, `nord`, `solarized-dark`, `solarized-light`, `gruvbox-dark`, `gruvbox-light`, `monokai`, `everforest-dark`, `everforest-light`. List: `theme.Names()`. Switch: `theme.Use(name)`. OS appearance: `theme.PrefersDark()`. User choice while on system: `theme.Selected()`.

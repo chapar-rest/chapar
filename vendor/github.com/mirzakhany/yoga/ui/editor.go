@@ -280,28 +280,6 @@ func (e *Editor) Modified() bool { return e.modified }
 // MarkSaved clears the modified flag.
 func (e *Editor) MarkSaved() { e.modified = false }
 
-// SelectAll selects the entire buffer.
-func (e *Editor) SelectAll() {
-	e.selAnchor = 0
-	e.caret = e.pt.Len()
-	e.canCoalesce = false
-	e.blinkStart = time.Now()
-	e.ensureCaretVisible()
-}
-
-// CopySelection copies the current selection to clip. When nothing is selected,
-// the entire buffer is copied.
-func (e *Editor) CopySelection(clip input.Clipboard) {
-	if clip == nil {
-		return
-	}
-	if e.hasSelection() {
-		e.copy(clip)
-		return
-	}
-	clip.Set(string(e.pt.Bytes()))
-}
-
 // Update polls the highlighter, recomputes scroll extents, and drives scrollbars.
 func (e *Editor) Update(m *input.Mouse) {
 	if gen := frameText().FontGen(); gen != e.fontGen {

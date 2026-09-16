@@ -14,6 +14,8 @@ func NewKVTable(idPrefix string, onChange func()) *ui.Table {
 		{ID: "value", Label: "Value", Kind: ui.TableColEditable, Width: 0},
 		{ID: "act", Label: "", Kind: ui.TableColActions, Width: 40, Locked: true},
 	}, []ui.TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}})
+	t.HighlightSelected = false
+	t.CollapseEmpty = true
 	t.Actions[0].OnClick = func(rowID string) {
 		t.RemoveRow(rowID)
 		if onChange != nil {

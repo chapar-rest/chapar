@@ -132,6 +132,8 @@ func NewVariablesTable(id string, fromOptions []ui.SelectOption, markDirty func(
 		{ID: "preview", Label: "Preview", Kind: ui.TableColText, Width: 0},
 		{ID: "act", Label: "", Kind: ui.TableColActions, Width: 40, Locked: true},
 	}, []ui.TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}})
+	t.HighlightSelected = false
+	t.CollapseEmpty = true
 	t.Actions[0].OnClick = func(rowID string) {
 		t.RemoveRow(rowID)
 		if markDirty != nil {

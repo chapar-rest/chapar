@@ -241,7 +241,8 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
 		ui.Splitter("http-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).
-			Sizes(300, 0).
+			Percents(50, 50).
+			HandleOnHover().
 			Grow(1),
 	).Grow(1)
 }

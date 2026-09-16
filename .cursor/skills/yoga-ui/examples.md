@@ -39,6 +39,37 @@ func (app *TodoApp) Body(c *ui.Ctx) ui.View {
 
 GPU main: `yoga.Run(cfg, BuildTodoApp)`.
 
+## Custom title bar — `example/catalog`
+
+Opt in at window creation, then compose the bar with existing widgets. The catalog demo uses this for its File/Go/Help menus and command palette.
+
+```go
+// main_gpu.go
+cfg := yoga.Config{
+	Title:          "Yoga Components",
+	Width:          1100,
+	Height:         720,
+	CustomTitleBar: true,
+}
+yoga.Run(cfg, BuildCatalog)
+
+// app.go — menus, search, theme picker in the title bar
+func (app *CatalogApp) topBar(c *ui.Ctx) ui.View {
+	return ui.TitleBar(
+		ui.Dropdown("menu-file", "File", fileItems),
+		ui.Dropdown("menu-go", "Go", app.goMenuItems()),
+		ui.Spacer(),
+		ui.Button("cmd-palette", ui.Text("Commands")).Width(300).
+			IconStart(icons.Search).
+			Hint(c.Commands().ToggleLabel()).
+			OnClick(func() { c.Commands().Show() }),
+		ui.Select("theme", themes).Width(180).Selected(idx).OnChange(theme.Use),
+	)
+}
+```
+
+`TitleBar` auto-sizes child controls to `TitleBarControlHeight` (26px) with vertical centering. macOS keeps native traffic lights; Windows/Linux get framework min/max/close. Drag empty area to move; double-click toggles maximize.
+
 ## App shell — `example/gallery`
 
 Page enum + subviews that return `ui.View`. Dialogs, file picker, and toasts are window services: `c.Dialogs()`, `c.Files()`, `c.Toasts()`. Do not put hosts in the tree.
@@ -137,6 +168,26 @@ Select option tints: `.OptionColor("GET", th.Success)`.
 Global shortcut in `Body` via `c.Keyboard()` (Cmd/Ctrl+Enter). Prefer `yoga.KeyHook` for shortcuts that must run even when a field captures keys.
 
 `theme.Use("yoga-midnight")` in `main` **before** `yoga.Run`.
+
+## Section box with border
+
+Wrap any group of widgets to draw a chrome box around them:
+
+```go
+ui.Column(
+    ui.Subtitle("Details"),
+    ui.Text(app.details),
+).Gap(th.Spacing.S).Padding(th.Spacing.M).
+    Radius(th.Radius.Medium).
+    Border(ui.TokenBorder, th.Stroke.Thin).
+    Background(ui.TokenChrome)
+
+// Bottom divider only:
+ui.Row(...).BorderBottom(ui.TokenBorder, th.Stroke.Thin)
+
+// Dotted accent rail:
+ui.Column(...).BorderLeft(ui.TokenAccent, th.Stroke.Thick).BorderStyle(ui.BorderDotted)
+```
 
 ## Multi-page shell — `example/chapar`
 

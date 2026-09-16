@@ -16,10 +16,10 @@ Module `github.com/mirzakhany/yoga`. Public UI surface is **`ui/`**. Read [widge
 Retained app state + per-frame declarative rebuild (SwiftUI `@State` analogue):
 
 1. App struct holds durable state (lists, strings, `*ui.Editor`, `*ui.Table`).
-2. `Body(c)` runs **every drawn frame** and returns a `ui.View` tree. There is no host widget cache.
+2. `Body(c)` runs on every **drawn** wake and returns a `ui.View` tree. The GPU loop skips present (and the second Body rebuild) when nothing visual changed; idle `WaitEvents` does no work. There is no host widget cache / React reconciliation.
 3. `ui.View` is `Layout(c *ui.Ctx) *layout.Element`. `*ui.Node` implements it.
 4. Widget **micro-state** (hover, caret, scroll, open menu) lives in `c.Widget(id, alloc)` keyed by a **unique-per-window id**. App data does not.
-5. Do not retain per-frame `*ui.Ctx` fields across frames. The Ctx pointer is window-lifetime: `c.Dialogs()`, `c.Files()`, `c.Toasts()`, `c.Focus()`, and `c.Invalidate()` are safe to capture in OnClick.
+5. Do not retain per-frame `*ui.Ctx` fields across frames. The Ctx pointer is window-lifetime: `c.Dialogs()`, `c.Files()`, `c.Toasts()`, `c.Focus()`, `c.Invalidate()`, and `c.MarkNeedsPaint()` are safe to capture in OnClick. Async work must `Invalidate()` so the next wake paints.
 
 Heavy widgets (`Editor`, `Table`, `Tree`, `FileTree`, `ListView`) are constructed **once** in `Build*` and placed with `ui.ViewOf(w)`. Stateless DSL nodes (`Column`, `Button`, `TextField`, …) may be allocated in `Body`. Dialogs, file picker, and toasts are window services on `c` — do not construct or thread hosts.
 
@@ -56,6 +56,8 @@ func main() {
 	cfg := yoga.Config{Title: "App", Width: 640, Height: 480}
 	if err := yoga.Run(cfg, Build); err != nil { panic(err) }
 }
+
+Custom title bar (VS Code-style): set `CustomTitleBar: true` in `yoga.Config`, then put menus and tools in `ui.TitleBar(...)` at the top of `Body`. macOS keeps native traffic lights; Windows/Linux get framework min/max/close buttons. Empty title-bar area drags the window; double-click toggles maximize.
 ```
 
 GPU entry: `//go:build !nogpu` + `yoga.Run`. Headless: `//go:build nogpu` + `shape.NewEngine` → `yoga.SetResources` → `ui.BuildFrame`. Dual mains live side-by-side in `example/*/`.
@@ -80,10 +82,14 @@ Optional App capabilities (type-asserted by the runtime):
 | `Raw(el)` | Wrap a bare `*layout.Element` |
 | `HLine(thick, color)` / `VLine(...)` | Rules |
 | `Icon(icon, size, color)` | Lucide atlas sprite |
+| `Image(id, data)` | PNG/JPEG from bytes; `ImageFile`, `ImageFS` helpers |
+| `SVG(id, data)` | Custom SVG from bytes; `SVGFile`, `SVGFS` helpers |
+| `TitleBar(children...)` | Custom window title bar; platform controls auto-included |
+| `WindowControls()` | Min/max/close buttons for undecorated windows (usually via TitleBar) |
 
 Children are `ui.View`. Nil children are skipped. Split a pane into helpers that return `ui.View`.
 
-Fluent modifiers (chain on `*Node`): `Gap`, `Padding`/`PaddingXY`/`PaddingLeft|Right|Top|Bottom`, `Margin`/`MarginXY`/sides, `Wrap`, `Grow`, `Shrink`, `Width`, `Height`, `Frame`, `Size` (font size on `Text`, else square), `Align`, `Justify`, `Style(Spec)`, `Background(Token)`, `BackgroundColor`, `Disabled`, `DefaultFocus`.
+Fluent modifiers (chain on `*Node`): `Gap`, `Padding`/`PaddingXY`/`PaddingLeft|Right|Top|Bottom`, `Margin`/`MarginXY`/sides, `Wrap`, `Grow`, `Shrink`, `Width`, `Height`, `Frame`, `Size` (font size on `Text`, else square), `Align`, `Justify`, `Style(Spec)`, `Background(Token)`, `BackgroundColor`, `Border`/`BorderTop|Right|Bottom|Left`, `BorderStyle`, `Radius`/`RadiusTopLeft|TopRight|BottomRight|BottomLeft`, `Disabled`, `DefaultFocus`.
 
 Alignment constants: `ui.AlignStart|Center|End|Stretch`, `ui.JustifyStart|Center|End|Between`.
 
@@ -99,6 +105,9 @@ Pass current value each frame; callbacks mutate the app struct. Stable unique `i
 ui.TextField("url", app.url).Placeholder("https://…").IconStart(icons.Search).
     OnChange(func(s string) { app.url = s }).OnSubmit(func(s string) { app.go(s) }).Grow(1)
 
+ui.EditableLabel("title", app.title).Placeholder("Untitled").
+    OnSave(func(s string) { app.title = s })
+
 ui.Button("send", ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).OnClick(app.send)
 ui.Checkbox("n", "Notify").Check(app.on).OnToggle(func(v bool) { app.on = v })
 ui.Radio("ra", "A").Check(app.radio == 0).OnClick(func() { app.radio = 0 })
@@ -107,13 +116,13 @@ ui.Slider("vol", app.vol).Min(0).Max(100).OnFloatChange(func(v float64) { app.vo
 ui.Button("tip", ui.Text("Save")).Tooltip("Save document")
 ```
 
-Button variants: default **Secondary**; `.Primary()` / `.Subtle()` / `.Ghost()`. Ghost is text-like (no padding or chrome) for footers; chain `.HoverFill()` for a hover background. Supports `.IconStart(icons.Icon)` and `.Tooltip()`. `IconButton(id, icons.Settings)`.
+Button variants: default **Secondary**; `.Primary()` / `.Subtle()` / `.Ghost()`. Ghost is text-like (no padding or chrome) for footers; chain `.HoverFill()` for a hover background. Supports `.IconStart()` and `.Tooltip()`. `IconButton(id, iconName)`.
 
 Do **not** construct `NewEditor` / `NewTable` / `NewTree` inside `Body`. Construct in `Build*`, then `ui.ViewOf(app.table).Height(220)` / `.Grow(1)`.
 
 ## Theme
 
-`theme.Use(name)` mutates the live theme in place. Default `yoga-dark`. Prefer `ui.Token*` fills so widgets recolor on switch. `c.Theme()` for spacing, radius, stroke, typography, semantic colors (`th.Success`, `th.Error`, …).
+`theme.Use(name)` mutates the live theme in place. Default `yoga-dark`. `theme.Use("system")` applies `yoga-dark` or `yoga-light` from the OS appearance and keeps syncing while selected. Prefer `ui.Token*` fills so widgets recolor on switch. `c.Theme()` for spacing, radius, stroke, typography, semantic colors (`th.Success`, `th.Error`, …).
 
 ```go
 ui.Text("hi").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted))
@@ -131,7 +140,7 @@ Select a theme **before** `yoga.Run` if the app is not dark-default (`example/ap
 - `FileDialog`: pure-Go picker with open file/folder and save modes. Footer holds filename (save), filter, optional New Folder (`AllowCreateFolder`), Cancel, and Open/Select/Save. See [widgets.md](widgets.md).
 - `c.Dialogs().Show(DialogOpts)`: custom size, body layout, and footer actions (same modal behavior as FileDialog). `ShowInfo` / `ShowWarning` / `ShowError` / `ShowAction` / `ShowInput` are built on this path.
 - `Form`: labeled settings rows (switch, select, number, text, slider, stepper). `Switch`: pill toggle for compact rows.
-- Anchored overlays: `.Tooltip(text)` on any node; `Popover` (no scrim, click trigger to toggle); `ContextMenu` (right-click → `Menu`). Dropdowns/Selects/Menus call `c.Overlay` themselves. **Do not use `Dialog` for lightweight history panels** — use `Popover` anchored to a footer/toolbar button with `.Placement(ui.PlacementTop)` when the trigger sits at the bottom of the window.
+- Anchored overlays: `.Tooltip(text)` on any node; `Popover` (no scrim); `ContextMenu` (right-click → `Menu`). Dropdowns/Selects/Menus call `c.Overlay` themselves.
 - `c.Focus().EnsureFocus(w)` / `.DefaultFocus()` on a control when nothing is focused. Tab order = Layout registration order.
 - Background work: mutate app state, then `c.Invalidate()` (any goroutine). Capture `c` only for the current frame’s `Invalidate` closure, or keep a wake func — prefer storing results on the app and calling `Invalidate` from a handle the runtime already has. Pattern in `example/apitest`: poll a channel in `Body`, `c.Animate(30*time.Millisecond)` while pending.
 - Caret blink / spinner / progress / skeleton: widget calls `c.Animate(d)` during Layout.
@@ -155,10 +164,8 @@ Store hover in `c.Widget(id, func() any { return &state{} })`.
 - Unique widget ids (`"send"`, `"todo-%d"`). Colliding ids share hover/caret.
 - Controlled values from the app; never treat TextField as owning the string.
 - `Row` children that should stretch vertically: parent `.Align(ui.AlignStretch)`.
-- Splitter: `ui.Splitter(id, ui.Horizontal|Vertical, a, b).Sizes(240, 0).Grow(1)` — `0` means flex.
-- Drawer: `ui.Drawer(id, panel, page).Open(v).Edge(ui.EdgeRight).Overlay().Size(320).Grow(1)` — or `.Push()`; nest for IDE-style terminal + chat; `.Swipe(true)` for drag gestures. Panel content fills a clipped viewport — use `.Grow(1)` on the panel view, not fixed width/height (the drawer owns main-axis size).
-  - **Bottom console / terminal:** `.Edge(ui.EdgeBottom).Push().Resizable(true)` — wrap only the **editor/workspace** pane, not the whole page (e.g. inside a `Splitter` right child so the sidebar tree stays full height). Toggle `.Open(v)` from app state; sync with `.OnOpenChange`.
-  - **Avoid `ui.Stack` at the app root** for overlays — defaults center children and shrink the UI. Use `Drawer`, `Popover`, or window services (`c.Dialogs()`, `c.Overlay`) instead.
+- Splitter: `ui.Splitter(id, ui.Horizontal|Vertical, a, b).Sizes(240, 0).Grow(1)` — `0` means flex. Prefer `.Percents(30, 70)` for ratio splits; `.MinSizes` / `.MaxSizes` (px, `0` max = none); `.HandleOnHover()` hides the handle line until hover/drag.
+- Drawer: `ui.Drawer(id, panel, page).Open(v).Edge(ui.EdgeRight).Overlay().Size(320).Grow(1)` — or `.Push()`; nest for IDE-style terminal + chat; `.Swipe(true)` for drag gestures. Panel content fills a clipped viewport — use `.Grow(1)` on the panel view, not fixed width.
 - Icons: Lucide symbols from `github.com/mirzakhany/yoga/icons` (`icons.Search`, `icons.Plus`, `icons.Settings`, …). Full list in `icons/catalog` for the component gallery. Regenerate: `go run ./cmd/generate-lucide`.
 - After async HTTP/highlight: `Invalidate` or `Animate`; idle loop otherwise waits forever.
 - Tests/CI: `go test ./...` and `go build -tags nogpu ./...`.
@@ -169,7 +176,7 @@ Store hover in `c.Widget(id, func() any { return &state{} })`.
 |---|---|
 | `example/todo` | Smallest complete app: form, list, controlled fields |
 | `example/gallery` | Shell + editor workspace + widget gallery |
-| `example/catalog` | Sidebar catalog: grouped nav + per-widget live showcases |
+| `example/catalog` | Sidebar catalog + live showcases; **custom title bar** demo |
 | `example/apitest` | Splitter, editors, Select colors, pending Animate |
 | `example/chapar` | Multi-page nav shell, sub-`Layout` helpers |
 

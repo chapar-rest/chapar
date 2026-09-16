@@ -29,6 +29,8 @@ func NewProtoFilesPage(repo repository.RepositoryV2, list func() []*domain.Proto
 		{ID: "pkg", Label: "Package", Kind: ui.TableColText, Width: 160},
 		{ID: "act", Label: "", Kind: ui.TableColActions, Width: 40, Locked: true},
 	}, []ui.TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}})
+	p.table.HighlightSelected = false
+	p.table.CollapseEmpty = true
 	p.table.Actions[0].OnClick = func(rowID string) { p.deleteID(rowID) }
 	p.table.Selectable = true
 	p.table.MultiSelect = true

@@ -25,6 +25,8 @@ func NewWorkspacesPage(repo repository.RepositoryV2, list func() []*domain.Works
 		{ID: "name", Label: "Name", Kind: ui.TableColEditable, Width: 0, Sortable: true},
 		{ID: "act", Label: "", Kind: ui.TableColActions, Width: 40, Locked: true},
 	}, []ui.TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}})
+	p.table.HighlightSelected = false
+	p.table.CollapseEmpty = true
 	p.table.Actions[0].OnClick = func(rowID string) { p.deleteID(rowID) }
 	p.table.OnCellChange = func(rowID, colID, value string) {
 		if colID != "name" {
