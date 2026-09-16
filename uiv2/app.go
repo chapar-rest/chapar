@@ -47,7 +47,8 @@ type App struct {
 	console    *ConsolePanel
 	notifs     NotificationHistory
 	notifsOpen bool
-	navOpen    bool
+	sideOpen   bool
+	hideNavbar bool
 }
 
 var _ yoga.App = (*App)(nil)
@@ -55,8 +56,9 @@ var _ yoga.Closer = (*App)(nil)
 var _ yoga.KeyHook = (*App)(nil)
 
 func BuildApp() *App {
-	a := &App{console: &ConsolePanel{}, navOpen: true}
+	a := &App{console: &ConsolePanel{}, sideOpen: true}
 	a.settings = settings.New(func(spec domain.GlobalConfigSpec) {
+		a.hideNavbar = spec.General.HideNavbar
 		applyChaparAppearance(spec.General, spec.Editor)
 	})
 
@@ -102,6 +104,7 @@ func BuildApp() *App {
 		a.catalog.Load, a.showError, a.switchWorkspace)
 
 	cfg := prefs.GetGlobalConfig()
+	a.hideNavbar = cfg.Spec.General.HideNavbar
 	applyChaparAppearance(cfg.Spec.General, cfg.Spec.Editor)
 
 	go a.initScripting()
@@ -315,6 +318,8 @@ func (a *App) registerCommands(c *ui.Ctx) {
 }
 
 func (a *App) pageView(c *ui.Ctx) ui.View {
+	a.requests.SideOpen = a.sideOpen
+	a.envs.SideOpen = a.sideOpen
 	switch a.navIndex {
 	case navEnvs:
 		return a.envs.Layout(c)
@@ -350,12 +355,12 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 	}
 
 	toggleIcon := icons.PanelLeft
-	if a.navOpen {
+	if a.sideOpen {
 		toggleIcon = icons.PanelLeftClose
 	}
 
 	return ui.TitleBar(
-		ui.IconButton("toggle-nav", toggleIcon).OnClick(func() { a.toggleNav() }),
+		ui.IconButton("toggle-side", toggleIcon).OnClick(func() { a.toggleSide() }),
 		ui.Select("top-ws", wsOpts).Width(170).Selected(wsSel).OnChange(func(v string) {
 			if ws := a.catalog.WorkspaceByID(v); ws != nil {
 				a.switchWorkspace(ws)
@@ -376,8 +381,8 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 	)
 }
 
-func (a *App) toggleNav() {
-	a.navOpen = !a.navOpen
+func (a *App) toggleSide() {
+	a.sideOpen = !a.sideOpen
 }
 
 func (a *App) openSettings(c *ui.Ctx) {
@@ -413,7 +418,7 @@ func (a *App) showSettingsDialog(c *ui.Ctx) {
 }
 
 func (a *App) nav(c *ui.Ctx) ui.View {
-	if !a.navOpen {
+	if a.hideNavbar {
 		return nil
 	}
 

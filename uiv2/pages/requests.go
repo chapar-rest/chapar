@@ -40,14 +40,15 @@ type RequestsCatalog interface {
 }
 
 type Requests struct {
-	query   string
-	tree    *ui.Tree
-	repo    repository.RepositoryV2
-	cat     RequestsCatalog
-	ws      workspace
-	console consoleDrawer
-	files   func() *ui.FileDialog
-	err     func(error)
+	query    string
+	tree     *ui.Tree
+	repo     repository.RepositoryV2
+	cat      RequestsCatalog
+	ws       workspace
+	console  consoleDrawer
+	files    func() *ui.FileDialog
+	err      func(error)
+	SideOpen bool
 }
 
 func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error), console consoleDrawer) *Requests {
@@ -374,6 +375,9 @@ func (p *Requests) Layout(c *ui.Ctx) ui.View {
 	workspace := p.ws.Layout(c)
 	if p.console != nil {
 		workspace = p.console.WrapWorkspace(c, workspace)
+	}
+	if !p.SideOpen {
+		return workspace
 	}
 	return ui.Splitter("req-page-split", ui.Horizontal, p.side(c), workspace).Sizes(280, 0).Grow(1)
 }

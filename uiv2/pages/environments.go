@@ -9,15 +9,16 @@ import (
 )
 
 type Environments struct {
-	query string
-	tree  *ui.Tree
-	repo  repository.RepositoryV2
-	list  func() []*domain.Environment
-	get   func(id string) *domain.Environment
-	load  func() error
-	ws    workspace
-	files func() *ui.FileDialog
-	err   func(error)
+	query    string
+	tree     *ui.Tree
+	repo     repository.RepositoryV2
+	list     func() []*domain.Environment
+	get      func(id string) *domain.Environment
+	load     func() error
+	ws       workspace
+	files    func() *ui.FileDialog
+	err      func(error)
+	SideOpen bool
 }
 
 func NewEnvironmentsPage(repo repository.RepositoryV2, list func() []*domain.Environment, get func(id string) *domain.Environment, load func() error, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Environments {
@@ -140,7 +141,11 @@ func (p *Environments) importFile() {
 }
 
 func (p *Environments) Layout(c *ui.Ctx) ui.View {
-	return ui.Splitter("env-page-split", ui.Horizontal, p.side(c), p.ws.Layout(c)).Sizes(280, 0).Grow(1)
+	workspace := p.ws.Layout(c)
+	if !p.SideOpen {
+		return workspace
+	}
+	return ui.Splitter("env-page-split", ui.Horizontal, p.side(c), workspace).Sizes(280, 0).Grow(1)
 }
 
 func (p *Environments) side(c *ui.Ctx) ui.View {

@@ -43,6 +43,7 @@ type GeneralConfig struct {
 	VaidateTLSCertificates bool   `yaml:"validateTLSCertificates"`
 	Theme                  string `yaml:"theme"`
 	UIFontSize             int    `yaml:"uiFontSize"`
+	HideNavbar             bool   `yaml:"hideNavbar"`
 }
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
@@ -55,7 +56,8 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.FollowRedirects != other.FollowRedirects ||
 		g.VaidateTLSCertificates != other.VaidateTLSCertificates ||
 		g.Theme != other.Theme ||
-		g.UIFontSize != other.UIFontSize
+		g.UIFontSize != other.UIFontSize ||
+		g.HideNavbar != other.HideNavbar
 }
 
 const (
@@ -188,6 +190,7 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"validateTLSCertificate": g.Spec.General.VaidateTLSCertificates,
 			"theme":                  g.Spec.General.Theme,
 			"uiFontSize":             g.Spec.General.UIFontSize,
+			"hideNavbar":             g.Spec.General.HideNavbar,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -231,6 +234,7 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.General.VaidateTLSCertificates = getOrDefault(values, "validateTLSCertificates", g.Spec.General.VaidateTLSCertificates).(bool)
 	g.Spec.General.Theme = getOrDefault(values, "theme", g.Spec.General.Theme).(string)
 	g.Spec.General.UIFontSize = getOrDefault(values, "uiFontSize", g.Spec.General.UIFontSize).(int)
+	g.Spec.General.HideNavbar = getOrDefault(values, "hideNavbar", g.Spec.General.HideNavbar).(bool)
 
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)

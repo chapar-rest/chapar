@@ -119,12 +119,6 @@ func handleStyle(axis Axis) layout.Style {
 }
 
 func applyPaneStyle(el *layout.Element, axis Axis, size float32) {
-	// Preserve decoration: a full Style replace would clear BgColor/borders set
-	// by pane roots via Background(Token…) / applyVisualSpec.
-	bg, border, borderW := el.Style.BgColor, el.Style.BorderColor, el.Style.BorderWidth
-	borderWidths, borderStyle := el.Style.BorderWidths, el.Style.BorderStyle
-	radius, radii := el.Style.Radius, el.Style.Radii
-
 	style := layout.Box().FlexShrink(0)
 	if size > 0 {
 		if axis == Horizontal {
@@ -141,13 +135,6 @@ func applyPaneStyle(el *layout.Element, axis Axis, size float32) {
 		}
 	}
 	el.Style = style
-	el.Style.BgColor = bg
-	el.Style.BorderColor = border
-	el.Style.BorderWidth = borderW
-	el.Style.BorderWidths = borderWidths
-	el.Style.BorderStyle = borderStyle
-	el.Style.Radius = radius
-	el.Style.Radii = radii
 	el.ReapplyStyle()
 }
 

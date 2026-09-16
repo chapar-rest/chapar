@@ -114,6 +114,11 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 				g.General.UseHorizontalSplit = v
 				p.mark()
 			}),
+			ui.FormSwitch("hideNavbar", "Hide navbar", "Hide the left navigation bar", g.General.HideNavbar, func(v bool) {
+				g.General.HideNavbar = v
+				p.mark()
+				p.previewAppearance()
+			}),
 		).Padding(th.Spacing.M)
 	case catScripting:
 		return p.scriptingForm(th, g)
