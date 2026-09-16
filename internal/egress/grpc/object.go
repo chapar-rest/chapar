@@ -18,6 +18,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/safemap"
+	"github.com/chapar-rest/chapar/internal/util"
 	"github.com/chapar-rest/chapar/internal/variables"
 )
 
@@ -121,7 +122,8 @@ func (s *Service) SendObject(req *domain.Request, env *domain.Environment, colle
 		return nil, errors.New("no method selected")
 	}
 
-	conn, err := s.Dial(spec)
+	traceCol := egress.NewGRPCTraceCollector(spec.ServerInfo.Address, spec.Settings.Insecure)
+	conn, err := s.Dial(spec, grpc.WithStatsHandler(traceCol))
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +175,9 @@ func (s *Service) SendObject(req *domain.Request, env *domain.Environment, colle
 	}
 	elapsed := time.Since(start)
 
+	body := []byte(respStr)
+	kind, pretty, jsonStr, isJSON := util.ApplyBodyFormat("application/json", body)
+
 	return &egress.Response{
 		TimePassed:       elapsed,
 		ResponseMetadata: domain.MetadataToKeyValue(respHeaders),
@@ -182,10 +187,13 @@ func (s *Service) SendObject(req *domain.Request, env *domain.Environment, colle
 		StatueCode:       int(status.Code(respErr)),
 		Status:           status.Code(respErr).String(),
 		Size:             len(respStr),
-		Body:             []byte(respStr),
-		JSON:             respStr,
-		IsJSON:           json.Valid([]byte(respStr)),
+		Body:             body,
+		JSON:             jsonStr,
+		IsJSON:           isJSON,
+		Pretty:           pretty,
+		BodyKind:         kind,
 		StatusCode:       int(status.Code(respErr)),
+		Timeline:         traceCol.Steps(),
 	}, nil
 }
 

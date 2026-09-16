@@ -39,6 +39,8 @@ type Container struct {
 	resultCh              chan result
 	lastResp              *egress.Response
 	statusText            string
+	respRaw               bool
+	timeline              container.TimelineState
 	authState             container.AuthState
 }
 
@@ -56,7 +58,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 			{Title: "Query"}, {Title: "Variables"}, {Title: "Headers"},
 			{Title: "Auth"}, {Title: "Pre"}, {Title: "Post"}, {Title: "Info"},
 		},
-		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}},
+		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Timeline"}},
 		statusText: "Ready",
 	}
 	c.queryEd = ui.NewEditor([]byte(g.Query), highlight.Noop{})
@@ -90,6 +92,7 @@ func (c *Container) Close() {
 	c.descEd.Close()
 	c.respEd.Close()
 	c.respHdrEd.Close()
+	c.timeline.Close()
 	if c.preScript != nil {
 		c.preScript.Close()
 	}
@@ -218,9 +221,6 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	}
 	return ui.Column(
 		ui.Column(rows...).
-			Radius(th.Radius.Medium).
-			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
-			BorderStyle(ui.BorderDotted).
 			Padding(th.Spacing.S).
 			Gap(th.Spacing.S).Grow(1),
 	)
@@ -228,19 +228,35 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 
 func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
+
+	var content ui.View
+	switch c.respActive {
+	case 2:
+		var steps []egress.TimelineStep
+		if c.lastResp != nil {
+			steps = c.lastResp.Timeline
+		}
+		content = container.TimelineView("gql-tl-"+id, th, ctx, c.deps, &c.timeline, steps)
+	default:
+		fname := "response.txt"
+		if c.lastResp != nil {
+			fname = container.DefaultResponseFilename(c.lastResp.BodyKind)
+		}
+		content = container.ResponseEditorMenu("gql-resp-"+id, c.activeResp(), ctx, c.deps, fname)
+	}
+
 	return ui.Column(
 		ui.Column(
 			ui.Text(c.statusText).Style(container.StatusLineStyle(c.statusText != "" && strings.HasPrefix(c.statusText, "error"), 0, c.lastResp != nil)),
-			ui.Row(ui.Spacer(),
-				ui.Button("gql-copy-"+id, ui.Text("Copy")).IconStart(icons.ClipboardCopy).OnClick(func() {
-					ctx.Clipboard().Set(string(c.activeResp().Bytes()))
-					c.deps.Toast("Copied")
-				}),
+			container.ResponseTabsRow("gql-resp-"+id, th, c.respTabs, c.respActive,
+				func(i int, _ string) { c.respActive = i },
+				c.respRaw,
+				func(raw bool) {
+					c.respRaw = raw
+					c.applyBodyEditor()
+				},
 			),
-			ui.Tabs("gql-resp-tabs-"+id, c.respTabs).Selected(c.respActive).
-				Closable(false).
-				OnSelectItem(func(i int, _ string) { c.respActive = i }).TabBackground(th.Background),
-			ui.ViewOf(c.activeResp()).Grow(1),
+			content,
 		).Radius(th.Radius.Medium).
 			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
 			BorderStyle(ui.BorderDotted).
@@ -256,18 +272,28 @@ func (c *Container) activeResp() *ui.Editor {
 	return c.respEd
 }
 
+func (c *Container) applyBodyEditor() {
+	if c.lastResp == nil {
+		return
+	}
+	c.respEd = container.ReplaceEditor(c.respEd, container.DisplayBody(c.lastResp, c.respRaw), container.BodyHighlighter(c.lastResp.BodyKind))
+}
+
 func (c *Container) handle(r result) {
 	c.pending = false
 	if r.err != nil {
 		c.statusText = r.err.Error()
-		c.lastResp = nil
-		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()), highlight.NewJSON())
+		c.lastResp = r.resp
+		c.respEd = container.ReplaceEditor(c.respEd, []byte(r.err.Error()), highlight.Noop{})
+		if r.resp != nil {
+			c.timeline.SetSteps(r.resp.Timeline)
+		}
 		return
 	}
 	res := r.resp
 	c.lastResp = res
-	c.statusText = fmt.Sprintf("%d  %s  %d B", res.StatusCode, res.TimePassed.Round(time.Millisecond), len(res.Body))
-	c.respEd = replaceEditor(c.respEd, container.DisplayBody(res), highlight.NewJSON())
+	c.statusText = fmt.Sprintf("%d  %s  %s", res.StatusCode, res.TimePassed.Round(time.Millisecond), container.FormatBytes(len(res.Body)))
+	c.applyBodyEditor()
 	var hdr strings.Builder
 	fmt.Fprintf(&hdr, "# --- Request Headers ---\n")
 	for k, v := range res.RequestHeaders {
@@ -277,12 +303,6 @@ func (c *Container) handle(r result) {
 	for k, v := range res.ResponseHeaders {
 		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
-	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
-}
-
-func replaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
-	if old != nil {
-		old.Close()
-	}
-	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
+	c.respHdrEd = container.ReplaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
+	c.timeline.SetSteps(res.Timeline)
 }

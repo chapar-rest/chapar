@@ -39,6 +39,8 @@ type Container struct {
 	resultCh              chan result
 	lastResp              *egress.Response
 	statusText            string
+	respRaw               bool
+	timeline              container.TimelineState
 	methods               []ui.SelectOption
 	loading               bool
 	authState             container.AuthState
@@ -59,7 +61,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 			{Title: "Body"}, {Title: "Metadata"}, {Title: "Auth"}, {Title: "Variables"},
 			{Title: "Server"}, {Title: "Settings"}, {Title: "Pre"}, {Title: "Post"}, {Title: "Info"},
 		},
-		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Metadata"}, {Title: "Trailers"}},
+		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Metadata"}, {Title: "Trailers"}, {Title: "Timeline"}},
 		statusText: "Ready",
 	}
 	c.bodyEd = ui.NewEditor([]byte(r.Spec.GRPC.Body), highlight.NewJSON())
@@ -86,6 +88,7 @@ func (c *Container) Close() {
 	c.respEd.Close()
 	c.respMetaEd.Close()
 	c.respTrailEd.Close()
+	c.timeline.Close()
 }
 func (c *Container) markDirty() { c.dirty = true; c.deps.ReportDirty(true) }
 
@@ -274,9 +277,6 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	}
 	return ui.Column(
 		ui.Column(rows...).
-			Radius(th.Radius.Medium).
-			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
-			BorderStyle(ui.BorderDotted).
 			Padding(th.Spacing.S).
 			Gap(th.Spacing.S).Grow(1),
 	)
@@ -353,19 +353,35 @@ func certPicker(id, label, path string, deps container.Deps, onPick func(string)
 
 func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
+
+	var content ui.View
+	switch c.respActive {
+	case 3:
+		var steps []egress.TimelineStep
+		if c.lastResp != nil {
+			steps = c.lastResp.Timeline
+		}
+		content = container.TimelineView("grpc-tl-"+id, th, ctx, c.deps, &c.timeline, steps)
+	default:
+		fname := "response.txt"
+		if c.lastResp != nil {
+			fname = container.DefaultResponseFilename(c.lastResp.BodyKind)
+		}
+		content = container.ResponseEditorMenu("grpc-resp-"+id, c.activeResp(), ctx, c.deps, fname)
+	}
+
 	return ui.Column(
 		ui.Column(
 			ui.Text(c.statusText).Style(container.StatusLineStyle(false, 0, c.statusText != "" && c.statusText != "Ready")),
-			ui.Row(ui.Spacer(),
-				ui.Button("grpc-copy-"+id, ui.Text("Copy")).IconStart(icons.ClipboardCopy).OnClick(func() {
-					ctx.Clipboard().Set(string(c.activeResp().Bytes()))
-					c.deps.Toast("Copied")
-				}),
+			container.ResponseTabsRow("grpc-resp-"+id, th, c.respTabs, c.respActive,
+				func(i int, _ string) { c.respActive = i },
+				c.respRaw,
+				func(raw bool) {
+					c.respRaw = raw
+					c.applyBodyEditor()
+				},
 			),
-			ui.Tabs("grpc-resp-tabs-"+id, c.respTabs).Selected(c.respActive).
-				Closable(false).
-				OnSelectItem(func(i int, _ string) { c.respActive = i }).TabBackground(th.Background),
-			ui.ViewOf(c.activeResp()).Grow(1),
+			content,
 		).Radius(th.Radius.Medium).
 			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
 			BorderStyle(ui.BorderDotted).
@@ -385,11 +401,22 @@ func (c *Container) activeResp() *ui.Editor {
 	}
 }
 
+func (c *Container) applyBodyEditor() {
+	if c.lastResp == nil {
+		return
+	}
+	c.respEd = container.ReplaceEditor(c.respEd, container.DisplayBody(c.lastResp, c.respRaw), container.BodyHighlighter(c.lastResp.BodyKind))
+}
+
 func (c *Container) handle(r result) {
 	c.pending = false
 	if r.err != nil {
 		c.statusText = r.err.Error()
-		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()), highlight.NewJSON())
+		c.lastResp = r.resp
+		c.respEd = container.ReplaceEditor(c.respEd, []byte(r.err.Error()), highlight.Noop{})
+		if r.resp != nil {
+			c.timeline.SetSteps(r.resp.Timeline)
+		}
 		return
 	}
 	if r.resp == nil {
@@ -397,10 +424,11 @@ func (c *Container) handle(r result) {
 		return
 	}
 	c.lastResp = r.resp
-	c.statusText = fmt.Sprintf("%s  %s  %d B", r.resp.Status, r.resp.TimePassed.Round(time.Millisecond), r.resp.Size)
-	c.respEd = replaceEditor(c.respEd, container.DisplayBody(r.resp), highlight.NewJSON())
-	c.respMetaEd = replaceEditor(c.respMetaEd, []byte(formatMeta(r.resp)), highlight.Noop{})
-	c.respTrailEd = replaceEditor(c.respTrailEd, []byte(container.FormatKeyValues(r.resp.Trailers, "Trailers")), highlight.Noop{})
+	c.statusText = fmt.Sprintf("%s  %s  %s", r.resp.Status, r.resp.TimePassed.Round(time.Millisecond), container.FormatBytes(r.resp.Size))
+	c.applyBodyEditor()
+	c.respMetaEd = container.ReplaceEditor(c.respMetaEd, []byte(formatMeta(r.resp)), highlight.Noop{})
+	c.respTrailEd = container.ReplaceEditor(c.respTrailEd, []byte(container.FormatKeyValues(r.resp.Trailers, "Trailers")), highlight.Noop{})
+	c.timeline.SetSteps(r.resp.Timeline)
 	vars := container.DumpVariables(c.vars)
 	container.UpdateVariablePreviews(c.vars, vars, r.resp)
 }
@@ -411,13 +439,6 @@ func formatMeta(res *egress.Response) string {
 	b.WriteString("\n")
 	b.WriteString(container.FormatKeyValues(res.ResponseMetadata, "Response Metadata"))
 	return b.String()
-}
-
-func replaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
-	if old != nil {
-		old.Close()
-	}
-	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
 }
 
 func optionIndex(v string, opts []ui.SelectOption) int {

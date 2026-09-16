@@ -54,6 +54,9 @@ type Container struct {
 	respDur    time.Duration
 	respSize   int
 	respErr    bool
+	respRaw    bool
+
+	timeline container.TimelineState
 
 	authState container.AuthState
 }
@@ -76,7 +79,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 			{Title: "Headers"}, {Title: "Variables"}, {Title: "Pre"}, {Title: "Post"},
 			{Title: "Info"},
 		},
-		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Cookies"}},
+		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Cookies"}, {Title: "Timeline"}},
 		statusText: "Ready",
 	}
 	body := ""
@@ -128,6 +131,7 @@ func (c *Container) Close() {
 	c.respEd.Close()
 	c.respHdrEd.Close()
 	c.respCkEd.Close()
+	c.timeline.Close()
 	if c.preScript != nil {
 		c.preScript.Close()
 	}
@@ -207,16 +211,8 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	methods := methodOptions()
 	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
 
-	breadcrumb := container.RequestBreadcrumb(c.req)
-	titleViews := []ui.View{}
-	if breadcrumb != "" {
-		titleViews = append(titleViews, ui.Caption(breadcrumb).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)))
-	}
-	titleViews = append(titleViews, ui.Caption(http.Method).Style(ui.Spec{}.TextColor(ui.TokenForeground)))
-
 	return ui.Column(
 		ui.Row(
-			ui.Row(titleViews...).Gap(th.Spacing.XS).Align(ui.AlignCenter).MarginRight(th.Spacing.S),
 			ui.Select("http-method-"+id, methods).
 				Width(110).
 				Selected(optionIndex(http.Method, methods)).
@@ -300,9 +296,6 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	}
 	return ui.Column(
 		ui.Column(body...).
-			Radius(th.Radius.Medium).
-			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
-			BorderStyle(ui.BorderDotted).
 			Padding(th.Spacing.S).
 			Gap(th.Spacing.S).Grow(1),
 	)
@@ -375,22 +368,35 @@ func (c *Container) bodyTab(th *theme.Theme, id string, http *domain.HTTPRequest
 
 func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
+
+	var content ui.View
+	switch c.respActive {
+	case 3:
+		var steps []egress.TimelineStep
+		if c.lastResp != nil {
+			steps = c.lastResp.Timeline
+		}
+		content = container.TimelineView("http-tl-"+id, th, ctx, c.deps, &c.timeline, steps)
+	default:
+		fname := "response.txt"
+		if c.lastResp != nil {
+			fname = container.DefaultResponseFilename(c.lastResp.BodyKind)
+		}
+		content = container.ResponseEditorMenu("http-resp-"+id, c.activeResp(), ctx, c.deps, fname)
+	}
+
 	return ui.Column(
 		ui.Column(
 			c.statusLine(th),
-			ui.Row(
-				ui.Spacer(),
-				ui.Button("http-copy-"+id, ui.Text("Copy")).IconStart(icons.ClipboardCopy).OnClick(func() {
-					ctx.Clipboard().Set(string(c.activeResp().Bytes()))
-					c.deps.Toast("Copied")
-				}),
+			container.ResponseTabsRow("http-resp-"+id, th, c.respTabs, c.respActive,
+				func(i int, _ string) { c.respActive = i },
+				c.respRaw,
+				func(raw bool) {
+					c.respRaw = raw
+					c.applyBodyEditor()
+				},
 			),
-			ui.Tabs("http-resp-tabs-"+id, c.respTabs).
-				Selected(c.respActive).
-				Closable(false).
-				OnSelectItem(func(i int, _ string) { c.respActive = i }).
-				TabBackground(th.Background),
-			ui.ViewOf(c.activeResp()).Grow(1),
+			content,
 		).Radius(th.Radius.Medium).
 			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
 			BorderStyle(ui.BorderDotted).
@@ -414,14 +420,25 @@ func (c *Container) statusLine(th *theme.Theme) ui.View {
 	return ui.Text(c.statusText).Style(container.StatusLineStyle(c.respErr, c.respCode, c.haveResult))
 }
 
+func (c *Container) applyBodyEditor() {
+	if c.lastResp == nil {
+		return
+	}
+	kind := c.lastResp.BodyKind
+	c.respEd = container.ReplaceEditor(c.respEd, container.DisplayBody(c.lastResp, c.respRaw), container.BodyHighlighter(kind))
+}
+
 func (c *Container) handleResult(r result) {
 	c.pending = false
 	c.haveResult = true
 	if r.err != nil {
 		c.respErr = true
-		c.lastResp = nil
+		c.lastResp = r.resp
 		c.statusText = r.err.Error()
-		c.respEd = replaceEditor(c.respEd, []byte(r.err.Error()), highlight.NewJSON())
+		c.respEd = container.ReplaceEditor(c.respEd, []byte(r.err.Error()), highlight.Noop{})
+		if r.resp != nil {
+			c.timeline.SetSteps(r.resp.Timeline)
+		}
 		return
 	}
 	res := r.resp
@@ -437,9 +454,9 @@ func (c *Container) handleResult(r result) {
 	if res.Error != nil {
 		c.statusText = res.Error.Error()
 	} else {
-		c.statusText = fmt.Sprintf("%d %s  %s  %d B", c.respCode, strings.TrimSpace(c.respStatus), c.respDur.Round(time.Millisecond), c.respSize)
+		c.statusText = fmt.Sprintf("%d %s  %s  %s", c.respCode, strings.TrimSpace(c.respStatus), c.respDur.Round(time.Millisecond), container.FormatBytes(c.respSize))
 	}
-	c.respEd = replaceEditor(c.respEd, container.DisplayBody(res), highlight.NewJSON())
+	c.applyBodyEditor()
 	var hdr strings.Builder
 	fmt.Fprintf(&hdr, "# --- Request Headers ---\n")
 	for k, v := range res.RequestHeaders {
@@ -449,21 +466,15 @@ func (c *Container) handleResult(r result) {
 	for k, v := range res.ResponseHeaders {
 		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
-	c.respHdrEd = replaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
+	c.respHdrEd = container.ReplaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
 	var ck strings.Builder
 	for _, cookie := range res.Cookies {
 		fmt.Fprintf(&ck, "%s=%s\n", cookie.Name, cookie.Value)
 	}
-	c.respCkEd = replaceEditor(c.respCkEd, []byte(ck.String()), highlight.Noop{})
+	c.respCkEd = container.ReplaceEditor(c.respCkEd, []byte(ck.String()), highlight.Noop{})
+	c.timeline.SetSteps(res.Timeline)
 	vars := container.DumpVariables(c.vars)
 	container.UpdateVariablePreviews(c.vars, vars, res)
-}
-
-func replaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
-	if old != nil {
-		old.Close()
-	}
-	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
 }
 
 func bodyHighlighter(bodyType string) highlight.Highlighter {
@@ -471,7 +482,7 @@ func bodyHighlighter(bodyType string) highlight.Highlighter {
 	case domain.RequestBodyTypeJSON:
 		return highlight.NewJSON()
 	case domain.RequestBodyTypeXML:
-		return highlight.Noop{}
+		return highlight.NewXML()
 	default:
 		return highlight.Noop{}
 	}

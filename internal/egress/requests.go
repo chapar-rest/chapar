@@ -16,6 +16,21 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Timeline step phase constants.
+const (
+	TimelinePhaseApp     = "app"
+	TimelinePhaseNetwork = "network"
+)
+
+// TimelineStep is one timed stage of a request (app pipeline or network).
+type TimelineStep struct {
+	Name     string
+	Phase    string // TimelinePhaseApp | TimelinePhaseNetwork
+	Duration time.Duration
+	Detail   string
+	Err      string
+}
+
 type Response struct {
 	// http and graphql
 	StatusCode      int
@@ -37,6 +52,12 @@ type Response struct {
 	TimePassed time.Duration
 	IsJSON     bool
 	JSON       string
+
+	// Pretty is a formatted body for display when available; Body stays raw.
+	Pretty   string
+	BodyKind string // util.BodyKindJSON | XML | HTML | Text
+
+	Timeline []TimelineStep
 }
 
 type Sender interface {

@@ -3,6 +3,8 @@ package sender
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -59,8 +61,15 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 	if req == nil {
 		return nil, fmt.Errorf("request is nil")
 	}
-	if err := s.preRequest(req, env); err != nil {
-		return nil, err
+
+	var timeline []egress.TimelineStep
+
+	preStep, err := s.preRequestTimed(req, env)
+	if preStep != nil {
+		timeline = append(timeline, *preStep)
+	}
+	if err != nil {
+		return &egress.Response{Timeline: timeline, Error: err}, err
 	}
 
 	var collection *domain.Collection
@@ -69,10 +78,7 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 	}
 
 	sendEnv := copyEnv(env)
-	var (
-		res *egress.Response
-		err error
-	)
+	var res *egress.Response
 	switch req.MetaData.Type {
 	case domain.RequestTypeHTTP:
 		res, err = s.rest.SendObject(req, sendEnv, collection)
@@ -88,11 +94,22 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 		return nil, fmt.Errorf("unknown request type: %s", req.MetaData.Type)
 	}
 	if err != nil {
-		return nil, err
+		if res == nil {
+			res = &egress.Response{Error: err}
+		}
+		res.Timeline = append(timeline, res.Timeline...)
+		return res, err
 	}
 
-	if err := s.postRequest(req, res, env); err != nil {
-		return nil, err
+	timeline = append(timeline, res.Timeline...)
+
+	postStep, postErr := s.postRequestTimed(req, res, env)
+	if postStep != nil {
+		timeline = append(timeline, *postStep)
+	}
+	res.Timeline = timeline
+	if postErr != nil {
+		return res, postErr
 	}
 	return res, nil
 }
@@ -115,23 +132,77 @@ func (s *Service) GRPCExampleBody(req *domain.Request, env *domain.Environment) 
 	return s.grpc.GetRequestStructFrom(req, env, protoFiles)
 }
 
-func (s *Service) preRequest(req *domain.Request, env *domain.Environment) error {
+func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment) (*egress.TimelineStep, error) {
 	preReq := req.Spec.GetPreRequest()
 	if !domain.DoablePreRequest(preReq) {
-		return nil
+		return nil, nil
 	}
-	if preReq.Type == domain.PrePostTypePython && preReq.Script != "" {
-		return s.executeScript(preReq.Script, req, nil, env)
+	start := time.Now()
+	detail := ""
+	var err error
+	switch {
+	case preReq.Type == domain.PrePostTypePython && preReq.Script != "":
+		detail = "Python pre-request script"
+		err = s.executeScript(preReq.Script, req, nil, env)
+	case preReq.TriggerRequest != nil && s.lookup != nil:
+		triggered := s.lookup(preReq.TriggerRequest.RequestID)
+		if triggered == nil {
+			err = fmt.Errorf("trigger request %s not found", preReq.TriggerRequest.RequestID)
+			detail = fmt.Sprintf("Trigger request %s", preReq.TriggerRequest.RequestID)
+		} else {
+			detail = fmt.Sprintf("Trigger request %s (%s)", triggered.MetaData.Name, triggered.MetaData.ID)
+			_, err = s.Send(triggered, env)
+		}
+	default:
+		return nil, nil
 	}
-	if preReq.TriggerRequest == nil || s.lookup == nil {
-		return nil
+	step := &egress.TimelineStep{
+		Name:     "Pre-request",
+		Phase:    egress.TimelinePhaseApp,
+		Duration: time.Since(start),
+		Detail:   detail,
 	}
-	triggered := s.lookup(preReq.TriggerRequest.RequestID)
-	if triggered == nil {
-		return fmt.Errorf("trigger request %s not found", preReq.TriggerRequest.RequestID)
+	if err != nil {
+		step.Err = err.Error()
 	}
-	_, err := s.Send(triggered, env)
-	return err
+	return step, err
+}
+
+func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, env *domain.Environment) (*egress.TimelineStep, error) {
+	if res == nil {
+		return nil, nil
+	}
+	postReq := req.Spec.GetPostRequest()
+	hasVars := len(req.Spec.GetVariables()) > 0
+	if !domain.DoablePostRequest(postReq) && !hasVars {
+		return nil, nil
+	}
+
+	start := time.Now()
+	var details []string
+	err := s.postRequest(req, res, env)
+	if postReq.Type == domain.PrePostTypePython && postReq.Script != "" {
+		details = append(details, "Python post-request script")
+	}
+	if postReq.Type == domain.PrePostTypeSetEnv && postReq.PostRequestSet.IsValid() {
+		details = append(details, fmt.Sprintf("Set env %s from %s", postReq.PostRequestSet.Target, postReq.PostRequestSet.From))
+	}
+	if hasVars {
+		details = append(details, "Extract variables")
+	}
+	if len(details) == 0 {
+		details = append(details, "Post-request processing")
+	}
+	step := &egress.TimelineStep{
+		Name:     "Post-request",
+		Phase:    egress.TimelinePhaseApp,
+		Duration: time.Since(start),
+		Detail:   strings.Join(details, "\n"),
+	}
+	if err != nil {
+		step.Err = err.Error()
+	}
+	return step, err
 }
 
 func (s *Service) postRequest(req *domain.Request, res *egress.Response, env *domain.Environment) error {
@@ -140,7 +211,13 @@ func (s *Service) postRequest(req *domain.Request, res *egress.Response, env *do
 	}
 	postReq := req.Spec.GetPostRequest()
 	if !domain.DoablePostRequest(postReq) {
-		return nil
+		if env == nil {
+			return nil
+		}
+		if err := s.extractVariables(req.Spec, res, env); err != nil {
+			return err
+		}
+		return s.persistEnv(env)
 	}
 	if postReq.Type == domain.PrePostTypePython && postReq.Script != "" {
 		if err := s.executeScript(postReq.Script, req, res, env); err != nil {
