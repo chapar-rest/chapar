@@ -15,12 +15,12 @@ import (
 
 // AuthState holds auth form field values for a container.
 type AuthState struct {
-	Type            string
-	User, Pass      string
-	Token           string
-	Key, Val        string
-	CollectionID    string
-	AllowInherit    bool
+	Type         string
+	User, Pass   string
+	Token        string
+	Key, Val     string
+	CollectionID string
+	AllowInherit bool
 }
 
 // AuthForm builds the auth type selector and sub-forms.
@@ -70,7 +70,7 @@ func AuthForm(th *theme.Theme, id string, auth *domain.Auth, st *AuthState, cata
 				OnChange(func(s string) { st.Val = s; markDirty() }).Grow(1),
 		)
 	}
-	return ui.Column(rows...).Gap(th.Spacing.S).Grow(1)
+	return ui.Column(rows...).Gap(th.Spacing.S)
 }
 
 // FlushAuth writes auth state into the domain auth object.

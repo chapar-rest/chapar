@@ -37,7 +37,7 @@ func FormDataPane(th *theme.Theme, id string, fields *[]domain.FormField, deps D
 			{Label: "Text", Value: domain.FormFieldTypeText},
 			{Label: "File", Value: domain.FormFieldTypeFile},
 		}
-		row := ui.Row(
+		cells := []ui.View{
 			ui.Checkbox("form-en-"+f.ID, "").Check(f.Enable).OnToggle(func(v bool) {
 				f.Enable = v
 				markDirty()
@@ -47,7 +47,7 @@ func FormDataPane(th *theme.Theme, id string, fields *[]domain.FormField, deps D
 				OnChange(func(v string) { f.Type = v; markDirty() }),
 			ui.TextField("form-key-"+f.ID, f.Key).Placeholder("Key").Width(120).
 				OnChange(func(s string) { f.Key = s; markDirty() }),
-		).Gap(th.Spacing.S).Align(ui.AlignCenter)
+		}
 		if f.Type == domain.FormFieldTypeFile {
 			label := "Choose file…"
 			if len(f.Files) > 0 {
@@ -56,28 +56,22 @@ func FormDataPane(th *theme.Theme, id string, fields *[]domain.FormField, deps D
 					label += fmt.Sprintf(" (+%d)", len(f.Files)-1)
 				}
 			}
-			row = ui.Row(row,
-				ui.Button("form-file-"+f.ID, ui.Text(label)).OnClick(func() {
-					pickFiles(deps, func(paths []string) {
-						f.Files = append(f.Files, paths...)
-						markDirty()
-						deps.WakeNow()
-					})
-				}),
-			).Gap(th.Spacing.S).Align(ui.AlignCenter)
+			cells = append(cells, ui.Button("form-file-"+f.ID, ui.Text(label)).OnClick(func() {
+				pickFiles(deps, func(paths []string) {
+					f.Files = append(f.Files, paths...)
+					markDirty()
+					deps.WakeNow()
+				})
+			}).Grow(1))
 		} else {
-			row = ui.Row(row,
-				ui.TextField("form-val-"+f.ID, f.Value).Placeholder("Value").Grow(1).
-					OnChange(func(s string) { f.Value = s; markDirty() }),
-			).Gap(th.Spacing.S).Align(ui.AlignCenter)
+			cells = append(cells, ui.TextField("form-val-"+f.ID, f.Value).Placeholder("Value").Grow(1).
+				OnChange(func(s string) { f.Value = s; markDirty() }))
 		}
-		row = ui.Row(row,
-			ui.IconButton("form-del-"+f.ID, icons.Trash2).OnClick(func() {
-				*fields = append((*fields)[:i], (*fields)[i+1:]...)
-				markDirty()
-			}),
-		).Gap(th.Spacing.S).Align(ui.AlignCenter)
-		rows = append(rows, row)
+		cells = append(cells, ui.IconButton("form-del-"+f.ID, icons.Trash2).OnClick(func() {
+			*fields = append((*fields)[:i], (*fields)[i+1:]...)
+			markDirty()
+		}))
+		rows = append(rows, ui.Row(cells...).Gap(th.Spacing.S))
 	}
 	return ui.Column(
 		ui.Scroll("form-scroll-"+id, ui.Column(rows...).Gap(th.Spacing.S)),

@@ -22,6 +22,7 @@ package highlight
 
 import (
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"unsafe"
@@ -79,8 +80,78 @@ const DefaultMaxBytes = 2 << 20
 var MaxBytes = DefaultMaxBytes
 
 // classifyFunc walks a parsed syntax tree and emits a flat, ordered list of
-// colored token ranges. Each language supplies one.
-type classifyFunc func(root *tree_sitter.Node, src []byte) []Token
+// colored token ranges for the walker's byte range. Each language supplies one.
+type classifyFunc func(w *rangeWalker, root *tree_sitter.Node)
+
+// rangeWalker collects tokens for the byte range a classifier is asked about.
+//
+// Classifiers describe a language by recursing over nodes; the walker supplies
+// the two operations that make that recursion proportional to the range rather
+// than to the document: add drops tokens outside it, and children skips whole
+// subtrees before it.
+type rangeWalker struct {
+	lo, hi int
+	toks   []Token
+}
+
+// newRangeWalker returns a walker scoped to [lo, hi).
+func newRangeWalker(lo, hi int) *rangeWalker {
+	if hi < lo {
+		hi = lo
+	}
+	return &rangeWalker{lo: lo, hi: hi}
+}
+
+// overlaps reports whether n intersects the requested range.
+func (w *rangeWalker) overlaps(n *tree_sitter.Node) bool {
+	return int(n.EndByte()) > w.lo && int(n.StartByte()) < w.hi
+}
+
+// add records a token for n, unless n lies outside the range.
+func (w *rangeWalker) add(n *tree_sitter.Node, c ColorClass) {
+	if n == nil || !w.overlaps(n) {
+		return
+	}
+	w.toks = append(w.toks, Token{Start: int(n.StartByte()), End: int(n.EndByte()), Class: c})
+}
+
+// children visits the children of n that intersect the range, in source order.
+//
+// Children are source-ordered, so the first one reaching into the range is
+// found by binary search instead of by walking every sibling. That is what
+// makes a viewport-sized request cheap in a document whose root has hundreds of
+// thousands of direct children — a large JSON array, for example.
+func (w *rangeWalker) children(n *tree_sitter.Node, visit func(*tree_sitter.Node)) {
+	count := int(n.ChildCount())
+	if count == 0 {
+		return
+	}
+	start := 0
+	if count > childScanLimit {
+		start = sort.Search(count, func(i int) bool {
+			c := n.Child(uint(i))
+			return c == nil || int(c.EndByte()) > w.lo
+		})
+	}
+	for i := start; i < count; i++ {
+		c := n.Child(uint(i))
+		if c == nil {
+			continue
+		}
+		if int(c.StartByte()) >= w.hi {
+			return
+		}
+		if int(c.EndByte()) <= w.lo {
+			continue
+		}
+		visit(c)
+	}
+}
+
+// childScanLimit is the child count above which children binary-searches for
+// its starting sibling. Below it a linear scan is cheaper than the extra
+// Child() calls a search costs, since every one crosses into C.
+const childScanLimit = 32
 
 type parseJob struct {
 	src  []byte
@@ -100,6 +171,12 @@ type tsHighlighter struct {
 	langFn   func() unsafe.Pointer
 	classify classifyFunc
 	maxBytes int
+	// wantLo/wantHi is the byte range the consumer last asked for, and
+	// rangeSet records whether it ever asked. Until it does, the whole
+	// document is classified, so a consumer that never calls SetRange behaves
+	// as before.
+	wantLo, wantHi int
+	rangeSet       bool
 	// oversize records that the last source exceeded maxBytes, so crossing the
 	// limit clears any tokens the editor is still holding exactly once.
 	oversize bool
@@ -140,6 +217,10 @@ func (h *tsHighlighter) loop() {
 
 	var prev *tree_sitter.Tree
 	var prevLen int
+	// doneLo/doneHi is the range the delivered tokens cover, so a wake that
+	// only repeats the current request does no work.
+	doneLo, doneHi := 0, 0
+	haveResult := false
 	defer func() {
 		if prev != nil {
 			prev.Close()
@@ -153,14 +234,29 @@ func (h *tsHighlighter) loop() {
 		case <-h.wake:
 			batch := h.drainPending()
 			if len(batch) == 0 {
-				// A wake with no work means the source grew past the size
-				// limit. Drop the retained tree so its native memory is freed
-				// rather than held for the editor's lifetime.
-				if h.wasOversize() && prev != nil {
-					prev.Close()
-					prev = nil
-					prevLen = 0
+				// A wake with no parse work is either an oversize transition or
+				// a range request against the tree already in hand.
+				if h.wasOversize() {
+					// Drop the retained tree so its native memory is freed
+					// rather than held for the editor's lifetime.
+					if prev != nil {
+						prev.Close()
+						prev = nil
+						prevLen = 0
+					}
+					haveResult = false
+					continue
 				}
+				if prev == nil {
+					continue
+				}
+				lo, hi := h.wantRange()
+				if haveResult && lo == doneLo && hi == doneHi {
+					continue
+				}
+				doneLo, doneHi = lo, hi
+				haveResult = true
+				deliver(h.results, h.classifyRange(prev, lo, hi))
 				continue
 			}
 			latestSrc := batch[len(batch)-1].src
@@ -201,10 +297,18 @@ func (h *tsHighlighter) loop() {
 			prev = tree
 			prevLen = len(latestSrc)
 
-			toks := h.classify(tree.RootNode(), latestSrc)
-			deliver(h.results, toks)
+			doneLo, doneHi = h.wantRange()
+			haveResult = true
+			deliver(h.results, h.classifyRange(tree, doneLo, doneHi))
 		}
 	}
+}
+
+// classifyRange walks tree for [lo, hi) and returns the tokens in it.
+func (h *tsHighlighter) classifyRange(tree *tree_sitter.Tree, lo, hi int) []Token {
+	w := newRangeWalker(lo, hi)
+	h.classify(w, tree.RootNode())
+	return w.toks
 }
 
 func (h *tsHighlighter) drainPending() []parseJob {
@@ -302,6 +406,44 @@ func (h *tsHighlighter) wasOversize() bool {
 	return h.oversize
 }
 
+// SetRange restricts classification to [lo, hi), and asks for a fresh result
+// if that range is not the one already reported.
+//
+// Only the range has to be reclassified — the parsed tree is retained — so
+// scrolling costs a range walk rather than a reparse.
+func (h *tsHighlighter) SetRange(lo, hi int) {
+	if hi < lo {
+		lo, hi = hi, lo
+	}
+	h.mu.Lock()
+	changed := !h.rangeSet || lo != h.wantLo || hi != h.wantHi
+	h.wantLo, h.wantHi = lo, hi
+	h.rangeSet = true
+	oversize := h.oversize
+	h.mu.Unlock()
+
+	if !changed || oversize {
+		return
+	}
+	select {
+	case h.wake <- struct{}{}:
+	default:
+	}
+}
+
+// wantRange returns the requested range, or the whole document when the
+// consumer has not asked for one.
+func (h *tsHighlighter) wantRange() (lo, hi int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.rangeSet {
+		return 0, maxInt
+	}
+	return h.wantLo, h.wantHi
+}
+
+const maxInt = int(^uint(0) >> 1)
+
 func (h *tsHighlighter) Poll() ([]Token, bool) {
 	select {
 	case toks := <-h.results:
@@ -325,156 +467,112 @@ var goKeywords = map[string]bool{
 
 // classifyGo walks a Go syntax tree and emits a flat, ordered list of colored
 // token ranges. Container nodes recurse; leaf-ish nodes are classified directly.
-func classifyGo(root *tree_sitter.Node, src []byte) []Token {
-	var toks []Token
-	add := func(n *tree_sitter.Node, c ColorClass) {
-		toks = append(toks, Token{Start: int(n.StartByte()), End: int(n.EndByte()), Class: c})
-	}
-
+func classifyGo(w *rangeWalker, root *tree_sitter.Node) {
 	var walk func(n *tree_sitter.Node)
 	walk = func(n *tree_sitter.Node) {
 		switch n.Kind() {
 		case "comment":
-			add(n, ClassComment)
+			w.add(n, ClassComment)
 			return
 		case "interpreted_string_literal", "raw_string_literal", "rune_literal":
-			add(n, ClassString)
+			w.add(n, ClassString)
 			return
 		case "int_literal", "float_literal", "imaginary_literal":
-			add(n, ClassNumber)
+			w.add(n, ClassNumber)
 			return
 		case "type_identifier":
-			add(n, ClassType)
+			w.add(n, ClassType)
 			return
 		}
 
-		count := n.ChildCount()
-		if count == 0 {
+		if n.ChildCount() == 0 {
 			if !n.IsNamed() && goKeywords[n.Kind()] {
-				add(n, ClassKeyword)
+				w.add(n, ClassKeyword)
 			}
 			return
 		}
-		for i := uint(0); i < count; i++ {
-			if child := n.Child(i); child != nil {
-				walk(child)
-			}
-		}
+		w.children(n, walk)
 	}
 	walk(root)
-	return toks
 }
 
 // classifyJSON walks a JSON syntax tree. Object keys are colored distinctly
 // (ClassType) from string values (ClassString); numbers, the literals
 // true/false/null, and comments (JSONC) get their own classes.
-func classifyJSON(root *tree_sitter.Node, src []byte) []Token {
-	var toks []Token
-	add := func(n *tree_sitter.Node, c ColorClass) {
-		toks = append(toks, Token{Start: int(n.StartByte()), End: int(n.EndByte()), Class: c})
-	}
-
+func classifyJSON(w *rangeWalker, root *tree_sitter.Node) {
 	var walk func(n *tree_sitter.Node)
 	walk = func(n *tree_sitter.Node) {
 		switch n.Kind() {
 		case "comment":
-			add(n, ClassComment)
+			w.add(n, ClassComment)
 			return
 		case "number":
-			add(n, ClassNumber)
+			w.add(n, ClassNumber)
 			return
 		case "true", "false", "null":
-			add(n, ClassKeyword)
+			w.add(n, ClassKeyword)
 			return
 		case "string":
-			add(n, ClassString)
+			w.add(n, ClassString)
 			return
 		case "pair":
 			// A key/value member: color the key like a property name and recurse
 			// only into the value, so the key string is not re-colored generically.
-			if k := n.ChildByFieldName("key"); k != nil {
-				add(k, ClassType)
-			}
-			if v := n.ChildByFieldName("value"); v != nil {
+			w.add(n.ChildByFieldName("key"), ClassType)
+			if v := n.ChildByFieldName("value"); v != nil && w.overlaps(v) {
 				walk(v)
 			}
 			return
 		}
-
-		count := n.ChildCount()
-		for i := uint(0); i < count; i++ {
-			if child := n.Child(i); child != nil {
-				walk(child)
-			}
-		}
+		w.children(n, walk)
 	}
 	walk(root)
-	return toks
 }
 
 // classifyXML walks an XML syntax tree (the tree-sitter-grammars XML grammar,
 // which also covers XML dialects like SVG and XSD). Tag names are colored as
 // keywords, attribute names like property names (ClassType), and attribute
 // values as strings; text content keeps the default color.
-func classifyXML(root *tree_sitter.Node, src []byte) []Token {
-	var toks []Token
-	add := func(n *tree_sitter.Node, c ColorClass) {
-		toks = append(toks, Token{Start: int(n.StartByte()), End: int(n.EndByte()), Class: c})
-	}
-
+func classifyXML(w *rangeWalker, root *tree_sitter.Node) {
 	var walk func(n *tree_sitter.Node)
 	walk = func(n *tree_sitter.Node) {
 		switch n.Kind() {
 		case "Comment":
-			add(n, ClassComment)
+			w.add(n, ClassComment)
 			return
 		case "CharData":
 			return // plain text keeps the default color
 		case "AttValue", "PseudoAttValue", "SystemLiteral", "PubidLiteral":
-			add(n, ClassString)
+			w.add(n, ClassString)
 			return
 		case "PI", "XMLDecl", "CDSect", "EntityRef", "CharRef":
-			add(n, ClassKeyword)
+			w.add(n, ClassKeyword)
 			return
 		case "Attribute", "PseudoAtt":
 			// Color the name (ClassType) directly and recurse for the value,
 			// so AttValue gets its string class without re-coloring the name.
-			count := n.ChildCount()
-			for i := uint(0); i < count; i++ {
-				if c := n.Child(i); c != nil && c.Kind() == "Name" {
-					add(c, ClassType)
-				}
-			}
-			for i := uint(0); i < count; i++ {
-				if c := n.Child(i); c != nil && c.Kind() != "Name" {
-					walk(c)
-				}
-			}
-			return
-		case "STag", "ETag", "EmptyElemTag":
-			// Color the element name; attributes recurse for their own rules.
-			count := n.ChildCount()
-			for i := uint(0); i < count; i++ {
-				c := n.Child(i)
-				if c == nil {
-					continue
-				}
+			w.children(n, func(c *tree_sitter.Node) {
 				if c.Kind() == "Name" {
-					add(c, ClassKeyword)
+					w.add(c, ClassType)
 				} else {
 					walk(c)
 				}
-			}
+			})
+			return
+		case "STag", "ETag", "EmptyElemTag":
+			// Color the element name; attributes recurse for their own rules.
+			w.children(n, func(c *tree_sitter.Node) {
+				if c.Kind() == "Name" {
+					w.add(c, ClassKeyword)
+				} else {
+					walk(c)
+				}
+			})
 			return
 		}
-
-		count := n.ChildCount()
-		for i := uint(0); i < count; i++ {
-			if child := n.Child(i); child != nil {
-				walk(child)
-			}
-		}
+		w.children(n, walk)
 	}
 	walk(root)
-	return toks
 }
+
+var _ RangeHighlighter = (*tsHighlighter)(nil)

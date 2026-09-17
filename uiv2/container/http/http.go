@@ -312,13 +312,13 @@ func (c *Container) paramsTab(th *theme.Theme, id string) []ui.View {
 					c.markDirty()
 				})
 			}),
-		).PaddingXY(0, th.Spacing.S),
-		ui.ViewOf(c.queryParams).Height(120),
+		).PaddingXY(0, th.Spacing.XS),
+		ui.ViewOf(c.queryParams).Height(60),
 		ui.Row(ui.Text("Path"), ui.Spacer(),
 			ui.IconButton("http-path-add-"+id, icons.Plus).OnClick(func() {
 				container.AddKVRow(c.pathParams, c.markDirty)
 			}),
-		).PaddingXY(0, th.Spacing.S),
+		).PaddingXY(0, th.Spacing.XS),
 		ui.Caption("path params inside bracket, for example: {id}"),
 		ui.ViewOf(c.pathParams).Grow(1),
 	}
@@ -402,7 +402,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
 			BorderStyle(ui.BorderDotted).
 			Padding(th.Spacing.S).
-			Gap(th.Spacing.S).Grow(1),
+			Gap(th.Spacing.XS).Grow(1),
 	)
 }
 

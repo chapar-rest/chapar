@@ -47,6 +47,22 @@ type Highlighter interface {
 	Close()
 }
 
+// RangeHighlighter is an optional Highlighter capability: the consumer can
+// restrict classification to a byte range.
+//
+// A viewport shows a few dozen lines, so classifying a whole document on every
+// reparse does work proportional to the file instead of to the screen — on an
+// 8 MB body that was ~740 ms and 135 MB per keystroke, against ~0.6 ms and
+// 66 kB for the visible range. Highlighters that cannot scope their work simply
+// do not implement this, and consumers fall back to whole-document results.
+type RangeHighlighter interface {
+	Highlighter
+	// SetRange asks for tokens covering [lo, hi). Bytes outside the range have
+	// no tokens, so consumers must treat them as ClassDefault. Calling it with
+	// an unchanged range does nothing.
+	SetRange(lo, hi int)
+}
+
 // Noop is a highlighter that produces no tokens; the editor falls back to the
 // default text color. Useful for tests, non-code text, web/WASM builds (no
 // Tree-sitter CGO), or when Tree-sitter is undesirable.

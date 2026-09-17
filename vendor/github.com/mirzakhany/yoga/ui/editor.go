@@ -124,8 +124,13 @@ type Editor struct {
 	redo        []editOp
 	canCoalesce bool
 
-	// tokens is the latest syntax highlight result.
-	tokens []highlight.Token
+	// tokens is the latest syntax highlight result. It covers only the byte
+	// range last requested from the highlighter (hlLo..hlHi) when the
+	// highlighter supports scoping, so bytes outside it have no tokens and
+	// paint in the default color.
+	tokens     []highlight.Token
+	hlLo, hlHi int
+	hlRangeSet bool
 
 	// lsp connects this document to a language server for diagnostics, hover,
 	// and completion. It is never nil (a no-op handle stands in when no server
@@ -254,11 +259,103 @@ func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...Ed
 	e.hbar = NewScrollbarAxis(Horizontal, &e.ScrollX, &e.ContentWidth, editorBarSize)
 
 	e.host = layout.New(layout.Box().FlexGrow(1), e.viewport, e.vbar.host, e.hbar.host)
+	// Ask for a plausible first screen before the initial parse: the editor has
+	// not been laid out yet, and classifying the whole document just to show
+	// its first lines is what this range exists to avoid. The first Update
+	// widens or narrows it to the real viewport.
+	if rh, ok := hl.(highlight.RangeHighlighter); ok {
+		last := minInt(initialHighlightLines, maxInt(e.pt.LineCount()-1, 0))
+		e.hlLo, e.hlHi = 0, e.pt.LineStart(last)+e.pt.LineLen(last)
+		e.hlRangeSet = true
+		rh.SetRange(e.hlLo, e.hlHi)
+	}
 	e.hl.Update(e.pt.Bytes())
 	e.markParsePending()
 	e.lsp = lspManager.Open(path, content)
 	e.lspUI.init()
 	return e
+}
+
+// initialHighlightLines is the range requested before the editor knows its
+// viewport — generous enough to cover a first screen on a tall window.
+const initialHighlightLines = 400
+
+// highlightMarginScreens is how many extra screenfuls above and below the
+// viewport are highlighted. Scrolling within the margin needs no new request,
+// so ordinary scrolling never waits on the highlighter.
+const highlightMarginScreens = 2
+
+// visibleLineRange returns the logical line range the viewport shows, widened
+// by highlightMarginScreens on each side.
+func (e *Editor) visibleLineRange() (first, last int) {
+	lc := e.pt.LineCount()
+	if lc == 0 {
+		return 0, 0
+	}
+	vp := e.contentViewport()
+	rows := 1
+	if e.lineH > 0 && vp.H > 0 {
+		rows = int(vp.H/e.lineH) + 2
+	}
+	margin := rows * highlightMarginScreens
+
+	firstRow := 0
+	if e.lineH > 0 {
+		firstRow = int(e.ScrollPx / e.lineH)
+	}
+	if firstRow < 0 {
+		firstRow = 0
+	}
+
+	if e.SoftWrap && len(e.rowPrefix) > 1 {
+		total := e.rowPrefix[len(e.rowPrefix)-1]
+		lo := maxInt(firstRow-margin, 0)
+		hi := minInt(firstRow+rows+margin, total)
+		first = e.rowOfVisual(minInt(lo, maxInt(total-1, 0)))
+		last = e.rowOfVisual(minInt(maxInt(hi-1, 0), maxInt(total-1, 0)))
+	} else {
+		first = maxInt(firstRow-margin, 0)
+		last = minInt(firstRow+rows+margin, lc) - 1
+	}
+	if first < 0 {
+		first = 0
+	}
+	if last < first {
+		last = first
+	}
+	if last >= lc {
+		last = lc - 1
+	}
+	return first, last
+}
+
+// syncHighlightRange asks the highlighter for the lines around the viewport.
+//
+// Tokens outside the requested range are absent, which paints as the default
+// color — and nothing outside the viewport is painted, so the reader never sees
+// the difference. The request is skipped while the wanted range is still inside
+// the one already asked for, which is what keeps scrolling from generating a
+// request per frame.
+func (e *Editor) syncHighlightRange() {
+	rh, ok := e.hl.(highlight.RangeHighlighter)
+	if !ok {
+		return
+	}
+	first, last := e.visibleLineRange()
+	lo := e.pt.LineStart(first)
+	hi := e.pt.LineStart(last) + e.pt.LineLen(last)
+	if hi < lo {
+		hi = lo
+	}
+	if e.hlRangeSet && lo >= e.hlLo && hi <= e.hlHi {
+		return
+	}
+	e.hlLo, e.hlHi = lo, hi
+	e.hlRangeSet = true
+	rh.SetRange(lo, hi)
+	// Results arrive on the worker goroutine; open the poll window so the next
+	// wakes pick them up.
+	e.markParsePending()
 }
 
 // markParsePending opens a brief fast-poll window.
@@ -334,6 +431,8 @@ func (e *Editor) Update(m *input.Mouse) {
 		e.hbar.Update(m, vp)
 	}
 	e.clampScroll()
+	// Scroll and the wrap tables are settled, so the visible range is now known.
+	e.syncHighlightRange()
 }
 
 const editorLargeDocLines = 500
