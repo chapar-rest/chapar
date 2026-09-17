@@ -37,13 +37,32 @@ type PieceTable struct {
 	cacheValid bool
 	flat       []byte
 	lineStarts []int // byte offset of the first character of each line
+	// flatAliasesOriginal marks flat as a view of original rather than a copy,
+	// so the next rebuild allocates instead of appending into it.
+	flatAliasesOriginal bool
 }
 
-// New creates a piece table seeded with initial content.
+// New creates a piece table seeded with a copy of initial.
 func New(initial []byte) *PieceTable {
-	pt := &PieceTable{
-		original: append([]byte(nil), initial...),
-	}
+	return newTable(append([]byte(nil), initial...))
+}
+
+// NewShared creates a piece table over initial without copying it.
+//
+// initial becomes the table's original buffer, which the table only ever reads
+// (see the package invariants: edits go to a separate add buffer). The caller
+// must therefore never modify initial or its contents afterwards, though it may
+// keep reading them.
+//
+// Use this when the bytes are already immutable — a response body held for
+// display, say. It saves a full copy of the document, which for a large body is
+// tens of megabytes per editor.
+func NewShared(initial []byte) *PieceTable {
+	return newTable(initial)
+}
+
+func newTable(original []byte) *PieceTable {
+	pt := &PieceTable{original: original}
 	if len(pt.original) > 0 {
 		pt.pieces = append(pt.pieces, piece{src: srcOriginal, start: 0, length: len(pt.original)})
 	}
@@ -66,21 +85,44 @@ func (pt *PieceTable) Len() int {
 	return n
 }
 
-// Bytes returns the full document as a freshly assembled byte slice. The result
-// is cached until the next edit; callers must not mutate it.
+// Bytes returns the full document as a single byte slice. The result is cached
+// until the next edit; callers must not mutate it.
 func (pt *PieceTable) Bytes() []byte {
 	pt.rebuildCache()
 	return pt.flat
+}
+
+// isWholeOriginal reports whether the document is exactly the original buffer,
+// which is the state of every freshly loaded document until its first edit.
+func (pt *PieceTable) isWholeOriginal() bool {
+	return len(pt.pieces) == 1 &&
+		pt.pieces[0].src == srcOriginal &&
+		pt.pieces[0].start == 0 &&
+		pt.pieces[0].length == len(pt.original)
 }
 
 func (pt *PieceTable) rebuildCache() {
 	if pt.cacheValid {
 		return
 	}
-	pt.flat = pt.flat[:0]
-	for _, p := range pt.pieces {
-		buf := pt.bufFor(p.src)
-		pt.flat = append(pt.flat, buf[p.start:p.start+p.length]...)
+	if pt.isWholeOriginal() {
+		// An unedited document is already contiguous, so the flat view can
+		// alias the original instead of copying it. Loading an 86 MB response
+		// otherwise paid for a second 86 MB buffer per editor, since the
+		// editor asks for Bytes() during construction.
+		pt.flat = pt.original
+		pt.flatAliasesOriginal = true
+	} else {
+		if pt.flatAliasesOriginal {
+			// Never append into the original buffer — pieces still point at it.
+			pt.flat = nil
+			pt.flatAliasesOriginal = false
+		}
+		pt.flat = pt.flat[:0]
+		for _, p := range pt.pieces {
+			buf := pt.bufFor(p.src)
+			pt.flat = append(pt.flat, buf[p.start:p.start+p.length]...)
+		}
 	}
 	// Recompute line starts: line 0 starts at byte 0, each '\n' begins a new one.
 	pt.lineStarts = pt.lineStarts[:0]

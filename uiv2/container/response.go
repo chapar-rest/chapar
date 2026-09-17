@@ -29,6 +29,11 @@ func FormatBytes(n int) string {
 
 // DisplayBody returns bytes for the response editor. When raw is true, the
 // original body is shown; otherwise Pretty is preferred when available.
+//
+// The result may be the response's own body buffer rather than a copy, so
+// callers must treat it as read-only. Nothing mutates a response body once it
+// is built, which is what lets the editor share it instead of copying tens of
+// megabytes per tab — see ReplaceResponseEditor.
 func DisplayBody(res *egress.Response, raw bool) []byte {
 	if res == nil {
 		return nil
@@ -42,9 +47,9 @@ func DisplayBody(res *egress.Response, raw bool) []byte {
 	if res.Pretty != "" {
 		return []byte(res.Pretty)
 	}
-	if res.IsJSON && res.JSON != "" {
-		return []byte(res.JSON)
-	}
+	// Prefer the body buffer over res.JSON: both hold the same bytes when the
+	// body was left unformatted, and the body can be read in place while
+	// res.JSON (a string, kept for jsonpath) would have to be copied.
 	if len(res.Body) > 0 {
 		return res.Body
 	}
@@ -64,11 +69,30 @@ func BodyHighlighter(kind string) highlight.Highlighter {
 }
 
 // ReplaceEditor closes the previous editor and returns a new one with data.
+// data is copied, so the caller may keep using it.
 func ReplaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
 	if old != nil {
 		old.Close()
 	}
 	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
+}
+
+// ReplaceResponseEditor rebuilds the response body editor for res.
+//
+// The editor is built over the display bytes without copying them. Response
+// bodies and their formatted forms are never modified after the response is
+// built, so the editor can read them in place; for a large body that saves a
+// full copy of the document per tab.
+func ReplaceResponseEditor(old *ui.Editor, res *egress.Response, raw bool) *ui.Editor {
+	if old != nil {
+		old.Close()
+	}
+	var kind string
+	if res != nil {
+		kind = res.BodyKind
+	}
+	return ui.NewEditor(DisplayBody(res, raw), BodyHighlighter(kind),
+		ui.WithSoftWrap(true), ui.WithSharedContent())
 }
 
 // ResponseTabsRow lays out response tabs with a stable Raw checkbox on the right

@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"io"
 	"strings"
 	"unicode"
@@ -58,8 +59,54 @@ func DetectBodyKind(contentType string, body []byte) string {
 	return BodyKindText
 }
 
+// MaxPrettyBytes is the hard ceiling on formatting a body.
+//
+// A formatted copy is a second full representation of the body, and producing
+// it needs a working buffer on top of that: formatting an 86 MB JSON response
+// cost ~200 MB in copies and buffers. Past this size the raw body is displayed
+// as received, which also lets the viewer read the response's own buffer
+// instead of copying it.
+const MaxPrettyBytes = 32 << 20
+
+// formattedSampleBytes is how much of the body alreadyFormatted inspects, and
+// formattedLineLimit is the average line length at or below which the body is
+// taken to be formatted already.
+const (
+	formattedSampleBytes = 64 << 10
+	formattedLineLimit   = 200
+)
+
+// ErrBodyNotFormatted reports that a body was deliberately left unformatted —
+// it is already laid out in lines, or too large to reformat. Callers should
+// display the raw body.
+var ErrBodyNotFormatted = errors.New("body left unformatted")
+
+// alreadyFormatted reports whether body is already broken into short lines, in
+// which case reformatting it costs a second full copy and changes nothing a
+// reader would notice. Large API payloads are commonly served pretty-printed,
+// and that is exactly the case where the copy hurts most.
+//
+// Only the head of the body is sampled, so the check is O(1) in body size.
+func alreadyFormatted(body []byte) bool {
+	sample := body
+	if len(sample) > formattedSampleBytes {
+		sample = sample[:formattedSampleBytes]
+	}
+	newlines := bytes.Count(sample, []byte{'\n'})
+	if newlines == 0 {
+		return false
+	}
+	return len(sample)/newlines <= formattedLineLimit
+}
+
 // PrettyBody returns indented text for known structured kinds; otherwise the raw body.
+//
+// A body that is already laid out in lines, or larger than MaxPrettyBytes,
+// returns ErrBodyNotFormatted with no text.
 func PrettyBody(body []byte, kind string) (string, error) {
+	if len(body) > MaxPrettyBytes || alreadyFormatted(body) {
+		return "", ErrBodyNotFormatted
+	}
 	switch kind {
 	case BodyKindJSON:
 		return PrettyJSON(body)
@@ -200,9 +247,28 @@ func isVoidHTMLTag(tag string) bool {
 }
 
 // ApplyBodyFormat sets Pretty/BodyKind/IsJSON/JSON on a response-like target.
+//
+// When the body is left unformatted (already line-broken, or over
+// MaxPrettyBytes) pretty is returned empty so the caller displays the raw body
+// without copying it. jsonStr is still filled for bodies within
+// MaxPrettyBytes, since jsonpath extraction needs a string; past that it is
+// left empty rather than holding another copy of a very large body.
 func ApplyBodyFormat(contentType string, body []byte) (kind, pretty, jsonStr string, isJSON bool) {
 	kind = DetectBodyKind(contentType, body)
+	if len(body) > MaxPrettyBytes {
+		return kind, "", "", kind == BodyKindJSON
+	}
 	pretty, err := PrettyBody(body, kind)
+	if errors.Is(err, ErrBodyNotFormatted) {
+		// Show the body as received. jsonStr still needs a string form for
+		// jsonpath; for JSON that is the body itself.
+		isJSON = kind == BodyKindJSON || IsJSONBytes(body)
+		if isJSON {
+			jsonStr = string(body)
+			kind = BodyKindJSON
+		}
+		return kind, "", jsonStr, isJSON
+	}
 	if err != nil || pretty == "" {
 		pretty = string(body)
 	}

@@ -425,8 +425,7 @@ func (c *Container) applyBodyEditor() {
 	if c.lastResp == nil {
 		return
 	}
-	kind := c.lastResp.BodyKind
-	c.respEd = container.ReplaceEditor(c.respEd, container.DisplayBody(c.lastResp, c.respRaw), container.BodyHighlighter(kind))
+	c.respEd = container.ReplaceResponseEditor(c.respEd, c.lastResp, c.respRaw)
 }
 
 func (c *Container) handleResult(r result) {

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -145,6 +146,89 @@ func TestDetectBodyKindSniffsWithoutWholeBodyCopies(t *testing.T) {
 	for _, tc := range cases {
 		if got := DetectBodyKind(tc.ct, []byte(tc.body)); got != tc.want {
 			t.Errorf("%s: got %q want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestAlreadyFormattedBodyIsNotReformatted covers the case that motivated the
+// check: an 86 MB response served pretty-printed used to be re-indented into a
+// second ~99 MB string plus a working buffer, for no visible change.
+func TestAlreadyFormattedBodyIsNotReformatted(t *testing.T) {
+	// Mimic a server that already indents, as github_users.json does.
+	var b strings.Builder
+	b.WriteString("[\n")
+	for i := 0; i < 20000; i++ {
+		fmt.Fprintf(&b, "  {\n    \"login\": \"user%06d\",\n    \"commits\": %d\n  },\n", i, i)
+	}
+	b.WriteString("  {}\n]\n")
+	formatted := []byte(b.String())
+
+	if !alreadyFormatted(formatted) {
+		t.Fatal("indented body was not recognized as already formatted")
+	}
+	if _, err := PrettyBody(formatted, BodyKindJSON); !errors.Is(err, ErrBodyNotFormatted) {
+		t.Errorf("PrettyBody err = %v, want ErrBodyNotFormatted", err)
+	}
+
+	kind, pretty, jsonStr, isJSON := ApplyBodyFormat("application/json", formatted)
+	if kind != BodyKindJSON || !isJSON {
+		t.Errorf("kind=%q isJSON=%v", kind, isJSON)
+	}
+	if pretty != "" {
+		t.Errorf("expected no formatted copy, got %d bytes", len(pretty))
+	}
+	if jsonStr == "" {
+		t.Error("jsonStr must stay available for jsonpath extraction")
+	}
+}
+
+// TestCompactBodyStillFormatted is the other half: a compact body is what
+// actually needs formatting, and must still get it.
+func TestCompactBodyStillFormatted(t *testing.T) {
+	compact := compactJSON(4 << 20) // one line, well under MaxPrettyBytes
+	if alreadyFormatted(compact) {
+		t.Fatal("compact body was misread as already formatted")
+	}
+
+	kind, pretty, jsonStr, isJSON := ApplyBodyFormat("application/json", compact)
+	if kind != BodyKindJSON || !isJSON || jsonStr == "" {
+		t.Errorf("kind=%q isJSON=%v jsonStr empty=%v", kind, isJSON, jsonStr == "")
+	}
+	if !strings.Contains(pretty, "\n") {
+		t.Error("compact body was not formatted")
+	}
+	t.Logf("%.1f MB compact -> %.1f MB formatted", float64(len(compact))/1e6, float64(len(pretty))/1e6)
+}
+
+func TestOverMaxPrettyBytesIsNotFormatted(t *testing.T) {
+	huge := make([]byte, MaxPrettyBytes+1)
+	for i := range huge {
+		huge[i] = 'x'
+	}
+	huge[0], huge[len(huge)-1] = '"', '"'
+	if _, err := PrettyBody(huge, BodyKindJSON); !errors.Is(err, ErrBodyNotFormatted) {
+		t.Errorf("err = %v, want ErrBodyNotFormatted", err)
+	}
+	_, pretty, _, _ := ApplyBodyFormat("application/json", huge)
+	if pretty != "" {
+		t.Errorf("expected no formatted copy for an oversized body, got %d bytes", len(pretty))
+	}
+}
+
+func TestAlreadyFormattedEdgeCases(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"no newlines", `{"a":1,"b":2}`, false},
+		{"single trailing newline on long line", strings.Repeat("x", 5000) + "\n", false},
+		{"short lines", "a\nb\nc\nd\ne\n", true},
+		{"empty", "", false},
+	}
+	for _, tc := range cases {
+		if got := alreadyFormatted([]byte(tc.body)); got != tc.want {
+			t.Errorf("%s: alreadyFormatted = %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }

@@ -151,6 +151,7 @@ type Editor struct {
 	// on resize/font changes, incrementally on edits.
 	SoftWrap                 bool
 	WrapWords                bool
+	shareContent             bool // construction-time: build over the caller's slice, no copy
 	lineRows                 [][]wrapRow
 	rowPrefix                []int   // rowPrefix[i] = visual rows before logical line i (len = LineCount+1)
 	wrapCols                 int     // columns per visual row used when wrapping
@@ -194,6 +195,16 @@ func WithSoftWrap(v bool) EditorOption { return func(e *Editor) { e.SoftWrap = v
 // WithWrapWords toggles word-boundary wrapping of wrapped rows.
 func WithWrapWords(v bool) EditorOption { return func(e *Editor) { e.WrapWords = v } }
 
+// WithSharedContent builds the editor over the content slice without copying
+// it. The editor only ever reads that slice — edits are stored separately — so
+// the caller must never modify it or its contents afterwards, though it may
+// keep reading them.
+//
+// Use it when the bytes are already immutable, such as a response body held for
+// display. It saves a full copy of the document, which for a large body is tens
+// of megabytes per editor.
+func WithSharedContent() EditorOption { return func(e *Editor) { e.shareContent = true } }
+
 // NewEditor creates a scratch editor over initial content with the given highlighter.
 func NewEditor(initial []byte, hl highlight.Highlighter, opts ...EditorOption) *Editor {
 	return newEditor("", initial, hl, opts...)
@@ -209,7 +220,6 @@ func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...Ed
 	m := engine.MetricsMono()
 	cellW, _ := engine.MeasureMono("n")
 	e := &Editor{
-		pt:               text.New(content),
 		hl:               hl,
 		Path:             path,
 		selAnchor:        -1,
@@ -227,6 +237,13 @@ func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...Ed
 	}
 	for _, opt := range opts {
 		opt(e)
+	}
+	// Options decide whether the content is copied, so build the storage after
+	// applying them.
+	if e.shareContent {
+		e.pt = text.NewShared(content)
+	} else {
+		e.pt = text.New(content)
 	}
 	e.viewport = layout.New(layout.Box().FlexGrow(1))
 	e.viewport.Clip = true

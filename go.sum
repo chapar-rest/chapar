@@ -138,8 +138,8 @@ github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/mattn/go-pointer v0.0.1 h1:n+XhsuGeVO6MEAp7xyEukFINEa+Quek5psIR/ylA6o0=
 github.com/mattn/go-pointer v0.0.1/go.mod h1:2zXcozF6qYGgmsG+SeTZz3oAbFLdD3OWqnUbNvJZAlc=
-github.com/mirzakhany/yoga v0.5.2 h1:M9vSU7oW3S4Nv7LtdMRg4HfVzVyQGi2ZXPyw+0eScEg=
-github.com/mirzakhany/yoga v0.5.2/go.mod h1:hFlWC0fp4yB7xdLPUK+motZm/mWu4Nofhf6rPQXg35I=
+github.com/mirzakhany/yoga v0.5.3 h1:NEZX0MfjD4udtATLuwRMyfu6CumUGNqIg16M2lIsL/E=
+github.com/mirzakhany/yoga v0.5.3/go.mod h1:hFlWC0fp4yB7xdLPUK+motZm/mWu4Nofhf6rPQXg35I=
 github.com/moby/docker-image-spec v1.3.1 h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=
 github.com/moby/docker-image-spec v1.3.1/go.mod h1:eKmb5VW8vQEh/BAr2yvVNvuiJuY6UIocYsFu/DxxRpo=
 github.com/moby/sys/atomicwriter v0.1.0 h1:kw5D/EqkBwsBFi0ss9v1VG3wIkVhzGvLklJ+w3A14Sw=
