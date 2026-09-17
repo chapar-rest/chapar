@@ -52,12 +52,16 @@ type imageState struct {
 }
 
 // Image displays a PNG or JPEG decoded from data. id keys the atlas slot and load cache.
+//
+// data is referenced, not copied: the node lives for a single frame, and the
+// retained copy is made once in the widget state when the source changes.
+// Copying here re-copied the whole bitmap on every Body rebuild.
 func Image(id string, data []byte) *Node {
 	return &Node{
 		kind: kindImage,
 		id:   id,
 		extra: &imageSource{
-			bytes: append([]byte(nil), data...),
+			bytes: data,
 			fit:   FitContain,
 		},
 	}

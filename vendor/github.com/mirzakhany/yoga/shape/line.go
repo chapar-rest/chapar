@@ -37,7 +37,6 @@ type Glyph struct {
 	Advance     float32
 	ClusterByte int // byte offset in line of cluster start
 	ClusterLen  int // byte length of cluster in line
-	Color       bool
 }
 
 // Line is a fully shaped, visually ordered text line.
@@ -240,7 +239,6 @@ func (s *Shaper) shapeSegment(runes []rune, byteBase int, startX float32, mono b
 			if clusterLen < 1 {
 				clusterLen = 1
 			}
-			color := isColorGlyph(out.Face, g.GlyphID)
 			adv := toLogical(s.fs, g.Advance) + spacing
 			glyphs = append(glyphs, Glyph{
 				FaceID: faceID, GID: g.GlyphID,
@@ -250,21 +248,12 @@ func (s *Shaper) shapeSegment(runes []rune, byteBase int, startX float32, mono b
 				Advance:     adv,
 				ClusterByte: clusterByte,
 				ClusterLen:  clusterLen,
-				Color:       color,
 			})
 			x += adv
 		}
 	}
 	s.lastGlyphs = glyphs
 	return x - startX
-}
-
-func isColorGlyph(face *font.Face, gid font.GID) bool {
-	if data := face.GlyphData(gid); data != nil {
-		_, isColor := data.(font.GlyphColor)
-		return isColor
-	}
-	return false
 }
 
 // Width returns shaped width of text.

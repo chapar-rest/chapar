@@ -59,13 +59,17 @@ func (e *Engine) Line(text string) Line { return e.Cache.Get(text) }
 func (e *Engine) LineMono(text string) Line { return e.Cache.GetMono(text) }
 
 // Measure returns width and height for a single-line UI string.
+//
+// Measurement goes through the shaped-line cache: layout measures the same
+// strings on every frame, and re-shaping them each time dominated both CPU and
+// allocation. The shaped line is reused by the subsequent draw.
 func (e *Engine) Measure(s string) (w, h float32) {
-	return e.Shaper.Measure(s)
+	return e.Cache.Get(s).Width, e.Fonts.Metrics().LineHeight
 }
 
 // MeasureMono returns width and height for a single-line editor mono string.
 func (e *Engine) MeasureMono(s string) (w, h float32) {
-	return e.Shaper.MeasureMono(s)
+	return e.Cache.GetMono(s).Width, e.Fonts.MonoMetrics().LineHeight
 }
 
 // LineAt returns a shaped line at logicalSize (0 = default UI size).
@@ -80,12 +84,12 @@ func (e *Engine) LineAtWeight(text string, logicalSize render.Px, weight int) Li
 
 // MeasureAt returns width and height for a single-line string at logicalSize.
 func (e *Engine) MeasureAt(s string, logicalSize render.Px) (w, h render.Px) {
-	return e.Shaper.MeasureAt(s, logicalSize)
+	return e.MeasureAtWeight(s, logicalSize, WeightRegular)
 }
 
 // MeasureAtWeight returns width and height at logicalSize for the given weight.
 func (e *Engine) MeasureAtWeight(s string, logicalSize render.Px, weight int) (w, h render.Px) {
-	return e.Shaper.MeasureAtWeight(s, logicalSize, weight)
+	return e.Cache.GetAtWeight(s, logicalSize, weight).Width, e.Fonts.MetricsAt(logicalSize).LineHeight
 }
 
 // DrawStringTop draws UI text with top-left y (convenience for UI chrome).

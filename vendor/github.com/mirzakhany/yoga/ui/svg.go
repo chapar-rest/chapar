@@ -16,7 +16,8 @@ func SVG(id string, data []byte) *Node {
 		kind: kindImage,
 		id:   id,
 		extra: &imageSource{
-			bytes: append([]byte(nil), data...),
+			// Referenced, not copied — see Image.
+			bytes: data,
 			fit:   FitContain,
 			svg:   true,
 		},

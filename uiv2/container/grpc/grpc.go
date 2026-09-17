@@ -19,6 +19,10 @@ import (
 type result struct {
 	resp *egress.Response
 	err  error
+	// exampleBody carries a generated request body back to the UI thread.
+	// Editors must not be built off it: ui.NewEditor measures text through the
+	// window's shared text engine.
+	exampleBody *string
 }
 
 type Container struct {
@@ -181,10 +185,7 @@ func (c *Container) loadExample() {
 		if err != nil {
 			c.resultCh <- result{err: err}
 		} else {
-			c.bodyEd.Close()
-			c.bodyEd = ui.NewEditor([]byte(body), highlight.NewJSON())
-			c.markDirty()
-			c.resultCh <- result{}
+			c.resultCh <- result{exampleBody: &body}
 		}
 		c.deps.WakeNow()
 	}()
@@ -413,6 +414,11 @@ func (c *Container) applyBodyEditor() {
 
 func (c *Container) handle(r result) {
 	c.pending = false
+	if r.exampleBody != nil {
+		c.bodyEd = container.ReplaceEditor(c.bodyEd, []byte(*r.exampleBody), highlight.NewJSON())
+		c.markDirty()
+		return
+	}
 	if r.err != nil {
 		c.statusText = r.err.Error()
 		c.lastResp = r.resp
