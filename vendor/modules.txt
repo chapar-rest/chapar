@@ -104,10 +104,9 @@ github.com/PaesslerAG/jsonpath
 github.com/alecthomas/chroma/v2
 github.com/alecthomas/chroma/v2/lexers
 github.com/alecthomas/chroma/v2/styles
-# github.com/andybalholm/brotli v1.2.2
+# github.com/andybalholm/brotli v1.2.4
 ## explicit; go 1.22
 github.com/andybalholm/brotli
-github.com/andybalholm/brotli/flate
 github.com/andybalholm/brotli/matchfinder
 # github.com/benoitkugler/textlayout v0.3.2
 ## explicit; go 1.17
@@ -282,8 +281,9 @@ github.com/go-openapi/jsonpointer
 # github.com/go-openapi/swag v0.23.0
 ## explicit; go 1.20
 github.com/go-openapi/swag
-# github.com/go-text/typesetting v0.3.4
+# github.com/go-text/typesetting v0.3.5
 ## explicit; go 1.19
+github.com/go-text/typesetting/bidi
 github.com/go-text/typesetting/di
 github.com/go-text/typesetting/font
 github.com/go-text/typesetting/font/cff
@@ -338,7 +338,7 @@ github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-pointer v0.0.1
 ## explicit
 github.com/mattn/go-pointer
-# github.com/mirzakhany/yoga v0.5.1
+# github.com/mirzakhany/yoga v0.5.2
 ## explicit; go 1.26.2
 github.com/mirzakhany/yoga
 github.com/mirzakhany/yoga/highlight
@@ -420,14 +420,14 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/internal/difflib
 github.com/stretchr/testify/internal/spew
-# github.com/tdewolff/canvas v0.0.0-20260901160717-dae8cd8e19a7
+# github.com/tdewolff/canvas v0.0.0-20260913163248-dd4999d1c76a
 ## explicit; go 1.26.0
 github.com/tdewolff/canvas
 github.com/tdewolff/canvas/color
 github.com/tdewolff/canvas/image
 github.com/tdewolff/canvas/renderers/rasterizer
 github.com/tdewolff/canvas/text
-# github.com/tdewolff/font v0.0.0-20260822205238-d0d2f004b117
+# github.com/tdewolff/font v0.0.0-20260913163313-54f98bb59ee6
 ## explicit; go 1.22
 github.com/tdewolff/font
 # github.com/tdewolff/minify/v2 v2.24.17
@@ -458,7 +458,7 @@ github.com/tree-sitter/tree-sitter-json/bindings/go
 # github.com/woodsbury/decimal128 v1.3.0
 ## explicit; go 1.21
 github.com/woodsbury/decimal128
-# github.com/yuin/goldmark v1.8.5
+# github.com/yuin/goldmark v1.8.6
 ## explicit; go 1.22
 github.com/yuin/goldmark
 github.com/yuin/goldmark/ast
@@ -513,8 +513,8 @@ golang.org/x/exp/slices
 golang.org/x/exp/shiny/iconvg
 golang.org/x/exp/shiny/iconvg/internal/gradient
 golang.org/x/exp/shiny/materialdesign/icons
-# golang.org/x/image v0.45.0
-## explicit; go 1.25.0
+# golang.org/x/image v0.46.0
+## explicit; go 1.26.0
 golang.org/x/image/ccitt
 golang.org/x/image/colornames
 golang.org/x/image/draw
@@ -539,8 +539,8 @@ golang.org/x/image/math/fixed
 golang.org/x/image/tiff
 golang.org/x/image/tiff/lzw
 golang.org/x/image/vector
-# golang.org/x/net v0.58.0
-## explicit; go 1.25.0
+# golang.org/x/net v0.59.0
+## explicit; go 1.26.0
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
@@ -552,18 +552,18 @@ golang.org/x/net/internal/httpcommon
 golang.org/x/net/internal/httpsfv
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/sync v0.22.0
-## explicit; go 1.25.0
+# golang.org/x/sync v0.23.0
+## explicit; go 1.26.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.47.0
-## explicit; go 1.25.0
+# golang.org/x/sys v0.48.0
+## explicit; go 1.26.0
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/text v0.41.0
-## explicit; go 1.25.0
+# golang.org/x/text v0.42.0
+## explicit; go 1.26.0
 golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap

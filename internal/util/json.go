@@ -5,35 +5,46 @@ import (
 	"encoding/json"
 )
 
+const jsonIndent = "    "
+
 func IsJSON(s string) bool {
-	var js interface{}
-	return json.Unmarshal([]byte(s), &js) == nil
+	return IsJSONBytes([]byte(s))
 }
 
+// IsJSONBytes reports whether data is valid JSON without copying it into a
+// string or building a value tree.
+func IsJSONBytes(data []byte) bool {
+	return json.Valid(data)
+}
+
+// PrettyJSON indents data for display without decoding it.
+//
+// This shows the response as the server sent it: object keys keep their
+// original order, numbers keep their original text, and escape sequences are
+// left as-is. The previous implementation decoded into interface{} and
+// marshalled back, which reordered keys alphabetically (Go map marshalling) and
+// round-tripped every number through float64 — so an int64 id like
+// 9007199254740993 displayed as ...992. It also cost many times the body size
+// in live objects: a 10 MB response pushed the Go heap from 45 MB to 195 MB,
+// and the process never gave that back.
+//
+// The buffer is pre-sized so it does not grow by doubling: an undersized guess
+// on a 20 MB result churns through tens of MB of intermediate arrays before it
+// settles. Four-space indenting of compact JSON roughly doubles it, so budget
+// for that up front — overshooting costs one oversized array, undershooting
+// costs a full realloc and copy.
 func PrettyJSON(data []byte) (string, error) {
-	// First, unmarshal to decode Unicode escape sequences (e.g., \u00f3 -> ó)
-	var js interface{}
-	if err := json.Unmarshal(data, &js); err != nil {
+	// json.Indent copies leading and trailing whitespace from src through to
+	// dst, which would show up as blank lines around the body. Trimming is a
+	// subslice, not a copy.
+	data = bytes.TrimSpace(data)
+
+	var out bytes.Buffer
+	out.Grow(2*len(data) + 1024)
+	if err := json.Indent(&out, data, "", jsonIndent); err != nil {
 		return "", err
 	}
-
-	// Then marshal back with indentation, which will properly encode Unicode characters
-	// without unnecessary escaping for common characters
-	out := bytes.Buffer{}
-	encoder := json.NewEncoder(&out)
-	encoder.SetIndent("", "    ")
-	encoder.SetEscapeHTML(false) // Don't escape HTML characters like <, >, &
-	if err := encoder.Encode(js); err != nil {
-		return "", err
-	}
-
-	// Remove trailing newline added by Encode
-	result := out.String()
-	if len(result) > 0 && result[len(result)-1] == '\n' {
-		result = result[:len(result)-1]
-	}
-
-	return result, nil
+	return out.String(), nil
 }
 
 func ParseJSON(text string) (map[string]any, error) {

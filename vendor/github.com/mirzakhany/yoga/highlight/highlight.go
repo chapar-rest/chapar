@@ -60,6 +60,24 @@ func ForPath(path string) Highlighter {
 	}
 }
 
+// DefaultMaxBytes is the source-size ceiling for Tree-sitter highlighting.
+// Documents larger than this are shown unhighlighted.
+//
+// A syntax tree costs far more than the text it describes: a 10 MB JSON body
+// parses to ~3.5M nodes and ~210 MB of resident C memory, which the allocator
+// does not hand back to the OS when the tree is freed. Parsing it also takes
+// ~600 ms, and classifying it emits millions of tokens — all to color the ~50
+// lines an editor viewport can actually show.
+//
+// 2 MB keeps the worst case near ~40 MB and ~120 ms while covering the source
+// files and API responses people actually read.
+const DefaultMaxBytes = 2 << 20
+
+// MaxBytes is the limit applied to highlighters created from here on. Set it
+// before constructing them to trade memory for highlighting on larger
+// documents; values <= 0 mean DefaultMaxBytes.
+var MaxBytes = DefaultMaxBytes
+
 // classifyFunc walks a parsed syntax tree and emits a flat, ordered list of
 // colored token ranges. Each language supplies one.
 type classifyFunc func(root *tree_sitter.Node, src []byte) []Token
@@ -81,6 +99,10 @@ type tsHighlighter struct {
 	done     chan struct{}
 	langFn   func() unsafe.Pointer
 	classify classifyFunc
+	maxBytes int
+	// oversize records that the last source exceeded maxBytes, so crossing the
+	// limit clears any tokens the editor is still holding exactly once.
+	oversize bool
 }
 
 // newTS starts a worker loop for the given grammar/classifier and returns it.
@@ -91,6 +113,7 @@ func newTS(langFn func() unsafe.Pointer, classify classifyFunc) Highlighter {
 		done:     make(chan struct{}),
 		langFn:   langFn,
 		classify: classify,
+		maxBytes: MaxBytes,
 	}
 	go h.loop()
 	return h
@@ -130,6 +153,14 @@ func (h *tsHighlighter) loop() {
 		case <-h.wake:
 			batch := h.drainPending()
 			if len(batch) == 0 {
+				// A wake with no work means the source grew past the size
+				// limit. Drop the retained tree so its native memory is freed
+				// rather than held for the editor's lifetime.
+				if h.wasOversize() && prev != nil {
+					prev.Close()
+					prev = nil
+					prevLen = 0
+				}
 				continue
 			}
 			latestSrc := batch[len(batch)-1].src
@@ -215,14 +246,60 @@ func deliver(ch chan []Token, toks []Token) {
 }
 
 func (h *tsHighlighter) Update(source []byte) {
+	if h.skipOversize(source) {
+		return
+	}
 	cp := append([]byte(nil), source...)
 	h.enqueue(parseJob{src: cp, edit: nil})
 }
 
 func (h *tsHighlighter) UpdateEdit(source []byte, edit Edit) {
+	if h.skipOversize(source) {
+		return
+	}
 	cp := append([]byte(nil), source...)
 	ed := edit
 	h.enqueue(parseJob{src: cp, edit: &ed})
+}
+
+// skipOversize reports whether source is too large to highlight. The check runs
+// before the source is copied, so an oversized document costs nothing. The
+// first update that crosses the limit delivers an empty token set and drops any
+// retained tree, releasing both the editor's tokens and the worker's native
+// memory; the first one back under the limit reparses normally.
+func (h *tsHighlighter) skipOversize(source []byte) bool {
+	limit := h.maxBytes
+	if limit <= 0 {
+		limit = DefaultMaxBytes
+	}
+	over := len(source) > limit
+
+	// Read and flip the flag under one lock so concurrent updates cannot both
+	// see the transition and clear twice.
+	h.mu.Lock()
+	crossed := over && !h.oversize
+	h.oversize = over
+	if crossed {
+		h.pending = nil
+	}
+	h.mu.Unlock()
+
+	if crossed {
+		// Clear the stale highlighting and wake the worker so it releases its
+		// retained tree.
+		deliver(h.results, nil)
+		select {
+		case h.wake <- struct{}{}:
+		default:
+		}
+	}
+	return over
+}
+
+func (h *tsHighlighter) wasOversize() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.oversize
 }
 
 func (h *tsHighlighter) Poll() ([]Token, bool) {

@@ -309,17 +309,8 @@ func newLinebreaker(items []Item, width float64) *linebreaker {
 	}
 }
 
-// trailingGlueWidth returns the cumulative natural width of consecutive
-// Glue items immediately preceding position b. Per CSS Text §4.1, trailing
-// whitespace at the end of a line must not count toward the line's measured
-// width when deciding fit.
 // trailingGlue returns the cumulative natural width and shrink of the
-// consecutive Glue items immediately preceding position b.
-//
-// A break at b puts them past the end of the line, so they neither occupy
-// width nor offer shrink to it: an invisible space cannot absorb overflow.
-// Their stretch is deliberately not returned — see computeAdjustmentRatio.
-//
+// consecutive glue items immediately preceding position b, not their stretch.
 // The run is only ever non-empty when b is a Penalty. A Glue breakpoint is
 // legal only when preceded by a Box, so at those there is nothing to discard.
 func (lb *linebreaker) trailingGlue(b int) (w, z float64) {

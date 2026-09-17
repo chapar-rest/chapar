@@ -35,16 +35,22 @@ func DetectBodyKind(contentType string, body []byte) string {
 	if len(trim) == 0 {
 		return BodyKindText
 	}
-	if IsJSON(string(body)) {
+	if IsJSONBytes(body) {
 		return BodyKindJSON
 	}
-	s := string(trim)
-	lower := strings.ToLower(s)
-	if strings.HasPrefix(lower, "<!doctype html") || strings.HasPrefix(lower, "<html") {
+	// Sniffing only needs the opening tag, so prefix-match on the head of the
+	// body. Lower-casing the whole thing copied a multi-megabyte body twice
+	// more for a decision the first few bytes already make.
+	head := trim
+	if len(head) > 1024 {
+		head = head[:1024]
+	}
+	lowerHead := strings.ToLower(string(head))
+	if strings.HasPrefix(lowerHead, "<!doctype html") || strings.HasPrefix(lowerHead, "<html") {
 		return BodyKindHTML
 	}
-	if trim[0] == '<' && IsXML(s) {
-		if strings.Contains(lower, "<html") {
+	if trim[0] == '<' && IsXMLBytes(trim) {
+		if bytes.Contains(bytes.ToLower(head), []byte("<html")) {
 			return BodyKindHTML
 		}
 		return BodyKindXML
@@ -66,9 +72,19 @@ func PrettyBody(body []byte, kind string) (string, error) {
 	}
 }
 
+// IsXMLBytes reports whether data looks like well-formed XML (or HTML-as-XML)
+// without copying it into a string.
+func IsXMLBytes(data []byte) bool {
+	return isXMLReader(bytes.NewReader(data))
+}
+
 // IsXML reports whether s looks like well-formed XML (or HTML-as-XML).
 func IsXML(s string) bool {
-	dec := xml.NewDecoder(strings.NewReader(s))
+	return isXMLReader(strings.NewReader(s))
+}
+
+func isXMLReader(r io.Reader) bool {
+	dec := xml.NewDecoder(r)
 	dec.Strict = false
 	for {
 		tok, err := dec.Token()
@@ -193,7 +209,7 @@ func ApplyBodyFormat(contentType string, body []byte) (kind, pretty, jsonStr str
 	if kind == BodyKindJSON {
 		isJSON = true
 		jsonStr = pretty
-	} else if IsJSON(string(body)) {
+	} else if IsJSONBytes(body) {
 		// Sniff says structured other kind but body is also JSON — keep jsonpath path.
 		isJSON = true
 		if js, err := PrettyJSON(body); err == nil {
