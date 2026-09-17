@@ -98,10 +98,10 @@ type Tree struct {
 	// and calling Rebuild as needed.
 	OnDrop func(ev DropEvent)
 
-	hover    int
-	selected int
-	focused  bool
-	rowH     float32
+	hover     int
+	selected  int
+	focused   bool
+	rowH      float32
 	markPaint func()
 
 	// drag-and-drop state
@@ -226,7 +226,7 @@ func (n *TreeNode) InsertChild(i int, child *TreeNode) {
 func (n *TreeNode) RemoveChild(child *TreeNode) bool {
 	for i, c := range n.Children {
 		if c == child {
-			n.Children = append(n.Children[:i], n.Children[i+1:]...)
+			n.Children = removeAt(n.Children, i)
 			child.parent = nil
 			return true
 		}
@@ -314,6 +314,7 @@ func (t *Tree) subtreeMatches(n *TreeNode) bool {
 
 // rebuild flattens expanded branches into the visible slice (pre-order).
 func (t *Tree) rebuild() {
+	clear(t.visible) // release nodes dropped from the flattened view
 	t.visible = t.visible[:0]
 	if t.filter == "" {
 		var walk func(n *TreeNode)

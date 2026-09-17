@@ -39,6 +39,7 @@ type Container struct {
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
 	reqActive, respActive int
+	actionsNav            int
 	pending               bool
 	resultCh              chan result
 	lastResp              *egress.Response
@@ -62,8 +63,8 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		deps:     deps,
 		resultCh: make(chan result, 1),
 		reqTabs: []ui.TabModel{
-			{Title: "Body"}, {Title: "Metadata"}, {Title: "Auth"}, {Title: "Variables"},
-			{Title: "Server"}, {Title: "Settings"}, {Title: "Pre"}, {Title: "Post"}, {Title: "Info"},
+			{Title: "Body"}, {Title: "Metadata"}, {Title: "Auth"},
+			{Title: "Server"}, {Title: "Settings"}, {Title: "Actions"}, {Title: "Info"},
 		},
 		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Metadata"}, {Title: "Trailers"}, {Title: "Timeline"}},
 		statusText: "Ready",
@@ -252,28 +253,26 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	case 2:
 		rows = append(rows, container.AuthForm(th, id, &spec.Auth, &c.authState, c.deps.Catalog, c.markDirty))
 	case 3:
-		rows = append(rows,
-			ui.Button("grpc-var-add-"+id, ui.Text("Add")).OnClick(func() { container.AddVariableRow(c.vars, 0, c.markDirty) }),
-			ui.ViewOf(c.vars).Grow(1),
-		)
-	case 4:
 		rows = append(rows, c.serverTab(th, id, spec)...)
-	case 5:
+	case 4:
 		rows = append(rows, c.settingsTab(th, id, spec)...)
-	case 6:
-		rows = append(rows, container.PreRequestPane(th, c.deps, &spec.PreRequest, container.PrePostOpts{
-			ID: id + "-pre",
-		}, &c.preScript, c.markDirty))
-	case 7:
+	case 5:
 		preview := ""
 		if c.lastResp != nil {
 			preview = container.PreviewPostSet(spec.PostRequest.PostRequestSet, c.lastResp)
 		}
-		rows = append(rows, container.PostRequestPane(th, c.deps, &spec.PostRequest, container.PrePostOpts{
-			ID: id + "-post", AllowSetEnv: true,
-			FromOptions: container.GRPCPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
-		}, &c.postScript, preview, c.markDirty))
-	case 8:
+		rows = append(rows, container.ActionsPane(th, container.ActionsOpts{
+			ID: id, Selected: &c.actionsNav, Deps: c.deps,
+			Pre: &spec.PreRequest, Post: &spec.PostRequest,
+			PreOpts: container.PrePostOpts{ID: id + "-pre"},
+			PostOpts: container.PrePostOpts{
+				ID: id + "-post", AllowSetEnv: true,
+				FromOptions: container.GRPCPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
+			},
+			PreScript: &c.preScript, PostScript: &c.postScript, Preview: preview,
+			Vars: c.vars, DefaultVarStatus: 0, MarkDirty: c.markDirty,
+		}))
+	case 6:
 		rows = append(rows, container.InfoPane(th, id, c.req, c.descEd, func() {
 			c.markDirty()
 			c.deps.ReportTitle(domain.RequestDisplayName(c.req))

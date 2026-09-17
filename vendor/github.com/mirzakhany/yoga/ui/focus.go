@@ -43,6 +43,11 @@ func NewFocusScope() *FocusScope { return &FocusScope{} }
 // beginFrame clears the per-frame registration list. The focused widget is
 // kept; it is re-matched against the new item list as components re-Add.
 func (f *FocusScope) beginFrame() {
+	// Drop the references as well as the length. A frame that registers fewer
+	// widgets than the last — after a document or tab is closed, say — would
+	// otherwise leave the old ones reachable in the backing array for the
+	// lifetime of the scope, and a Focusable can be a whole editor.
+	clear(f.items)
 	f.items = f.items[:0]
 	f.modal = nil
 	f.modalFrom = 0

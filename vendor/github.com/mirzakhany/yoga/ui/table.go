@@ -267,7 +267,7 @@ func (t *Table) AddRow(row TableRow) int {
 func (t *Table) RemoveRow(id string) bool {
 	for i, row := range t.Rows {
 		if row.ID == id {
-			t.Rows = append(t.Rows[:i], t.Rows[i+1:]...)
+			t.Rows = removeAt(t.Rows, i)
 			if t.editingRowID == id {
 				t.cancelEdit()
 			}

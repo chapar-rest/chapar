@@ -35,6 +35,7 @@ type Container struct {
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
 	reqActive, respActive int
+	actionsNav            int
 	pending               bool
 	resultCh              chan result
 	lastResp              *egress.Response
@@ -56,7 +57,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		resultCh: make(chan result, 1),
 		reqTabs: []ui.TabModel{
 			{Title: "Query"}, {Title: "Variables"}, {Title: "Headers"},
-			{Title: "Auth"}, {Title: "Pre"}, {Title: "Post"}, {Title: "Info"},
+			{Title: "Auth"}, {Title: "Actions"}, {Title: "Info"},
 		},
 		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Timeline"}},
 		statusText: "Ready",
@@ -201,20 +202,23 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	case 3:
 		rows = append(rows, container.AuthForm(th, id, &g.Auth, &c.authState, c.deps.Catalog, c.markDirty))
 	case 4:
-		rows = append(rows, container.PreRequestPane(th, c.deps, &g.PreRequest, container.PrePostOpts{
-			ID: id + "-pre", AllowPython: true,
-		}, &c.preScript, c.markDirty))
-	case 5:
 		preview := ""
 		if c.lastResp != nil {
 			preview = container.PreviewPostSet(g.PostRequest.PostRequestSet, c.lastResp)
 		}
-		rows = append(rows, container.PostRequestPane(th, c.deps, &g.PostRequest, container.PrePostOpts{
-			ID: id + "-post", AllowPython: true, AllowSetEnv: true,
-			FromOptions: container.HTTPPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
-			DefaultStatus: 200,
-		}, &c.postScript, preview, c.markDirty))
-	case 6:
+		rows = append(rows, container.ActionsPane(th, container.ActionsOpts{
+			ID: id, Selected: &c.actionsNav, Deps: c.deps,
+			Pre: &g.PreRequest, Post: &g.PostRequest,
+			PreOpts: container.PrePostOpts{ID: id + "-pre", AllowPython: true},
+			PostOpts: container.PrePostOpts{
+				ID: id + "-post", AllowPython: true, AllowSetEnv: true,
+				FromOptions: container.HTTPPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
+				DefaultStatus: 200,
+			},
+			PreScript: &c.preScript, PostScript: &c.postScript, Preview: preview,
+			MarkDirty: c.markDirty,
+		}))
+	case 5:
 		rows = append(rows, container.InfoPane(th, id, c.req, c.descEd, func() {
 			c.markDirty()
 			c.deps.ReportTitle(domain.RequestDisplayName(c.req))

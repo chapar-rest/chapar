@@ -169,6 +169,7 @@ func (e *Editor) recomputeDiagSpans() {
 		}
 		spans = append(spans, diagSpan{lo: lo, hi: hi, sev: d.Severity, msg: d.Message})
 	}
+	clear(e.lspUI.diagSpans[len(spans):]) // release dropped diagnostic messages
 	e.lspUI.diagSpans = spans
 }
 

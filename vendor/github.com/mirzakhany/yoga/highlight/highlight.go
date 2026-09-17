@@ -153,9 +153,17 @@ func (w *rangeWalker) children(n *tree_sitter.Node, visit func(*tree_sitter.Node
 // Child() calls a search costs, since every one crosses into C.
 const childScanLimit = 32
 
-type parseJob struct {
-	src  []byte
-	edit *Edit // nil means full reparse
+// pendingParse is the work waiting for the worker, coalesced.
+//
+// Only the newest source is ever parsed — a burst of keystrokes results in one
+// parse of the final text — so the queue keeps a single buffer and refills it
+// in place instead of copying every superseded version. Edits are kept in order
+// because the incremental parse replays them onto the previous tree.
+type pendingParse struct {
+	src   []byte
+	edits []Edit
+	full  bool // parse from scratch, ignoring edits
+	valid bool // src holds work the worker has not taken yet
 }
 
 // tsHighlighter is a generic Tree-sitter-backed highlighter. It is parameterized
@@ -164,7 +172,7 @@ type parseJob struct {
 // coalescing, and Cgo tree lifecycle are shared.
 type tsHighlighter struct {
 	mu       sync.Mutex
-	pending  []parseJob
+	pending  pendingParse
 	wake     chan struct{}
 	results  chan []Token
 	done     chan struct{}
@@ -177,6 +185,9 @@ type tsHighlighter struct {
 	// as before.
 	wantLo, wantHi int
 	rangeSet       bool
+	// srcPool holds source buffers the worker has finished reading. Update
+	// refills one instead of allocating a document-sized slice per keystroke.
+	srcPool [][]byte
 	// oversize records that the last source exceeded maxBytes, so crossing the
 	// limit clears any tokens the editor is still holding exactly once.
 	oversize bool
@@ -232,8 +243,8 @@ func (h *tsHighlighter) loop() {
 		case <-h.done:
 			return
 		case <-h.wake:
-			batch := h.drainPending()
-			if len(batch) == 0 {
+			work, haveWork := h.takePending()
+			if !haveWork {
 				// A wake with no parse work is either an oversize transition or
 				// a range request against the tree already in hand.
 				if h.wasOversize() {
@@ -259,34 +270,33 @@ func (h *tsHighlighter) loop() {
 				deliver(h.results, h.classifyRange(prev, lo, hi))
 				continue
 			}
-			latestSrc := batch[len(batch)-1].src
-
-			full := false
-			for _, j := range batch {
-				if j.edit == nil {
-					full = true
-					break
-				}
-			}
+			latestSrc := work.src
 
 			var tree *tree_sitter.Tree
-			if full {
-				tree = parser.Parse(latestSrc, nil)
-			} else if prev != nil {
+			if work.full || prev == nil {
+				tree = parse(parser, latestSrc, nil)
+			} else {
 				expectedLen := prevLen
-				for _, j := range batch {
-					e := j.edit
+				for i := range work.edits {
+					e := &work.edits[i]
 					prev.Edit(e.toInputEdit())
 					expectedLen += e.NewEndByte - e.OldEndByte
 				}
 				if expectedLen != len(latestSrc) {
-					tree = parser.Parse(latestSrc, nil)
+					tree = parse(parser, latestSrc, nil)
 				} else {
-					tree = parser.Parse(latestSrc, prev)
+					tree = parse(parser, latestSrc, prev)
 				}
-			} else {
-				tree = parser.Parse(latestSrc, nil)
 			}
+
+			// The parse has read everything it needs from the buffer, so it can
+			// be refilled by the next edit. Recycle before classifying, which
+			// works from the tree alone. srcLen is kept because latestSrc must
+			// not be read after this point.
+			srcLen := len(latestSrc)
+			latestSrc = nil
+			h.recycleSource(work.src)
+			work.src = nil
 
 			if tree == nil {
 				continue
@@ -295,13 +305,38 @@ func (h *tsHighlighter) loop() {
 				prev.Close()
 			}
 			prev = tree
-			prevLen = len(latestSrc)
+			prevLen = srcLen
 
 			doneLo, doneHi = h.wantRange()
 			haveResult = true
 			deliver(h.results, h.classifyRange(tree, doneLo, doneHi))
 		}
 	}
+}
+
+// parseChunkBytes bounds how much source one read callback hands to
+// Tree-sitter.
+//
+// The binding's callback copies whatever slice it is given into a fresh C
+// string — and Parser.Parse hands it the whole remaining document, on every
+// invocation. Parsing a 2.9 MB buffer that way copied ~1.2 MB per keystroke to
+// the Go and C heaps. Returning a bounded window instead makes each copy small
+// and the total proportional to what the parser actually reads, which for an
+// incremental reparse is the region around the edit.
+const parseChunkBytes = 64 << 10
+
+// parse runs the parser over src in bounded chunks, reusing oldTree when given.
+func parse(parser *tree_sitter.Parser, src []byte, oldTree *tree_sitter.Tree) *tree_sitter.Tree {
+	return parser.ParseWithOptions(func(offset int, _ tree_sitter.Point) []byte {
+		if offset < 0 || offset >= len(src) {
+			return nil
+		}
+		end := offset + parseChunkBytes
+		if end > len(src) {
+			end = len(src)
+		}
+		return src[offset:end]
+	}, oldTree, nil)
 }
 
 // classifyRange walks tree for [lo, hi) and returns the tokens in it.
@@ -311,21 +346,49 @@ func (h *tsHighlighter) classifyRange(tree *tree_sitter.Tree, lo, hi int) []Toke
 	return w.toks
 }
 
-func (h *tsHighlighter) drainPending() []parseJob {
+// takePending hands queued work to the worker and drops the queue's claim on
+// the buffer, so the next edit refills a pooled buffer rather than the one
+// being parsed.
+func (h *tsHighlighter) takePending() (pendingParse, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if len(h.pending) == 0 {
-		return nil
+	if !h.pending.valid {
+		return pendingParse{}, false
 	}
-	batch := h.pending
-	h.pending = nil
-	return batch
+	work := h.pending
+	h.pending = pendingParse{}
+	return work, true
 }
 
-func (h *tsHighlighter) enqueue(job parseJob) {
+// enqueue records source as the text to parse next, superseding any source the
+// worker has not taken yet. edit is nil for a full reparse.
+//
+// While work is still queued the buffer is refilled in place, so typing faster
+// than the parser keeps up costs one memcpy per keystroke and no allocation.
+func (h *tsHighlighter) enqueue(source []byte, edit *Edit) {
 	h.mu.Lock()
-	h.pending = append(h.pending, job)
+	buf := h.pending.src
+	if !h.pending.valid {
+		// Nothing queued: take a buffer the worker has returned, if any.
+		buf = nil
+		if n := len(h.srcPool); n > 0 {
+			buf = h.srcPool[n-1]
+			h.srcPool[n-1] = nil
+			h.srcPool = h.srcPool[:n-1]
+		}
+		h.pending.edits = h.pending.edits[:0]
+		h.pending.full = false
+	}
+	h.pending.src = append(buf[:0], source...)
+	h.pending.valid = true
+	if edit == nil {
+		h.pending.full = true
+		h.pending.edits = h.pending.edits[:0]
+	} else if !h.pending.full {
+		h.pending.edits = append(h.pending.edits, *edit)
+	}
 	h.mu.Unlock()
+
 	select {
 	case h.wake <- struct{}{}:
 	default:
@@ -353,17 +416,36 @@ func (h *tsHighlighter) Update(source []byte) {
 	if h.skipOversize(source) {
 		return
 	}
-	cp := append([]byte(nil), source...)
-	h.enqueue(parseJob{src: cp, edit: nil})
+	h.enqueue(source, nil)
 }
 
 func (h *tsHighlighter) UpdateEdit(source []byte, edit Edit) {
 	if h.skipOversize(source) {
 		return
 	}
-	cp := append([]byte(nil), source...)
-	ed := edit
-	h.enqueue(parseJob{src: cp, edit: &ed})
+	h.enqueue(source, &edit)
+}
+
+// srcPoolMax bounds the pooled buffers. Two is enough for the steady state —
+// one being parsed while the next keystroke fills the other — and the cap stops
+// a burst of edits from pinning several document-sized buffers.
+const srcPoolMax = 2
+
+// recycleSource returns a parsed buffer to the pool.
+//
+// Only the worker calls it, and only once the parse that read the buffer has
+// returned: Tree-sitter trees keep no reference to the source they were built
+// from, so the bytes are dead at that point. Returning it any earlier would let
+// a keystroke refill the very bytes being parsed.
+func (h *tsHighlighter) recycleSource(buf []byte) {
+	if cap(buf) == 0 {
+		return
+	}
+	h.mu.Lock()
+	if len(h.srcPool) < srcPoolMax {
+		h.srcPool = append(h.srcPool, buf)
+	}
+	h.mu.Unlock()
 }
 
 // skipOversize reports whether source is too large to highlight. The check runs
@@ -384,7 +466,7 @@ func (h *tsHighlighter) skipOversize(source []byte) bool {
 	crossed := over && !h.oversize
 	h.oversize = over
 	if crossed {
-		h.pending = nil
+		h.pending = pendingParse{}
 	}
 	h.mu.Unlock()
 

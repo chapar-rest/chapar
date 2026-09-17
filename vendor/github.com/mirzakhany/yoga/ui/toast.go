@@ -67,6 +67,9 @@ func (t *ToastHost) prune() {
 			alive = append(alive, e)
 		}
 	}
+	// Release the entries that were pruned; the tail of the backing array
+	// still referenced them.
+	clear(t.toasts[len(alive):])
 	t.toasts = alive
 }
 

@@ -1050,6 +1050,7 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, coalesceTyping bool) int
 	}
 	e.canCoalesce = coalesceTyping && delLen == 0 && !strings.Contains(ins, "\n")
 
+	clear(e.redo) // release the discarded redo payloads
 	e.redo = e.redo[:0]
 	e.modified = true
 	e.contentSizeDirty = true

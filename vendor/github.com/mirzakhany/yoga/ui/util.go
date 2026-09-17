@@ -76,3 +76,19 @@ func clampToViewport(x, y, w, h float32) (float32, float32) {
 	y = f32max(0, f32min(y, viewportH-h))
 	return x, y
 }
+
+// removeAt deletes index i from s and clears the slot the tail vacated.
+//
+// The backing array outlives the shortened slice, so the idiomatic
+// append(s[:i], s[i+1:]...) leaves whatever the last element referenced
+// reachable for as long as the slice's owner lives. For a slice of widgets,
+// nodes, or documents that is a live subtree the caller believes it dropped.
+func removeAt[T any](s []T, i int) []T {
+	if i < 0 || i >= len(s) {
+		return s
+	}
+	var zero T
+	copy(s[i:], s[i+1:])
+	s[len(s)-1] = zero
+	return s[:len(s)-1]
+}

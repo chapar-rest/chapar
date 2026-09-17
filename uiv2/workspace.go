@@ -134,8 +134,17 @@ func (w *Workspace) drop(i int) {
 		return
 	}
 	w.docs[i].Close()
-	w.docs = append(w.docs[:i], w.docs[i+1:]...)
-	w.tabs = append(w.tabs[:i], w.tabs[i+1:]...)
+	// Shift the tail down, then clear the slot the tail vacated. The backing
+	// array outlives the shortened slice, so leaving the old value in place
+	// keeps a closed tab's container — and with it its editors, syntax tree and
+	// response body — reachable for as long as the workspace lives.
+	copy(w.docs[i:], w.docs[i+1:])
+	w.docs[len(w.docs)-1] = nil
+	w.docs = w.docs[:len(w.docs)-1]
+
+	copy(w.tabs[i:], w.tabs[i+1:])
+	w.tabs[len(w.tabs)-1] = ui.TabModel{}
+	w.tabs = w.tabs[:len(w.tabs)-1]
 	if w.active >= len(w.docs) {
 		w.active = len(w.docs) - 1
 	}

@@ -42,6 +42,7 @@ type Container struct {
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
 	reqActive, respActive int
+	actionsNav            int
 
 	pending  bool
 	resultCh chan result
@@ -76,8 +77,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		resultCh: make(chan result, 1),
 		reqTabs: []ui.TabModel{
 			{Title: "Params"}, {Title: "Body"}, {Title: "Auth"},
-			{Title: "Headers"}, {Title: "Variables"}, {Title: "Pre"}, {Title: "Post"},
-			{Title: "Info"},
+			{Title: "Headers"}, {Title: "Actions"}, {Title: "Info"},
 		},
 		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Cookies"}, {Title: "Timeline"}},
 		statusText: "Ready",
@@ -267,29 +267,23 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	case 3:
 		body = append(body, container.HeadersPane(th, id, c.headers, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 4:
-		body = append(body,
-			ui.Row(
-				ui.Button("http-var-add-"+id, ui.Text("Add")).OnClick(func() {
-					container.AddVariableRow(c.vars, 200, c.markDirty)
-				}),
-			).PaddingXY(0, th.Spacing.S),
-			ui.ViewOf(c.vars).Grow(1),
-		)
-	case 5:
-		body = append(body, container.PreRequestPane(th, c.deps, &http.Request.PreRequest, container.PrePostOpts{
-			ID: optsID(id, "pre"), AllowPython: true,
-		}, &c.preScript, c.markDirty))
-	case 6:
 		preview := ""
 		if c.lastResp != nil {
 			preview = container.PreviewPostSet(http.Request.PostRequest.PostRequestSet, c.lastResp)
 		}
-		body = append(body, container.PostRequestPane(th, c.deps, &http.Request.PostRequest, container.PrePostOpts{
-			ID: optsID(id, "post"), AllowPython: true, AllowSetEnv: true,
-			FromOptions: container.HTTPPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
-			DefaultStatus: 200,
-		}, &c.postScript, preview, c.markDirty))
-	case 7:
+		body = append(body, container.ActionsPane(th, container.ActionsOpts{
+			ID: id, Selected: &c.actionsNav, Deps: c.deps,
+			Pre: &http.Request.PreRequest, Post: &http.Request.PostRequest,
+			PreOpts: container.PrePostOpts{ID: optsID(id, "pre"), AllowPython: true},
+			PostOpts: container.PrePostOpts{
+				ID: optsID(id, "post"), AllowPython: true, AllowSetEnv: true,
+				FromOptions: container.HTTPPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
+				DefaultStatus: 200,
+			},
+			PreScript: &c.preScript, PostScript: &c.postScript, Preview: preview,
+			Vars: c.vars, DefaultVarStatus: 200, MarkDirty: c.markDirty,
+		}))
+	case 5:
 		body = append(body, container.InfoPane(th, id, c.req, c.descEd, func() {
 			c.markDirty()
 			c.deps.ReportTitle(domain.RequestDisplayName(c.req))

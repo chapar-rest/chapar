@@ -78,8 +78,12 @@ func NewCommandsHost() *CommandsHost {
 // beginFrame clears per-frame registrations. Open/query/cursor/hover persist so
 // the paint rebuild can still show the highlight set during mouse dispatch.
 func (h *CommandsHost) beginFrame() {
+	// Commands close over application state, so release the references rather
+	// than just resetting the length.
+	clear(h.cmds)
 	h.cmds = h.cmds[:0]
 	h.byID = make(map[string]int)
+	clear(h.filtered)
 	h.filtered = h.filtered[:0]
 	h.ctx = nil
 }

@@ -56,6 +56,9 @@ func (lv *ListView) Clear() {
 	if len(lv.items) == 0 {
 		return
 	}
+	// Drop the element references too: truncating alone keeps every item's
+	// layout subtree alive in the backing array.
+	clear(lv.items)
 	lv.items = lv.items[:0]
 	lv.sync()
 }
@@ -65,7 +68,7 @@ func (lv *ListView) Remove(i int) bool {
 	if i < 0 || i >= len(lv.items) {
 		return false
 	}
-	lv.items = append(lv.items[:i], lv.items[i+1:]...)
+	lv.items = removeAt(lv.items, i)
 	lv.sync()
 	return true
 }

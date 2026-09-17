@@ -80,6 +80,7 @@ func (c *Ctx) BeginFrame(vw, vh float32, m *input.Mouse, kb *input.Keyboard) {
 	c.vw, c.vh = vw, vh
 	c.mouse, c.keyboard = m, kb
 	c.theme = theme.Current()
+	clear(c.overlays) // release last frame's element trees, not just the length
 	c.overlays = c.overlays[:0]
 	c.wakeIn = -1
 	c.env = env{}
