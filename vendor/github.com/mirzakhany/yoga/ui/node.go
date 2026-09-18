@@ -17,6 +17,7 @@ const (
 	kindSpacer
 	kindGrid
 	kindText
+	kindParagraph
 	kindButton
 	kindTextField
 	kindCheckbox
@@ -289,9 +290,10 @@ func (n *Node) Frame(w, h float32) *Node {
 	return n
 }
 
-// Size on Text is font size; on other nodes it sets width and height.
+// Size on Text and Paragraph is font size; on other nodes it sets width and
+// height.
 func (n *Node) Size(v float32) *Node {
-	if n.kind == kindText {
+	if n.kind == kindText || n.kind == kindParagraph {
 		n.spec.fontSize = v
 		n.spec.hasFontSize = true
 		return n
@@ -299,9 +301,10 @@ func (n *Node) Size(v float32) *Node {
 	return n.Frame(v, v)
 }
 
-// Weight sets the CSS-like font weight on Text (400 Regular, 600 SemiBold).
+// Weight sets the CSS-like font weight on Text and Paragraph (400 Regular,
+// 600 SemiBold).
 func (n *Node) Weight(w int) *Node {
-	if n.kind == kindText {
+	if n.kind == kindText || n.kind == kindParagraph {
 		n.spec.fontWeight = w
 		n.spec.hasFontWeight = true
 	}
@@ -599,6 +602,8 @@ func (n *Node) layoutKind(c *Ctx) *layout.Element {
 		return el
 	case kindText:
 		return n.layoutText(c)
+	case kindParagraph:
+		return n.layoutParagraph(c)
 	case kindButton:
 		return n.layoutButton(c)
 	case kindTextField:

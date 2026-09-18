@@ -55,6 +55,7 @@ type Container struct {
 	respDur    time.Duration
 	respSize   int
 	respErr    bool
+	errText    string // error of the last failed send; shown by ErrorView
 	respRaw    bool
 
 	timeline container.TimelineState
@@ -373,6 +374,10 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 		}
 		content = container.TimelineView("http-tl-"+id, th, ctx, c.deps, &c.timeline, steps)
 	default:
+		if c.respErr {
+			content = container.ErrorView("http-err-"+id, th, ctx, c.deps, c.errText)
+			break
+		}
 		fname := "response.txt"
 		if c.lastResp != nil {
 			fname = container.DefaultResponseFilename(c.lastResp.BodyKind)
@@ -425,11 +430,15 @@ func (c *Container) applyBodyEditor() {
 func (c *Container) handleResult(r result) {
 	c.pending = false
 	c.haveResult = true
-	if r.err != nil {
+	err := r.err
+	if err == nil && r.resp != nil {
+		err = r.resp.Error
+	}
+	if err != nil {
 		c.respErr = true
 		c.lastResp = r.resp
-		c.statusText = r.err.Error()
-		c.respEd = container.ReplaceEditor(c.respEd, []byte(r.err.Error()), highlight.Noop{})
+		c.statusText = container.FailedStatus
+		c.errText = err.Error()
 		if r.resp != nil {
 			c.timeline.SetSteps(r.resp.Timeline)
 		}
@@ -437,7 +446,7 @@ func (c *Container) handleResult(r result) {
 	}
 	res := r.resp
 	c.lastResp = res
-	c.respErr = res.Error != nil
+	c.respErr = false
 	c.respCode = res.StatusCode
 	if c.respCode == 0 {
 		c.respCode = res.StatueCode
@@ -445,11 +454,7 @@ func (c *Container) handleResult(r result) {
 	c.respStatus = res.Status
 	c.respDur = res.TimePassed
 	c.respSize = len(res.Body)
-	if res.Error != nil {
-		c.statusText = res.Error.Error()
-	} else {
-		c.statusText = fmt.Sprintf("%d %s  %s  %s", c.respCode, strings.TrimSpace(c.respStatus), c.respDur.Round(time.Millisecond), container.FormatBytes(c.respSize))
-	}
+	c.statusText = fmt.Sprintf("%d %s  %s  %s", c.respCode, strings.TrimSpace(c.respStatus), c.respDur.Round(time.Millisecond), container.FormatBytes(c.respSize))
 	c.applyBodyEditor()
 	var hdr strings.Builder
 	fmt.Fprintf(&hdr, "# --- Request Headers ---\n")

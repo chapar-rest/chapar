@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chapar-rest/chapar/assets"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/util"
 	"github.com/dustin/go-humanize"
@@ -93,6 +94,29 @@ func ReplaceResponseEditor(old *ui.Editor, res *egress.Response, raw bool) *ui.E
 	}
 	return ui.NewEditor(DisplayBody(res, raw), BodyHighlighter(kind),
 		ui.WithSoftWrap(true), ui.WithSharedContent())
+}
+
+// FailedStatus is the status line text for a request that failed; the error
+// itself is shown in the response pane by ErrorView.
+const FailedStatus = "Request failed"
+
+// ErrorView shows a failed request: the confused Chapar with msg under it in
+// red. Right-click copies the message.
+func ErrorView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, msg string) ui.View {
+	return ui.Column(
+		ui.Column(
+			ui.Image(id+"-confused", assets.ChaparConfusedPNG).Width(160),
+		).Align(ui.AlignCenter).PaddingTop(th.Spacing.L),
+		ui.ContextMenu(id+"-menu", ui.Paragraph(msg).
+			TextAlign(ui.AlignCenter).
+			Style(ui.Spec{}.TextColor(ui.TokenError)),
+			[]ui.MenuItem{{Label: "Copy", OnSelect: func() {
+				if clip := ctx.Clipboard(); clip != nil {
+					clip.Set(msg)
+					deps.Toast("Copied")
+				}
+			}}}),
+	).Gap(th.Spacing.M).Grow(1)
 }
 
 // ResponseTabsRow lays out response tabs with a stable Raw checkbox on the right

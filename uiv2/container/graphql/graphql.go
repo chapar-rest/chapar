@@ -40,6 +40,7 @@ type Container struct {
 	resultCh              chan result
 	lastResp              *egress.Response
 	statusText            string
+	errText               string // error of the last failed send; shown by ErrorView
 	respRaw               bool
 	timeline              container.TimelineState
 	authState             container.AuthState
@@ -245,6 +246,10 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 		}
 		content = container.TimelineView("gql-tl-"+id, th, ctx, c.deps, &c.timeline, steps)
 	default:
+		if c.errText != "" {
+			content = container.ErrorView("gql-err-"+id, th, ctx, c.deps, c.errText)
+			break
+		}
 		fname := "response.txt"
 		if c.lastResp != nil {
 			fname = container.DefaultResponseFilename(c.lastResp.BodyKind)
@@ -254,7 +259,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 
 	return ui.Column(
 		ui.Column(
-			ui.Text(c.statusText).Style(container.StatusLineStyle(c.statusText != "" && strings.HasPrefix(c.statusText, "error"), 0, c.lastResp != nil)),
+			ui.Text(c.statusText).Style(container.StatusLineStyle(c.errText != "", 0, c.lastResp != nil)),
 			container.ResponseTabsRow("gql-resp-"+id, th, c.respTabs, c.respActive,
 				func(i int, _ string) { c.respActive = i },
 				c.respRaw,
@@ -288,10 +293,11 @@ func (c *Container) applyBodyEditor() {
 
 func (c *Container) handle(r result) {
 	c.pending = false
+	c.errText = ""
 	if r.err != nil {
-		c.statusText = r.err.Error()
+		c.statusText = container.FailedStatus
+		c.errText = r.err.Error()
 		c.lastResp = r.resp
-		c.respEd = container.ReplaceEditor(c.respEd, []byte(r.err.Error()), highlight.Noop{})
 		if r.resp != nil {
 			c.timeline.SetSteps(r.resp.Timeline)
 		}

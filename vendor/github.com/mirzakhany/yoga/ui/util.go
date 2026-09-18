@@ -6,6 +6,7 @@ package ui
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mirzakhany/yoga/shape"
 )
@@ -33,28 +34,63 @@ func clampf(v, lo, hi float32) float32 {
 
 // wrapText greedily word-wraps s into lines no wider than maxW at the given
 // logical text size. Explicit newlines are honored; a single word wider than
-// maxW gets its own line (it is clipped by the caller rather than split).
+// maxW is split between characters so nothing is clipped.
 func wrapText(eng *shape.Engine, s string, size, maxW float32) []string {
+	return wrapTextWeight(eng, s, size, shape.WeightRegular, maxW)
+}
+
+// wrapTextWeight is wrapText measured at a font weight.
+func wrapTextWeight(eng *shape.Engine, s string, size float32, weight int, maxW float32) []string {
+	if eng == nil {
+		return strings.Split(s, "\n")
+	}
+	fits := func(t string) bool {
+		w, _ := eng.MeasureAtWeight(t, size, weight)
+		return w <= maxW
+	}
 	var out []string
 	for _, para := range strings.Split(s, "\n") {
-		words := strings.Fields(para)
-		if len(words) == 0 {
-			out = append(out, "")
-			continue
-		}
-		line := words[0]
-		for _, w := range words[1:] {
-			cand := line + " " + w
-			if tw, _ := eng.MeasureAt(cand, size); tw > maxW {
-				out = append(out, line)
-				line = w
+		line := ""
+		for _, word := range strings.Fields(para) {
+			cand := word
+			if line != "" {
+				cand = line + " " + word
+			}
+			if fits(cand) {
+				line = cand
 				continue
 			}
-			line = cand
+			if line != "" {
+				out = append(out, line)
+			}
+			for !fits(word) {
+				cut := splitToFit(word, fits)
+				out = append(out, word[:cut])
+				word = word[cut:]
+			}
+			line = word
 		}
 		out = append(out, line)
 	}
 	return out
+}
+
+// splitToFit returns the byte length of the longest rune prefix of word that
+// fits, and at least one rune so the caller always makes progress.
+func splitToFit(word string, fits func(string) bool) int {
+	_, first := utf8.DecodeRuneInString(word)
+	cut := first
+	for i, r := range word {
+		if i < first {
+			continue
+		}
+		end := i + utf8.RuneLen(r)
+		if !fits(word[:end]) {
+			break
+		}
+		cut = end
+	}
+	return cut
 }
 
 // Overlay widgets (menus, dialogs) clamp themselves into this viewport so they

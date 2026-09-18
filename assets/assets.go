@@ -25,6 +25,11 @@ var images embed.FS
 //go:embed images/chapar.png
 var ChaparPNG []byte
 
+// ChaparConfusedPNG is shown above the error of a failed request.
+//
+//go:embed images/chapar-confused.png
+var ChaparConfusedPNG []byte
+
 func LoadImage(fileName string) (image.Image, error) {
 	file, err := images.ReadFile(fmt.Sprintf("images/%s", fileName))
 	if err != nil {
