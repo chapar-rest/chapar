@@ -167,6 +167,27 @@ func NewAtlasScale(scale float32) *FontAtlas {
 	return a
 }
 
+// SetScale switches the device scale. Glyphs and icons were baked for the old
+// scale, so the mono page is cleared and they re-bake on next use; color
+// glyphs are dropped too (their cells stay allocated). Images keep their
+// pixels. The next flush re-uploads both pages.
+func (a *FontAtlas) SetScale(scale float32) {
+	if scale < 1 {
+		scale = 1
+	}
+	if scale == a.scale {
+		return
+	}
+	a.scale = scale
+	clear(a.monoPix)
+	a.monoShelf = shelf{pad: a.monoShelf.pad}
+	clear(a.glyphs)
+	clear(a.icons)
+	clear(a.iconFails)
+	a.dirty = a.dirty[:0]
+	a.fullRebuild = true
+}
+
 // NewMonoAtlasScale is an alias for NewAtlasScale.
 func NewMonoAtlasScale(scale float32) *FontAtlas { return NewAtlasScale(scale) }
 

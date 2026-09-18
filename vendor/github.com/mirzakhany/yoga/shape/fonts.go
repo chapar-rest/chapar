@@ -33,6 +33,8 @@ type FontSystem struct {
 	// Per-role shaping sizes, letter spacing, and line-height multipliers.
 	uiPixelSize    fixed.Int26_6
 	monoPixelSize  fixed.Int26_6
+	uiLogical      float32 // logical sizes behind the pixel sizes, kept for SetScale
+	monoLogical    float32
 	uiSpacing      float32 // extra logical px per UI glyph
 	monoSpacing    float32 // extra logical px per editor glyph
 	uiLineFactor   float32 // multiplier of (ascent+descent); 0 = natural
@@ -111,6 +113,8 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 		scale:            scale,
 		uiPixelSize:      fixed.I(px),
 		monoPixelSize:    fixed.I(px),
+		uiLogical:        logicalFontPx,
+		monoLogical:      logicalFontPx,
 		tabCols:          defaultTabCols,
 		faceID:           make(map[*font.Face]uint32),
 		idFace:           make(map[uint32]*font.Face),
@@ -161,6 +165,7 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 	fs.registerFace(monoFace)
 	fs.uiPixelSize = uiPx
 	fs.monoPixelSize = monoPx
+	fs.uiLogical, fs.monoLogical = uiSize, monoSize
 	fs.uiSpacing = cfg.UI.LetterSpacing
 	fs.monoSpacing = cfg.Mono.LetterSpacing
 	fs.uiLineFactor = cfg.UI.LineHeight
@@ -182,6 +187,31 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 	fs.monoMetricsCache = make(map[render.Px]Metrics)
 	fs.fontGen++
 	return nil
+}
+
+// SetScale switches the device pixel scale, e.g. when the window moves to a
+// display with a different backing scale. Faces are re-sized from their
+// logical sizes and metrics recomputed; it reports whether anything changed.
+func (fs *FontSystem) SetScale(scale float32) bool {
+	if scale < 1 {
+		scale = 1
+	}
+	if scale == fs.scale {
+		return false
+	}
+	fs.scale = scale
+	fs.uiPixelSize = fs.ppem(fs.uiLogical)
+	fs.monoPixelSize = fs.ppem(fs.monoLogical)
+	ui, mono := uint16(fs.uiPixelSize.Round()), uint16(fs.monoPixelSize.Round())
+	fs.primary.SetPpem(ui, ui)
+	fs.primaryStrong.SetPpem(ui, ui)
+	fs.mono.SetPpem(mono, mono)
+	fs.metrics = fs.computeMetrics(fs.primary, fs.uiPixelSize, fs.uiLineFactor)
+	fs.monoMetrics = fs.computeMetrics(fs.mono, fs.monoPixelSize, fs.monoLineFactor)
+	fs.metricsCache = make(map[render.Px]Metrics)
+	fs.monoMetricsCache = make(map[render.Px]Metrics)
+	fs.fontGen++
+	return true
 }
 
 // ppem converts a logical size to a device-pixel shaping size.

@@ -41,6 +41,18 @@ func (e *Engine) SetFont(cfg FontConfig) error {
 	return nil
 }
 
+// SetScale re-targets text at a new device pixel scale (window moved between
+// displays): faces are re-sized, glyphs re-baked, and shaped lines dropped.
+// It reports whether the scale changed.
+func (e *Engine) SetScale(scale float32) bool {
+	if !e.Fonts.SetScale(scale) {
+		return false
+	}
+	e.Atlas.SetScale(scale)
+	e.Cache.Invalidate()
+	return true
+}
+
 // FontGen returns a counter bumped on each SetFont; consumers compare it to
 // detect when font-derived state must be refreshed.
 func (e *Engine) FontGen() uint64 { return e.Fonts.FontGen() }

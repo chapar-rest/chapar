@@ -154,6 +154,11 @@ func (a *Window) wireCallbacks() {
 			return
 		}
 		a.renderer.Resize(fbW, fbH, logicalW, logicalH)
+		// Moving between displays changes the backing scale; re-bake text
+		// for it, otherwise glyphs are resampled and look blurry.
+		if logicalW > 0 && a.text.SetScale(float32(fbW)/float32(logicalW)) && a.uiCtx != nil {
+			a.uiCtx.MarkNeedsPaint()
+		}
 		syncSurfaceLayer(win, a.layerBG)
 		// Repaint synchronously during live resize so the window doesn't blank.
 		if a.uiApp != nil {
