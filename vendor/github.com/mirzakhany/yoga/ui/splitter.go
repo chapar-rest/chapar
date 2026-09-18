@@ -9,6 +9,11 @@ import (
 )
 
 const (
+	// splitHandleSize is the handle's layout footprint: just the painted line,
+	// so panes sit flush against it with no gap on either side.
+	splitHandleSize = 1
+	// splitHandleHit is the pointer hit strip, centered on the line. It
+	// overhangs the neighbouring panes instead of taking layout space.
 	splitHandleHit = 6
 	minPaneSize    = 80
 )
@@ -73,8 +78,10 @@ func (s *splitView) Sizes(sizes ...float32) *splitView {
 }
 
 // Percents sets initial main-axis sizes as percentages of available space
-// (0–100). 0 means the pane flexes. Mutually exclusive with Sizes for the
-// initial store seed.
+// (0–100). 0 means the pane takes an equal share of what is left of 100.
+// Percents are flex ratios, so they resolve in the same layout pass (no
+// first-frame jump) and are normalized when they do not sum to 100.
+// Mutually exclusive with Sizes for the initial store seed.
 func (s *splitView) Percents(percents ...float32) *splitView {
 	s.usePercent = true
 	for i := 0; i < len(percents) && i < len(s.percents); i++ {
@@ -153,12 +160,8 @@ func (s *splitView) Layout(c *Ctx) *layout.Element {
 		st.hover = make([]bool, nPanes-1)
 	}
 
-	st.resolveSizes()
-
 	paneEls := layoutViews(c, s.panes)
-	for i := range paneEls {
-		applyPaneStyle(paneEls[i], st.axis, st.sizes[i], st.minFor(i))
-	}
+	st.applyPaneStyles(paneEls)
 
 	dir := layout.Column
 	if st.axis == Horizontal {
@@ -177,6 +180,9 @@ func (s *splitView) Layout(c *Ctx) *layout.Element {
 	}
 	box := applyLayoutSpec(layout.Box().Direction(dir).FlexGrow(1), s.spec)
 	root := layout.New(box, children...)
+	if st.usePercent {
+		root.AfterLayout = func(*layout.Element) bool { return st.enforcePaneLimits(paneEls) }
+	}
 	st.root = root
 	st.panes = paneEls
 	return root
@@ -222,38 +228,117 @@ func (st *splitState) availableMain() float32 {
 	if total <= 0 {
 		return 0
 	}
-	return total - float32(len(st.sizes)-1)*splitHandleHit
+	return total - float32(len(st.sizes)-1)*splitHandleSize - st.paneMargins()
 }
 
-// resolveSizes converts percents to pixels when in percent mode and a root
-// frame is known. Pixel mode leaves st.sizes as-is.
-func (st *splitState) resolveSizes() {
-	if !st.usePercent {
-		return
-	}
-	avail := st.availableMain()
-	if avail <= 0 {
-		// First frame: leave fixed sizes unset so flex panes can grow; percent
-		// panes will resolve once the root has a frame.
-		for i := range st.sizes {
-			if st.percents[i] > 0 {
-				st.sizes[i] = 0
-			}
-		}
-		return
-	}
-	for i := range st.sizes {
-		p := float32(0)
-		if i < len(st.percents) {
-			p = st.percents[i]
-		}
-		if p <= 0 {
-			st.sizes[i] = 0
+// paneMargins sums the panes' main-axis margins, which take space from the
+// splitter before the panes are sized.
+func (st *splitState) paneMargins() float32 {
+	var sum float32
+	for _, p := range st.panes {
+		if p == nil {
 			continue
 		}
-		px := avail * (p / 100)
-		st.sizes[i] = st.clampSize(i, px)
+		m := p.Style.Margin
+		if st.axis == Horizontal {
+			sum += m.Left + m.Right
+		} else {
+			sum += m.Top + m.Bottom
+		}
 	}
+	return sum
+}
+
+// applyPaneStyles styles panes for the current mode. Percent panes become flex
+// items with basis 0 and grow equal to their percent, so the solver splits the
+// splitter's own size in the same pass that computes it; nothing depends on a
+// previous frame's geometry. Pixel mode uses fixed sizes from st.sizes.
+func (st *splitState) applyPaneStyles(panes []*layout.Element) {
+	if !st.usePercent {
+		for i, p := range panes {
+			applyPaneStyle(p, st.axis, st.sizes[i], st.minFor(i))
+		}
+		return
+	}
+	grows := st.percentGrows()
+	for i, p := range panes {
+		applyPercentPaneStyle(p, grows[i])
+	}
+}
+
+// percentGrows returns per-pane flex-grow factors in percent mode. Panes with a
+// percent use it directly; unset (0) panes share whatever is left of 100.
+func (st *splitState) percentGrows() []float32 {
+	grows := make([]float32, len(st.sizes))
+	var sum float32
+	flex := 0
+	for i := range grows {
+		if i < len(st.percents) && st.percents[i] > 0 {
+			grows[i] = st.percents[i]
+			sum += grows[i]
+		} else {
+			flex++
+		}
+	}
+	if flex > 0 {
+		share := f32max(0, 100-sum) / float32(flex)
+		for i := range grows {
+			if i >= len(st.percents) || st.percents[i] <= 0 {
+				grows[i] = share
+			}
+		}
+	}
+	return grows
+}
+
+// enforcePaneLimits runs after the percent split is solved. Panes the split
+// pushed outside their min/max are pinned at that bound; the relayout pass then
+// re-splits the remaining space among the others by ratio. Min/max cannot live
+// on the pane style itself because the solver clamps the flex basis to the min,
+// which would skew the ratios.
+func (st *splitState) enforcePaneLimits(panes []*layout.Element) (relayout bool) {
+	for i, p := range panes {
+		w, h := p.LayoutSize()
+		size := h
+		if st.axis == Horizontal {
+			size = w
+		}
+		lo, hi := st.minFor(i), st.userMaxFor(i)
+		target := size
+		if size < lo-0.5 {
+			target = lo
+		} else if hi > 0 && size > hi+0.5 {
+			target = hi
+		}
+		if target != size {
+			applyPaneStyle(p, st.axis, target, lo)
+			relayout = true
+		}
+	}
+	return relayout
+}
+
+// syncPercentsFromFrames rewrites percents to match the panes as laid out, so a
+// drag starts from what is on screen (after min/max pinning and ratio
+// normalization) rather than from the seeded values.
+func (st *splitState) syncPercentsFromFrames() {
+	avail := st.availableMain()
+	if avail <= 0 {
+		return
+	}
+	for i, p := range st.panes {
+		if i >= len(st.percents) || st.percents[i] <= 0 || p == nil {
+			continue
+		}
+		st.percents[i] = 100 * st.paneMain(p) / avail
+	}
+}
+
+func (st *splitState) paneMain(p *layout.Element) float32 {
+	if st.axis == Horizontal {
+		return p.Frame.W
+	}
+	return p.Frame.H
 }
 
 func (st *splitState) clampSize(i int, size float32) float32 {
@@ -271,13 +356,34 @@ func (st *splitState) clampSize(i int, size float32) float32 {
 func handleStyle(axis Axis) layout.Style {
 	style := layout.Box().FlexShrink(0)
 	if axis == Horizontal {
-		return style.W(splitHandleHit)
+		return style.W(splitHandleSize)
 	}
-	return style.H(splitHandleHit)
+	return style.H(splitHandleSize)
+}
+
+// paneItemStyle keeps the pane's own container styling (direction, padding,
+// background, margin, …) and resets only its flex-item fields, which the
+// splitter owns.
+// Replacing the whole style would, e.g., turn a nested splitter row into a
+// column.
+func paneItemStyle(el *layout.Element) layout.Style {
+	def := layout.Box()
+	s := el.Style
+	s.SelfAlign, s.Pos = def.SelfAlign, def.Pos
+	s.Left, s.Top, s.Right, s.Bottom = def.Left, def.Top, def.Right, def.Bottom
+	s.Grow, s.Shrink, s.Basis = def.Grow, 0, def.Basis
+	s.Width, s.Height = def.Width, def.Height
+	s.MinWidth, s.MinHeight, s.MaxWidth, s.MaxHeight = def.MinWidth, def.MinHeight, def.MaxWidth, def.MaxHeight
+	return s
+}
+
+func applyPercentPaneStyle(el *layout.Element, grow float32) {
+	el.Style = paneItemStyle(el).FlexGrow(grow).FlexBasis(0)
+	el.ReapplyStyle()
 }
 
 func applyPaneStyle(el *layout.Element, axis Axis, size, min float32) {
-	style := layout.Box().FlexShrink(0)
+	style := paneItemStyle(el)
 	if size > 0 {
 		if axis == Horizontal {
 			style = style.W(size)
@@ -325,7 +431,7 @@ func (st *splitState) maxSizeForSection(i int) float32 {
 	} else {
 		total = st.root.Frame.H
 	}
-	total -= float32(len(st.sizes)-1) * splitHandleHit
+	total -= float32(len(st.sizes)-1)*splitHandleSize + st.paneMargins()
 	for j, sz := range st.sizes {
 		if j == i {
 			continue
@@ -372,21 +478,27 @@ func paintSplitHandle(st *splitState, idx int) layout.PaintFunc {
 		if active {
 			col = th.Accent
 		}
-		var line render.Rect
-		if st.axis == Horizontal {
-			cx := f.X + (f.W-1)/2
-			line = render.Rect{X: cx, Y: f.Y, W: 1, H: f.H}
-		} else {
-			cy := f.Y + (f.H-1)/2
-			line = render.Rect{X: f.X, Y: cy, W: f.W, H: 1}
-		}
-		dl.AddRect(line, col)
+		dl.AddRect(f, col)
 	}
+}
+
+// handleHitRect widens the handle frame to splitHandleHit along the main axis,
+// centered on the line.
+func handleHitRect(f render.Rect, axis Axis) render.Rect {
+	pad := float32(splitHandleHit-splitHandleSize) / 2
+	if axis == Horizontal {
+		f.X -= pad
+		f.W += 2 * pad
+	} else {
+		f.Y -= pad
+		f.H += 2 * pad
+	}
+	return f
 }
 
 func mouseSplitHandle(c *Ctx, st *splitState, idx int) layout.MouseFunc {
 	return func(e *layout.Element, m *input.Mouse) {
-		inside := e.Frame.Contains(m.X, m.Y)
+		inside := handleHitRect(e.Frame, st.axis).Contains(m.X, m.Y)
 		if idx < len(st.hover) {
 			trackHover(c, &st.hover[idx], inside)
 		}
@@ -422,15 +534,16 @@ func mouseSplitHandle(c *Ctx, st *splitState, idx int) layout.MouseFunc {
 						}
 						if other >= 0 && other < len(st.percents) && st.percents[other] > 0 {
 							st.percents[other] = f32max(0, st.percents[other]-(newPct-oldPct))
-							st.sizes[other] = st.clampSize(other, avail*(st.percents[other]/100))
-							if other < len(st.panes) {
-								applyPaneStyle(st.panes[other], st.axis, st.sizes[other], st.minFor(other))
-							}
 						}
 					}
-				}
-				if st.dragSection < len(st.panes) {
+					st.applyPaneStyles(st.panes)
+				} else if st.dragSection < len(st.panes) {
 					applyPaneStyle(st.panes[st.dragSection], st.axis, newSize, st.minFor(st.dragSection))
+				}
+				// Marking paint during input rebuilds Body so the new sizes are
+				// solved this frame instead of presenting the stale input tree.
+				if c != nil {
+					c.MarkNeedsPaint()
 				}
 				m.Consumed = true
 			} else {
@@ -447,6 +560,12 @@ func mouseSplitHandle(c *Ctx, st *splitState, idx int) layout.MouseFunc {
 			st.dragHandle = idx
 			st.dragStart = st.pointerAlong(m)
 			st.dragSection = st.resizeTarget(idx)
+			if st.usePercent {
+				st.syncPercentsFromFrames()
+				if st.dragSection < len(st.panes) && st.panes[st.dragSection] != nil {
+					st.sizes[st.dragSection] = st.paneMain(st.panes[st.dragSection])
+				}
+			}
 			// Ensure the drag target has a concrete pixel size (flex panes start at 0).
 			if st.sizes[st.dragSection] <= 0 && st.dragSection < len(st.panes) && st.panes[st.dragSection] != nil {
 				if st.axis == Horizontal {

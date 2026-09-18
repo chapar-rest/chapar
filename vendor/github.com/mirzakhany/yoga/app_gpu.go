@@ -33,6 +33,7 @@ type Window struct {
 	closed   bool
 	drawList render.DrawList
 	winHost  *glfwWindowHost
+	layerBG  render.Color // clear color last pushed to the surface layer
 
 	// ui app path: set by runApp.
 	uiApp   App
@@ -89,6 +90,8 @@ func New(cfg Config) (*Window, error) {
 		clip:     clip,
 	}
 	a.winHost = newGLFWWindowHost(window, cfg)
+	a.layerBG = renderer.ClearColor
+	syncSurfaceLayer(window, a.layerBG)
 	a.initCursors()
 	a.wireCallbacks()
 	SetResources(text, icons, clip)
@@ -151,6 +154,7 @@ func (a *Window) wireCallbacks() {
 			return
 		}
 		a.renderer.Resize(fbW, fbH, logicalW, logicalH)
+		syncSurfaceLayer(win, a.layerBG)
 		// Repaint synchronously during live resize so the window doesn't blank.
 		if a.uiApp != nil {
 			a.uiCtx.MarkNeedsPaint()
@@ -184,6 +188,12 @@ func (a *Window) runApp(app App) {
 		if theme.SyncSystem() {
 			a.renderer.ClearColor = theme.Current().Surface
 			a.uiCtx.MarkNeedsPaint()
+		}
+		// Keep the layer background (shown in strips a resize exposes before
+		// the next frame lands) matching the theme, including app-set themes.
+		if bg := theme.Current().Surface; bg != a.layerBG {
+			a.layerBG = bg
+			syncSurfaceLayer(a.window, bg)
 		}
 		fw, fh := a.window.GetSize()
 		if fw > 0 && fh > 0 {
@@ -235,6 +245,15 @@ func (a *Window) runApp(app App) {
 			}
 
 			paint, rebuild := ui.FramePaintPlan(a.uiCtx.NeedsPaint(), a.uiCtx.InputDirty())
+			// Input handlers can resize the window synchronously: a title-bar
+			// double-click runs the whole zoom animation inside Dispatch. Paint
+			// at the size the window has now; w/h and inRoot were sampled before.
+			if nw, nh := a.window.GetSize(); nw > 0 && nh > 0 && (float32(nw) != w || float32(nh) != h) {
+				w, h = float32(nw), float32(nh)
+				lastW, lastH = w, h
+				a.uiCtx.MarkNeedsPaint()
+				paint, rebuild = true, true
+			}
 			if paint {
 				if rebuild {
 					a.paintAppFrame(app, w, h)

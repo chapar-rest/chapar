@@ -153,19 +153,15 @@ func (p *Environments) Layout(c *ui.Ctx) ui.View {
 
 func (p *Environments) side(c *ui.Ctx) ui.View {
 	th := c.Theme()
-	// Outer column is the Splitter pane root (yoga clears its BgColor);
-	// keep TokenChrome on the inner column so the fill survives.
 	return ui.Column(
-		ui.Column(
-			ui.Strong("Environments").Margin(th.Spacing.S),
-			ui.Row(
-				ui.Spacer(),
-				ui.Button("env-import", ui.Text("Import")).OnClick(p.importFile),
-				ui.Button("env-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(p.create),
-			).Gap(th.Spacing.S).MarginRight(th.Spacing.S),
-			ui.TextField("env-search", p.query).Placeholder("Search...").IconStart(icons.Search).
-				OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
-			ui.ViewOf(p.tree).Grow(1),
-		).Gap(th.Spacing.S).Grow(1).Background(ui.TokenChrome),
-	).Grow(1)
+		ui.Strong("Environments").Margin(th.Spacing.S),
+		ui.Row(
+			ui.Spacer(),
+			ui.Button("env-import", ui.Text("Import")).OnClick(p.importFile),
+			ui.Button("env-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(p.create),
+		).Gap(th.Spacing.S).MarginRight(th.Spacing.S),
+		ui.TextField("env-search", p.query).Placeholder("Search...").IconStart(icons.Search).
+			OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
+		ui.ViewOf(p.tree).Grow(1),
+	).Gap(th.Spacing.S).Grow(1).Background(ui.TokenChrome)
 }

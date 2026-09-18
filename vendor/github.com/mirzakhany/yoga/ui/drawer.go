@@ -352,11 +352,17 @@ func (d *drawerView) visibleSize(st *drawerState) float32 {
 	return st.size * st.progress
 }
 
+// pageItemStyle makes the page fill the drawer host while keeping its own
+// container styling (background, justify, padding, …).
+func pageItemStyle(el *layout.Element) layout.Style {
+	return paneItemStyle(el).FlexGrow(1).FlexShrink(1)
+}
+
 func (d *drawerView) layoutPush(c *Ctx, st *drawerState, th *theme.Theme) *layout.Element {
 	pageEl := layout.New(layout.Box().FlexGrow(1))
 	if d.page != nil {
 		pageEl = d.page.Layout(c)
-		pageEl.Style = layout.Box().FlexGrow(1)
+		pageEl.Style = pageItemStyle(pageEl)
 		pageEl.ReapplyStyle()
 	}
 	st.pageEl = pageEl
@@ -397,7 +403,7 @@ func (d *drawerView) layoutOverlay(c *Ctx, st *drawerState, th *theme.Theme) *la
 	if d.page != nil {
 		pageEl = d.page.Layout(c)
 	}
-	pageEl.Style = layout.Box().FlexGrow(1)
+	pageEl.Style = pageItemStyle(pageEl)
 	pageEl.ReapplyStyle()
 	st.pageEl = pageEl
 
@@ -433,7 +439,7 @@ func (d *drawerView) layoutOverlay(c *Ctx, st *drawerState, th *theme.Theme) *la
 	}
 
 	root := layout.New(
-		layout.Box().Display(layout.DisplayStack).AlignItems(layout.AlignStretch).FlexGrow(1),
+		layout.Box().Display(layout.DisplayStack).StackPosition(layout.JustifyStart, layout.AlignStretch).FlexGrow(1),
 		children...,
 	)
 	root.OnMouse = d.mouseRoot(st)

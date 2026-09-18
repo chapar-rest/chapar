@@ -189,17 +189,13 @@ func (w *Workspace) Layout(c *ui.Ctx) ui.View {
 		w.tabs[i].Title = d.Title()
 	}
 	body := w.docs[w.active].Layout(c)
-	// Outer column is the Splitter pane root (yoga clears its BgColor);
-	// keep TokenSurface on the inner column so the fill survives.
 	return ui.Column(
-		ui.Column(
-			ui.Tabs("workspace-tabs", w.tabs).
-				Selected(w.active).
-				OnSelectItem(func(i int, _ string) { w.active = i }).
-				OnTabClose(func(i int) { w.requestClose(i) }).
-				TabBackground(th.Background),
-			ui.HLine(th.Stroke.Thin, th.Border),
-			ui.ViewOf(body).Grow(1),
-		).Grow(1).Background(ui.TokenSurface),
-	).Grow(1)
+		ui.Tabs("workspace-tabs", w.tabs).
+			Selected(w.active).
+			OnSelectItem(func(i int, _ string) { w.active = i }).
+			OnTabClose(func(i int) { w.requestClose(i) }).
+			TabBackground(th.Background),
+		ui.HLine(th.Stroke.Thin, th.Border),
+		ui.ViewOf(body).Grow(1),
+	).Grow(1).Background(ui.TokenSurface)
 }

@@ -46,6 +46,11 @@ func (c *Ctx) beginStorePass() {
 		c.store = newStore()
 		return
 	}
-	// Two BuildFrame calls share one drawn frame (input then paint). Keep
-	// used-set accumulating across both; EndFrame GCs after paint.
+	// Each build starts a fresh used-set, so EndFrame sweeps against the tree
+	// that will actually be shown. The runtime builds twice per drawn frame
+	// (input, then paint when handlers changed state); accumulating across both
+	// kept widgets that only the input build saw — a tab closed by a click in
+	// that very frame — and their state's closures kept the tab's data
+	// reachable until some later event ran another frame.
+	clear(c.store.used)
 }
