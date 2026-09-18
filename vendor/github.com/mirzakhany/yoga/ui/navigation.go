@@ -81,6 +81,11 @@ func (n *Node) layoutNav(c *Ctx) *layout.Element {
 	selected := n.selected
 	onSelect := n.onSelectIdx
 	items := d.items
+	rs := n.spec.resolve(th, interactState{})
+	itemRadius := th.Radius.Large
+	if rs.hasRadii {
+		itemRadius = uniformRadius(rs.radii, 0)
+	}
 	var children []*layout.Element
 	for i, item := range items {
 		idx, it := i, item
@@ -92,7 +97,7 @@ func (n *Node) layoutNav(c *Ctx) *layout.Element {
 		}
 		el := layout.New(style)
 		el.Paint = func(dl *render.DrawList, text *shape.Engine) {
-			paintNavItem(dl, text, el.Frame, d.layout, it, idx == selected, idx == st.hover)
+			paintNavItem(dl, text, el.Frame, d.layout, it, itemRadius, idx == selected, idx == st.hover)
 		}
 		el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 			if !e.Frame.Contains(m.X, m.Y) {
@@ -115,6 +120,10 @@ func (n *Node) layoutNav(c *Ctx) *layout.Element {
 		bg = *d.bg
 	}
 	el.Paint = func(dl *render.DrawList, _ *shape.Engine) {
+		if rs.hasRadii {
+			paintResolvedBox(dl, el.Frame, resolvedSpec{bg: bg, hasBg: true, hasRadii: true, radii: rs.radii}, 0)
+			return
+		}
 		dl.AddRect(el.Frame, bg)
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
@@ -245,9 +254,8 @@ func navItemGeomOf(f render.Rect, itemLayout NavItemLayout, item NavItem) navIte
 	return g
 }
 
-func paintNavItem(dl *render.DrawList, text *shape.Engine, f render.Rect, itemLayout NavItemLayout, item NavItem, selected, hovered bool) {
+func paintNavItem(dl *render.DrawList, text *shape.Engine, f render.Rect, itemLayout NavItemLayout, item NavItem, r float32, selected, hovered bool) {
 	th := theme.Current()
-	r := th.Radius.Large
 	switch {
 	case selected:
 		dl.AddRoundedRect(f, r, th.ListActive)
