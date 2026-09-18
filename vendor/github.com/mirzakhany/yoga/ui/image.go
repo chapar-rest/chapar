@@ -137,6 +137,7 @@ func (n *Node) paintImage(el *layout.Element, st *imageState, src *imageSource, 
 	bad := st.loadErr || st.decodeErr || rgba == nil
 	placeholder := th.ChromeMuted
 	iw, ih := st.intrinsicW, st.intrinsicH
+	svg := src.svg
 
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		frame := el.Frame
@@ -154,7 +155,11 @@ func (n *Node) paintImage(el *layout.Element, st *imageState, src *imageSource, 
 		}
 		dst := imageDestRect(frame, iw, ih, fit)
 		if sheet := frameIcons(); sheet != nil {
-			sheet.DrawImageEntry(dl, atlasKey, dst)
+			if svg {
+				sheet.DrawImageEntryPixelAligned(dl, atlasKey, dst)
+			} else {
+				sheet.DrawImageEntry(dl, atlasKey, dst)
+			}
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"math"
 )
 
 // BakePx is the device-pixel size icons are rasterized at during generation
@@ -69,17 +70,48 @@ func scaleAlpha(src []byte, sw, sh, dw, dh int) *AlphaMask {
 		return &AlphaMask{W: dw, H: dh, Pix: out}
 	}
 	out := make([]byte, dw*dh)
-	for y := 0; y < dh; y++ {
-		sy := y * sh / dh
-		if sy >= sh {
-			sy = sh - 1
-		}
-		for x := 0; x < dw; x++ {
-			sx := x * sw / dw
-			if sx >= sw {
-				sx = sw - 1
+	if dw < sw || dh < sh {
+		// Area average: each destination pixel is the coverage-weighted mean
+		// of the source pixels it spans, so thin strokes stay smooth instead
+		// of dropping or doubling as with nearest-neighbour picks.
+		fx, fy := float64(sw)/float64(dw), float64(sh)/float64(dh)
+		for y := 0; y < dh; y++ {
+			y0, y1 := float64(y)*fy, float64(y+1)*fy
+			for x := 0; x < dw; x++ {
+				x0, x1 := float64(x)*fx, float64(x+1)*fx
+				var sum, area float64
+				for sy := int(y0); sy < sh && float64(sy) < y1; sy++ {
+					wy := min(y1, float64(sy+1)) - max(y0, float64(sy))
+					for sx := int(x0); sx < sw && float64(sx) < x1; sx++ {
+						w := wy * (min(x1, float64(sx+1)) - max(x0, float64(sx)))
+						sum += w * float64(src[sy*sw+sx])
+						area += w
+					}
+				}
+				if area > 0 {
+					out[y*dw+x] = uint8(sum/area + 0.5)
+				}
 			}
-			out[y*dw+x] = src[sy*sw+sx]
+		}
+		return &AlphaMask{W: dw, H: dh, Pix: out}
+	}
+	// Upscale: bilinear between source pixel centers.
+	at := func(x, y int) float64 {
+		x = min(max(x, 0), sw-1)
+		y = min(max(y, 0), sh-1)
+		return float64(src[y*sw+x])
+	}
+	for y := 0; y < dh; y++ {
+		syf := (float64(y)+0.5)*float64(sh)/float64(dh) - 0.5
+		sy := int(math.Floor(syf))
+		ty := syf - float64(sy)
+		for x := 0; x < dw; x++ {
+			sxf := (float64(x)+0.5)*float64(sw)/float64(dw) - 0.5
+			sx := int(math.Floor(sxf))
+			tx := sxf - float64(sx)
+			top := at(sx, sy)*(1-tx) + at(sx+1, sy)*tx
+			bot := at(sx, sy+1)*(1-tx) + at(sx+1, sy+1)*tx
+			out[y*dw+x] = uint8(top*(1-ty) + bot*ty + 0.5)
 		}
 	}
 	return &AlphaMask{W: dw, H: dh, Pix: out}

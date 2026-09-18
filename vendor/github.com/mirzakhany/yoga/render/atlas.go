@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/png"
 	"math"
+	"strconv"
 
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
@@ -204,19 +205,30 @@ func (a *FontAtlas) BindDrawList(dl *DrawList) {
 }
 
 func (a *FontAtlas) EnsureIcon(icon icons.Icon) (Rect, bool) {
+	iconPx := int(iconLogical*a.scale + 0.5)
+	if iconPx < 8 {
+		iconPx = 8
+	}
+	return a.ensureIcon(icon, icon.Name, iconPx)
+}
+
+// EnsureIconPx returns an icon baked at exactly px×px device pixels, so it
+// can be drawn 1:1 without resampling. Each size is packed once.
+func (a *FontAtlas) EnsureIconPx(icon icons.Icon, px int) (Rect, bool) {
+	px = max(px, 1)
+	return a.ensureIcon(icon, icon.Name+"@"+strconv.Itoa(px), px)
+}
+
+func (a *FontAtlas) ensureIcon(icon icons.Icon, key string, iconPx int) (Rect, bool) {
 	if icon.Empty() {
 		return Rect{}, false
 	}
-	if e, ok := a.icons[icon.Name]; ok {
+	if e, ok := a.icons[key]; ok {
 		return e.UV, true
 	}
 	if a.iconFails[icon.Name] {
 		// Rasterization failed before; retrying every frame would burn CPU.
 		return Rect{}, false
-	}
-	iconPx := int(iconLogical*a.scale + 0.5)
-	if iconPx < 8 {
-		iconPx = 8
 	}
 	var mask *image.Alpha
 	var err error
@@ -234,7 +246,7 @@ func (a *FontAtlas) EnsureIcon(icon icons.Icon) (Rect, bool) {
 		a.iconFails[icon.Name] = true
 		return Rect{}, false
 	}
-	return a.packIconMask(icon.Name, mask), true
+	return a.packIconMask(key, mask), true
 }
 
 func (a *FontAtlas) packIconMask(name string, mask *image.Alpha) Rect {
