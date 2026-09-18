@@ -1,6 +1,8 @@
 package shape
 
 import (
+	"math"
+
 	"github.com/mirzakhany/yoga/render"
 )
 
@@ -148,19 +150,36 @@ func (e *Engine) DrawLineGlyphs(dl *render.DrawList, ln Line, x, topY float32, t
 	e.drawLineGlyphsTint(dl, ln, x, topY, tint)
 }
 
-// drawLineGlyphsTint places atlas quads so ink aligns with HarfBuzz bearings:
-// ink-left = pen + BearingX, then subtract atlas Pad so the padded bitmap
-// does not shift glyphs right/down.
+// drawLineGlyphsTint places atlas quads on whole device pixels so glyph
+// texels map 1:1 onto the screen. The baseline snaps to the pixel grid; the
+// fractional horizontal pen is kept by picking a subpixel-shifted bake.
+// Bitmap glyphs (no origin offsets) align ink with the HarfBuzz bearings.
 func (e *Engine) drawLineGlyphsTint(dl *render.DrawList, ln Line, x, topY float32, tint func(byteOff int) render.Color) {
 	ppem := e.glyphPpem(ln)
+	s := max(e.Atlas.Scale(), 1)
+	snap := func(v float32) float32 { return float32(math.Round(float64(v*s))) / s }
 	for _, g := range ln.Glyphs {
 		face := e.Fonts.Face(g.FaceID)
-		entry := e.Atlas.EnsureGlyph(g.FaceID, face, g.GID, ppem)
-		dst := render.Rect{
-			X: x + g.X + g.BearingX - entry.Pad,
-			Y: topY + g.Y - entry.Pad,
-			W: entry.W,
-			H: entry.H,
+		ox := (x + g.X + g.OffsetX) * s
+		px := math.Floor(float64(ox))
+		bin := int(math.Round((float64(ox) - px) * render.GlyphSubpixelBins))
+		if bin == render.GlyphSubpixelBins {
+			px, bin = px+1, 0
+		}
+		entry := e.Atlas.EnsureGlyphSubpixel(g.FaceID, face, g.GID, ppem, uint8(bin))
+		var dst render.Rect
+		if entry.Origin {
+			dst = render.Rect{
+				X: float32(px)/s + entry.OffX,
+				Y: snap(topY+g.Baseline) + entry.OffY,
+				W: entry.W, H: entry.H,
+			}
+		} else {
+			dst = render.Rect{
+				X: snap(x + g.X + g.BearingX - entry.Pad),
+				Y: snap(topY + g.Y - entry.Pad),
+				W: entry.W, H: entry.H,
+			}
 		}
 		col := tint(g.ClusterByte)
 		if entry.Color {

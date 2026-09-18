@@ -33,6 +33,8 @@ type Glyph struct {
 	GID         font.GID
 	X, Y        float32 // pen X; ink-top Y in line coordinates (logical px)
 	BearingX    float32 // XOffset+XBearing: ink left relative to pen
+	OffsetX     float32 // XOffset: glyph origin relative to pen
+	Baseline    float32 // glyph origin Y (baseline incl. YOffset) in line coordinates
 	W, H        float32
 	Advance     float32
 	ClusterByte int // byte offset in line of cluster start
@@ -244,6 +246,8 @@ func (s *Shaper) shapeSegment(runes []rune, byteBase int, startX float32, mono b
 				FaceID: faceID, GID: g.GlyphID,
 				X: x, Y: gy - toLogical(s.fs, g.YBearing),
 				BearingX:    toLogical(s.fs, g.XOffset+g.XBearing),
+				OffsetX:     toLogical(s.fs, g.XOffset),
+				Baseline:    gy,
 				W:           w, H: h,
 				Advance:     adv,
 				ClusterByte: clusterByte,

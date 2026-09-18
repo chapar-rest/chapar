@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
@@ -25,7 +26,14 @@ type glyphKey struct {
 	faceID uint32
 	gid    font.GID
 	ppem   uint16
+	subX   uint8 // horizontal subpixel bin (outline glyphs only)
 }
+
+// GlyphSubpixelBins is how many horizontal subpixel phases an outline glyph is
+// baked at. Pens rarely land on whole device pixels; baking the phase into the
+// bitmap lets quads snap to the pixel grid (sharp, 1:1 texel sampling) without
+// losing the fractional advance.
+const GlyphSubpixelBins = 4
 
 // GlyphRasterPad is the device-pixel padding around outline ink in the atlas.
 // Draw paths subtract PadLogical so the ink, not the pad, aligns with bearings.
@@ -38,10 +46,16 @@ type GlyphEntry struct {
 	W, H  float32 // logical size (includes Pad on each side for outlines)
 	Pad   float32 // logical px of raster pad around ink (0 for bitmaps)
 	Color bool
-	physW int
-	physH int
-	physX int
-	physY int
+	// Origin reports that OffX/OffY place the quad: its top-left sits at
+	// glyph origin (pen, baseline) + (OffX, OffY), both whole device pixels
+	// expressed in logical px. Bitmap glyphs leave it false and are placed
+	// by bearing instead.
+	Origin     bool
+	OffX, OffY float32
+	physW      int
+	physH      int
+	physX      int
+	physY      int
 }
 
 // PadLogical converts device-pixel GlyphRasterPad to logical px for this atlas scale.
@@ -212,7 +226,7 @@ func (a *FontAtlas) packIconMask(name string, mask *image.Alpha) Rect {
 	}
 	blitAlpha(a.monoPix, a.monoW, x, y, mask)
 	a.markMonoDirty(x, y, w, h)
-	uv := insetUV(x, y, w, h, a.monoW, a.monoH)
+	uv := cellUV(x, y, w, h, a.monoW, a.monoH)
 	a.icons[name] = IconEntry{
 		UV:    uv,
 		physW: w, physH: h, physX: x, physY: y,
@@ -262,22 +276,36 @@ func (a *FontAtlas) growMono(newH int) {
 // EnsureGlyph returns a baked glyph entry, rasterizing on miss at the given
 // device-pixel ppem. The face's ppem is set before baking so outlines match.
 func (a *FontAtlas) EnsureGlyph(faceID uint32, face *font.Face, gid font.GID, ppem uint16) GlyphEntry {
+	return a.EnsureGlyphSubpixel(faceID, face, gid, ppem, 0)
+}
+
+// EnsureGlyphSubpixel is EnsureGlyph with outline ink shifted right by
+// subX/GlyphSubpixelBins device px. Bitmap glyphs ignore subX.
+func (a *FontAtlas) EnsureGlyphSubpixel(faceID uint32, face *font.Face, gid font.GID, ppem uint16, subX uint8) GlyphEntry {
 	if ppem < 1 {
 		ppem = 1
 	}
+	subX %= GlyphSubpixelBins
 	key := glyphKey{faceID: faceID, gid: gid, ppem: ppem}
+	if e, ok := a.glyphs[key]; ok && (subX == 0 || !e.Origin) {
+		return e
+	}
+	key.subX = subX
 	if e, ok := a.glyphs[key]; ok {
 		return e
 	}
 	if face != nil {
 		face.SetPpem(ppem, ppem)
 	}
-	e := a.bakeGlyph(face, gid)
+	e := a.bakeGlyph(face, gid, float32(subX)/GlyphSubpixelBins)
+	if !e.Origin {
+		key.subX = 0
+	}
 	a.glyphs[key] = e
 	return e
 }
 
-func (a *FontAtlas) bakeGlyph(face *font.Face, gid font.GID) GlyphEntry {
+func (a *FontAtlas) bakeGlyph(face *font.Face, gid font.GID, shiftX float32) GlyphEntry {
 	data := face.GlyphData(gid)
 	switch d := data.(type) {
 	case font.GlyphColor:
@@ -295,16 +323,22 @@ func (a *FontAtlas) bakeGlyph(face *font.Face, gid font.GID) GlyphEntry {
 			return a.packMono(toAlpha(img))
 		}
 	case font.GlyphOutline:
-		e := a.packMono(rasterizeOutline(face, d))
-		e.Pad = a.PadLogical()
-		return e
+		return a.packOutline(face, d, shiftX)
 	case font.GlyphSVG:
-		e := a.packMono(rasterizeOutline(face, d.Outline))
-		e.Pad = a.PadLogical()
-		return e
+		return a.packOutline(face, d.Outline, shiftX)
 	}
 	img := image.NewAlpha(image.Rect(0, 0, 1, 1))
 	return a.packMono(img)
+}
+
+func (a *FontAtlas) packOutline(face *font.Face, o font.GlyphOutline, shiftX float32) GlyphEntry {
+	img, ox, oy := rasterizeOutline(face, o, shiftX)
+	e := a.packMono(img)
+	e.Pad = a.PadLogical()
+	e.Origin = true
+	s := max(a.scale, 1)
+	e.OffX, e.OffY = float32(ox)/s, float32(oy)/s
+	return e
 }
 
 func (a *FontAtlas) packMono(src *image.Alpha) GlyphEntry {
@@ -331,7 +365,7 @@ func (a *FontAtlas) packMono(src *image.Alpha) GlyphEntry {
 	a.markMonoDirty(x, y, w, h)
 	return GlyphEntry{
 		Page: PageMono,
-		UV:   insetUV(x, y, w, h, a.monoW, a.monoH),
+		UV:   cellUV(x, y, w, h, a.monoW, a.monoH),
 		W:    float32(w) / a.scale, H: float32(h) / a.scale,
 		physW: w, physH: h, physX: x, physY: y,
 	}
@@ -361,7 +395,7 @@ func (a *FontAtlas) packColor(src *image.RGBA, isColor bool) GlyphEntry {
 	a.markColorDirty(x, y, w, h)
 	return GlyphEntry{
 		Page: PageColor, Color: isColor,
-		UV: insetUV(x, y, w, h, a.colorW, a.colorH),
+		UV: cellUV(x, y, w, h, a.colorW, a.colorH),
 		W:  float32(w) / a.scale, H: float32(h) / a.scale,
 		physW: w, physH: h, physX: x, physY: y,
 	}
@@ -373,24 +407,15 @@ type shelf struct {
 	pad  int
 }
 
-// insetUV shrinks a packed cell's UV rect by half a texel on each side so the
-// linear sampler never bleeds neighbouring shelf cells at quad edges. A 1px
-// wide/tall cell gets a zero-span UV so it samples its single texel exactly.
-func insetUV(x, y, w, h, pageW, pageH int) Rect {
-	const half = 0.5
-	uw := w - 1
-	if uw < 0 {
-		uw = 0
-	}
-	uh := h - 1
-	if uh < 0 {
-		uh = 0
-	}
+// cellUV returns a packed cell's UV rect. Shelves leave a transparent gap
+// between cells, so sampling the full cell never bleeds a neighbour; mapping
+// w texels onto a w-pixel quad keeps glyphs 1:1 instead of stretching them.
+func cellUV(x, y, w, h, pageW, pageH int) Rect {
 	return Rect{
-		X: (float32(x) + half) / float32(pageW),
-		Y: (float32(y) + half) / float32(pageH),
-		W: float32(uw) / float32(pageW),
-		H: float32(uh) / float32(pageH),
+		X: float32(x) / float32(pageW),
+		Y: float32(y) / float32(pageH),
+		W: float32(w) / float32(pageW),
+		H: float32(h) / float32(pageH),
 	}
 }
 
@@ -450,11 +475,11 @@ func (a *FontAtlas) recomputeMonoUVs() {
 		if e.Page != PageMono {
 			continue
 		}
-		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.monoW, a.monoH)
+		e.UV = cellUV(e.physX, e.physY, e.physW, e.physH, a.monoW, a.monoH)
 		a.glyphs[k] = e
 	}
 	for k, e := range a.icons {
-		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.monoW, a.monoH)
+		e.UV = cellUV(e.physX, e.physY, e.physW, e.physH, a.monoW, a.monoH)
 		a.icons[k] = e
 	}
 }
@@ -464,11 +489,11 @@ func (a *FontAtlas) recomputeColorUVs() {
 		if e.Page != PageColor {
 			continue
 		}
-		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.colorW, a.colorH)
+		e.UV = cellUV(e.physX, e.physY, e.physW, e.physH, a.colorW, a.colorH)
 		a.glyphs[k] = e
 	}
 	for k, e := range a.images {
-		e.UV = insetUV(e.physX, e.physY, e.physW, e.physH, a.colorW, a.colorH)
+		e.UV = cellUV(e.physX, e.physY, e.physW, e.physH, a.colorW, a.colorH)
 		a.images[k] = e
 	}
 }
@@ -523,7 +548,7 @@ func (a *FontAtlas) packImage(key string, src *image.RGBA) ImageEntry {
 			blitRGBA(a.colorPix, a.colorW, x, y, src)
 			a.markColorDirty(x, y, w, h)
 			e := ImageEntry{
-				UV: insetUV(x, y, w, h, a.colorW, a.colorH),
+				UV: cellUV(x, y, w, h, a.colorW, a.colorH),
 				W:  float32(w) / a.scale, H: float32(h) / a.scale,
 				physW: w, physH: h, physX: x, physY: y,
 			}
@@ -582,16 +607,24 @@ func blitRGBA(dst []byte, stride, ox, oy int, src *image.RGBA) {
 	}
 }
 
-func rasterizeOutline(face *font.Face, outline font.GlyphOutline) *image.Alpha {
+// rasterizeOutline bakes o with its origin shifted right by shiftX device px.
+// It returns the bitmap and the device-pixel offset of its top-left corner from
+// the (unshifted) glyph origin, so callers can place it on whole pixels.
+func rasterizeOutline(face *font.Face, o font.GlyphOutline, shiftX float32) (img *image.Alpha, ox, oy int) {
 	xPpem, _ := face.Ppem()
 	scale := float32(xPpem) / float32(face.Upem())
 	if scale <= 0 {
 		scale = logicalFontPx / float32(face.Upem())
 	}
-	minX, minY, maxX, maxY := boundsOutline(outline, scale)
+	var minX, minY, maxX, maxY float32
+	if len(o.Segments) > 0 {
+		minX, minY, maxX, maxY = boundsOutline(o, scale)
+	}
 	pad := GlyphRasterPad
-	w := int(maxX-minX) + pad*2
-	h := int(maxY-minY) + pad*2
+	ox = int(math.Floor(float64(minX+shiftX))) - pad
+	oy = int(math.Floor(float64(minY))) - pad
+	w := int(math.Ceil(float64(maxX+shiftX))) + pad - ox
+	h := int(math.Ceil(float64(maxY))) + pad - oy
 	if w < 2 {
 		w = 2
 	}
@@ -601,10 +634,10 @@ func rasterizeOutline(face *font.Face, outline font.GlyphOutline) *image.Alpha {
 	rgba := image.NewRGBA(image.Rect(0, 0, w, h))
 	var rs vector.Rasterizer
 	rs.Reset(w, h)
-	addOutline(&rs, outline, scale, float32(pad)-minX, float32(pad)-minY)
+	addOutline(&rs, o, scale, shiftX-float32(ox), -float32(oy))
 	rs.ClosePath()
 	rs.Draw(rgba, rgba.Bounds(), image.NewUniform(color.White), image.Point{})
-	return toAlpha(rgba)
+	return toAlpha(rgba), ox, oy
 }
 
 func boundsOutline(o font.GlyphOutline, scale float32) (minX, minY, maxX, maxY float32) {

@@ -28,6 +28,15 @@ func (c *Ctx) Widget(id string, alloc func() any) any {
 	return v
 }
 
+// peekWidget returns the stored widget for id, or nil, without allocating it
+// or marking it used this frame.
+func (c *Ctx) peekWidget(id string) any {
+	if c.store == nil {
+		return nil
+	}
+	return c.store.items[id]
+}
+
 // EndFrame drops widget-store entries that were not visited this drawn frame.
 func (c *Ctx) EndFrame() {
 	if c.store == nil {

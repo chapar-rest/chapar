@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/layout"
@@ -127,25 +128,7 @@ func (n *Node) formControl(c *Ctx, item FormItem) View {
 	case FormItemSelect:
 		return Select(item.ID, item.Options).Width(180).Selected(item.Selected).OnChange(item.OnChange)
 	case FormItemNumber:
-		text := formatFormNumber(item.Number)
-		return TextField(item.ID, text).Width(100).OnChange(func(s string) {
-			if item.OnNumber == nil {
-				return
-			}
-			v, err := strconv.ParseFloat(s, 64)
-			if err != nil {
-				return
-			}
-			if item.Min != item.Max || item.Min != 0 || item.Max != 0 {
-				if v < item.Min {
-					v = item.Min
-				}
-				if item.Max > item.Min && v > item.Max {
-					v = item.Max
-				}
-			}
-			item.OnNumber(v)
-		})
+		return formNumberField(c, item)
 	case FormItemText:
 		return TextField(item.ID, item.Text).Width(180).OnChange(item.OnText)
 	case FormItemSlider:
@@ -157,6 +140,53 @@ func (n *Node) formControl(c *Ctx, item FormItem) View {
 	default:
 		return Spacer()
 	}
+}
+
+// formNumberDraft holds the raw text of a number field while it is being
+// edited, so partial input ("1" on the way to "16", or an empty field) is not
+// clamped or overwritten by the committed value between keystrokes.
+type formNumberDraft struct {
+	text   string
+	active bool
+}
+
+func formNumberField(c *Ctx, item FormItem) View {
+	draft := c.Widget(item.ID+"#draft", func() any { return &formNumberDraft{} }).(*formNumberDraft)
+	tf, _ := c.peekWidget(item.ID).(*TextInput)
+	if draft.active && (tf == nil || !tf.Focused()) {
+		draft.active = false
+	}
+	text := formatFormNumber(item.Number)
+	if draft.active {
+		text = draft.text
+	}
+	bounded := item.Min != 0 || item.Max != 0
+	return TextField(item.ID, text).Width(100).OnChange(func(s string) {
+		draft.text, draft.active = s, true
+		v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+		if err != nil || item.OnNumber == nil {
+			return
+		}
+		// Commit only in-range values while typing; out-of-range input stays
+		// as draft until Enter clamps it or blur discards it.
+		if bounded && (v < item.Min || (item.Max > item.Min && v > item.Max)) {
+			return
+		}
+		item.OnNumber(v)
+	}).OnSubmit(func(s string) {
+		draft.active = false
+		v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+		if err != nil || item.OnNumber == nil {
+			return
+		}
+		if bounded {
+			v = max(v, item.Min)
+			if item.Max > item.Min {
+				v = min(v, item.Max)
+			}
+		}
+		item.OnNumber(v)
+	})
 }
 
 func formatFormNumber(v float64) string {
