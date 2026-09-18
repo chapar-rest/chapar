@@ -78,7 +78,7 @@ func ActionsPane(th *theme.Theme, opts ActionsOpts) ui.View {
 		ui.Nav("actions-nav-"+opts.ID, ui.NavHorizontal, ui.NavIconLeft, items...).
 			Selected(*opts.Selected).
 			OnSelectItem(func(i int, _ string) { *opts.Selected = i }).
-			Radius(th.Radius.Small),
+			Radius(th.Radius.Large),
 		ui.Column(content).PaddingXY(0, th.Spacing.S).Gap(th.Spacing.S).Grow(1),
 	).Grow(1)
 }

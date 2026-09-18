@@ -146,7 +146,7 @@ func (p *Environments) Layout(c *ui.Ctx) ui.View {
 		return workspace
 	}
 	return ui.Splitter("env-page-split", ui.Horizontal, p.side(c), workspace).
-		Percents(20, 80).
+		Sizes(250, 0).
 		HandleOnHover().
 		Grow(1)
 }
