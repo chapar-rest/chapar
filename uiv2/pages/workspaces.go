@@ -73,10 +73,10 @@ func (p *Workspaces) reload() {
 func (p *Workspaces) create(name string) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		name = "New Workspace"
+		name = "New Space"
 	}
 	if err := p.deps.Repo.CreateWorkspace(domain.NewWorkspace(name)); err != nil {
-		p.deps.Error(fmt.Errorf("failed to create workspace: %w", err))
+		p.deps.Error(fmt.Errorf("failed to create space: %w", err))
 		return
 	}
 	p.reload()
@@ -91,7 +91,7 @@ func (p *Workspaces) rename(ws *domain.Workspace, name string) {
 	ws.MetaData.Name = name
 	if err := p.deps.Repo.UpdateWorkspace(ws); err != nil {
 		ws.MetaData.Name = old
-		p.deps.Error(fmt.Errorf("failed to rename workspace: %w", err))
+		p.deps.Error(fmt.Errorf("failed to rename space: %w", err))
 		return
 	}
 	if ws.MetaData.ID == p.deps.ActiveID() && p.deps.Renamed != nil {
@@ -105,7 +105,7 @@ func (p *Workspaces) delete(ws *domain.Workspace) {
 		return
 	}
 	if err := p.deps.Repo.DeleteWorkspace(ws); err != nil {
-		p.deps.Error(fmt.Errorf("failed to delete workspace: %w", err))
+		p.deps.Error(fmt.Errorf("failed to delete space: %w", err))
 		return
 	}
 	p.reload()
@@ -117,23 +117,23 @@ func (p *Workspaces) Layout(c *ui.Ctx) ui.View {
 
 	header := ui.Column(
 		ui.Row(
-			ui.Title("Workspaces"),
+			ui.Title("Spaces"),
 			ui.Spacer(),
-			ui.TextField("ws-search", p.query).Placeholder("Search workspaces").IconStart(icons.Search).Width(220).
+			ui.TextField("ws-search", p.query).Placeholder("Search spaces").IconStart(icons.Search).Width(220).
 				OnChange(func(s string) { p.query = s }),
-			ui.Button("ws-new", ui.Text("New Workspace")).Primary().IconStart(icons.Plus).OnClick(func() {
-				dialogs.ShowInput("New workspace", "Workspace name", p.create, nil)
+			ui.Button("ws-new", ui.Text("New Space")).Primary().IconStart(icons.Plus).OnClick(func() {
+				dialogs.ShowInput("New space", "Space name", p.create, nil)
 			}),
 		).Gap(th.Spacing.S).Align(ui.AlignCenter),
-		ui.Muted("Each workspace keeps its own collections, requests and environments."),
+		ui.Muted("Each space keeps its own collections, requests and environments."),
 	).Gap(th.Spacing.XS).Grow(1).MaxWidth(workspacesMaxWidth)
 
 	items := p.visible()
 	var body ui.View
 	if len(items) == 0 {
-		empty := ui.EmptyState("No workspaces", "Create a workspace to get started.").EmptyIcon(icons.Boxes)
+		empty := ui.EmptyState("No spaces", "Create a space to get started.").EmptyIcon(icons.Boxes)
 		if p.query != "" {
-			empty = ui.EmptyState("No matches", fmt.Sprintf("No workspace matches %q.", p.query)).EmptyIcon(icons.Search)
+			empty = ui.EmptyState("No matches", fmt.Sprintf("No space matches %q.", p.query)).EmptyIcon(icons.Search)
 		}
 		body = empty.Grow(1)
 	} else {
@@ -175,7 +175,7 @@ func (p *Workspaces) card(c *ui.Ctx, ws *domain.Workspace) ui.View {
 		title = append(title, ui.Badge("Default"))
 	}
 
-	detail := "Switch to this workspace to work with its requests."
+	detail := "Switch to this space to work with its requests."
 	if active {
 		detail = "Open now."
 		if p.deps.Summary != nil {
@@ -193,24 +193,24 @@ func (p *Workspaces) card(c *ui.Ctx, ws *domain.Workspace) ui.View {
 
 	renameTip := "Rename"
 	if locked {
-		renameTip = "The default workspace can't be renamed"
+		renameTip = "The default space can't be renamed"
 	}
 	actions = append(actions, ui.IconButton("ws-edit-"+id, icons.Pencil).Disabled(locked).Tooltip(renameTip).
 		OnClick(func() {
-			dialogs.ShowInputValue("Rename workspace", "Workspace name", ws.MetaData.Name,
+			dialogs.ShowInputValue("Rename space", "Space name", ws.MetaData.Name,
 				func(name string) { p.rename(ws, name) }, nil)
 		}))
 
 	deleteTip := "Delete"
 	switch {
 	case locked:
-		deleteTip = "The default workspace can't be deleted"
+		deleteTip = "The default space can't be deleted"
 	case active:
-		deleteTip = "Switch to another workspace to delete this one"
+		deleteTip = "Switch to another space to delete this one"
 	}
 	actions = append(actions, ui.IconButton("ws-del-"+id, icons.Trash2).Disabled(locked || active).Tooltip(deleteTip).
 		OnClick(func() {
-			dialogs.ShowAction("Delete workspace?",
+			dialogs.ShowAction("Delete space?",
 				fmt.Sprintf("%q and all its collections, requests and environments will be deleted. This can't be undone.", ws.MetaData.Name),
 				func() { p.delete(ws) }, nil)
 		}))
