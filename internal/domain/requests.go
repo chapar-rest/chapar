@@ -91,9 +91,10 @@ type ResponseDetail struct {
 }
 
 type RequestMeta struct {
-	ID   string      `yaml:"id"`
-	Name string      `yaml:"name"`
-	Type RequestType `yaml:"type"`
+	ID          string      `yaml:"id"`
+	Name        string      `yaml:"name"`
+	Description string      `yaml:"description,omitempty"`
+	Type        RequestType `yaml:"type"`
 }
 
 type RequestSpec struct {
@@ -465,7 +466,8 @@ func CompareRequests(a, b *Request) bool {
 		return false
 	}
 
-	if a.MetaData.ID != b.MetaData.ID || a.MetaData.Name != b.MetaData.Name || a.MetaData.Type != b.MetaData.Type {
+	if a.MetaData.ID != b.MetaData.ID || a.MetaData.Name != b.MetaData.Name ||
+		a.MetaData.Description != b.MetaData.Description || a.MetaData.Type != b.MetaData.Type {
 		return false
 	}
 

@@ -55,7 +55,7 @@ func NewService(requests *state.Requests, envs *state.Environments, protoFiles *
 	}
 }
 
-func (s *Service) Dial(req *domain.GRPCRequestSpec) (*grpc.ClientConn, error) {
+func (s *Service) Dial(req *domain.GRPCRequestSpec, extraOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithUserAgent(version.GetAgentName()),
 	}
@@ -100,6 +100,7 @@ func (s *Service) Dial(req *domain.GRPCRequestSpec) (*grpc.ClientConn, error) {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
+	opts = append(opts, extraOpts...)
 	return grpc.NewClient(req.ServerInfo.Address, opts...)
 }
 
@@ -248,7 +249,8 @@ func (s *Service) SendRequest(id, activeEnvironmentID string) (*egress.Response,
 
 	rawJSON := []byte(spec.Body)
 
-	conn, err := s.Dial(spec)
+	traceCol := egress.NewGRPCTraceCollector(spec.ServerInfo.Address, spec.Settings.Insecure)
+	conn, err := s.Dial(spec, grpc.WithStatsHandler(traceCol))
 	if err != nil {
 		return nil, err
 	}
@@ -318,16 +320,14 @@ func (s *Service) SendRequest(id, activeEnvironmentID string) (*egress.Response,
 		Status:           status.Code(respErr).String(),
 		Size:             len(respStr),
 		Body:             []byte(respStr),
+		Timeline:         traceCol.Steps(),
 	}
 
-	if util.IsJSON(string(out.Body)) {
-		out.IsJSON = true
-		if js, err := util.PrettyJSON(out.Body); err != nil {
-			return nil, err
-		} else {
-			out.JSON = js
-		}
-	}
+	kind, pretty, jsonStr, isJSON := util.ApplyBodyFormat("application/json", out.Body)
+	out.BodyKind = kind
+	out.Pretty = pretty
+	out.IsJSON = isJSON
+	out.JSON = jsonStr
 
 	if respErr != nil {
 		return out, respErr

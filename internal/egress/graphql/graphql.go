@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"strings"
 	"time"
 
@@ -182,6 +183,9 @@ func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environm
 		httpReq.Header.Add("User-Agent", version.GetAgentName())
 	}
 
+	traceCol := egress.NewHTTPTraceCollector()
+	httpReq = httpReq.WithContext(httptrace.WithClientTrace(httpReq.Context(), traceCol.ClientTrace()))
+
 	res, err := client.Do(httpReq)
 	if err != nil {
 		return nil, err
@@ -193,6 +197,7 @@ func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environm
 	if err != nil {
 		return nil, err
 	}
+	downloadEnd := time.Now()
 
 	// measure time
 	elapsed := time.Since(start)
@@ -204,16 +209,7 @@ func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environm
 		RequestHeaders:  map[string]string{},
 		Body:            body,
 		TimePassed:      elapsed,
-		IsJSON:          false,
-	}
-
-	if util.IsJSON(string(body)) {
-		response.IsJSON = true
-		if js, err := util.PrettyJSON(body); err != nil {
-			return nil, err
-		} else {
-			response.JSON = js
-		}
+		Timeline:        traceCol.Steps(downloadEnd),
 	}
 
 	// handle headers
@@ -224,6 +220,16 @@ func (s *Service) sendRequest(req *domain.GraphQLRequestSpec, e *domain.Environm
 	for k, v := range httpReq.Header {
 		response.RequestHeaders[k] = strings.Join(v, ", ")
 	}
+
+	ct := response.ResponseHeaders["Content-Type"]
+	if ct == "" {
+		ct = response.ResponseHeaders["content-type"]
+	}
+	kind, pretty, jsonStr, isJSON := util.ApplyBodyFormat(ct, body)
+	response.BodyKind = kind
+	response.Pretty = pretty
+	response.IsJSON = isJSON
+	response.JSON = jsonStr
 
 	return response, nil
 }

@@ -3,9 +3,7 @@ package fontscan
 import (
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	"github.com/go-text/typesetting/font"
@@ -165,17 +163,7 @@ func cacheDir(userProvided string) (string, error) {
 		return userProvided, nil
 	}
 	// load an existing index
-	if runtime.GOOS == "android" {
-		// There is no stable way to infer the proper place to store the cache
-		// with access to the Java runtime for the application. Rather than
-		// clutter our API with that, require the caller to provide a path.
-		return "", fmt.Errorf("user must provide cache directory on android")
-	}
-	configDir, err := os.UserCacheDir()
-	if err != nil {
-		return "", fmt.Errorf("resolving index cache path: %s", err)
-	}
-	return configDir, nil
+	return platformCacheDir()
 }
 
 // initSystemFonts scan the system fonts and update `SystemFonts`.

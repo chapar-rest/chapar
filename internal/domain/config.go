@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/chapar-rest/chapar/internal/util"
 )
@@ -19,16 +20,18 @@ type GlobalConfig struct {
 }
 
 type GlobalConfigSpec struct {
-	General   GeneralConfig   `yaml:"general"`
-	Editor    EditorConfig    `yaml:"editor"`
-	Scripting ScriptingConfig `yaml:"scripting"`
-	Data      DataConfig      `yaml:"data"`
+	General         GeneralConfig         `yaml:"general"`
+	Editor          EditorConfig          `yaml:"editor"`
+	Scripting       ScriptingConfig       `yaml:"scripting"`
+	LanguageServers LanguageServersConfig `yaml:"languageServers"`
+	Data            DataConfig            `yaml:"data"`
 }
 
 func (g *GlobalConfig) Changed(other *GlobalConfig) bool {
 	return g.Spec.General.Changed(other.Spec.General) ||
 		g.Spec.Editor.Changed(other.Spec.Editor) ||
 		g.Spec.Scripting.Changed(other.Spec.Scripting) ||
+		g.Spec.LanguageServers.Changed(other.Spec.LanguageServers) ||
 		g.Spec.Data.Changed(other.Spec.Data)
 }
 
@@ -42,6 +45,8 @@ type GeneralConfig struct {
 	FollowRedirects        bool   `yaml:"followRedirects"`
 	VaidateTLSCertificates bool   `yaml:"validateTLSCertificates"`
 	Theme                  string `yaml:"theme"`
+	UIFontSize             int    `yaml:"uiFontSize"`
+	HideNavbar             bool   `yaml:"hideNavbar"`
 }
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
@@ -53,7 +58,9 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.SendChaparAgentHeader != other.SendChaparAgentHeader ||
 		g.FollowRedirects != other.FollowRedirects ||
 		g.VaidateTLSCertificates != other.VaidateTLSCertificates ||
-		g.Theme != other.Theme
+		g.Theme != other.Theme ||
+		g.UIFontSize != other.UIFontSize ||
+		g.HideNavbar != other.HideNavbar
 }
 
 const (
@@ -105,6 +112,44 @@ func (s ScriptingConfig) Changed(other ScriptingConfig) bool {
 		s.Port != other.Port
 }
 
+// LanguageServersConfig configures the language servers that power
+// completion, hover, and diagnostics in code editors. Languages missing from
+// Servers use their built-in defaults.
+type LanguageServersConfig struct {
+	Servers []LanguageServerConfig `yaml:"servers"`
+}
+
+// LanguageServerConfig configures the server for one language.
+type LanguageServerConfig struct {
+	Language string   `yaml:"language"` // e.g. python, json, go
+	Enabled  bool     `yaml:"enabled"`
+	Command  string   `yaml:"command"` // executable name on PATH, or an absolute path
+	Args     []string `yaml:"args"`
+}
+
+func (l LanguageServerConfig) Changed(other LanguageServerConfig) bool {
+	return l.Language != other.Language ||
+		l.Enabled != other.Enabled ||
+		l.Command != other.Command ||
+		!slices.Equal(l.Args, other.Args)
+}
+
+// Server returns the entry for language, if configured.
+func (l LanguageServersConfig) Server(language string) (LanguageServerConfig, bool) {
+	for _, s := range l.Servers {
+		if s.Language == language {
+			return s, true
+		}
+	}
+	return LanguageServerConfig{}, false
+}
+
+func (l LanguageServersConfig) Changed(other LanguageServersConfig) bool {
+	return !slices.EqualFunc(l.Servers, other.Servers, func(a, b LanguageServerConfig) bool {
+		return !a.Changed(b)
+	})
+}
+
 type DataConfig struct {
 	WorkspacePath string `yaml:"workspacePath"`
 }
@@ -147,6 +192,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				FollowRedirects:        true,
 				VaidateTLSCertificates: true,
 				Theme:                  "light",
+				UIFontSize:             14,
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -184,6 +230,8 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"followRedirects":        g.Spec.General.FollowRedirects,
 			"validateTLSCertificate": g.Spec.General.VaidateTLSCertificates,
 			"theme":                  g.Spec.General.Theme,
+			"uiFontSize":             g.Spec.General.UIFontSize,
+			"hideNavbar":             g.Spec.General.HideNavbar,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -226,6 +274,8 @@ func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalC
 	g.Spec.General.FollowRedirects = getOrDefault(values, "followRedirects", g.Spec.General.FollowRedirects).(bool)
 	g.Spec.General.VaidateTLSCertificates = getOrDefault(values, "validateTLSCertificates", g.Spec.General.VaidateTLSCertificates).(bool)
 	g.Spec.General.Theme = getOrDefault(values, "theme", g.Spec.General.Theme).(string)
+	g.Spec.General.UIFontSize = getOrDefault(values, "uiFontSize", g.Spec.General.UIFontSize).(int)
+	g.Spec.General.HideNavbar = getOrDefault(values, "hideNavbar", g.Spec.General.HideNavbar).(bool)
 
 	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
 	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)

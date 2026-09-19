@@ -117,11 +117,6 @@ func (pop *CompletionPopup) reset() {
 	pop.editor.RemoveCommands(pop)
 }
 
-// Reset clears popup state and unregisters key handlers captured while active.
-func (pop *CompletionPopup) Reset() {
-	pop.reset()
-}
-
 func (pop *CompletionPopup) update(gtx layout.Context) {
 	if pop.TextSize <= 0 {
 		pop.TextSize = unit.Sp(12)
@@ -186,9 +181,8 @@ func (pop *CompletionPopup) update(gtx layout.Context) {
 
 	if len(pop.labels) < pop.itemsCount {
 		for i := len(pop.labels); i < pop.itemsCount; i++ {
-			idx := i
 			pop.labels = append(pop.labels, &itemLabel{onClicked: func() {
-				pop.cmp.OnConfirm(idx)
+				pop.cmp.OnConfirm(i)
 				gtx.Execute(key.FocusCmd{Tag: pop.editor})
 				gtx.Execute(op.InvalidateCmd{})
 			}})
