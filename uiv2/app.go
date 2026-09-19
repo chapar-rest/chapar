@@ -105,7 +105,7 @@ func BuildApp() *App {
 	}
 
 	files := a.files
-	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.showError, a.console)
+	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.showError)
 	a.envs = pages.NewEnvironmentsPage(repo,
 		func() []*domain.Environment { return a.catalog.Environments },
 		a.catalog.EnvironmentByID,
@@ -292,7 +292,7 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 		a.topBar(c),
 		ui.Row(
 			a.nav(c),
-			ui.ViewOf(a.pageView(c)).Grow(1),
+			a.console.Wrap(c, ui.ViewOf(a.pageView(c)).Grow(1)),
 		).Align(ui.AlignStretch).Grow(1),
 		a.footer(c),
 	).Grow(1)

@@ -27,10 +27,6 @@ type workspace interface {
 	Layout(*ui.Ctx) ui.View
 }
 
-type consoleDrawer interface {
-	WrapWorkspace(c *ui.Ctx, workspace ui.View) ui.View
-}
-
 type RequestsCatalog interface {
 	AllCollections() []*domain.Collection
 	StandaloneRequests() []*domain.Request
@@ -45,14 +41,13 @@ type Requests struct {
 	repo     repository.RepositoryV2
 	cat      RequestsCatalog
 	ws       workspace
-	console  consoleDrawer
 	files    func() *ui.FileDialog
 	err      func(error)
 	SideOpen bool
 }
 
-func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error), console consoleDrawer) *Requests {
-	p := &Requests{repo: repo, cat: cat, ws: ws, console: console, files: files, err: errFn}
+func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Requests {
+	p := &Requests{repo: repo, cat: cat, ws: ws, files: files, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root", Data: "root"})
 	p.tree.IconFor = p.iconFor
 	p.tree.OnActivate = p.activate
@@ -373,9 +368,6 @@ func (p *Requests) importFile() {
 
 func (p *Requests) Layout(c *ui.Ctx) ui.View {
 	workspace := p.ws.Layout(c)
-	if p.console != nil {
-		workspace = p.console.WrapWorkspace(c, workspace)
-	}
 	if !p.SideOpen {
 		return workspace
 	}
