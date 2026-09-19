@@ -7,7 +7,6 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
-	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -50,7 +49,7 @@ func PreRequestPane(th *theme.Theme, deps Deps, pre *domain.PreRequest, opts Pre
 		rows = append(rows, TriggerRequestPicker(th, deps, opts.ID, pre.TriggerRequest, markDirty))
 	case domain.PrePostTypePython:
 		if *scriptEd == nil {
-			*scriptEd = ui.NewEditor([]byte(pre.Script), highlight.Noop{})
+			*scriptEd = NewScriptEditor(deps, opts.ID, pre.Script)
 		}
 		rows = append(rows, ui.ViewOf(*scriptEd).Grow(1))
 	}
@@ -87,7 +86,7 @@ func PostRequestPane(th *theme.Theme, deps Deps, post *domain.PostRequest, opts 
 		}
 	case domain.PrePostTypePython:
 		if *scriptEd == nil {
-			*scriptEd = ui.NewEditor([]byte(post.Script), highlight.Noop{})
+			*scriptEd = NewScriptEditor(deps, opts.ID, post.Script)
 		}
 		rows = append(rows, ui.ViewOf(*scriptEd).Grow(1))
 	}

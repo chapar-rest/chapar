@@ -87,7 +87,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	if http.Request.Body.Data != "" {
 		body = http.Request.Body.Data
 	}
-	c.bodyEd = ui.NewEditor([]byte(body), bodyHighlighter(http.Request.Body.Type))
+	c.bodyEd = container.NewBodyEditor(deps, "body-"+r.MetaData.ID, http.Request.Body.Type, []byte(body))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.NewJSON(), ui.WithSoftWrap(true))
 	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
@@ -111,10 +111,10 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.authState.CollectionID = r.CollectionID
 
 	if http.Request.PreRequest.Type == domain.PrePostTypePython && http.Request.PreRequest.Script != "" {
-		c.preScript = ui.NewEditor([]byte(http.Request.PreRequest.Script), highlight.Noop{})
+		c.preScript = container.NewScriptEditor(deps, optsID(r.MetaData.ID, "pre"), http.Request.PreRequest.Script)
 	}
 	if http.Request.PostRequest.Type == domain.PrePostTypePython && http.Request.PostRequest.Script != "" {
-		c.postScript = ui.NewEditor([]byte(http.Request.PostRequest.Script), highlight.Noop{})
+		c.postScript = container.NewScriptEditor(deps, optsID(r.MetaData.ID, "post"), http.Request.PostRequest.Script)
 	}
 	return c
 }
@@ -338,7 +338,7 @@ func (c *Container) bodyTab(th *theme.Theme, id string, http *domain.HTTPRequest
 			OnChange(func(v string) {
 				http.Request.Body.Type = v
 				c.bodyEd.Close()
-				c.bodyEd = ui.NewEditor(c.bodyEd.Bytes(), bodyHighlighter(v))
+				c.bodyEd = container.NewBodyEditor(c.deps, "body-"+c.req.MetaData.ID, v, c.bodyEd.Bytes())
 				c.markDirty()
 			}),
 	}
@@ -474,17 +474,6 @@ func (c *Container) handleResult(r result) {
 	c.timeline.SetSteps(res.Timeline)
 	vars := container.DumpVariables(c.vars)
 	container.UpdateVariablePreviews(c.vars, vars, res)
-}
-
-func bodyHighlighter(bodyType string) highlight.Highlighter {
-	switch bodyType {
-	case domain.RequestBodyTypeJSON:
-		return highlight.NewJSON()
-	case domain.RequestBodyTypeXML:
-		return highlight.NewXML()
-	default:
-		return highlight.Noop{}
-	}
 }
 
 func methodOptions() []ui.SelectOption {

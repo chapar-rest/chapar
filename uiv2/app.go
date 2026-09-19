@@ -10,6 +10,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	"github.com/chapar-rest/chapar/uiv2/langsrv"
 	"github.com/chapar-rest/chapar/uiv2/pages"
 	"github.com/chapar-rest/chapar/uiv2/sender"
 	"github.com/chapar-rest/chapar/uiv2/settings"
@@ -39,16 +40,19 @@ type App struct {
 	protos   *pages.ProtoFiles
 	spaces   *pages.Workspaces
 
-	navIndex   int
-	initErr    error
-	wake       func()
-	uiCtx      *ui.Ctx
-	executor   scripting.Executor
-	console    *ConsolePanel
-	notifs     NotificationHistory
-	notifsOpen bool
-	sideOpen   bool
-	hideNavbar bool
+	navIndex int
+	initErr  error
+	wake     func()
+	uiCtx    *ui.Ctx
+	executor scripting.Executor
+	lang     *langsrv.Service
+	// lspPromptClosed holds languages whose install prompt the user closed.
+	lspPromptClosed map[string]bool
+	console         *ConsolePanel
+	notifs          NotificationHistory
+	notifsOpen      bool
+	sideOpen        bool
+	hideNavbar      bool
 }
 
 var _ yoga.App = (*App)(nil)
@@ -56,8 +60,17 @@ var _ yoga.Closer = (*App)(nil)
 var _ yoga.KeyHook = (*App)(nil)
 
 func BuildApp() *App {
-	a := &App{console: &ConsolePanel{}, sideOpen: true}
-	a.settings = settings.New(func(spec domain.GlobalConfigSpec) {
+	a := &App{console: &ConsolePanel{}, sideOpen: true, lspPromptClosed: map[string]bool{}}
+	a.lang = langsrv.New(nil)
+	a.lang.Apply(prefs.GetGlobalConfig().Spec.LanguageServers)
+	prefs.AddGlobalConfigChangeListener(func(_, updated domain.GlobalConfig) {
+		a.lang.Apply(updated.Spec.LanguageServers)
+	})
+	go func() {
+		langsrv.FixPath()
+		a.lang.PathReady()
+	}()
+	a.settings = settings.New(a.lang, a.installLanguageServer, func(spec domain.GlobalConfigSpec) {
 		a.hideNavbar = spec.General.HideNavbar
 		applyChaparAppearance(spec.General, spec.Editor)
 	})
@@ -146,6 +159,7 @@ func (a *App) deps() container.Deps {
 			Error: a.showError,
 			Toast: a.toast,
 		},
+		Lang: a.lang,
 	}
 }
 
@@ -178,6 +192,29 @@ func (a *App) toast(msg string) {
 	if host := a.toasts(); host != nil {
 		host.Show(msg, ui.ToastInfo, 3*time.Second)
 	}
+}
+
+// reportLanguageServers logs language-server problems to the console and
+// surfaces them as notifications.
+func (a *App) reportLanguageServers() {
+	for _, n := range a.lang.Drain() {
+		variant := ui.ToastError
+		if n.Warning {
+			variant = ui.ToastWarning
+			logger.Warn(n.Detail)
+		} else {
+			logger.Error(n.Detail)
+		}
+		if n.Missing != nil {
+			a.promptInstall(*n.Missing)
+			continue
+		}
+		a.notifs.Add(n.Message, variant)
+		if host := a.toasts(); host != nil && n.Toast {
+			host.Show(n.Title, variant, 6*time.Second)
+		}
+	}
+	a.reportInstalls()
 }
 
 func (a *App) confirmClose(title, message string, onYes func()) {
@@ -234,9 +271,13 @@ func (a *App) initScripting() {
 }
 
 func (a *App) Body(c *ui.Ctx) ui.View {
+	if a.uiCtx == nil {
+		a.lang.SetWake(c.Invalidate)
+	}
 	a.uiCtx = c
 	a.wake = c.Invalidate
 	th := c.Theme()
+	a.reportLanguageServers()
 
 	if a.initErr != nil {
 		return ui.Column(
@@ -269,8 +310,23 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		ui.Cmd("app.settings").Title("Open Settings").Shortcut("⌘,").Icon(icons.Settings).Run(func() { a.openSettings(c) }),
 		ui.Cmd("file.save").Title("Save").Shortcut("⌘S").Icon(icons.Save).Run(func() { a.ws.SaveActive() }),
 		ui.Cmd("file.send").Title("Send / Invoke").Shortcut("⌘Enter").Icon(icons.Play).Run(func() { a.ws.SendActive() }),
-		ui.Section("Open"),
+		ui.Section("Language servers"),
+		ui.Cmd("lsp.restart").Title("Restart language servers").Icon(icons.RefreshCw).Run(func() {
+			a.lang.Restart("")
+			a.toast("Language servers restarted")
+		}),
 	}
+	for _, s := range langsrv.Effective(prefs.GetGlobalConfig().Spec.LanguageServers) {
+		l, _ := langsrv.ByID(s.Language)
+		if !s.Enabled {
+			continue
+		}
+		cmds = append(cmds, ui.Cmd("lsp.restart."+l.ID).Title("Restart "+l.Name+" language server").Icon(icons.RefreshCw).Run(func() {
+			a.lang.Restart(l.ID)
+			a.toast(l.Name + " language server restarted")
+		}))
+	}
+	cmds = append(cmds, ui.Section("Open"))
 	for _, e := range a.catalog.Environments {
 		e := e
 		cmds = append(cmds, ui.Item("open.env."+e.MetaData.ID).

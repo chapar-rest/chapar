@@ -68,7 +68,12 @@ func (p *ConsolePanel) Layout(c *ui.Ctx) ui.View {
 		case "warn":
 			style = ui.Spec{}.TextColor(ui.TokenWarning)
 		}
-		rows = append(rows, ui.Text(line).Style(style))
+		if strings.Contains(line, "\n") {
+			// Multi-line entries (e.g. a language server's stderr) wrap.
+			rows = append(rows, ui.Paragraph(line).Style(style))
+		} else {
+			rows = append(rows, ui.Text(line).Style(style))
+		}
 	}
 	if len(rows) == 1 {
 		rows = append(rows, ui.Text("No logs available").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)))
@@ -116,7 +121,7 @@ func (n *NotificationHistory) Layout(c *ui.Ctx) ui.View {
 		case ui.ToastWarning:
 			style = ui.Spec{}.TextColor(ui.TokenWarning)
 		}
-		rows = append(rows, ui.Text(item.text).Style(style))
+		rows = append(rows, ui.Paragraph(item.text).Style(style))
 	}
 	if len(rows) == 0 {
 		rows = append(rows, ui.Text("No notifications").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)))

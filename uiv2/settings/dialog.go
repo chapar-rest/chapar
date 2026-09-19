@@ -1,8 +1,11 @@
 package settings
 
 import (
+	"strings"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
+	"github.com/chapar-rest/chapar/uiv2/langsrv"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
@@ -13,6 +16,7 @@ const (
 	catAppearance
 	catScripting
 	catEditor
+	catLanguageServers
 	catData
 )
 
@@ -22,11 +26,15 @@ type Panel struct {
 	draft        domain.GlobalConfig
 	dirty        bool
 	pathWarn     bool
+	lang         *langsrv.Service
+	install      func(language string)
 	onAppearance func(domain.GlobalConfigSpec)
 }
 
-func New(onAppearance func(domain.GlobalConfigSpec)) *Panel {
-	return &Panel{onAppearance: onAppearance}
+// New builds the settings panel. install installs the default language
+// server for a language (config key); it backs the Install buttons.
+func New(lang *langsrv.Service, install func(language string), onAppearance func(domain.GlobalConfigSpec)) *Panel {
+	return &Panel{lang: lang, install: install, onAppearance: onAppearance}
 }
 
 func (p *Panel) Prepare() {
@@ -37,6 +45,7 @@ func (p *Panel) Prepare() {
 	if p.draft.Spec.Editor.FontSize <= 0 {
 		p.draft.Spec.Editor.FontSize = 12
 	}
+	p.fillLanguageServers()
 	p.dirty = false
 	p.pathWarn = false
 	p.category = catGeneral
@@ -50,6 +59,7 @@ func (p *Panel) Draft() domain.GlobalConfig {
 
 func (p *Panel) LoadDefaults() {
 	p.draft = *domain.GetDefaultGlobalConfig()
+	p.fillLanguageServers()
 	p.dirty = true
 	p.previewAppearance()
 }
@@ -73,6 +83,7 @@ func (p *Panel) Layout(c *ui.Ctx) ui.View {
 			ui.NavItem{ID: "appearance", Label: "Appearance", Icon: icons.Palette},
 			ui.NavItem{ID: "scripting", Label: "Scripting", Icon: icons.Terminal},
 			ui.NavItem{ID: "editor", Label: "Editor", Icon: icons.Pen},
+			ui.NavItem{ID: "language-servers", Label: "Language servers", Icon: icons.Code},
 			ui.NavItem{ID: "data", Label: "Data", Icon: icons.Folder},
 		).Selected(p.category).OnSelectItem(func(i int, _ string) { p.category = i }).Width(200),
 		ui.VLine(th.Stroke.Thin, th.Border),
@@ -122,6 +133,8 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 		).Padding(th.Spacing.M)
 	case catScripting:
 		return p.scriptingForm(th, g)
+	case catLanguageServers:
+		return p.languageServersForm(th, g)
 	case catEditor:
 		indentOpts := []ui.SelectOption{
 			{Label: "Spaces", Value: domain.IndentationSpaces},
@@ -248,6 +261,75 @@ func (p *Panel) scriptingForm(th *theme.Theme, g *domain.GlobalConfigSpec) ui.Vi
 		p.mark()
 	}))
 	return ui.Form("settings-scripting", items...).Padding(th.Spacing.M)
+}
+
+// fillLanguageServers gives the draft an entry for every language, so the
+// form edits concrete values rather than implicit defaults.
+func (p *Panel) fillLanguageServers() {
+	ls := &p.draft.Spec.LanguageServers
+	ls.Servers = langsrv.Effective(*ls)
+}
+
+func (p *Panel) languageServersForm(th *theme.Theme, g *domain.GlobalConfigSpec) ui.View {
+	rows := []ui.View{
+		ui.Paragraph("Language servers add completion, hover, and diagnostics to code editors. " +
+			"A server starts when an editor of its language is first shown and stops when the last one closes. " +
+			"Changes apply on Save; Restart applies to the saved settings.").
+			Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+	}
+	for i := range g.LanguageServers.Servers {
+		s := &g.LanguageServers.Servers[i]
+		l, ok := langsrv.ByID(s.Language)
+		if !ok {
+			continue
+		}
+		id := l.ID
+		status := ""
+		if p.lang != nil {
+			status = p.lang.Status(*s)
+		}
+		actions := []ui.View{
+			ui.Paragraph(status).Size(th.Typography.Caption.Size).
+				Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)).Grow(1),
+		}
+		if _, ok := l.Installer(); ok && p.install != nil && p.lang != nil &&
+			s.Command == l.Command && p.lang.Missing(*s) {
+			label := "Install"
+			if p.lang.Installing(id) {
+				label = "Installing…"
+			}
+			actions = append(actions, ui.Button("lsp-install-"+id, ui.Text(label)).Primary().
+				Disabled(p.lang.Installing(id)).OnClick(func() { p.install(id) }))
+		}
+		actions = append(actions, ui.Button("lsp-restart-"+id, ui.Text("Restart")).Ghost().HoverFill().OnClick(func() {
+			if p.lang != nil {
+				p.lang.Restart(id)
+			}
+		}))
+		rows = append(rows, ui.Column(
+			ui.HLine(th.Stroke.Thin, th.Border),
+			ui.Row(
+				ui.Strong(l.Name),
+				ui.Caption(l.Note),
+			).Gap(th.Spacing.S),
+			ui.Form("settings-lsp-"+id,
+				ui.FormSwitch("lsp-enabled-"+id, "Enabled", "Run this server for "+l.Name+" editors", s.Enabled, func(v bool) {
+					s.Enabled = v
+					p.mark()
+				}),
+				ui.FormText("lsp-command-"+id, "Command", "Default: "+l.Command, s.Command, func(v string) {
+					s.Command = strings.TrimSpace(v)
+					p.mark()
+				}),
+				ui.FormText("lsp-args-"+id, "Arguments", "Quote arguments with spaces", langsrv.JoinArgs(s.Args), func(v string) {
+					s.Args = langsrv.SplitArgs(v)
+					p.mark()
+				}),
+			),
+			ui.Row(actions...).Gap(th.Spacing.S),
+		).Gap(th.Spacing.S))
+	}
+	return ui.Column(rows...).Gap(th.Spacing.M).Padding(th.Spacing.M)
 }
 
 func yogaThemeOptions() []ui.SelectOption {

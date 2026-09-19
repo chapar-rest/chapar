@@ -70,7 +70,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Metadata"}, {Title: "Trailers"}, {Title: "Timeline"}},
 		statusText: "Ready",
 	}
-	c.bodyEd = ui.NewEditor([]byte(r.Spec.GRPC.Body), highlight.NewJSON())
+	c.bodyEd = container.NewBodyEditor(deps, "grpc-body-"+r.MetaData.ID, domain.RequestBodyTypeJSON, []byte(r.Spec.GRPC.Body))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.Noop{})
 	c.respMetaEd = ui.NewEditor(nil, highlight.Noop{})
@@ -95,6 +95,12 @@ func (c *Container) Close() {
 	c.respMetaEd.Close()
 	c.respTrailEd.Close()
 	c.timeline.Close()
+	if c.preScript != nil {
+		c.preScript.Close()
+	}
+	if c.postScript != nil {
+		c.postScript.Close()
+	}
 }
 func (c *Container) markDirty() { c.dirty = true; c.deps.ReportDirty(true) }
 
@@ -419,7 +425,8 @@ func (c *Container) applyBodyEditor() {
 func (c *Container) handle(r result) {
 	c.pending = false
 	if r.exampleBody != nil {
-		c.bodyEd = container.ReplaceEditor(c.bodyEd, []byte(*r.exampleBody), highlight.NewJSON())
+		c.bodyEd.Close()
+		c.bodyEd = container.NewBodyEditor(c.deps, "grpc-body-"+c.req.MetaData.ID, domain.RequestBodyTypeJSON, []byte(*r.exampleBody), ui.WithSoftWrap(true))
 		c.markDirty()
 		return
 	}

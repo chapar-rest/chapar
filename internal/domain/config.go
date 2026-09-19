@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/chapar-rest/chapar/internal/util"
 )
@@ -19,16 +20,18 @@ type GlobalConfig struct {
 }
 
 type GlobalConfigSpec struct {
-	General   GeneralConfig   `yaml:"general"`
-	Editor    EditorConfig    `yaml:"editor"`
-	Scripting ScriptingConfig `yaml:"scripting"`
-	Data      DataConfig      `yaml:"data"`
+	General         GeneralConfig         `yaml:"general"`
+	Editor          EditorConfig          `yaml:"editor"`
+	Scripting       ScriptingConfig       `yaml:"scripting"`
+	LanguageServers LanguageServersConfig `yaml:"languageServers"`
+	Data            DataConfig            `yaml:"data"`
 }
 
 func (g *GlobalConfig) Changed(other *GlobalConfig) bool {
 	return g.Spec.General.Changed(other.Spec.General) ||
 		g.Spec.Editor.Changed(other.Spec.Editor) ||
 		g.Spec.Scripting.Changed(other.Spec.Scripting) ||
+		g.Spec.LanguageServers.Changed(other.Spec.LanguageServers) ||
 		g.Spec.Data.Changed(other.Spec.Data)
 }
 
@@ -107,6 +110,44 @@ func (s ScriptingConfig) Changed(other ScriptingConfig) bool {
 		s.ExecutablePath != other.ExecutablePath ||
 		s.ServerScriptPath != other.ServerScriptPath ||
 		s.Port != other.Port
+}
+
+// LanguageServersConfig configures the language servers that power
+// completion, hover, and diagnostics in code editors. Languages missing from
+// Servers use their built-in defaults.
+type LanguageServersConfig struct {
+	Servers []LanguageServerConfig `yaml:"servers"`
+}
+
+// LanguageServerConfig configures the server for one language.
+type LanguageServerConfig struct {
+	Language string   `yaml:"language"` // e.g. python, json, go
+	Enabled  bool     `yaml:"enabled"`
+	Command  string   `yaml:"command"` // executable name on PATH, or an absolute path
+	Args     []string `yaml:"args"`
+}
+
+func (l LanguageServerConfig) Changed(other LanguageServerConfig) bool {
+	return l.Language != other.Language ||
+		l.Enabled != other.Enabled ||
+		l.Command != other.Command ||
+		!slices.Equal(l.Args, other.Args)
+}
+
+// Server returns the entry for language, if configured.
+func (l LanguageServersConfig) Server(language string) (LanguageServerConfig, bool) {
+	for _, s := range l.Servers {
+		if s.Language == language {
+			return s, true
+		}
+	}
+	return LanguageServerConfig{}, false
+}
+
+func (l LanguageServersConfig) Changed(other LanguageServersConfig) bool {
+	return !slices.EqualFunc(l.Servers, other.Servers, func(a, b LanguageServerConfig) bool {
+		return !a.Changed(b)
+	})
 }
 
 type DataConfig struct {

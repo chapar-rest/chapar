@@ -25,8 +25,10 @@ func ShowCodeDialog(c *ui.Ctx, deps Deps, req *domain.Request) {
 		Body: func(ctx *ui.Ctx) ui.View {
 			return state.layout(ctx)
 		},
+		// Closing the editor releases its language server, if one started.
+		OnDismiss: state.close,
 		Actions: []ui.DialogAction{
-			{Label: "Close"},
+			{Label: "Close", OnClick: state.close},
 		},
 	})
 }
@@ -52,7 +54,7 @@ func (s *codeDialogState) layout(c *ui.Ctx) ui.View {
 		{Label: ".Net", Value: "dot-net"},
 	}
 	if s.editor == nil {
-		s.editor = ui.NewEditor([]byte(s.code), highlight.Noop{})
+		s.editor = s.newEditor()
 	}
 	return ui.Column(
 		ui.Row(
@@ -109,10 +111,22 @@ func (s *codeDialogState) regenerate() {
 		code = err.Error()
 	}
 	s.code = code
+	s.close()
+	s.editor = s.newEditor()
+}
+
+func (s *codeDialogState) newEditor() *ui.Editor {
+	if s.deps.Lang == nil {
+		return ui.NewEditor([]byte(s.code), highlight.Noop{})
+	}
+	return s.deps.Lang.NewCodeViewer(s.lang, s.code)
+}
+
+func (s *codeDialogState) close() {
 	if s.editor != nil {
 		s.editor.Close()
+		s.editor = nil
 	}
-	s.editor = ui.NewEditor([]byte(s.code), highlight.Noop{})
 }
 
 // FormatKeyValues renders key-values as properties text.

@@ -64,7 +64,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		statusText: "Ready",
 	}
 	c.queryEd = ui.NewEditor([]byte(g.Query), highlight.Noop{})
-	c.varsEd = ui.NewEditor([]byte(g.Variables), highlight.NewJSON())
+	c.varsEd = container.NewBodyEditor(deps, "gql-vars-"+r.MetaData.ID, domain.RequestBodyTypeJSON, []byte(g.Variables))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.Noop{})
 	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{})
@@ -74,10 +74,10 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.authState.AllowInherit = true
 	c.authState.CollectionID = r.CollectionID
 	if g.PreRequest.Type == domain.PrePostTypePython && g.PreRequest.Script != "" {
-		c.preScript = ui.NewEditor([]byte(g.PreRequest.Script), highlight.Noop{})
+		c.preScript = container.NewScriptEditor(deps, r.MetaData.ID+"-pre", g.PreRequest.Script)
 	}
 	if g.PostRequest.Type == domain.PrePostTypePython && g.PostRequest.Script != "" {
-		c.postScript = ui.NewEditor([]byte(g.PostRequest.Script), highlight.Noop{})
+		c.postScript = container.NewScriptEditor(deps, r.MetaData.ID+"-post", g.PostRequest.Script)
 	}
 	return c
 }

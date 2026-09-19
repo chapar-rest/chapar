@@ -5,7 +5,9 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/uiv2/langsrv"
 	"github.com/chapar-rest/chapar/uiv2/sender"
+	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/ui"
 )
 
@@ -53,6 +55,33 @@ type Deps struct {
 	Wake      func()
 	ActiveEnv func() *domain.Environment
 	Report    Reporter
+	// Lang creates code editors wired to language servers. Nil means
+	// highlighting only.
+	Lang *langsrv.Service
+}
+
+// NewScriptEditor returns an editor for a Python pre/post-request script.
+func NewScriptEditor(deps Deps, name, script string) *ui.Editor {
+	if deps.Lang == nil {
+		return ui.NewEditor([]byte(script), highlight.NewPython())
+	}
+	return deps.Lang.NewScriptEditor(name, script)
+}
+
+// NewBodyEditor returns an editor for a request body of the given
+// domain.RequestBodyType*.
+func NewBodyEditor(deps Deps, name, bodyType string, body []byte, opts ...ui.EditorOption) *ui.Editor {
+	if deps.Lang == nil {
+		hl := highlight.Highlighter(highlight.Noop{})
+		switch bodyType {
+		case domain.RequestBodyTypeJSON:
+			hl = highlight.NewJSON()
+		case domain.RequestBodyTypeXML:
+			hl = highlight.NewXML()
+		}
+		return ui.NewEditor(body, hl, opts...)
+	}
+	return deps.Lang.NewBodyEditor(name, bodyType, body, opts...)
 }
 
 // Catalog is the subset of app catalog a container may query.
