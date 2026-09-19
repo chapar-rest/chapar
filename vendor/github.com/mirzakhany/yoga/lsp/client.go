@@ -5,7 +5,27 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 )
+
+const (
+	// initializeTimeout bounds the handshake. Heavy servers (jdtls) index the
+	// workspace before answering, so this is generous.
+	initializeTimeout = 60 * time.Second
+	// shutdownTimeout bounds the polite shutdown request before the process
+	// is killed anyway.
+	shutdownTimeout = 2 * time.Second
+)
+
+// clientHooks are optional callbacks a client invokes from its read
+// goroutine; they must not block.
+type clientHooks struct {
+	// message receives window/showMessage notifications (type per the spec:
+	// 1 error, 2 warning, 3 info, 4 log).
+	message func(typ int, text string)
+	// activity fires whenever new events are queued for the editor.
+	activity func()
+}
 
 // EventKind tags the variant of an async Event.
 type EventKind int
@@ -35,6 +55,7 @@ type Event struct {
 type client struct {
 	rpc      *rpcConn
 	encoding string // negotiated position encoding ("utf-8" or "utf-16")
+	hooks    clientHooks
 
 	mu     sync.Mutex
 	diags  map[string][]Diagnostic
@@ -43,9 +64,10 @@ type client struct {
 
 // newClient performs the initialize/initialized handshake over rwc and returns a
 // ready client. rootURI is the workspace root (a file:// URI).
-func newClient(rwc io.ReadWriteCloser, rootURI string) (*client, error) {
+func newClient(rwc io.ReadWriteCloser, rootURI string, hooks clientHooks) (*client, error) {
 	c := &client{
 		encoding: "utf-16", // LSP default until the server says otherwise
+		hooks:    hooks,
 		diags:    make(map[string][]Diagnostic),
 	}
 	c.rpc = newRPC(rwc, c.onNotify)
@@ -66,7 +88,7 @@ func newClient(rwc io.ReadWriteCloser, rootURI string) (*client, error) {
 			},
 		},
 	}
-	raw, err := c.rpc.call(methodInitialize, params)
+	raw, err := c.rpc.callTimeout(methodInitialize, params, initializeTimeout)
 	if err != nil {
 		c.rpc.Close()
 		return nil, err
@@ -83,17 +105,30 @@ func newClient(rwc io.ReadWriteCloser, rootURI string) (*client, error) {
 }
 
 func (c *client) onNotify(method string, params json.RawMessage) {
-	if method != methodPublishDiagnostics {
-		return
+	switch method {
+	case methodPublishDiagnostics:
+		var p PublishDiagnosticsParams
+		if json.Unmarshal(params, &p) != nil {
+			return
+		}
+		c.mu.Lock()
+		c.diags[p.URI] = p.Diagnostics
+		c.events = append(c.events, Event{Kind: EventDiagnostics, URI: p.URI})
+		c.mu.Unlock()
+		c.activity()
+	case methodShowMessage:
+		var p showMessageParams
+		if json.Unmarshal(params, &p) != nil || c.hooks.message == nil {
+			return
+		}
+		c.hooks.message(p.Type, p.Message)
 	}
-	var p PublishDiagnosticsParams
-	if json.Unmarshal(params, &p) != nil {
-		return
+}
+
+func (c *client) activity() {
+	if c.hooks.activity != nil {
+		c.hooks.activity()
 	}
-	c.mu.Lock()
-	c.diags[p.URI] = p.Diagnostics
-	c.events = append(c.events, Event{Kind: EventDiagnostics, URI: p.URI})
-	c.mu.Unlock()
 }
 
 // ---- text synchronization (notifications) ----
@@ -154,6 +189,7 @@ func (c *client) enqueue(ev Event) {
 	c.mu.Lock()
 	c.events = append(c.events, ev)
 	c.mu.Unlock()
+	c.activity()
 }
 
 // drain removes and returns events for the given URI, leaving others queued.
@@ -183,7 +219,7 @@ func (c *client) diagnostics(uri string) []Diagnostic {
 
 func (c *client) shutdown() {
 	// Best-effort graceful stop; ignore errors since the process may be dying.
-	_, _ = c.rpc.call(methodShutdown, nil)
+	_, _ = c.rpc.callTimeout(methodShutdown, nil, shutdownTimeout)
 	_ = c.rpc.notify(methodExit, nil)
 	c.rpc.Close()
 }

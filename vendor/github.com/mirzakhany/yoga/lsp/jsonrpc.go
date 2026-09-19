@@ -17,11 +17,13 @@ package lsp
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // rpcError is a JSON-RPC 2.0 error object.
@@ -88,10 +90,18 @@ func (c *rpcConn) notify(method string, params any) error {
 	})
 }
 
+// errTimeout is returned by callTimeout when the server does not answer in time.
+var errTimeout = errors.New("lsp: request timed out")
+
 // call sends a request and blocks until the matching response arrives or the
 // connection closes. It is meant to be called from worker goroutines, never the
 // UI thread.
 func (c *rpcConn) call(method string, params any) (json.RawMessage, error) {
+	return c.callTimeout(method, params, 0)
+}
+
+// callTimeout is call with a deadline; d <= 0 waits indefinitely.
+func (c *rpcConn) callTimeout(method string, params any, d time.Duration) (json.RawMessage, error) {
 	c.mu.Lock()
 	c.nextID++
 	id := c.nextID
@@ -115,6 +125,12 @@ func (c *rpcConn) call(method string, params any) (json.RawMessage, error) {
 		return nil, err
 	}
 
+	var timeout <-chan time.Time
+	if d > 0 {
+		t := time.NewTimer(d)
+		defer t.Stop()
+		timeout = t.C
+	}
 	select {
 	case msg := <-ch:
 		if msg.Error != nil {
@@ -123,6 +139,8 @@ func (c *rpcConn) call(method string, params any) (json.RawMessage, error) {
 		return msg.Result, nil
 	case <-c.closed:
 		return nil, io.ErrClosedPipe
+	case <-timeout:
+		return nil, errTimeout
 	}
 }
 
@@ -176,12 +194,12 @@ func (c *rpcConn) dispatch(msg rpcMessage) {
 	switch {
 	case msg.Method != "" && msg.ID != nil:
 		// Server→client request. We implement no client-side features, so reply
-		// with a null result to keep the server from blocking (e.g. on
-		// client/registerCapability or workspace/configuration).
+		// with an empty result to keep the server from blocking (e.g. on
+		// client/registerCapability).
 		_ = c.writeFrame(map[string]any{
 			"jsonrpc": "2.0",
 			"id":      json.RawMessage(*msg.ID),
-			"result":  nil,
+			"result":  serverRequestResult(msg.Method, msg.Params),
 		})
 	case msg.Method != "":
 		// Notification.
@@ -201,6 +219,21 @@ func (c *rpcConn) dispatch(msg rpcMessage) {
 			ch <- msg
 		}
 	}
+}
+
+// serverRequestResult is the reply to a server→client request. The spec
+// requires workspace/configuration to answer with one entry per requested
+// item; a bare null makes some servers (pyright) fail the request, so each
+// item gets null, meaning "no client setting — use your default".
+func serverRequestResult(method string, params json.RawMessage) any {
+	if method != "workspace/configuration" {
+		return nil
+	}
+	var p struct {
+		Items []json.RawMessage `json:"items"`
+	}
+	_ = json.Unmarshal(params, &p)
+	return make([]any, len(p.Items))
 }
 
 // readContentLength consumes the header block and returns the body length.

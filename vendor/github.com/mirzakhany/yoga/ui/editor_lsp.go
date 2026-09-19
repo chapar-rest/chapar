@@ -18,6 +18,12 @@ import (
 // editor. One server runs per (workspace root, language); see lsp.Manager.
 var lspManager = lsp.NewManager()
 
+// LanguageServers returns the manager behind every editor's language-server
+// connection. Apps use it to receive server errors (OnError), repaint when
+// results arrive (OnActivity), and restart servers after changing the
+// lsp registry (Restart).
+func LanguageServers() *lsp.Manager { return lspManager }
+
 const (
 	hoverDelay        = 500 * time.Millisecond
 	completionWidth   = 340
@@ -123,6 +129,18 @@ func (e *Editor) offsetFromLSP(p lsp.Position) int {
 // Synchronization & per-frame polling
 // ---------------------------------------------------------------------------
 
+// lspOpen connects the editor to its language server the first time it
+// updates. Deferring this from construction means a tab full of editors
+// starts no server until one of them is on screen. Editors without a Path get
+// a no-op document.
+func (e *Editor) lspOpen() {
+	if e.lspOpened {
+		return
+	}
+	e.lspOpened = true
+	e.lsp = lspManager.Open(e.Path, func() []byte { return e.pt.Bytes() })
+}
+
 func (e *Editor) lspDidChange() {
 	if e.lsp == nil {
 		return
@@ -169,7 +187,9 @@ func (e *Editor) recomputeDiagSpans() {
 		}
 		spans = append(spans, diagSpan{lo: lo, hi: hi, sev: d.Severity, msg: d.Message})
 	}
-	clear(e.lspUI.diagSpans[len(spans):]) // release dropped diagnostic messages
+	if old := e.lspUI.diagSpans; len(old) > len(spans) {
+		clear(old[len(spans):]) // release dropped diagnostic messages
+	}
 	e.lspUI.diagSpans = spans
 }
 

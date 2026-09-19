@@ -31,6 +31,7 @@ import (
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	tree_sitter_go "github.com/tree-sitter/tree-sitter-go/bindings/go"
 	tree_sitter_json "github.com/tree-sitter/tree-sitter-json/bindings/go"
+	tree_sitter_python "github.com/tree-sitter/tree-sitter-python/bindings/go"
 )
 
 func (e Edit) toInputEdit() *tree_sitter.InputEdit {
@@ -54,6 +55,8 @@ func ForPath(path string) Highlighter {
 		return NewGo()
 	case ".json":
 		return NewJSON()
+	case ".py", ".pyi":
+		return NewPython()
 	case ".xml", ".xsd", ".xsl", ".xslt", ".svg":
 		return NewXML()
 	default:
@@ -216,6 +219,9 @@ func NewJSON() Highlighter { return newTS(tree_sitter_json.Language, classifyJSO
 // NewXML starts a worker loop highlighting XML (and XML dialects such as SVG,
 // XSD, and XSL) and returns its handle.
 func NewXML() Highlighter { return newTS(tree_sitter_xml.LanguageXML, classifyXML) }
+
+// NewPython returns a Tree-sitter highlighter for Python source.
+func NewPython() Highlighter { return newTS(tree_sitter_python.Language, classifyPython) }
 
 func (h *tsHighlighter) loop() {
 	parser := tree_sitter.NewParser()
@@ -655,6 +661,88 @@ func classifyXML(w *rangeWalker, root *tree_sitter.Node) {
 		w.children(n, walk)
 	}
 	walk(root)
+}
+
+// pythonKeywords is the set of Python keywords, including the soft keywords
+// match/case/type. Tree-sitter emits them as anonymous leaves whose Kind() is
+// the keyword text, so a soft keyword used as a plain name (an identifier
+// node) is not colored.
+var pythonKeywords = map[string]bool{
+	"and": true, "as": true, "assert": true, "async": true, "await": true,
+	"break": true, "case": true, "class": true, "continue": true, "def": true,
+	"del": true, "elif": true, "else": true, "except": true, "finally": true,
+	"for": true, "from": true, "global": true, "if": true, "import": true,
+	"in": true, "is": true, "lambda": true, "match": true, "nonlocal": true,
+	"not": true, "or": true, "pass": true, "raise": true, "return": true,
+	"try": true, "type": true, "while": true, "with": true, "yield": true,
+}
+
+// classifyPython walks a Python syntax tree. Strings are colored piecewise so
+// the expressions inside f-string interpolations keep their own classes; class
+// names, decorators, and type annotations share ClassType.
+func classifyPython(w *rangeWalker, root *tree_sitter.Node) {
+	var walk func(n *tree_sitter.Node)
+	walk = func(n *tree_sitter.Node) {
+		switch n.Kind() {
+		case "comment":
+			w.add(n, ClassComment)
+			return
+		case "string":
+			if !pythonHasInterpolation(n) {
+				w.add(n, ClassString)
+				return
+			}
+			w.children(n, func(c *tree_sitter.Node) {
+				if c.Kind() == "interpolation" {
+					walk(c)
+				} else {
+					w.add(c, ClassString)
+				}
+			})
+			return
+		case "integer", "float":
+			w.add(n, ClassNumber)
+			return
+		case "true", "false", "none":
+			w.add(n, ClassKeyword)
+			return
+		case "decorator", "type":
+			w.add(n, ClassType)
+			return
+		case "class_definition":
+			// The first identifier child is the class name.
+			named := false
+			w.children(n, func(c *tree_sitter.Node) {
+				if !named && c.Kind() == "identifier" {
+					named = true
+					w.add(c, ClassType)
+					return
+				}
+				walk(c)
+			})
+			return
+		}
+
+		if n.ChildCount() == 0 {
+			if !n.IsNamed() && pythonKeywords[n.Kind()] {
+				w.add(n, ClassKeyword)
+			}
+			return
+		}
+		w.children(n, walk)
+	}
+	walk(root)
+}
+
+// pythonHasInterpolation reports whether a string node is an f-string with
+// at least one {expression} part.
+func pythonHasInterpolation(n *tree_sitter.Node) bool {
+	for i := uint(0); i < n.ChildCount(); i++ {
+		if c := n.Child(i); c != nil && c.Kind() == "interpolation" {
+			return true
+		}
+	}
+	return false
 }
 
 var _ RangeHighlighter = (*tsHighlighter)(nil)

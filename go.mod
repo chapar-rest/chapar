@@ -16,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/inkeliz/giosvg v0.0.0-20240821232107-3208d4350d55
 	github.com/jhump/protoreflect v1.16.0
-	github.com/mirzakhany/yoga v0.5.15
+	github.com/mirzakhany/yoga v0.6.0
 	github.com/oligo/gioview v0.8.2
 	github.com/oligo/gvcode v0.4.0
 	github.com/stretchr/testify v1.12.1
@@ -89,6 +89,7 @@ require (
 	github.com/tree-sitter/go-tree-sitter v0.25.0 // indirect
 	github.com/tree-sitter/tree-sitter-go v0.25.0 // indirect
 	github.com/tree-sitter/tree-sitter-json v0.24.8 // indirect
+	github.com/tree-sitter/tree-sitter-python v0.23.6 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

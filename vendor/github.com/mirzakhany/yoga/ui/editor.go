@@ -133,10 +133,11 @@ type Editor struct {
 	hlRangeSet bool
 
 	// lsp connects this document to a language server for diagnostics, hover,
-	// and completion. It is never nil (a no-op handle stands in when no server
-	// is available), so call sites need no guards.
-	lsp   lsp.Doc
-	lspUI lspState
+	// and completion. It stays nil until the editor first updates (see
+	// lspOpen), so a server is started only for editors actually shown.
+	lsp       lsp.Doc
+	lspOpened bool
+	lspUI     lspState
 
 	contentSizeDirty bool
 
@@ -271,7 +272,6 @@ func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...Ed
 	}
 	e.hl.Update(e.pt.Bytes())
 	e.markParsePending()
-	e.lsp = lspManager.Open(path, content)
 	e.lspUI.init()
 	return e
 }
@@ -370,6 +370,7 @@ func (e *Editor) markParsePending() {
 // native resources.
 func (e *Editor) Close() {
 	e.hl.Close()
+	e.lspOpened = true // never open after Close
 	if e.lsp != nil {
 		e.lsp.Close()
 	}
@@ -419,6 +420,7 @@ func (e *Editor) Update(m *input.Mouse) {
 		e.tokens = toks
 		e.parseUntil = time.Time{}
 	}
+	e.lspOpen()
 	e.lspUpdate(m)
 	if e.contentSizeDirty {
 		e.recomputeContentSize()

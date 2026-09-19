@@ -17,7 +17,16 @@ const (
 	methodCompletion         = "textDocument/completion"
 	methodHover              = "textDocument/hover"
 	methodPublishDiagnostics = "textDocument/publishDiagnostics"
+	methodShowMessage        = "window/showMessage"
 )
+
+// MessageTypeError is the window/showMessage type for errors.
+const MessageTypeError = 1
+
+type showMessageParams struct {
+	Type    int    `json:"type"`
+	Message string `json:"message"`
+}
 
 // Position is a zero-based line/character offset. The unit of Character depends
 // on the negotiated position encoding (utf-8 → bytes, utf-16 → code units).

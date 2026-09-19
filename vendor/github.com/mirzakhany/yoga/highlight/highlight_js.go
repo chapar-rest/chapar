@@ -18,3 +18,6 @@ func NewJSON() Highlighter { return Noop{} }
 
 // NewXML returns Noop on js/wasm.
 func NewXML() Highlighter { return Noop{} }
+
+// NewPython returns Noop on js/wasm.
+func NewPython() Highlighter { return Noop{} }
