@@ -710,16 +710,30 @@ func (t *Table) positionEditField(widths, offsets []float32) {
 	}
 	cr := t.cellRect(y, colIdx, widths, offsets)
 	pad := th.Spacing.XS
-	t.editField.host.Frame = render.Rect{
+	t.placeEditField(render.Rect{
 		X: cr.X + pad,
 		Y: cr.Y + pad,
 		W: cr.W - 2*pad,
 		H: cr.H - 2*pad,
-	}
+	})
 }
 
 func (t *Table) hideEditField() {
-	t.editField.host.Frame = render.Rect{X: -10000, Y: -10000, W: 0, H: 0}
+	t.placeEditField(render.Rect{X: -10000, Y: -10000})
+}
+
+// placeEditField puts the edit overlay at r. The frame's layout pass
+// recomputes every overlay's Frame from its Style, so the position has to
+// live in the Style too; setting only Frame left the field hit-testing at
+// the wrong place, so clicks and drags inside it never reached it.
+func (t *Table) placeEditField(r render.Rect) {
+	h := t.editField.host
+	h.Style.Pos = layout.PositionAbsolute
+	h.Style.Left, h.Style.Top = r.X, r.Y
+	h.Style.Width, h.Style.Height = r.W, r.H
+	h.Style.MinHeight = r.H
+	h.ReapplyStyle()
+	h.Frame = r
 }
 
 func (t *Table) colIndex(id string) int {
@@ -918,11 +932,16 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 						m.Consumed = true
 					}
 				}
-				if m.Released {
-					if t.editingRowID != "" && (t.editingRowID != row.ID || t.editingColID != col.ID) {
+				editingThis := t.editingRowID == row.ID && t.editingColID == col.ID
+				if m.Released && !editingThis {
+					// Clicks inside the cell being edited belong to its field;
+					// restarting the edit would throw away what was typed.
+					if t.editingRowID != "" {
 						t.commitEdit()
 					}
 					t.startEdit(row.ID, col.ID)
+					t.positionEditField(widths, offsets)
+					t.editField.moveTo(t.editField.offsetAtX(m.X), false)
 					m.Consumed = true
 				}
 				if m.Pressed {
