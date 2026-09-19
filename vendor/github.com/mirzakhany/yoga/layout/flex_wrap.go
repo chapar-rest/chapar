@@ -148,6 +148,7 @@ func layoutFlexWrap(e *Element, contentW, contentH float32) {
 		lineGrow := make([]float32, n)
 		lineShrink := make([]float32, n)
 		lineBasis := make([]float32, n)
+		lineMax := make([]float32, n)
 		outerMain := make([]float32, n)
 		marginStarts := make([]float32, n)
 
@@ -159,6 +160,11 @@ func layoutFlexWrap(e *Element, contentW, contentH float32) {
 			lineGrow[j] = grow[idx]
 			lineShrink[j] = shrink[idx]
 			lineBasis[j] = basis[idx]
+			if horizontalMain {
+				lineMax[j] = it.child.Style.MaxWidth
+			} else {
+				lineMax[j] = it.child.Style.MaxHeight
+			}
 			outerMain[j] = it.main + it.mMain
 			if horizontalMain {
 				marginStarts[j] = it.child.Style.Margin.Left
@@ -171,7 +177,7 @@ func layoutFlexWrap(e *Element, contentW, contentH float32) {
 			}
 		}
 
-		distributeFlex(lineGrow, lineShrink, lineBasis, lineMains, mainSize-used)
+		distributeFlex(lineGrow, lineShrink, lineBasis, lineMains, lineMax, mainSize-used)
 
 		for j := 0; j < n; j++ {
 			outerMain[j] = lineMains[j] + items[ln.start+j].mMain

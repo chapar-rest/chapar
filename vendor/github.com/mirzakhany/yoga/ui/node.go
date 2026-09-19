@@ -272,6 +272,15 @@ func (n *Node) Width(w float32) *Node {
 	return n
 }
 
+// MaxWidth caps the width. A node that grows or stretches stops at w, so
+// Row(content.Grow(1).MaxWidth(w)).Justify(JustifyCenter) centers a column
+// that is at most w wide.
+func (n *Node) MaxWidth(w float32) *Node {
+	n.spec.maxW = w
+	n.spec.hasMaxW = true
+	return n
+}
+
 // Height sets a fixed height.
 func (n *Node) Height(h float32) *Node {
 	n.spec.height = h

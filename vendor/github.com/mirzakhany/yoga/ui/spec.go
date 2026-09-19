@@ -83,6 +83,8 @@ type Spec struct {
 	hasW, hasH       bool
 	minW, minH       float32
 	hasMinW, hasMinH bool
+	maxW             float32
+	hasMaxW          bool
 	fontSize         float32
 	hasFontSize      bool
 	fontWeight       int
@@ -283,6 +285,10 @@ func (s Spec) merge(p Spec) Spec {
 		s.minH = p.minH
 		s.hasMinH = true
 	}
+	if p.hasMaxW {
+		s.maxW = p.maxW
+		s.hasMaxW = true
+	}
 	if p.hasFontSize {
 		s.fontSize = p.fontSize
 		s.hasFontSize = true
@@ -415,6 +421,9 @@ func applyLayoutSpec(st layout.Style, s Spec) layout.Style {
 			mh = s.minH
 		}
 		st = st.Min(mw, mh)
+	}
+	if s.hasMaxW {
+		st.MaxWidth = s.maxW
 	}
 	if s.hasPad {
 		st.Padding = s.pad

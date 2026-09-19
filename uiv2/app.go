@@ -2,6 +2,7 @@ package uiv2
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -112,9 +113,22 @@ func BuildApp() *App {
 		a.catalog.Load,
 		a.ws, files, a.showError)
 	a.protos = pages.NewProtoFilesPage(repo, a.catalog.ProtoFileList, a.catalog.Load, files, a.showError)
-	a.spaces = pages.NewWorkspacesPage(repo,
-		func() []*domain.Workspace { return a.catalog.Workspaces },
-		a.catalog.Load, a.showError, a.switchWorkspace)
+	a.spaces = pages.NewWorkspacesPage(pages.WorkspacesDeps{
+		Repo:     repo,
+		List:     func() []*domain.Workspace { return a.catalog.Workspaces },
+		ActiveID: func() string { return a.catalog.ActiveWorkspaceID },
+		Summary:  a.workspaceSummary,
+		Load:     a.catalog.Load,
+		Error:    a.showError,
+		Use:      a.switchWorkspace,
+		Renamed: func(ws *domain.Workspace) {
+			// The repository finds the open workspace by its folder name,
+			// which the rename just changed.
+			if err := a.catalog.SetActiveWorkspace(ws); err != nil {
+				a.showError(err)
+			}
+		},
+	})
 
 	cfg := prefs.GetGlobalConfig()
 	a.hideNavbar = cfg.Spec.General.HideNavbar
@@ -172,9 +186,6 @@ func (a *App) rebuildTrees() {
 	}
 	if a.protos != nil {
 		a.protos.Reload()
-	}
-	if a.spaces != nil {
-		a.spaces.Reload()
 	}
 }
 
@@ -248,6 +259,27 @@ func (a *App) doSwitchWorkspace(ws *domain.Workspace) {
 		return
 	}
 	a.rebuildTrees()
+}
+
+// workspaceSummary counts what the open workspace holds, for its card on the
+// workspaces page.
+func (a *App) workspaceSummary() string {
+	plural := func(n int, one string) string {
+		if n == 1 {
+			return "1 " + one
+		}
+		return fmt.Sprintf("%d %ss", n, one)
+	}
+	cols := a.catalog.AllCollections()
+	reqs := len(a.catalog.StandaloneRequests())
+	for _, col := range cols {
+		reqs += len(col.Spec.Requests)
+	}
+	return strings.Join([]string{
+		plural(len(cols), "collection"),
+		plural(reqs, "request"),
+		plural(len(a.catalog.Environments), "environment"),
+	}, " · ")
 }
 
 func (a *App) initScripting() {

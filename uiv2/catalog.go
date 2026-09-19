@@ -60,8 +60,19 @@ func (c *Catalog) Load() error {
 	c.Workspaces = workspaces
 
 	state := prefs.GetAppState()
-	if state.Spec.ActiveWorkspace != nil {
-		c.ActiveWorkspaceID = state.Spec.ActiveWorkspace.ID
+	if aw := state.Spec.ActiveWorkspace; aw != nil {
+		c.ActiveWorkspaceID = aw.ID
+		// The repository opens the workspace by folder name, and the saved ID
+		// can be stale (a fresh profile saves "default" while the folder's
+		// workspace has its own ID). Trust the name when the ID matches none.
+		if !hasWorkspace(workspaces, aw.ID) {
+			for _, w := range workspaces {
+				if w.MetaData.Name == aw.Name {
+					c.ActiveWorkspaceID = w.MetaData.ID
+					break
+				}
+			}
+		}
 	}
 	if state.Spec.SelectedEnvironment != nil {
 		c.ActiveEnvID = state.Spec.SelectedEnvironment.ID
@@ -109,6 +120,15 @@ func (c *Catalog) EnvironmentByID(id string) *domain.Environment {
 		}
 	}
 	return nil
+}
+
+func hasWorkspace(list []*domain.Workspace, id string) bool {
+	for _, w := range list {
+		if w.MetaData.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Catalog) WorkspaceByID(id string) *domain.Workspace {

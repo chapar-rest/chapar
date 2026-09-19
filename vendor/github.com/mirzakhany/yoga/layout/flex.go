@@ -383,21 +383,38 @@ func crossGap(s *Style, horizontalMain bool) float32 {
 	return s.ColGap
 }
 
-func distributeFlex(flexGrow, flexShrink, basis, size []float32, freeSpace float32) {
+// maxMain holds each item's main-axis max size (NaN when unset). A growing
+// item stops at its max and the space it leaves goes to the other growers.
+func distributeFlex(flexGrow, flexShrink, basis, size, maxMain []float32, freeSpace float32) {
 	if freeSpace > 0 {
-		totalGrow := float32(0)
-		for _, g := range flexGrow {
-			totalGrow += g
-		}
-		if totalGrow <= 0 {
-			return
-		}
-		for i := range size {
-			if flexGrow[i] > 0 {
+		frozen := make([]bool, len(size))
+		for {
+			totalGrow := float32(0)
+			for i, g := range flexGrow {
+				if !frozen[i] {
+					totalGrow += g
+				}
+			}
+			if totalGrow <= 0 || freeSpace <= 0 {
+				return
+			}
+			clamped := false
+			for i := range size {
+				if frozen[i] || flexGrow[i] <= 0 {
+					continue
+				}
 				size[i] = basis[i] + freeSpace*(flexGrow[i]/totalGrow)
+				if maxMain != nil && !isUnset(maxMain[i]) && size[i] > maxMain[i] {
+					size[i] = maxf(maxMain[i], basis[i])
+					frozen[i] = true
+					freeSpace -= size[i] - basis[i]
+					clamped = true
+				}
+			}
+			if !clamped {
+				return
 			}
 		}
-		return
 	}
 	if freeSpace < 0 {
 		totalShrink := float32(0)
@@ -464,12 +481,12 @@ func layoutFlex(e *Element, contentW, contentH float32) {
 		if horizontalMain {
 			cross = resolveCrossSize(c, crossSize, false)
 			if alignItem(s.Align, cs.SelfAlign) == AlignStretch && isUnset(cs.Height) {
-				cross = crossSize - cs.Margin.Top - cs.Margin.Bottom
+				cross = clampDim(crossSize-cs.Margin.Top-cs.Margin.Bottom, nan, cs.MaxHeight)
 			}
 		} else {
 			cross = resolveCrossSize(c, crossSize, true)
 			if alignItem(s.Align, cs.SelfAlign) == AlignStretch && isUnset(cs.Width) {
-				cross = crossSize - cs.Margin.Left - cs.Margin.Right
+				cross = clampDim(crossSize-cs.Margin.Left-cs.Margin.Right, nan, cs.MaxWidth)
 			}
 		}
 		cross = clampDim(cross, 0, math.MaxFloat32)
@@ -502,8 +519,16 @@ func layoutFlex(e *Element, contentW, contentH float32) {
 		totalMain += gap * float32(len(children)-1)
 	}
 
+	maxMain := make([]float32, len(children))
+	for i, c := range children {
+		if horizontalMain {
+			maxMain[i] = c.Style.MaxWidth
+		} else {
+			maxMain[i] = c.Style.MaxHeight
+		}
+	}
 	freeMain := mainSize - totalMain
-	distributeFlex(grow, shrink, basis, mains, freeMain)
+	distributeFlex(grow, shrink, basis, mains, maxMain, freeMain)
 
 	for i := range items {
 		items[i].main = mains[i]

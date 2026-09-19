@@ -46,6 +46,8 @@ type DialogHost struct {
 	opts  DialogOpts
 	// inputValue holds the controlled text for ShowInput.
 	inputValue string
+	// inputFresh selects the whole starting value on the first frame.
+	inputFresh bool
 }
 
 var _ View = (*DialogHost)(nil)
@@ -152,6 +154,12 @@ func dialogSeverityStyle(s DialogSeverity) (icon icons.Icon, color Token) {
 
 // ShowInput opens a dialog with a text field.
 func (d *DialogHost) ShowInput(title, placeholder string, onOK func(value string), onCancel func()) {
+	d.ShowInputValue(title, placeholder, "", onOK, onCancel)
+}
+
+// ShowInputValue opens a dialog with a text field that starts out holding
+// value, for renames and other edits. Enter in the field works like OK.
+func (d *DialogHost) ShowInputValue(title, placeholder, value string, onOK func(value string), onCancel func()) {
 	th := theme.Current()
 	pad := th.Spacing.L
 	titleH := th.Typography.Subtitle.LineHeight
@@ -159,7 +167,14 @@ func (d *DialogHost) ShowInput(title, placeholder string, onOK func(value string
 	footerH := th.Metrics.ControlHeight + pad
 	height := pad + titleH + pad + bodyH + pad + footerH
 
-	d.inputValue = ""
+	ok := func() {
+		d.Close()
+		if onOK != nil {
+			onOK(d.inputValue)
+		}
+	}
+	d.inputValue = value
+	d.inputFresh = true
 	d.Show(DialogOpts{
 		Title:  title,
 		Width:  360,
@@ -167,10 +182,22 @@ func (d *DialogHost) ShowInput(title, placeholder string, onOK func(value string
 		Body: func(c *Ctx) View {
 			th := c.Theme()
 			pad := th.Spacing.L
+			if d.inputFresh {
+				// The field's widget outlives the dialog, so drop the caret it
+				// kept from the last time and select the new value instead.
+				d.inputFresh = false
+				tf := c.Widget("__dialog-input", func() any {
+					return NewTextInput(TextFieldConfig{Placeholder: placeholder})
+				}).(*TextInput)
+				tf.Value = d.inputValue
+				tf.resetHistory()
+				tf.SelectAll()
+			}
 			return Column(
 				TextField("__dialog-input", d.inputValue).
 					Placeholder(placeholder).
 					OnChange(func(s string) { d.inputValue = s }).
+					OnSubmit(func(string) { ok() }).
 					DefaultFocus(),
 			).Padding(pad).Gap(th.Spacing.S)
 		},
