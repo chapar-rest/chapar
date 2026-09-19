@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 
@@ -644,52 +645,52 @@ func (h *CommandsHost) HandleKeys(keys []input.KeyEvent) {
 }
 
 // filterCommands returns visible commands matching q.
-// Registration order is preserved so Section headers stay with their items.
-// A Section is kept only when at least one following entry (until the next
+// Sections keep their place and their items stay under them; within each
+// section, matches are ranked best first, ties keeping registration order.
+// With an empty query every visible entry is listed in registration order.
+// A Section is kept only when at least one of its entries (until the next
 // Section) is visible.
 func filterCommands(cmds []*Command, q string) []*Command {
 	q = strings.TrimSpace(q)
 	out := make([]*Command, 0, len(cmds))
-	for i, cmd := range cmds {
+	type match struct {
+		cmd   *Command
+		score int
+	}
+	var header *Command
+	var group []match
+	flush := func() {
+		if len(group) == 0 {
+			return
+		}
+		if header != nil {
+			out = append(out, header)
+		}
+		slices.SortStableFunc(group, func(a, b match) int { return b.score - a.score })
+		for _, m := range group {
+			out = append(out, m.cmd)
+		}
+		group = group[:0]
+	}
+	for _, cmd := range cmds {
 		if cmd == nil || cmd.hidden {
 			continue
 		}
 		if cmd.section {
-			if sectionHasVisible(cmds, i+1, q) {
-				out = append(out, cmd)
-			}
+			flush()
+			header = cmd
 			continue
 		}
 		if q == "" {
-			out = append(out, cmd)
+			group = append(group, match{cmd: cmd})
 			continue
 		}
-		if _, ok := matchScore(cmd.DisplayTitle(), cmd.id, cmd.group, cmd.detail, q); ok {
-			out = append(out, cmd)
+		if score, ok := matchScore(cmd.DisplayTitle(), cmd.id, cmd.group, cmd.detail, q); ok {
+			group = append(group, match{cmd: cmd, score: score})
 		}
 	}
+	flush()
 	return out
-}
-
-// sectionHasVisible reports whether any non-section entry after start (until
-// the next section) should appear for query q.
-func sectionHasVisible(cmds []*Command, start int, q string) bool {
-	for i := start; i < len(cmds); i++ {
-		cmd := cmds[i]
-		if cmd == nil || cmd.hidden {
-			continue
-		}
-		if cmd.section {
-			return false
-		}
-		if q == "" {
-			return true
-		}
-		if _, ok := matchScore(cmd.DisplayTitle(), cmd.id, cmd.group, cmd.detail, q); ok {
-			return true
-		}
-	}
-	return false
 }
 
 // matchScore is a case-insensitive subsequence match. Higher is better.
