@@ -445,7 +445,7 @@ func (e *Editor) Update(m *input.Mouse) {
 	}
 	if e.SoftWrap {
 		// Wrapping depends on the viewport width; relayout when it changes.
-		if _, cw, _, _ := e.scrollMetrics(); cw != e.lastWrapW {
+		if cw, _, _, _ := e.scrollMetrics(); cw != e.lastWrapW {
 			e.lastWrapW = cw
 			e.contentSizeDirty = true
 			// Do not set wrapFull: syncWrap already rebuilds when wrapCols

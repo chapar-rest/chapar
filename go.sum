@@ -154,6 +154,8 @@ github.com/mirzakhany/yoga v0.9.0 h1:1QTpZuwGG2NOJcL0TAO08wHOAc8UY6OWsq7Sg5Ex2o8
 github.com/mirzakhany/yoga v0.9.0/go.mod h1:JYUHcLh6qAgVxr7dlp2BGz+SQZuTrkiROfYB/NW4bUs=
 github.com/mirzakhany/yoga v0.9.1 h1:BdKJnAPWgaPS4bkB992qaeakiPB568SDUKWWsMgiG6o=
 github.com/mirzakhany/yoga v0.9.1/go.mod h1:JYUHcLh6qAgVxr7dlp2BGz+SQZuTrkiROfYB/NW4bUs=
+github.com/mirzakhany/yoga v0.9.2 h1:pw0RpB7BqG59tL8f4pJfvxNZthU4eqnOlM5iGHe865Q=
+github.com/mirzakhany/yoga v0.9.2/go.mod h1:JYUHcLh6qAgVxr7dlp2BGz+SQZuTrkiROfYB/NW4bUs=
 github.com/moby/docker-image-spec v1.3.1 h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=
 github.com/moby/docker-image-spec v1.3.1/go.mod h1:eKmb5VW8vQEh/BAr2yvVNvuiJuY6UIocYsFu/DxxRpo=
 github.com/moby/sys/atomicwriter v0.1.0 h1:kw5D/EqkBwsBFi0ss9v1VG3wIkVhzGvLklJ+w3A14Sw=
