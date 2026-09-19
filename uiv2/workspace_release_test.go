@@ -20,12 +20,13 @@ type fakeDoc struct {
 	id     string
 	body   []byte
 	closed bool
+	dirty  bool
 }
 
 func (d *fakeDoc) ID() string               { return d.id }
 func (d *fakeDoc) Kind() container.Kind     { return container.KindHTTP }
 func (d *fakeDoc) Title() string            { return d.id }
-func (d *fakeDoc) Dirty() bool              { return false }
+func (d *fakeDoc) Dirty() bool              { return d.dirty }
 func (d *fakeDoc) Layout(c *ui.Ctx) ui.View { return nil }
 func (d *fakeDoc) Close()                   { d.closed = true }
 func (d *fakeDoc) Save() error              { return nil }

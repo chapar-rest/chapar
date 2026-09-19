@@ -120,6 +120,62 @@ func (w *Workspace) requestClose(i int) {
 	w.drop(i)
 }
 
+// closeWhere closes every tab close(i) picks, asking once first when any of
+// them has unsaved changes.
+func (w *Workspace) closeWhere(close func(i int) bool) {
+	var ids []string
+	dirty := 0
+	for i, d := range w.docs {
+		if close(i) {
+			ids = append(ids, d.ID())
+			if d.Dirty() {
+				dirty++
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	drop := func() {
+		for _, id := range ids {
+			w.CloseByID(id)
+		}
+	}
+	if dirty > 0 && w.confirm != nil {
+		msg := fmt.Sprintf("%d tabs have unsaved changes. Close anyway?", dirty)
+		if dirty == 1 {
+			msg = "1 tab has unsaved changes. Close anyway?"
+		}
+		w.confirm("Unsaved changes", msg, drop)
+		return
+	}
+	drop()
+}
+
+// tabMenu is the right-click menu of tab i.
+func (w *Workspace) tabMenu(i int) []ui.MenuItem {
+	n := len(w.docs)
+	if i < 0 || i >= n {
+		return nil
+	}
+	anySaved := false
+	for _, d := range w.docs {
+		if !d.Dirty() {
+			anySaved = true
+			break
+		}
+	}
+	return []ui.MenuItem{
+		{Label: "Close", OnSelect: func() { w.requestClose(i) }},
+		{Label: "Close Others", Disabled: n < 2, OnSelect: func() { w.closeWhere(func(j int) bool { return j != i }) }},
+		{Label: "Close to the Right", Disabled: i == n-1, OnSelect: func() { w.closeWhere(func(j int) bool { return j > i }) }},
+		{Label: "Close to the Left", Disabled: i == 0, OnSelect: func() { w.closeWhere(func(j int) bool { return j < i }) }},
+		ui.MenuSeparator,
+		{Label: "Close Saved", Disabled: !anySaved, OnSelect: func() { w.closeWhere(func(j int) bool { return !w.docs[j].Dirty() }) }},
+		{Label: "Close All", OnSelect: func() { w.closeWhere(func(int) bool { return true }) }},
+	}
+}
+
 func (w *Workspace) CloseByID(id string) {
 	for i, d := range w.docs {
 		if d.ID() == id {
@@ -145,6 +201,11 @@ func (w *Workspace) drop(i int) {
 	copy(w.tabs[i:], w.tabs[i+1:])
 	w.tabs[len(w.tabs)-1] = ui.TabModel{}
 	w.tabs = w.tabs[:len(w.tabs)-1]
+	// Closing a tab left of the active one shifts the active tab down a slot;
+	// follow it so the same document stays active.
+	if i < w.active {
+		w.active--
+	}
 	if w.active >= len(w.docs) {
 		w.active = len(w.docs) - 1
 	}
@@ -194,6 +255,7 @@ func (w *Workspace) Layout(c *ui.Ctx) ui.View {
 			Selected(w.active).
 			OnSelectItem(func(i int, _ string) { w.active = i }).
 			OnTabClose(func(i int) { w.requestClose(i) }).
+			OnTabContextMenu(w.tabMenu).
 			TabBackground(th.Background),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.ViewOf(body).Grow(1),

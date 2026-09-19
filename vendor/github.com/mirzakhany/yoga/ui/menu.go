@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -25,6 +26,9 @@ type MenuItem struct {
 	Disabled bool
 	// Separator makes the entry a thin divider line; other fields are ignored.
 	Separator bool
+	// Checked paints a check mark before the label. Menus with any checked
+	// item indent every label so they stay aligned.
+	Checked bool
 }
 
 // MenuSeparator is a divider between groups of menu items.
@@ -37,6 +41,11 @@ type Menu struct {
 
 	Open  bool
 	hover int
+
+	// scrollY scrolls a menu taller than the room it has; maxH is that room,
+	// fixed when the menu opens.
+	scrollY float32
+	maxH    float32
 
 	markPaint func()
 }
@@ -94,9 +103,28 @@ func (mu *Menu) height() float32 {
 	return h
 }
 
+// visibleHeight is the menu frame height: every row, or maxH when the rows do
+// not fit and the menu scrolls.
+func (mu *Menu) visibleHeight() float32 {
+	h := mu.height()
+	if mu.maxH > 0 && h > mu.maxH {
+		return mu.maxH
+	}
+	return h
+}
+
+func (mu *Menu) clampScroll() {
+	if max := mu.height() - mu.host.Frame.H; mu.scrollY > max {
+		mu.scrollY = max
+	}
+	if mu.scrollY < 0 {
+		mu.scrollY = 0
+	}
+}
+
 // itemAt returns the index of the row at screen y, or -1 past the last row.
 func (mu *Menu) itemAt(y float32) int {
-	top := mu.host.Frame.Y
+	top := mu.host.Frame.Y - mu.scrollY
 	for i := range mu.items {
 		top += mu.rowHeight(i)
 		if y < top {
@@ -112,14 +140,38 @@ func (mu *Menu) selectable(i int) bool {
 }
 
 // OpenAt positions and shows the menu at the given screen coordinates, shifted
-// to stay inside the viewport recorded via SetViewport (if any).
+// to stay inside the viewport recorded via SetViewport (if any). A menu too
+// tall for the viewport scrolls. When there is room for a good number of rows
+// below y it opens there with a shorter height rather than shifting up over
+// whatever opened it, so the release of the opening click cannot land on an
+// item. A checked item is scrolled into view.
 func (mu *Menu) OpenAt(x, y float32) {
 	mu.Open = true
+	mu.scrollY = 0
+	mu.maxH = 0
 	h := mu.height()
+	if viewportH > 0 {
+		margin := theme.Current().Spacing.S
+		mu.maxH = viewportH - 2*margin
+		below := viewportH - y - margin
+		if h > below && below >= f32min(h, 8*mu.itemHeight()) {
+			mu.maxH = below
+		}
+		h = mu.visibleHeight()
+	}
 	x, y = clampToViewport(x, y, mu.width, h)
 	mu.host.Style = layout.Box().Absolute(x, y).Size(mu.width, h)
 	mu.host.ReapplyStyle()
 	mu.host.Frame = render.Rect{X: x, Y: y, W: mu.width, H: h}
+	top := float32(0)
+	for i, it := range mu.items {
+		if it.Checked && !it.Separator {
+			mu.scrollY = top - (h-mu.rowHeight(i))/2
+			break
+		}
+		top += mu.rowHeight(i)
+	}
+	mu.clampScroll()
 }
 
 func (mu *Menu) overlay() *layout.Element { return mu.host }
@@ -133,9 +185,10 @@ func (mu *Menu) Close() { mu.Open = false; mu.hover = -1 }
 func (mu *Menu) SetItems(items []MenuItem) {
 	mu.items = items
 	if mu.Open {
-		h := mu.height()
+		h := mu.visibleHeight()
 		mu.host.Style.Height = h
 		mu.host.Frame.H = h
+		mu.clampScroll()
 	}
 }
 
@@ -153,8 +206,20 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 	// Labels wider than the configured menu width are clipped to the frame.
 	dl.PushClip(f)
 	style := th.Typography.Body
-	y := f.Y
+	labelX := padX
+	checkSz := th.Metrics.IconSizeSM
+	if mu.hasChecked() {
+		labelX += checkSz + th.Spacing.S
+	}
+	y := f.Y - mu.scrollY
 	for i, it := range mu.items {
+		if y >= f.Y+f.H {
+			break
+		}
+		if y+mu.rowHeight(i) <= f.Y {
+			y += mu.rowHeight(i)
+			continue
+		}
 		if it.Separator {
 			sepH := mu.separatorHeight()
 			line := render.Rect{X: f.X + padX/2, Y: y + sepH/2, W: f.W - padX, H: th.Stroke.Thin}
@@ -171,8 +236,14 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 		if it.Disabled {
 			col = th.ForegroundDisabled
 		}
+		if it.Checked {
+			if sheet := frameIcons(); sheet != nil {
+				box := render.Rect{X: row.X + padX, Y: row.Y + (itemH-checkSz)/2, W: checkSz, H: checkSz}
+				sheet.Draw(dl, icons.Check, box, col)
+			}
+		}
 		_, lh := text.MeasureAt(it.Label, style.Size)
-		text.DrawStringTopAt(dl, it.Label, row.X+padX, row.Y+(itemH-lh)/2, col, style.Size)
+		text.DrawStringTopAt(dl, it.Label, row.X+labelX, row.Y+(itemH-lh)/2, col, style.Size)
 		if it.Shortcut != "" {
 			hint := th.ForegroundMuted
 			if it.Disabled {
@@ -182,7 +253,23 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 			text.DrawStringTopAt(dl, it.Shortcut, row.X+row.W-padX-sw, row.Y+(itemH-lh)/2, hint, style.Size)
 		}
 	}
+	if total := mu.height(); total > f.H {
+		// Scroll position thumb along the right edge.
+		thumbH := f32max(f.H*f.H/total, 2*th.Spacing.M)
+		thumbY := f.Y + (f.H-thumbH)*mu.scrollY/(total-f.H)
+		thumbW := th.Spacing.XS
+		dl.AddRoundedRect(render.Rect{X: f.X + f.W - thumbW - 2, Y: thumbY, W: thumbW, H: thumbH}, thumbW/2, th.ForegroundMuted)
+	}
 	dl.PopClip()
+}
+
+func (mu *Menu) hasChecked() bool {
+	for _, it := range mu.items {
+		if it.Checked && !it.Separator {
+			return true
+		}
+	}
+	return false
 }
 
 func (mu *Menu) onMouse(e *layout.Element, m *input.Mouse) {
@@ -191,6 +278,14 @@ func (mu *Menu) onMouse(e *layout.Element, m *input.Mouse) {
 	}
 	prev := mu.hover
 	if e.Frame.Contains(m.X, m.Y) {
+		if m.ScrollY != 0 && mu.height() > e.Frame.H {
+			mu.scrollY -= m.ScrollY * 3 * 14
+			mu.clampScroll()
+			m.ScrollY = 0
+			if mu.markPaint != nil {
+				mu.markPaint()
+			}
+		}
 		idx := mu.itemAt(m.Y)
 		mu.hover = idx
 		m.Consumed = true // block all events (including hover) from reaching layers below
