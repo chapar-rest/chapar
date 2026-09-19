@@ -304,7 +304,7 @@ func (e *Editor) lspAfterType(runes []rune) {
 }
 
 func (e *Editor) requestCompletion() {
-	if e.lsp == nil {
+	if e.lsp == nil || e.readOnly {
 		return
 	}
 	e.lspUI.compAnchor = e.identStart(e.caret)

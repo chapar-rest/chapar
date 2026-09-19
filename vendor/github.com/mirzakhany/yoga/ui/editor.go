@@ -158,6 +158,7 @@ type Editor struct {
 	SoftWrap                 bool
 	WrapWords                bool
 	shareContent             bool // construction-time: build over the caller's slice, no copy
+	readOnly                 bool // selection and copy work; edits are ignored
 	lineRows                 [][]wrapRow
 	rowPrefix                []int   // rowPrefix[i] = visual rows before logical line i (len = LineCount+1)
 	wrapCols                 int     // columns per visual row used when wrapping
@@ -210,6 +211,17 @@ func WithWrapWords(v bool) EditorOption { return func(e *Editor) { e.WrapWords =
 // display. It saves a full copy of the document, which for a large body is tens
 // of megabytes per editor.
 func WithSharedContent() EditorOption { return func(e *Editor) { e.shareContent = true } }
+
+// WithReadOnly makes the editor a view: text can be selected, searched and
+// copied, but typing, paste, cut, undo and replace leave it unchanged.
+func WithReadOnly() EditorOption { return func(e *Editor) { e.readOnly = true } }
+
+// WithoutGutter hides the line-number gutter, for text where line numbers
+// carry no meaning, such as a log view.
+func WithoutGutter() EditorOption { return func(e *Editor) { e.gutterW = 0 } }
+
+// ReadOnly reports whether the editor ignores edits (see WithReadOnly).
+func (e *Editor) ReadOnly() bool { return e.readOnly }
 
 // NewEditor creates a scratch editor over initial content with the given highlighter.
 func NewEditor(initial []byte, hl highlight.Highlighter, opts ...EditorOption) *Editor {
@@ -1012,6 +1024,9 @@ func (e *Editor) AnimationWait() (time.Duration, bool) {
 // ---------------------------------------------------------------------------
 
 func (e *Editor) applyEdit(pos, delLen int, ins string, coalesceTyping bool) int {
+	if e.readOnly {
+		return e.caret
+	}
 	b := e.pt.Bytes()
 	if pos < 0 {
 		pos = 0
@@ -1136,7 +1151,7 @@ func (e *Editor) deleteSelection() bool {
 
 // Undo reverts the most recent edit.
 func (e *Editor) Undo() {
-	if len(e.undo) == 0 {
+	if e.readOnly || len(e.undo) == 0 {
 		return
 	}
 	op := e.undo[len(e.undo)-1]
@@ -1162,7 +1177,7 @@ func (e *Editor) Undo() {
 
 // Redo re-applies the most recently undone edit.
 func (e *Editor) Redo() {
-	if len(e.redo) == 0 {
+	if e.readOnly || len(e.redo) == 0 {
 		return
 	}
 	op := e.redo[len(e.redo)-1]
@@ -1197,6 +1212,9 @@ func (e *Editor) HandleText(runes []rune) {
 	}
 	if e.search.open && e.search.focused {
 		e.searchHandleText(runes)
+		return
+	}
+	if e.readOnly {
 		return
 	}
 	if len(runes) == 1 {
@@ -2069,23 +2087,25 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 	dl.PopClip()
 	dl.PopClip()
 
-	dl.AddRect(gutter, th.ChromeMuted)
-	// 1px divider between gutter and text area.
-	dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
-	dl.PushClip(render.Rect{X: gutter.X, Y: gutter.Y, W: gutter.W, H: vp.H})
-	for _, pr := range rows {
-		y := f.Y + float32(pr.visual)*e.lineH - e.ScrollPx
-		if y >= vp.Y+vp.H {
-			break
+	if e.gutterW > 0 {
+		dl.AddRect(gutter, th.ChromeMuted)
+		// 1px divider between gutter and text area.
+		dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
+		dl.PushClip(render.Rect{X: gutter.X, Y: gutter.Y, W: gutter.W, H: vp.H})
+		for _, pr := range rows {
+			y := f.Y + float32(pr.visual)*e.lineH - e.ScrollPx
+			if y >= vp.Y+vp.H {
+				break
+			}
+			if !pr.first {
+				continue // continuation rows carry no gutter number
+			}
+			num := strconv.Itoa(pr.line + 1)
+			numW, _ := engine.MeasureMono(num)
+			engine.DrawStringTopMono(dl, num, f.X+e.gutterW-numW-8, y+vpad, th.ForegroundSubtle)
 		}
-		if !pr.first {
-			continue // continuation rows carry no gutter number
-		}
-		num := strconv.Itoa(pr.line + 1)
-		numW, _ := engine.MeasureMono(num)
-		engine.DrawStringTopMono(dl, num, f.X+e.gutterW-numW-8, y+vpad, th.ForegroundSubtle)
+		dl.PopClip()
 	}
-	dl.PopClip()
 
 	// Search/replace overlay (drawn last, on top of everything).
 	e.paintSearchBar(dl, engine)
@@ -2229,7 +2249,7 @@ func (e *Editor) findMatchBackward(from int, same, other rune) int {
 func (e *Editor) openSearch(replaceMode bool) {
 	e.search.open = true
 	e.search.focused = true
-	e.search.replaceMode = replaceMode
+	e.search.replaceMode = replaceMode && !e.readOnly
 	e.search.focusField = 0
 	if e.hasSelection() {
 		lo, hi := e.selRange()

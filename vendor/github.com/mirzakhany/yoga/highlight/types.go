@@ -10,6 +10,13 @@ const (
 	ClassComment
 	ClassNumber
 	ClassType
+	// Status classes color text by meaning rather than syntax, for example
+	// log lines by level. Themes map them to their status colors unless the
+	// Syntax map overrides them.
+	ClassError
+	ClassWarning
+	ClassSuccess
+	ClassMuted
 )
 
 // Token is a half-open byte range [Start, End) with a color class.

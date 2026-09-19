@@ -95,6 +95,16 @@ func (t *Theme) SyntaxColor(c highlight.ColorClass) render.Color {
 	if col, ok := t.Syntax[c]; ok {
 		return col
 	}
+	switch c {
+	case highlight.ClassError:
+		return t.Error
+	case highlight.ClassWarning:
+		return t.Warning
+	case highlight.ClassSuccess:
+		return t.Success
+	case highlight.ClassMuted:
+		return t.ForegroundMuted
+	}
 	return t.Foreground
 }
 
