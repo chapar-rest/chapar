@@ -19,7 +19,16 @@ import (
 type MenuItem struct {
 	Label    string
 	OnSelect func()
+	// Shortcut is a key hint painted right-aligned, such as "⌘C".
+	Shortcut string
+	// Disabled items paint dimmed and ignore clicks.
+	Disabled bool
+	// Separator makes the entry a thin divider line; other fields are ignored.
+	Separator bool
 }
+
+// MenuSeparator is a divider between groups of menu items.
+var MenuSeparator = MenuItem{Separator: true}
 
 type Menu struct {
 	host  *layout.Element
@@ -68,11 +77,45 @@ func (mu *Menu) itemHeight() float32 {
 	return th.Metrics.ControlHeight
 }
 
+func (mu *Menu) separatorHeight() float32 { return theme.Current().Spacing.S + 1 }
+
+func (mu *Menu) rowHeight(i int) float32 {
+	if mu.items[i].Separator {
+		return mu.separatorHeight()
+	}
+	return mu.itemHeight()
+}
+
+func (mu *Menu) height() float32 {
+	var h float32
+	for i := range mu.items {
+		h += mu.rowHeight(i)
+	}
+	return h
+}
+
+// itemAt returns the index of the row at screen y, or -1 past the last row.
+func (mu *Menu) itemAt(y float32) int {
+	top := mu.host.Frame.Y
+	for i := range mu.items {
+		top += mu.rowHeight(i)
+		if y < top {
+			return i
+		}
+	}
+	return -1
+}
+
+// selectable reports whether row i is an enabled item.
+func (mu *Menu) selectable(i int) bool {
+	return i >= 0 && i < len(mu.items) && !mu.items[i].Separator && !mu.items[i].Disabled
+}
+
 // OpenAt positions and shows the menu at the given screen coordinates, shifted
 // to stay inside the viewport recorded via SetViewport (if any).
 func (mu *Menu) OpenAt(x, y float32) {
 	mu.Open = true
-	h := float32(len(mu.items)) * mu.itemHeight()
+	h := mu.height()
 	x, y = clampToViewport(x, y, mu.width, h)
 	mu.host.Style = layout.Box().Absolute(x, y).Size(mu.width, h)
 	mu.host.ReapplyStyle()
@@ -90,7 +133,7 @@ func (mu *Menu) Close() { mu.Open = false; mu.hover = -1 }
 func (mu *Menu) SetItems(items []MenuItem) {
 	mu.items = items
 	if mu.Open {
-		h := float32(len(items)) * mu.itemHeight()
+		h := mu.height()
 		mu.host.Style.Height = h
 		mu.host.Frame.H = h
 	}
@@ -109,14 +152,35 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 	dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Chrome, th.Border)
 	// Labels wider than the configured menu width are clipped to the frame.
 	dl.PushClip(f)
+	style := th.Typography.Body
+	y := f.Y
 	for i, it := range mu.items {
-		row := render.Rect{X: f.X, Y: f.Y + float32(i)*itemH, W: f.W, H: itemH}
-		if i == mu.hover {
+		if it.Separator {
+			sepH := mu.separatorHeight()
+			line := render.Rect{X: f.X + padX/2, Y: y + sepH/2, W: f.W - padX, H: th.Stroke.Thin}
+			dl.AddRect(line, th.Border)
+			y += sepH
+			continue
+		}
+		row := render.Rect{X: f.X, Y: y, W: f.W, H: itemH}
+		y += itemH
+		if i == mu.hover && !it.Disabled {
 			dl.AddRect(row, th.ListHover)
 		}
-		style := th.Typography.Body
+		col := th.Foreground
+		if it.Disabled {
+			col = th.ForegroundDisabled
+		}
 		_, lh := text.MeasureAt(it.Label, style.Size)
-		text.DrawStringTopAt(dl, it.Label, row.X+padX, row.Y+(itemH-lh)/2, th.Foreground, style.Size)
+		text.DrawStringTopAt(dl, it.Label, row.X+padX, row.Y+(itemH-lh)/2, col, style.Size)
+		if it.Shortcut != "" {
+			hint := th.ForegroundMuted
+			if it.Disabled {
+				hint = th.ForegroundDisabled
+			}
+			sw, _ := text.MeasureAt(it.Shortcut, style.Size)
+			text.DrawStringTopAt(dl, it.Shortcut, row.X+row.W-padX-sw, row.Y+(itemH-lh)/2, hint, style.Size)
+		}
 	}
 	dl.PopClip()
 }
@@ -127,10 +191,13 @@ func (mu *Menu) onMouse(e *layout.Element, m *input.Mouse) {
 	}
 	prev := mu.hover
 	if e.Frame.Contains(m.X, m.Y) {
-		idx := int((m.Y - e.Frame.Y) / mu.itemHeight())
+		idx := mu.itemAt(m.Y)
 		mu.hover = idx
 		m.Consumed = true // block all events (including hover) from reaching layers below
-		if m.Released && idx >= 0 && idx < len(mu.items) {
+		if m.Pressed || m.RightPressed {
+			m.KeepFocus = true // the item acts on whatever owns the menu
+		}
+		if m.Released && mu.selectable(idx) {
 			if fn := mu.items[idx].OnSelect; fn != nil {
 				fn()
 			}
@@ -144,6 +211,14 @@ func (mu *Menu) onMouse(e *layout.Element, m *input.Mouse) {
 		if m.Pressed { // click outside closes the menu
 			mu.Close()
 			m.Consumed = true
+			m.KeepFocus = true
+			if mu.markPaint != nil {
+				mu.markPaint()
+			}
+		} else if m.RightPressed {
+			// Right-click elsewhere closes this menu and lets the widget under
+			// the pointer open its own.
+			mu.Close()
 			if mu.markPaint != nil {
 				mu.markPaint()
 			}

@@ -40,6 +40,11 @@ type Mouse struct {
 	// it ignore the same click during dispatch.
 	Consumed bool
 
+	// KeepFocus marks a press that landed on a layer which must not move
+	// keyboard focus, such as an open menu, so the widget the menu acts on
+	// stays focused.
+	KeepFocus bool
+
 	// Cursor is the pointer shape widgets request for this frame. The runtime
 	// resets it to CursorDefault before Update; components set it during dispatch.
 	Cursor Cursor
@@ -102,6 +107,7 @@ func (m *Mouse) EndFrame() {
 	m.Released = false
 	m.RightPressed = false
 	m.RightReleased = false
+	m.KeepFocus = false
 	m.ScrollX = 0
 	m.ScrollY = 0
 	m.Consumed = false

@@ -41,6 +41,10 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 		if tf.selAnchor > len(tf.Value) {
 			tf.selAnchor = -1
 		}
+		// The app changed the value itself, so the history no longer
+		// matches it. Values the field reported via OnChange come back
+		// equal and keep it.
+		tf.resetHistory()
 	}
 	tf.OnChange = n.onChange
 	tf.OnSubmit = n.onSubmit

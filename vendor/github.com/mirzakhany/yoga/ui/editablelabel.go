@@ -92,7 +92,7 @@ func (st *editableLabelState) startEdit(value string) {
 	st.editing = true
 	st.draft = value
 	st.field.OnChange = func(s string) { st.draft = s }
-	st.field.setValue(value)
+	st.field.load(value)
 	st.field.selAnchor = 0
 	st.field.caret = len(value)
 	st.field.Focus()
@@ -191,6 +191,12 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 	radius := th.Radius.Medium
 
 	if st.editing {
+		st.field.menu.layout(c)
+	} else {
+		st.field.menu.close()
+	}
+
+	if st.editing {
 		st.field.Update(c.Mouse())
 		if st.field.focused {
 			since := time.Since(st.field.blinkStart) % (2 * textFieldBlink)
@@ -216,7 +222,14 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 	} else {
 		el.Paint = func(dl *render.DrawList, eng *shape.Engine) {
 			f := el.Frame
-			if st.hovered && !disabled {
+			// The focus ring fills its rect, so it goes under the text.
+			if st.focused {
+				fill := th.Surface
+				if st.hovered && !disabled {
+					fill = th.ListHover
+				}
+				paintFocusRing(dl, f, fill, th)
+			} else if st.hovered && !disabled {
 				dl.AddRoundedRect(f, radius, th.ListHover)
 			}
 			show := labelValue
@@ -232,9 +245,6 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 			tx := f.X + padX
 			ty := f.Y + (f.H-lh)/2
 			eng.DrawStringTopAt(dl, show, tx, ty, col, style.Size)
-			if st.focused {
-				paintFocusRing(dl, f, th.Surface, th)
-			}
 		}
 		el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 			if disabled {
@@ -247,6 +257,14 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 			}
 			if inside && m.Released {
 				st.startEdit(labelValue)
+				c.MarkNeedsPaint()
+				m.Consumed = true
+			}
+			if inside && m.RightPressed {
+				// Start editing with the value selected, then show the edit
+				// menu so Copy / Paste work straight away.
+				st.startEdit(labelValue)
+				st.field.openContextMenu(m.X, m.Y)
 				c.MarkNeedsPaint()
 				m.Consumed = true
 			}

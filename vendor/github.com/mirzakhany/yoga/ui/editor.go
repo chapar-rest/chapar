@@ -119,10 +119,15 @@ type Editor struct {
 	// should poll for highlight results quickly.
 	parseUntil time.Time
 
-	// Undo/redo.
-	undo        []editOp
-	redo        []editOp
-	canCoalesce bool
+	// Undo/redo. undoBytes is the text held by undo, bounded by undoMaxBytes
+	// along with the step count undoMaxSteps; the oldest steps drop first.
+	undo         []editOp
+	redo         []editOp
+	undoBytes    int
+	undoMaxSteps int
+	undoMaxBytes int
+	lastMerge    editMerge // kind of the last edit, mergeNone after anything else
+	lastEditAt   time.Time
 
 	// tokens is the latest syntax highlight result. It covers only the byte
 	// range last requested from the highlighter (hlLo..hlHi) when the
@@ -169,6 +174,13 @@ type Editor struct {
 
 	search searchState
 
+	// ContextMenu, when set, edits the right-click menu: it receives the
+	// standard edit items and returns the ones to show, so an app can add its
+	// own (Save…, Format, …). Returning none turns the menu off and leaves the
+	// right-click to widgets behind the editor.
+	ContextMenu func(items []MenuItem) []MenuItem
+	menu        editMenu
+
 	paintRows []paintRow // scratch reused across paints
 
 	lspOverlay *layout.Element
@@ -183,6 +195,8 @@ type editOp struct {
 	caretAfter  int
 }
 
+func (op *editOp) size() int { return len(op.deleted) + len(op.inserted) }
+
 const editorBarSize = 14 // scrollbar thickness (vertical and horizontal)
 
 // EditorDefaults are applied to every new Editor before any options. Apps
@@ -191,13 +205,22 @@ const editorBarSize = 14 // scrollbar thickness (vertical and horizontal)
 var EditorDefaults = struct {
 	SoftWrap  bool // wrap long lines at the viewport width
 	WrapWords bool // prefer breaking wrapped rows at word boundaries
-}{WrapWords: true}
+	UndoSteps int  // most undo steps kept; <= 0 means no limit
+	UndoBytes int  // most text bytes kept by undo; <= 0 means no limit
+}{WrapWords: true, UndoSteps: 1000, UndoBytes: 32 << 20}
 
 // EditorOption configures an Editor at construction time.
 type EditorOption func(*Editor)
 
 // WithSoftWrap sets the initial soft-wrap state.
 func WithSoftWrap(v bool) EditorOption { return func(e *Editor) { e.SoftWrap = v } }
+
+// WithUndoLimit bounds the undo history to steps edits and bytes of text,
+// dropping the oldest steps first. A value <= 0 lifts that limit. The newest
+// step is always kept, however large.
+func WithUndoLimit(steps, bytes int) EditorOption {
+	return func(e *Editor) { e.undoMaxSteps, e.undoMaxBytes = steps, bytes }
+}
 
 // WithWrapWords toggles word-boundary wrapping of wrapped rows.
 func WithWrapWords(v bool) EditorOption { return func(e *Editor) { e.WrapWords = v } }
@@ -250,6 +273,8 @@ func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...Ed
 		cellW:            cellW,
 		WrapWords:        EditorDefaults.WrapWords,
 		SoftWrap:         EditorDefaults.SoftWrap,
+		undoMaxSteps:     EditorDefaults.UndoSteps,
+		undoMaxBytes:     EditorDefaults.UndoBytes,
 		wrapFull:         true,
 		contentSizeDirty: true,
 	}
@@ -948,7 +973,10 @@ func (e *Editor) Focus() {
 }
 
 // Blur removes keyboard focus from the editor.
-func (e *Editor) Blur() { e.focused = false }
+func (e *Editor) Blur() {
+	e.focused = false
+	e.menu.close()
+}
 
 // Focused reports whether the editor has keyboard focus.
 func (e *Editor) Focused() bool { return e.focused }
@@ -982,6 +1010,7 @@ func (e *Editor) Layout(c *Ctx) *layout.Element {
 		}
 	}
 	c.Overlay(e.lspOverlay)
+	e.menu.layout(c)
 	return e.host
 }
 
@@ -1023,7 +1052,7 @@ func (e *Editor) AnimationWait() (time.Duration, bool) {
 // Editing core
 // ---------------------------------------------------------------------------
 
-func (e *Editor) applyEdit(pos, delLen int, ins string, coalesceTyping bool) int {
+func (e *Editor) applyEdit(pos, delLen int, ins string, merge editMerge) int {
 	if e.readOnly {
 		return e.caret
 	}
@@ -1053,19 +1082,17 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, coalesceTyping bool) int
 		e.pt.Insert(pos, []byte(ins))
 	}
 
-	merged := false
-	if coalesceTyping && e.canCoalesce && delLen == 0 && len(e.undo) > 0 && !strings.Contains(ins, "\n") {
-		last := &e.undo[len(e.undo)-1]
-		if last.deleted == "" && last.pos+len(last.inserted) == pos {
-			last.inserted += ins
-			last.caretAfter = op.caretAfter
-			merged = true
-		}
+	if strings.Contains(ins, "\n") || strings.Contains(deleted, "\n") {
+		merge = mergeNone
 	}
-	if !merged {
+	now := time.Now()
+	if !e.mergeInto(&op, merge, now) {
 		e.undo = append(e.undo, op)
+		e.undoBytes += op.size()
 	}
-	e.canCoalesce = coalesceTyping && delLen == 0 && !strings.Contains(ins, "\n")
+	e.lastMerge = merge
+	e.lastEditAt = now
+	e.trimUndo()
 
 	clear(e.redo) // release the discarded redo payloads
 	e.redo = e.redo[:0]
@@ -1078,6 +1105,61 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, coalesceTyping bool) int
 		Start: startPt, OldEnd: oldEndPt, NewEnd: e.pointOf(pos + len(ins)),
 	})
 	return e.caret
+}
+
+// mergeInto folds op into the newest undo step when both are part of one run
+// of typing, backspacing or forward-deleting, and reports whether it did.
+func (e *Editor) mergeInto(op *editOp, merge editMerge, now time.Time) bool {
+	if merge == mergeNone || merge != e.lastMerge || len(e.undo) == 0 ||
+		now.Sub(e.lastEditAt) > undoMergeGap {
+		return false
+	}
+	last := &e.undo[len(e.undo)-1]
+	switch merge {
+	case mergeType:
+		// Typing over a selection starts a run (last.deleted is the
+		// selection); later keystrokes only append.
+		if op.deleted != "" || last.pos+len(last.inserted) != op.pos || startsWord(last.inserted, op.inserted) {
+			return false
+		}
+		last.inserted += op.inserted
+		e.undoBytes += len(op.inserted)
+	case mergeBackspace:
+		if last.inserted != "" || op.pos+len(op.deleted) != last.pos {
+			return false
+		}
+		last.deleted = op.deleted + last.deleted
+		last.pos = op.pos
+		e.undoBytes += len(op.deleted)
+	case mergeDelete:
+		if last.inserted != "" || op.pos != last.pos {
+			return false
+		}
+		last.deleted += op.deleted
+		e.undoBytes += len(op.deleted)
+	}
+	last.caretAfter = op.caretAfter
+	return true
+}
+
+// trimUndo drops the oldest undo steps until the history fits its limits,
+// always keeping the newest one.
+func (e *Editor) trimUndo() {
+	drop := 0
+	bytes := e.undoBytes
+	for len(e.undo)-drop > 1 &&
+		((e.undoMaxSteps > 0 && len(e.undo)-drop > e.undoMaxSteps) ||
+			(e.undoMaxBytes > 0 && bytes > e.undoMaxBytes)) {
+		bytes -= e.undo[drop].size()
+		drop++
+	}
+	if drop == 0 {
+		return
+	}
+	n := copy(e.undo, e.undo[drop:])
+	clear(e.undo[n:]) // release the dropped payloads
+	e.undo = e.undo[:n]
+	e.undoBytes = bytes
 }
 
 func (e *Editor) afterMutation(edit highlight.Edit) {
@@ -1135,9 +1217,9 @@ func (e *Editor) hasSelection() bool {
 	return e.selAnchor >= 0 && e.selAnchor != e.caret
 }
 
-func (e *Editor) replaceSelection(s string, coalesceTyping bool) {
+func (e *Editor) replaceSelection(s string, merge editMerge) {
 	lo, hi := e.selRange()
-	e.applyEdit(lo, hi-lo, s, coalesceTyping)
+	e.applyEdit(lo, hi-lo, s, merge)
 }
 
 func (e *Editor) deleteSelection() bool {
@@ -1145,7 +1227,7 @@ func (e *Editor) deleteSelection() bool {
 		return false
 	}
 	lo, hi := e.selRange()
-	e.applyEdit(lo, hi-lo, "", false)
+	e.applyEdit(lo, hi-lo, "", mergeNone)
 	return true
 }
 
@@ -1155,7 +1237,9 @@ func (e *Editor) Undo() {
 		return
 	}
 	op := e.undo[len(e.undo)-1]
+	e.undo[len(e.undo)-1] = editOp{}
 	e.undo = e.undo[:len(e.undo)-1]
+	e.undoBytes -= op.size()
 	startPt := e.pointOf(op.pos)
 	oldEndPt := e.pointOf(op.pos + len(op.inserted))
 	if len(op.inserted) > 0 {
@@ -1167,7 +1251,7 @@ func (e *Editor) Undo() {
 	e.redo = append(e.redo, op)
 	e.caret = op.caretBefore
 	e.selAnchor = -1
-	e.canCoalesce = false
+	e.lastMerge = mergeNone
 	e.modified = true
 	e.afterMutation(highlight.Edit{
 		StartByte: op.pos, OldEndByte: op.pos + len(op.inserted), NewEndByte: op.pos + len(op.deleted),
@@ -1181,6 +1265,7 @@ func (e *Editor) Redo() {
 		return
 	}
 	op := e.redo[len(e.redo)-1]
+	e.redo[len(e.redo)-1] = editOp{}
 	e.redo = e.redo[:len(e.redo)-1]
 	startPt := e.pointOf(op.pos)
 	oldEndPt := e.pointOf(op.pos + len(op.deleted))
@@ -1191,9 +1276,11 @@ func (e *Editor) Redo() {
 		e.pt.Insert(op.pos, []byte(op.inserted))
 	}
 	e.undo = append(e.undo, op)
+	e.undoBytes += op.size()
+	e.trimUndo()
 	e.caret = op.caretAfter
 	e.selAnchor = -1
-	e.canCoalesce = false
+	e.lastMerge = mergeNone
 	e.modified = true
 	e.afterMutation(highlight.Edit{
 		StartByte: op.pos, OldEndByte: op.pos + len(op.deleted), NewEndByte: op.pos + len(op.inserted),
@@ -1224,10 +1311,10 @@ func (e *Editor) HandleText(runes []rune) {
 			if e.hasSelection() {
 				lo, hi := e.selRange()
 				selected := string(e.pt.Bytes()[lo:hi])
-				e.applyEdit(lo, hi-lo, string(r)+selected+string(closing), false)
+				e.applyEdit(lo, hi-lo, string(r)+selected+string(closing), mergeNone)
 			} else {
 				pos := e.caret
-				e.applyEdit(pos, 0, string(r)+string(closing), false)
+				e.applyEdit(pos, 0, string(r)+string(closing), mergeNone)
 				e.caret = pos + utf8.RuneLen(r)
 				e.ensureCaretVisible()
 			}
@@ -1245,7 +1332,7 @@ func (e *Editor) HandleText(runes []rune) {
 			}
 		}
 	}
-	e.replaceSelection(string(runes), true)
+	e.replaceSelection(string(runes), mergeType)
 	e.lspAfterType(runes)
 }
 
@@ -1271,8 +1358,7 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 			case input.KeySpace:
 				e.requestCompletion()
 			case input.KeyA:
-				e.selAnchor = 0
-				e.caret = e.pt.Len()
+				e.SelectAll()
 			case input.KeyC:
 				e.copy(clip)
 			case input.KeyX:
@@ -1285,6 +1371,8 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 				} else {
 					e.Undo()
 				}
+			case input.KeyY:
+				e.Redo()
 			case input.KeyF:
 				e.openSearch(false)
 			case input.KeyH:
@@ -1300,9 +1388,9 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 		case input.KeyEscape:
 			e.closeSearch()
 		case input.KeyEnter:
-			e.replaceSelection("\n", false)
+			e.replaceSelection("\n", mergeNone)
 		case input.KeyTab:
-			e.replaceSelection("\t", false)
+			e.replaceSelection("\t", mergeNone)
 		case input.KeyBackspace:
 			e.backspace()
 		case input.KeyDelete:
@@ -1333,7 +1421,7 @@ func (e *Editor) backspace() {
 		return
 	}
 	prev := e.prevRune(e.caret)
-	e.applyEdit(prev, e.caret-prev, "", false)
+	e.applyEdit(prev, e.caret-prev, "", mergeBackspace)
 }
 
 func (e *Editor) deleteForward() {
@@ -1344,15 +1432,64 @@ func (e *Editor) deleteForward() {
 	if next == e.caret {
 		return
 	}
-	e.applyEdit(e.caret, next-e.caret, "", false)
+	e.applyEdit(e.caret, next-e.caret, "", mergeDelete)
 }
 
-func (e *Editor) copy(clip input.Clipboard) {
-	if clip == nil || !e.hasSelection() {
+// openContextMenuAt handles a right-click in the text area: it keeps a
+// selection the click lands in, otherwise moves the caret there, and shows the
+// edit menu.
+func (e *Editor) openContextMenuAt(m *input.Mouse) {
+	if e.search.open && e.searchBarRect().Contains(m.X, m.Y) {
 		return
+	}
+	off := e.offsetAtPoint(m.X, m.Y)
+	if lo, hi := e.selRange(); !e.hasSelection() || off < lo || off > hi {
+		e.moveTo(off, false)
+	}
+	e.closeCompletion()
+	e.clearHover()
+	items := editMenuItems(e, editMenuFlags{editable: !e.readOnly, copyable: true})
+	if e.ContextMenu != nil {
+		items = e.ContextMenu(items)
+	}
+	if e.menu.open(items, m.X, m.Y) {
+		m.Consumed = true
+	}
+}
+
+// SelectAll selects the whole document.
+func (e *Editor) SelectAll() {
+	e.selAnchor = 0
+	e.caret = e.pt.Len()
+}
+
+// HasSelection reports whether a non-empty range is selected.
+func (e *Editor) HasSelection() bool { return e.hasSelection() }
+
+// CanUndo reports whether Undo has an edit to revert.
+func (e *Editor) CanUndo() bool { return !e.readOnly && len(e.undo) > 0 }
+
+// CanRedo reports whether Redo has an undone edit to re-apply.
+func (e *Editor) CanRedo() bool { return !e.readOnly && len(e.redo) > 0 }
+
+// Copy puts the selection on the clipboard and reports whether it did. With
+// nothing selected it leaves the clipboard alone.
+func (e *Editor) Copy() bool { return e.copy(frameClipboard()) }
+
+// Cut moves the selection to the clipboard. A read-only editor copies it and
+// keeps the text, as Ctrl/Cmd+X does.
+func (e *Editor) Cut() { e.cut(frameClipboard()) }
+
+// Paste replaces the selection with the clipboard text.
+func (e *Editor) Paste() { e.paste(frameClipboard()) }
+
+func (e *Editor) copy(clip input.Clipboard) bool {
+	if clip == nil || !e.hasSelection() {
+		return false
 	}
 	lo, hi := e.selRange()
 	clip.Set(string(e.pt.Bytes()[lo:hi]))
+	return true
 }
 
 func (e *Editor) cut(clip input.Clipboard) {
@@ -1361,7 +1498,7 @@ func (e *Editor) cut(clip input.Clipboard) {
 	}
 	lo, hi := e.selRange()
 	clip.Set(string(e.pt.Bytes()[lo:hi]))
-	e.applyEdit(lo, hi-lo, "", false)
+	e.applyEdit(lo, hi-lo, "", mergeNone)
 }
 
 func (e *Editor) paste(clip input.Clipboard) {
@@ -1372,7 +1509,7 @@ func (e *Editor) paste(clip input.Clipboard) {
 	if s == "" {
 		return
 	}
-	e.replaceSelection(s, false)
+	e.replaceSelection(s, mergeNone)
 }
 
 func (e *Editor) moveTo(off int, extend bool) {
@@ -1390,7 +1527,7 @@ func (e *Editor) moveTo(off int, extend bool) {
 		e.selAnchor = -1
 	}
 	e.caret = off
-	e.canCoalesce = false
+	e.lastMerge = mergeNone
 	e.blinkStart = time.Now()
 	e.ensureCaretVisible()
 }
@@ -1621,6 +1758,10 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 	}
 
 	f := el.Frame
+	if m.RightPressed && f.Contains(m.X, m.Y) && !m.Consumed {
+		e.openContextMenuAt(m)
+		return
+	}
 	if m.Pressed && f.Contains(m.X, m.Y) {
 		off := e.offsetAtPoint(m.X, m.Y)
 		if m.Consumed {
@@ -1656,7 +1797,7 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 			e.selAnchor = off
 			e.dragging = true
 		}
-		e.canCoalesce = false
+		e.lastMerge = mergeNone
 		e.blinkStart = time.Now()
 		m.Consumed = true
 	}
@@ -2416,7 +2557,7 @@ func (e *Editor) doReplace() {
 		return
 	}
 	mr := e.search.matches[cur]
-	e.applyEdit(mr.lo, mr.hi-mr.lo, e.search.replace, false)
+	e.applyEdit(mr.lo, mr.hi-mr.lo, e.search.replace, mergeNone)
 	e.runSearch()
 	if len(e.search.matches) > 0 {
 		if cur >= len(e.search.matches) {
@@ -2430,7 +2571,7 @@ func (e *Editor) doReplace() {
 func (e *Editor) doReplaceAll() {
 	for i := len(e.search.matches) - 1; i >= 0; i-- {
 		mr := e.search.matches[i]
-		e.applyEdit(mr.lo, mr.hi-mr.lo, e.search.replace, false)
+		e.applyEdit(mr.lo, mr.hi-mr.lo, e.search.replace, mergeNone)
 	}
 	e.runSearch()
 }

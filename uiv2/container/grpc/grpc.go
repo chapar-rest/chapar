@@ -381,7 +381,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 		if c.lastResp != nil {
 			fname = container.DefaultResponseFilename(c.lastResp.BodyKind)
 		}
-		content = container.ResponseEditorMenu("grpc-resp-"+id, c.activeResp(), ctx, c.deps, fname)
+		content = container.ResponseEditorMenu(c.activeResp(), ctx, c.deps, fname)
 	}
 
 	return ui.Column(

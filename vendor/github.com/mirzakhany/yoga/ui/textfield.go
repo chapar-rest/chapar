@@ -35,6 +35,10 @@ type TextInput struct {
 	Value    string
 	OnChange func(value string)
 	OnSubmit func(value string) // fired when Enter is pressed while focused
+	// ContextMenu, when set, edits the right-click menu: it receives the
+	// standard edit items and returns the ones to show. Returning none turns
+	// the menu off and leaves the right-click to widgets behind the field.
+	ContextMenu func(items []MenuItem) []MenuItem
 
 	focused    bool
 	caret      int // byte offset
@@ -53,7 +57,24 @@ type TextInput struct {
 
 	disabled   bool
 	visualSpec Spec
+
+	// Undo/redo keeps whole-value snapshots; a single line is small.
+	undo       []textSnap
+	redo       []textSnap
+	lastMerge  editMerge // kind of the last edit, mergeNone after anything else
+	lastEditAt time.Time
+
+	menu editMenu
 }
+
+// textSnap is a TextInput state that undo/redo returns to.
+type textSnap struct {
+	value         string
+	caret, anchor int
+}
+
+// textInputUndoSteps bounds a TextInput's undo history.
+const textInputUndoSteps = 100
 
 // NewTextField builds a text field with the given configuration.
 func NewTextInput(cfg TextFieldConfig) *TextInput {
@@ -114,8 +135,11 @@ func (tf *TextInput) Focus() {
 // Focused reports whether the field has keyboard focus.
 func (tf *TextInput) Focused() bool { return tf.focused }
 
-// Blur removes keyboard focus.
-func (tf *TextInput) Blur() { tf.focused = false }
+// Blur removes keyboard focus and closes the right-click menu.
+func (tf *TextInput) Blur() {
+	tf.focused = false
+	tf.menu.close()
+}
 
 // CapturesTab reports that plain Tab should move focus rather than insert text.
 func (tf *TextInput) CapturesTab() bool { return false }
@@ -129,6 +153,7 @@ func (tf *TextInput) FocusEl() *layout.Element { return tf.host }
 func (tf *TextInput) Layout(c *Ctx) *layout.Element {
 	c.Focus().Add(tf)
 	tf.Update(c.Mouse())
+	tf.menu.layout(c)
 	if tf.focused {
 		since := time.Since(tf.blinkStart) % (2 * textFieldBlink)
 		wait := textFieldBlink - (since % textFieldBlink)
@@ -296,8 +321,99 @@ func (tf *TextInput) moveTo(off int, extend bool) {
 		tf.selAnchor = -1
 	}
 	tf.caret = off
+	tf.lastMerge = mergeNone
 	tf.blinkStart = time.Now()
 	tf.caretShown = true
+}
+
+// edit runs fn, which changes the value, and records the state before it as
+// an undo step unless it continues the previous run of the same kind of edit.
+// typed is the text a mergeType edit inserts.
+func (tf *TextInput) edit(merge editMerge, typed string, fn func()) {
+	before := textSnap{tf.Value, tf.caret, tf.selAnchor}
+	fn()
+	if tf.Value == before.value {
+		return
+	}
+	now := time.Now()
+	// Typing over a selection or starting a new word opens a step, as does
+	// any other kind of edit or a pause.
+	newStep := merge == mergeNone || merge != tf.lastMerge || len(tf.undo) == 0 ||
+		now.Sub(tf.lastEditAt) > undoMergeGap
+	if merge == mergeType && !newStep {
+		newStep = before.anchor >= 0 && before.anchor != before.caret ||
+			startsWord(before.value[:before.caret], typed)
+	}
+	if newStep {
+		tf.pushUndo(before)
+	}
+	tf.lastMerge = merge
+	tf.lastEditAt = now
+}
+
+func (tf *TextInput) pushUndo(s textSnap) {
+	if len(tf.undo) >= textInputUndoSteps {
+		n := copy(tf.undo, tf.undo[1:])
+		tf.undo = tf.undo[:n]
+	}
+	tf.undo = append(tf.undo, s)
+	clear(tf.redo)
+	tf.redo = tf.redo[:0]
+}
+
+// load replaces the value without recording it, and forgets the undo history,
+// which described edits to a different value.
+func (tf *TextInput) load(s string) {
+	tf.setValue(s)
+	tf.resetHistory()
+}
+
+func (tf *TextInput) resetHistory() {
+	clear(tf.undo)
+	clear(tf.redo)
+	tf.undo, tf.redo = tf.undo[:0], tf.redo[:0]
+	tf.lastMerge = mergeNone
+}
+
+// restore returns to a snapshot and gives back the state it replaced.
+func (tf *TextInput) restore(s textSnap) textSnap {
+	cur := textSnap{tf.Value, tf.caret, tf.selAnchor}
+	tf.setValue(s.value)
+	tf.caret, tf.selAnchor = s.caret, s.anchor
+	tf.clampCaret()
+	if tf.selAnchor > len(tf.Value) {
+		tf.selAnchor = -1
+	}
+	tf.lastMerge = mergeNone
+	tf.blinkStart = time.Now()
+	tf.caretShown = true
+	return cur
+}
+
+// CanUndo reports whether Undo has an edit to revert.
+func (tf *TextInput) CanUndo() bool { return !tf.disabled && len(tf.undo) > 0 }
+
+// CanRedo reports whether Redo has an undone edit to re-apply.
+func (tf *TextInput) CanRedo() bool { return !tf.disabled && len(tf.redo) > 0 }
+
+// Undo reverts the most recent edit.
+func (tf *TextInput) Undo() {
+	if !tf.CanUndo() {
+		return
+	}
+	s := tf.undo[len(tf.undo)-1]
+	tf.undo = tf.undo[:len(tf.undo)-1]
+	tf.redo = append(tf.redo, tf.restore(s))
+}
+
+// Redo re-applies the most recently undone edit.
+func (tf *TextInput) Redo() {
+	if !tf.CanRedo() {
+		return
+	}
+	s := tf.redo[len(tf.redo)-1]
+	tf.redo = tf.redo[:len(tf.redo)-1]
+	tf.undo = append(tf.undo, tf.restore(s))
 }
 
 func (tf *TextInput) setValue(s string) {
@@ -427,6 +543,18 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 	if tf.disabled {
 		return
 	}
+	if m.RightPressed && e.Frame.Contains(m.X, m.Y) {
+		// Keep a selection the click lands in, so the menu can act on it;
+		// anywhere else moves the caret there first.
+		off := tf.offsetAtX(m.X)
+		if lo, hi := tf.selRange(); !tf.hasSelection() || off < lo || off > hi {
+			tf.moveTo(off, false)
+		}
+		if tf.openContextMenu(m.X, m.Y) {
+			m.Consumed = true
+		}
+		return
+	}
 	if m.Pressed && e.Frame.Contains(m.X, m.Y) {
 		off := tf.offsetAtX(m.X)
 		now := time.Now()
@@ -440,10 +568,14 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 		}
 		tf.lastClickTime = now
 		tf.lastClickX = m.X
+		tf.lastMerge = mergeNone
 
 		switch tf.clickCount {
-		case 2: // word selection
+		case 2: // word selection; a password is one word, so its spaces stay hidden
 			lo, hi := wordRangeIn(tf.Value, off)
+			if tf.cfg.Password {
+				lo, hi = 0, len(tf.Value)
+			}
 			tf.selAnchor = lo
 			tf.caret = hi
 			tf.dragging = false
@@ -534,7 +666,8 @@ func (tf *TextInput) HandleText(runes []rune) {
 	if !tf.focused || len(runes) == 0 || tf.disabled {
 		return
 	}
-	tf.insertAtCaret(string(runes))
+	s := string(runes)
+	tf.edit(mergeType, s, func() { tf.insertAtCaret(s) })
 }
 
 // ── Builder/modifier methods ─────────────────────────────────────────────────
@@ -551,12 +684,86 @@ func (tf *TextInput) WithIconEnd(icon icons.Icon) *TextInput { tf.cfg.IconEnd = 
 // AsPassword enables password masking (displays bullets instead of characters).
 func (tf *TextInput) AsPassword() *TextInput { tf.cfg.Password = true; return tf }
 
+// SelectAll selects the whole value.
+func (tf *TextInput) SelectAll() {
+	if tf.disabled {
+		return
+	}
+	tf.selAnchor = 0
+	tf.caret = len(tf.Value)
+}
+
+// HasSelection reports whether a non-empty range is selected.
+func (tf *TextInput) HasSelection() bool { return tf.hasSelection() }
+
+// Copy puts the selection on the clipboard, or the whole value when nothing is
+// selected, and reports whether it copied anything. A password field never
+// copies.
+func (tf *TextInput) Copy() bool {
+	clip := frameClipboard()
+	if tf.disabled || tf.cfg.Password || clip == nil {
+		return false
+	}
+	if lo, hi := tf.selRange(); lo != hi {
+		clip.Set(tf.Value[lo:hi])
+		return true
+	}
+	if tf.Value != "" {
+		clip.Set(tf.Value)
+		return true
+	}
+	return false
+}
+
+// Cut moves the selection to the clipboard, or the whole value when nothing is
+// selected. A password field ignores it, as it never copies.
+func (tf *TextInput) Cut() {
+	clip := frameClipboard()
+	if tf.disabled || tf.cfg.Password || clip == nil {
+		return
+	}
+	if tf.hasSelection() {
+		lo, hi := tf.selRange()
+		clip.Set(tf.Value[lo:hi])
+		tf.edit(mergeNone, "", func() { tf.deleteSelection() })
+	} else if tf.Value != "" {
+		clip.Set(tf.Value)
+		tf.edit(mergeNone, "", func() {
+			tf.selAnchor = -1
+			tf.caret = 0
+			tf.setValue("")
+		})
+	}
+}
+
+// Paste replaces the selection with the first line of the clipboard text.
+func (tf *TextInput) Paste() {
+	clip := frameClipboard()
+	if tf.disabled || clip == nil {
+		return
+	}
+	s := clip.Get()
+	tf.edit(mergeNone, "", func() { tf.insertAtCaret(s) })
+}
+
+// openContextMenu shows the right-click menu at (x, y) and reports whether
+// there was one to show.
+func (tf *TextInput) openContextMenu(x, y float32) bool {
+	if tf.disabled {
+		return false
+	}
+	items := editMenuItems(tf, editMenuFlags{editable: true, copyable: !tf.cfg.Password})
+	if tf.ContextMenu != nil {
+		items = tf.ContextMenu(items)
+	}
+	return tf.menu.open(items, x, y)
+}
+
 // HandleKeys processes navigation and editing keys for this frame.
 func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 	if !tf.focused || tf.disabled {
 		return
 	}
-	clip := frameClipboard()
 	for _, ev := range keys {
 		shift := ev.Mods.Has(input.ModShift)
 		if ev.Key == input.KeyEnter && !ev.Mods.Primary() {
@@ -568,53 +775,43 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 		if ev.Mods.Primary() {
 			switch ev.Key {
 			case input.KeyA:
-				tf.selAnchor = 0
-				tf.caret = len(tf.Value)
+				tf.SelectAll()
 			case input.KeyC:
-				if clip != nil {
-					if lo, hi := tf.selRange(); lo != hi {
-						clip.Set(tf.Value[lo:hi])
-					} else if tf.Value != "" {
-						clip.Set(tf.Value)
-					}
-				}
+				tf.Copy()
 			case input.KeyX:
-				if clip != nil {
-					if tf.hasSelection() {
-						lo, hi := tf.selRange()
-						clip.Set(tf.Value[lo:hi])
-						tf.deleteSelection()
-					} else if tf.Value != "" {
-						clip.Set(tf.Value)
-						tf.selAnchor = -1
-						tf.caret = 0
-						tf.setValue("")
-					}
-				}
+				tf.Cut()
 			case input.KeyV:
-				if clip != nil {
-					tf.insertAtCaret(clip.Get())
+				tf.Paste()
+			case input.KeyZ:
+				if shift {
+					tf.Redo()
+				} else {
+					tf.Undo()
 				}
+			case input.KeyY:
+				tf.Redo()
 			}
 			continue
 		}
 		switch ev.Key {
 		case input.KeyBackspace:
-			if tf.deleteSelection() {
-				break
-			}
-			if tf.caret > 0 {
-				prev := prevRuneOff(tf.Value, tf.caret)
-				tf.setValue(tf.Value[:prev] + tf.Value[tf.caret:])
-				tf.caret = prev
+			if tf.hasSelection() {
+				tf.edit(mergeNone, "", func() { tf.deleteSelection() })
+			} else if tf.caret > 0 {
+				tf.edit(mergeBackspace, "", func() {
+					prev := prevRuneOff(tf.Value, tf.caret)
+					tf.setValue(tf.Value[:prev] + tf.Value[tf.caret:])
+					tf.caret = prev
+				})
 			}
 		case input.KeyDelete:
-			if tf.deleteSelection() {
-				break
-			}
-			if tf.caret < len(tf.Value) {
-				next := nextRuneOff(tf.Value, tf.caret)
-				tf.setValue(tf.Value[:tf.caret] + tf.Value[next:])
+			if tf.hasSelection() {
+				tf.edit(mergeNone, "", func() { tf.deleteSelection() })
+			} else if tf.caret < len(tf.Value) {
+				tf.edit(mergeDelete, "", func() {
+					next := nextRuneOff(tf.Value, tf.caret)
+					tf.setValue(tf.Value[:tf.caret] + tf.Value[next:])
+				})
 			}
 		case input.KeyLeft:
 			if tf.hasSelection() && !shift {

@@ -135,36 +135,34 @@ func ResponseTabsRow(id string, th *theme.Theme, tabs []ui.TabModel, selected in
 	).Gap(th.Spacing.S).Align(ui.AlignCenter)
 }
 
-// ResponseEditorMenu wraps an editor with Select All / Copy / Save context menu.
-func ResponseEditorMenu(id string, ed *ui.Editor, ctx *ui.Ctx, deps Deps, defaultName string) ui.View {
+// ResponseEditorMenu adds Save… to the editor's right-click menu and makes
+// Copy take the whole body when nothing is selected.
+func ResponseEditorMenu(ed *ui.Editor, ctx *ui.Ctx, deps Deps, defaultName string) ui.View {
 	if ed == nil {
 		return ui.Text("").Grow(1)
 	}
-	// Do not set Width on ContextMenu — that sizes the wrapper (and shrinks the
-	// editor). Menu width defaults to 180 inside layoutContextMenu.
-	primary := input.ModCtrl | input.ModSuper
-	return ui.ContextMenu(id+"-menu", ui.ViewOf(ed).Grow(1), []ui.MenuItem{
-		{Label: "Select All", OnSelect: func() {
-			ed.HandleKeys([]input.KeyEvent{{Key: input.KeyA, Mods: primary}})
-		}},
-		{Label: "Copy", OnSelect: func() {
-			clip := ctx.Clipboard()
-			if clip == nil {
-				return
+	ed.ContextMenu = func(items []ui.MenuItem) []ui.MenuItem {
+		for i := range items {
+			if items[i].Label != "Copy" {
+				continue
 			}
-			// Prefer selection (Cmd/Ctrl+C). If nothing was selected, copy() is a
-			// no-op — fall back to the whole buffer (former CopySelection).
-			prev := clip.Get()
-			ed.HandleKeys([]input.KeyEvent{{Key: input.KeyC, Mods: primary}})
-			if clip.Get() == prev {
-				clip.Set(string(ed.Bytes()))
+			items[i].Disabled = false
+			items[i].OnSelect = func() {
+				if !ed.Copy() {
+					clip := ctx.Clipboard()
+					if clip == nil {
+						return
+					}
+					clip.Set(string(ed.Bytes()))
+				}
+				deps.Toast("Copied")
 			}
-			deps.Toast("Copied")
-		}},
-		{Label: "Save…", OnSelect: func() {
+		}
+		return append(items, ui.MenuSeparator, ui.MenuItem{Label: "Save…", OnSelect: func() {
 			SaveEditorBytes(deps, defaultName, ed.Bytes())
-		}},
-	}).Grow(1)
+		}})
+	}
+	return ui.ViewOf(ed).Grow(1)
 }
 
 // SaveEditorBytes opens a save dialog and writes data to the chosen path.

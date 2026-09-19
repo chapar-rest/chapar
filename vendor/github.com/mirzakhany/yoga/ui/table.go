@@ -178,6 +178,9 @@ func (t *Table) Layout(c *Ctx) *layout.Element {
 	t.Update(c.Mouse())
 	if t.editingRowID != "" && t.editField != nil && t.editField.host != nil {
 		c.Overlay(t.editField.host)
+		t.editField.menu.layout(c)
+	} else if t.editField != nil {
+		t.editField.menu.close()
 	}
 	t.layoutActionTooltip(c)
 	return t.host
@@ -901,6 +904,20 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 			handled = true
 		case TableColEditable:
 			if t.Editable {
+				if m.RightPressed {
+					// The edit field sits over the cell being edited and takes
+					// its own right-clicks, so this is a cell not yet in edit:
+					// start editing it with the value selected, then show the
+					// field's menu.
+					if t.editingRowID != "" {
+						t.commitEdit()
+					}
+					t.startEdit(row.ID, col.ID)
+					t.editField.SelectAll()
+					if t.editField.openContextMenu(m.X, m.Y) {
+						m.Consumed = true
+					}
+				}
 				if m.Released {
 					if t.editingRowID != "" && (t.editingRowID != row.ID || t.editingColID != col.ID) {
 						t.commitEdit()
@@ -1014,7 +1031,7 @@ func (t *Table) startEdit(rowID, colID string) {
 	t.editingRowID = rowID
 	t.editingColID = colID
 	t.editOriginal = val
-	t.editField.setValue(val)
+	t.editField.load(val)
 	t.editField.Focus()
 }
 
@@ -1032,9 +1049,9 @@ func (t *Table) commitEdit() {
 		t.Rows[rowIdx].Cells = map[string]string{}
 	}
 	t.Rows[rowIdx].Cells[t.editingColID] = val
-	rowID, colID := t.editingRowID, t.editingColID
-	t.cancelEdit()
-	if val != t.editOriginal && t.OnCellChange != nil {
+	rowID, colID, orig := t.editingRowID, t.editingColID, t.editOriginal
+	t.cancelEdit() // clears editOriginal
+	if val != orig && t.OnCellChange != nil {
 		t.OnCellChange(rowID, colID, val)
 	}
 }

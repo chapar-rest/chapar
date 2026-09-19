@@ -416,7 +416,7 @@ func (e *Editor) acceptCompletion() {
 		lo = e.caret
 	}
 	e.closeCompletion()
-	e.applyEdit(lo, e.caret-lo, it.Insert(), false)
+	e.applyEdit(lo, e.caret-lo, it.Insert(), mergeNone)
 }
 
 // ---------------------------------------------------------------------------

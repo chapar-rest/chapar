@@ -227,10 +227,12 @@ func (f *FocusScope) Prev() {
 	f.focusTo(items[(i-1+len(items))%len(items)])
 }
 
-// HandleMouse grants focus on primary click when the pointer is inside a
-// FocusOnClick widget's FocusEl. Later items win over earlier ones (topmost).
+// HandleMouse grants focus on a primary or secondary click when the pointer
+// is inside a FocusOnClick widget's FocusEl, so a right-click menu acts on the
+// widget under it. Later items win over earlier ones (topmost). A press marked
+// KeepFocus leaves focus alone.
 func (f *FocusScope) HandleMouse(m *input.Mouse) {
-	if m == nil || !m.Pressed {
+	if m == nil || m.KeepFocus || !(m.Pressed || m.RightPressed) {
 		return
 	}
 	items := f.tabItems()
