@@ -46,6 +46,11 @@ type CommandsHost struct {
 	query  string
 	cursor int // index into filtered list
 
+	// scope limits the palette to entries registered with that Scope; empty
+	// shows the unscoped entries. placeholder overrides the search hint.
+	scope       string
+	placeholder string
+
 	cmds     []*Command // this frame's registrations
 	byID     map[string]int
 	toggle   Chord
@@ -116,8 +121,15 @@ func (h *CommandsHost) ToggleLabel() string {
 	return h.toggle.Label()
 }
 
-// Show opens the palette and clears the query.
-func (h *CommandsHost) Show() {
+// Show opens the palette on the unscoped commands and clears the query.
+func (h *CommandsHost) Show() { h.ShowScope("", "") }
+
+// ShowScope opens the palette on the entries registered with Scope(scope),
+// with placeholder as the search hint (a default when empty). Toggling or
+// hiding the palette returns it to the unscoped commands.
+func (h *CommandsHost) ShowScope(scope, placeholder string) {
+	h.scope = scope
+	h.placeholder = placeholder
 	h.Open = true
 	h.query = ""
 	h.cursor = 0
@@ -132,6 +144,8 @@ func (h *CommandsHost) Show() {
 // Hide closes the palette without running a command.
 func (h *CommandsHost) Hide() {
 	h.Open = false
+	h.scope = ""
+	h.placeholder = ""
 	h.query = ""
 	h.cursor = 0
 	h.hoverRow = -1
@@ -211,7 +225,7 @@ func (h *CommandsHost) run(cmd *Command) {
 }
 
 func (h *CommandsHost) rebuildFilter() {
-	h.filtered = filterCommands(h.cmds, h.query)
+	h.filtered = filterCommands(h.inScope(), h.query)
 	if len(h.filtered) == 0 {
 		h.cursor = 0
 		return
@@ -223,6 +237,17 @@ func (h *CommandsHost) rebuildFilter() {
 		h.cursor = len(h.filtered) - 1
 	}
 	h.clampCursorToSelectable()
+}
+
+// inScope returns this frame's commands that belong to the open scope.
+func (h *CommandsHost) inScope() []*Command {
+	out := make([]*Command, 0, len(h.cmds))
+	for _, cmd := range h.cmds {
+		if cmd != nil && cmd.scope == h.scope {
+			out = append(out, cmd)
+		}
+	}
+	return out
 }
 
 // FilterKeys steals navigation/activate keys while the palette is open.
@@ -449,8 +474,12 @@ func (h *CommandsHost) Layout(c *Ctx) *layout.Element {
 
 func (h *CommandsHost) chrome(c *Ctx) View {
 	th := c.Theme()
+	placeholder := h.placeholder
+	if placeholder == "" {
+		placeholder = "Type a command…"
+	}
 	search := TextField("__commands-query", h.query).
-		Placeholder("Type a command…").
+		Placeholder(placeholder).
 		IconStart(icons.Search).
 		OnChange(func(s string) {
 			h.query = s
@@ -470,7 +499,7 @@ func (h *CommandsHost) chrome(c *Ctx) View {
 		// the fixed panel height and makes the search chrome feel like it moved.
 		body = Center(Column(
 			Icon(icons.Search, th.Metrics.IconSizeMD*2, th.ForegroundMuted),
-			Subtitle("No commands"),
+			Subtitle(h.emptyTitle()),
 			Muted("Try a different search"),
 		).Gap(th.Spacing.S).Align(AlignCenter)).Grow(1)
 	} else {
@@ -492,6 +521,13 @@ func (h *CommandsHost) chrome(c *Ctx) View {
 		ViewOf(body).Grow(1),
 	).Grow(1).Background(TokenChrome).
 		Style(Spec{}.Radius(th.Radius.Large).Border(TokenBorder, th.Stroke.Thin))
+}
+
+func (h *CommandsHost) emptyTitle() string {
+	if h.scope != "" {
+		return "No matches"
+	}
+	return "No commands"
 }
 
 type commandRow struct {

@@ -310,12 +310,15 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		ui.Cmd("app.settings").Title("Open Settings").Shortcut("⌘,").Icon(icons.Settings).Run(func() { a.openSettings(c) }),
 		ui.Cmd("file.save").Title("Save").Shortcut("⌘S").Icon(icons.Save).Run(func() { a.ws.SaveActive() }),
 		ui.Cmd("file.send").Title("Send / Invoke").Shortcut("⌘Enter").Icon(icons.Play).Run(func() { a.ws.SendActive() }),
+	}
+	cmds = append(cmds, a.ws.commands(c, a.workspaceVisible(), a.showWorkspace)...)
+	cmds = append(cmds,
 		ui.Section("Language servers"),
 		ui.Cmd("lsp.restart").Title("Restart language servers").Icon(icons.RefreshCw).Run(func() {
 			a.lang.Restart("")
 			a.toast("Language servers restarted")
 		}),
-	}
+	)
 	for _, s := range langsrv.Effective(prefs.GetGlobalConfig().Spec.LanguageServers) {
 		l, _ := langsrv.ByID(s.Language)
 		if !s.Enabled {
@@ -371,6 +374,18 @@ func (a *App) registerCommands(c *ui.Ctx) {
 			}))
 	}
 	c.Commands().Register(cmds...)
+}
+
+// workspaceVisible reports whether the current page shows the tab strip.
+func (a *App) workspaceVisible() bool {
+	return a.navIndex == navRequests || a.navIndex == navEnvs
+}
+
+// showWorkspace switches to a page with the tab strip when none is shown.
+func (a *App) showWorkspace() {
+	if !a.workspaceVisible() {
+		a.navIndex = navRequests
+	}
 }
 
 func (a *App) pageView(c *ui.Ctx) ui.View {

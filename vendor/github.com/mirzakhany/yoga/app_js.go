@@ -284,6 +284,10 @@ func (a *Window) runApp(app App) {
 
 			inRoot := a.buildAppFrame(app, w, h)
 
+			// Shortcut and key-hook handlers drop the keys they consume, so
+			// note typing before dispatch for the repaint check below.
+			typed := len(a.keyboard.Chars) > 0 || len(a.keyboard.Keys) > 0
+
 			a.uiCtx.BeginInputPhase()
 			layout.Dispatch(inRoot, a.mouse)
 			a.uiFocus.HandleMouse(a.mouse)
@@ -298,7 +302,7 @@ func (a *Window) runApp(app App) {
 			if a.mouse.Pressed || a.mouse.Released ||
 				a.mouse.RightPressed || a.mouse.RightReleased ||
 				a.mouse.ScrollX != 0 || a.mouse.ScrollY != 0 ||
-				len(a.keyboard.Chars) > 0 || len(a.keyboard.Keys) > 0 ||
+				typed ||
 				(a.mouse.Down && (a.mouse.X != lastMX || a.mouse.Y != lastMY)) {
 				a.uiCtx.MarkNeedsPaint()
 			}

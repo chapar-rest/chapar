@@ -16,6 +16,7 @@ type Command struct {
 	enabled  bool
 	hidden   bool
 	section  bool // non-selectable labeled separator
+	scope    string
 	run      func()
 }
 
@@ -80,6 +81,11 @@ func (c *Command) Hide(v bool) *Command { c.hidden = v; return c }
 
 // Hidden is an alias for Hide.
 func (c *Command) Hidden(v bool) *Command { return c.Hide(v) }
+
+// Scope puts the entry in a named list that the palette shows only when
+// opened with ShowScope, such as a "Go to Tab" list of open documents. Scoped
+// entries stay out of the default palette; their shortcuts still work.
+func (c *Command) Scope(s string) *Command { c.scope = s; return c }
 
 // Run sets the action invoked when the command is selected or its shortcut fires.
 func (c *Command) Run(fn func()) *Command { c.run = fn; return c }
