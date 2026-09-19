@@ -88,7 +88,7 @@ const (
 //
 // When the tabs are wider than the strip it scrolls: the wheel or trackpad
 // moves it sideways, the active tab is kept in view, and a button at the right
-// edge shows how many tabs are hidden and opens a list of every tab.
+// edge shows how many tabs are hidden and opens a list of them.
 func Tabs(id string, tabs []TabModel) *Node {
 	return &Node{kind: kindTabs, id: id, extra: &tabsData{tabs: tabs, closable: true}}
 }
@@ -185,7 +185,7 @@ func (n *Node) layoutTabs(c *Ctx) *layout.Element {
 				hoverOverflow = true
 				if m.Pressed {
 					m.Consumed = true
-					st.openOverflowMenu(tabs, active, g, onActivate)
+					st.openOverflowMenu(tabs, g, onActivate)
 					c.MarkNeedsPaint()
 				}
 			} else if i := g.tabAt(m.X, m.Y); i >= 0 {
@@ -241,36 +241,50 @@ func (n *Node) layoutTabs(c *Ctx) *layout.Element {
 	return el
 }
 
-// openOverflowMenu lists every tab under the overflow button, with the active
-// one checked; choosing one activates it, which scrolls it into view.
-func (st *tabsState) openOverflowMenu(tabs []TabModel, active int, g tabGeom, onActivate func(int, string)) {
+// openOverflowMenu lists the hidden tabs under the overflow button, in strip
+// order, with a separator between those cut off on the left and those on the
+// right; choosing one activates it, which scrolls it into view.
+func (st *tabsState) openOverflowMenu(tabs []TabModel, g tabGeom, onActivate func(int, string)) {
 	th := theme.Current()
-	items := make([]MenuItem, len(tabs))
+	var items []MenuItem
 	w := float32(tabMenuMinW)
 	eng := frameText()
+	leftGroup := false
 	for i, tab := range tabs {
+		left, right := g.hiddenLeft(i), g.hiddenRight(i)
+		if !left && !right {
+			continue
+		}
+		if left {
+			leftGroup = true
+		} else if leftGroup {
+			items = append(items, MenuSeparator)
+			leftGroup = false
+		}
 		i := i
 		label := tab.Title
 		if tab.Modified {
 			label += " \u2022"
 		}
-		items[i] = MenuItem{
+		items = append(items, MenuItem{
 			Label:    label,
 			Shortcut: tab.Badge,
-			Checked:  i == active,
 			OnSelect: func() {
 				if onActivate != nil {
 					onActivate(i, "")
 				}
 			},
-		}
+		})
 		if eng != nil {
 			lw, _ := eng.MeasureAt(label+tab.Badge, th.Typography.Body.Size)
-			lw += th.Metrics.IconSizeSM + th.Spacing.S + 2*th.Spacing.MNudge + th.Spacing.L
+			lw += 2*th.Spacing.MNudge + th.Spacing.L
 			if lw > w {
 				w = lw
 			}
 		}
+	}
+	if len(items) == 0 {
+		return
 	}
 	if w > tabMenuMaxW {
 		w = tabMenuMaxW
@@ -344,11 +358,19 @@ func (g tabGeom) tabAt(x, y float32) int {
 	return -1
 }
 
+// hiddenLeft reports whether tab i is cut off by the left edge of the viewport.
+func (g tabGeom) hiddenLeft(i int) bool { return g.ext[i].x < g.view.X-0.5 }
+
+// hiddenRight reports whether tab i is cut off by the right edge of the viewport.
+func (g tabGeom) hiddenRight(i int) bool {
+	return g.ext[i].x+g.ext[i].w > g.view.X+g.view.W+0.5
+}
+
 // hidden counts the tabs that are not fully inside the viewport.
 func (g tabGeom) hidden() int {
 	n := 0
-	for _, te := range g.ext {
-		if te.x < g.view.X-0.5 || te.x+te.w > g.view.X+g.view.W+0.5 {
+	for i := range g.ext {
+		if g.hiddenLeft(i) || g.hiddenRight(i) {
 			n++
 		}
 	}

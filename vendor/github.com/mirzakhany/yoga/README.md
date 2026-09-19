@@ -308,7 +308,7 @@ ui.Drawer("inspector", panel, page).Open(open).Edge(ui.EdgeRight).Overlay().Size
 ui.Tabs("tabs", tabs).Selected(i).OnSelectItem(onSelect).OnTabClose(onClose).
     OnTabContextMenu(func(i int) []ui.MenuItem { … }) // right-click: Close / Close Others / …
 // Too many tabs: the strip scrolls (wheel/trackpad), keeps the active tab in view,
-// and a "+N ⌄" button at the right edge lists every tab.
+// and a "+N ⌄" button at the right edge lists the hidden tabs.
 // Section switcher without close buttons:
 ui.Tabs("sections", tabs).Selected(i).OnSelectItem(onSelect).Closable(false)
 
