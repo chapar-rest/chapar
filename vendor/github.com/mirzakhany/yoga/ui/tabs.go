@@ -175,7 +175,7 @@ func (n *Node) layoutTabs(c *Ctx) *layout.Element {
 		hoverTab, hoverClose, hoverOverflow := -1, -1, false
 		if e.Frame.Contains(m.X, m.Y) && !m.Consumed {
 			if g.overflows() && (m.ScrollX != 0 || m.ScrollY != 0) {
-				st.scrollX -= (m.ScrollX + m.ScrollY) * 3 * 14
+				st.scrollX -= (m.ScrollX + m.ScrollY) * WheelPixelsPerUnit
 				m.ScrollX, m.ScrollY = 0, 0
 				m.Consumed = true
 				g = st.fit(e, tabs, active, closable)

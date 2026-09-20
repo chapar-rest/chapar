@@ -5,6 +5,7 @@ package yoga
 import (
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/cogentcore/webgpu/wgpuglfw"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -34,6 +35,7 @@ type Window struct {
 	drawList render.DrawList
 	winHost  *glfwWindowHost
 	layerBG  render.Color // clear color last pushed to the surface layer
+	scroll   scrollNormalizer
 
 	// ui app path: set by runApp.
 	uiApp   App
@@ -134,8 +136,9 @@ func (a *Window) wireCallbacks() {
 		}
 	})
 	a.window.SetScrollCallback(func(_ *glfw.Window, xoff, yoff float64) {
-		a.mouse.AddScrollX(float32(xoff))
-		a.mouse.AddScroll(float32(yoff))
+		dx, dy := a.scroll.normalize(xoff, yoff, time.Now())
+		a.mouse.AddScrollX(dx)
+		a.mouse.AddScroll(dy)
 	})
 	a.window.SetCharCallback(func(_ *glfw.Window, char rune) {
 		a.keyboard.TypeRune(char)
@@ -212,9 +215,11 @@ func (a *Window) runApp(app App) {
 			// Build for input, dispatch, then route keys.
 			inRoot := a.buildAppFrame(app, w, h)
 
-			// Shortcut and key-hook handlers drop the keys they consume, so
-			// note typing before dispatch for the repaint check below.
+			// Shortcut and key-hook handlers drop the keys they consume, and
+			// scroll containers zero the wheel delta they consume, so note
+			// typing and scrolling before dispatch for the repaint check below.
 			typed := len(a.keyboard.Chars) > 0 || len(a.keyboard.Keys) > 0
+			scrolled := a.mouse.ScrollX != 0 || a.mouse.ScrollY != 0
 
 			a.uiCtx.BeginInputPhase()
 			layout.Dispatch(inRoot, a.mouse)
@@ -231,13 +236,8 @@ func (a *Window) runApp(app App) {
 				a.winHost.updateFrame(a.mouse, w, h)
 			}
 
-			// Coarse input that always implies a visual update (click, scroll,
-			// typing, drag). Hover transitions mark via trackHover in widgets.
-			if a.mouse.Pressed || a.mouse.Released ||
-				a.mouse.RightPressed || a.mouse.RightReleased ||
-				a.mouse.ScrollX != 0 || a.mouse.ScrollY != 0 ||
-				typed ||
-				(a.mouse.Down && (a.mouse.X != lastMX || a.mouse.Y != lastMY)) {
+			dragged := a.mouse.Down && (a.mouse.X != lastMX || a.mouse.Y != lastMY)
+			if inputImpliesPaint(a.mouse, scrolled, typed, dragged) {
 				a.uiCtx.MarkNeedsPaint()
 			}
 			lastMX, lastMY = a.mouse.X, a.mouse.Y

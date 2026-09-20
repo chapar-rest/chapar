@@ -15,6 +15,11 @@ import (
 // container's ScrollOffset) reads.
 // ----------------------------------------------------------------------------
 
+// WheelPixelsPerUnit is how far one wheel unit scrolls: a mouse notch reports
+// ±1 and moves ~3 lines. Runtimes whose platform reports pixel-precise deltas
+// (trackpads) divide those pixels by this to reach the same unit.
+const WheelPixelsPerUnit = 3 * 14
+
 // Axis selects a scrollbar's orientation.
 type Axis int
 
@@ -189,14 +194,14 @@ func (s *Scrollbar) ApplyWheel(m *input.Mouse, area render.Rect) {
 	}
 	if s.axis == Horizontal {
 		if m.ScrollX != 0 {
-			*s.Offset -= m.ScrollX * 3 * 14
+			*s.Offset -= m.ScrollX * WheelPixelsPerUnit
 			m.ScrollX = 0
 			m.Consumed = true
 		}
 		return
 	}
 	if m.ScrollY != 0 {
-		*s.Offset -= m.ScrollY * 3 * 14 // ~3 lines per wheel notch
+		*s.Offset -= m.ScrollY * WheelPixelsPerUnit
 		m.ScrollY = 0
 		m.Consumed = true
 	}

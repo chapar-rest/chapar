@@ -282,7 +282,7 @@ func (mu *Menu) onMouse(e *layout.Element, m *input.Mouse) {
 	prev := mu.hover
 	if e.Frame.Contains(m.X, m.Y) {
 		if m.ScrollY != 0 && mu.height() > e.Frame.H {
-			mu.scrollY -= m.ScrollY * 3 * 14
+			mu.scrollY -= m.ScrollY * WheelPixelsPerUnit
 			mu.clampScroll()
 			m.ScrollY = 0
 			if mu.markPaint != nil {

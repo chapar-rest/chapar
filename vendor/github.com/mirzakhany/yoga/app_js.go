@@ -284,9 +284,11 @@ func (a *Window) runApp(app App) {
 
 			inRoot := a.buildAppFrame(app, w, h)
 
-			// Shortcut and key-hook handlers drop the keys they consume, so
-			// note typing before dispatch for the repaint check below.
+			// Shortcut and key-hook handlers drop the keys they consume, and
+			// scroll containers zero the wheel delta they consume, so note
+			// typing and scrolling before dispatch for the repaint check below.
 			typed := len(a.keyboard.Chars) > 0 || len(a.keyboard.Keys) > 0
+			scrolled := a.mouse.ScrollX != 0 || a.mouse.ScrollY != 0
 
 			a.uiCtx.BeginInputPhase()
 			layout.Dispatch(inRoot, a.mouse)
@@ -299,11 +301,8 @@ func (a *Window) runApp(app App) {
 			}
 			a.uiFocus.Route(a.keyboard)
 
-			if a.mouse.Pressed || a.mouse.Released ||
-				a.mouse.RightPressed || a.mouse.RightReleased ||
-				a.mouse.ScrollX != 0 || a.mouse.ScrollY != 0 ||
-				typed ||
-				(a.mouse.Down && (a.mouse.X != lastMX || a.mouse.Y != lastMY)) {
+			dragged := a.mouse.Down && (a.mouse.X != lastMX || a.mouse.Y != lastMY)
+			if inputImpliesPaint(a.mouse, scrolled, typed, dragged) {
 				a.uiCtx.MarkNeedsPaint()
 			}
 			lastMX, lastMY = a.mouse.X, a.mouse.Y
