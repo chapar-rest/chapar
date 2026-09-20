@@ -174,6 +174,18 @@ func (p *Requests) activate(n *ui.TreeNode) {
 	}
 }
 
+// newMenuItems are the creation entries of the sidebar's New split button. The
+// button itself creates an HTTP request; the chevron offers the other kinds.
+func (p *Requests) newMenuItems() []ui.MenuItem {
+	return []ui.MenuItem{
+		{Label: "HTTP request", OnSelect: func() { p.createRequest(domain.RequestTypeHTTP, NodeRef{}) }},
+		{Label: "gRPC request", OnSelect: func() { p.createRequest(domain.RequestTypeGRPC, NodeRef{}) }},
+		{Label: "GraphQL request", OnSelect: func() { p.createRequest(domain.RequestTypeGraphQL, NodeRef{}) }},
+		ui.MenuSeparator,
+		{Label: "Collection", OnSelect: p.createCollection},
+	}
+}
+
 func (p *Requests) menu(n *ui.TreeNode) []ui.MenuItem {
 	ref, _ := n.Data.(NodeRef)
 	items := []ui.MenuItem{
@@ -386,9 +398,8 @@ func (p *Requests) side(c *ui.Ctx) ui.View {
 		ui.Row(
 			ui.Spacer(),
 			ui.Button("req-import", ui.Text("Import")).OnClick(p.importFile),
-			ui.Button("req-new", ui.Text("New")).Primary().IconStart(icons.Plus).OnClick(func() {
-				p.createRequest(domain.RequestTypeHTTP, NodeRef{})
-			}),
+			ui.MenuButton("req-new", "New", p.newMenuItems()).Primary().IconStart(icons.Plus).
+				OnClick(func() { p.createRequest(domain.RequestTypeHTTP, NodeRef{}) }),
 		).Gap(th.Spacing.S).MarginRight(th.Spacing.S),
 		ui.TextField("req-search", p.query).Placeholder("Search...").IconStart(icons.Search).
 			OnChange(func(s string) { p.query = s; p.tree.SetFilter(s) }).Margin(th.Spacing.S),
