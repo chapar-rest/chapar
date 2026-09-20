@@ -496,7 +496,8 @@ func (e *Editor) paintCompletion(dl *render.DrawList, eng *shape.Engine) {
 	r := e.completionRect()
 	dl.AddElevationShadow(r, 6, render.Shadow{OffsetY: 2, Blur: 12, Color: render.Color{A: 1}})
 	dl.AddRoundedRectBorder(r, 6, 1, th.Chrome, th.Border)
-	dl.PushClip(r)
+	// Rows stop inside the border so a selected row cannot paint over it.
+	dl.PushClip(render.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H - 2})
 	first := e.lspUI.compFirst
 	last := minInt(first+maxCompletionRows, len(e.lspUI.compItems))
 	for i := first; i < last; i++ {

@@ -203,8 +203,11 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 	r := th.Radius.Medium
 	drawElevationShadow(dl, f, r, th.Elevation.ShadowMd)
 	dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Chrome, th.Border)
-	// Labels wider than the configured menu width are clipped to the frame.
-	dl.PushClip(f)
+	// Labels wider than the configured menu width are clipped to the frame, and
+	// rows stop inside the border so a hover fill cannot paint over it.
+	bw := float32(th.Stroke.Thin)
+	inner := render.Rect{X: f.X + bw, Y: f.Y + bw, W: f.W - 2*bw, H: f.H - 2*bw}
+	dl.PushClip(inner)
 	style := th.Typography.Body
 	labelX := padX
 	checkSz := th.Metrics.IconSizeSM

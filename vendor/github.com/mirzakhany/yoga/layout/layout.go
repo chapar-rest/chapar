@@ -256,8 +256,15 @@ func paintBase(e *Element, dl *render.DrawList, text *shape.Engine) {
 	if e.Paint != nil {
 		e.Paint(dl, text)
 	}
+	inner, clipKids := borderClip(e)
+	if clipKids {
+		dl.PushClip(inner)
+	}
 	for _, c := range e.Children {
 		paintBase(c, dl, text)
+	}
+	if clipKids {
+		dl.PopClip()
 	}
 	if e.Clip {
 		dl.PopClip()
@@ -272,12 +279,53 @@ func paintAll(e *Element, dl *render.DrawList, text *shape.Engine) {
 	if e.Paint != nil {
 		e.Paint(dl, text)
 	}
+	inner, clipKids := borderClip(e)
+	if clipKids {
+		dl.PushClip(inner)
+	}
 	for _, c := range e.Children {
 		paintAll(c, dl, text)
+	}
+	if clipKids {
+		dl.PopClip()
 	}
 	if e.Clip {
 		dl.PopClip()
 	}
+}
+
+// borderClip returns the rect inside an element's border stroke, and whether
+// children need clipping to it. A child that fills its parent's frame paints
+// over the border the parent just drew (a menu's hover row, a dialog body with
+// its own background), so children that reach past the stroke are clipped to
+// the inside of it.
+func borderClip(e *Element) (render.Rect, bool) {
+	if len(e.Children) == 0 || e.Style.BorderColor.A == 0 {
+		return render.Rect{}, false
+	}
+	w := e.Style.EffectiveBorderWidths()
+	if !w.AnyPositive() {
+		return render.Rect{}, false
+	}
+	f := e.Frame
+	inner := render.Rect{
+		X: f.X + w.Left, Y: f.Y + w.Top,
+		W: f.W - w.Left - w.Right, H: f.H - w.Top - w.Bottom,
+	}
+	if inner.W <= 0 || inner.H <= 0 {
+		return render.Rect{}, false
+	}
+	for _, c := range e.Children {
+		if c.Overlay {
+			continue // painted in its own pass, outside this clip
+		}
+		cf := c.Frame
+		if cf.X < inner.X || cf.Y < inner.Y ||
+			cf.X+cf.W > inner.X+inner.W || cf.Y+cf.H > inner.Y+inner.H {
+			return inner, true
+		}
+	}
+	return render.Rect{}, false
 }
 
 // paintDecoration draws the Style-driven background and border declared via
