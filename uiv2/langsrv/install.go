@@ -82,6 +82,9 @@ func (s *Service) runInstall(l Language, inst Installer, command string) {
 		s.installs = append(s.installs, ev)
 		if ev.Done {
 			delete(s.installing, l.ID)
+			// The install (and the FixPath below it) may have put the server
+			// on PATH; drop what the settings page resolved before that.
+			clear(s.lookups)
 		}
 		s.mu.Unlock()
 		s.poke()

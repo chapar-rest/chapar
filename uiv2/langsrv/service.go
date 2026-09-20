@@ -22,6 +22,18 @@ import (
 // toast; every occurrence is still logged.
 const toastInterval = 30 * time.Second
 
+// lookupTTL bounds how stale a cached command lookup may be. PATH changes are
+// picked up at once (FixPath and a finished install drop the cache), so the TTL
+// only covers a server installed behind the app's back.
+const lookupTTL = 2 * time.Second
+
+// lookup is one remembered exec.LookPath result.
+type lookup struct {
+	path string
+	err  error
+	at   time.Time
+}
+
 // Notice is a server problem ready to show: Title for a toast, Message for
 // the notification list, Detail (message plus server output) for the console.
 type Notice struct {
@@ -47,8 +59,9 @@ type Service struct {
 	retry     bool // PATH changed: re-resolve servers reported missing
 	wake      func()
 
-	installing map[string]bool // guarded by mu
-	installs   []InstallEvent  // guarded by mu
+	installing map[string]bool   // guarded by mu
+	installs   []InstallEvent    // guarded by mu
+	lookups    map[string]lookup // guarded by mu
 
 	applied   map[string]domain.LanguageServerConfig
 	lastToast map[string]time.Time
@@ -106,6 +119,7 @@ func (s *Service) PathReady() {
 	s.mu.Lock()
 	s.pathReady = true
 	s.retry = true
+	clear(s.lookups) // PATH changed: the remembered resolutions are stale
 	s.mu.Unlock()
 	s.poke()
 }
@@ -241,7 +255,7 @@ func (s *Service) Status(c domain.LanguageServerConfig) string {
 	if !c.Enabled {
 		return "Disabled"
 	}
-	path, err := exec.LookPath(expandHome(c.Command))
+	path, err := s.lookPath(c.Command)
 	if err != nil {
 		msg := "Not found: " + c.Command
 		if l, ok := ByID(c.Language); ok && l.Install != "" {
@@ -257,8 +271,33 @@ func (s *Service) Status(c domain.LanguageServerConfig) string {
 
 // Missing reports whether c's command cannot be found.
 func (s *Service) Missing(c domain.LanguageServerConfig) bool {
-	_, err := exec.LookPath(expandHome(c.Command))
+	_, err := s.lookPath(c.Command)
 	return err != nil
+}
+
+// lookPath resolves cmd through PATH, reusing a recent result. exec.LookPath
+// stats every PATH entry, and the settings page asks each server for its status
+// on every frame it builds, which put those syscalls in the frame budget.
+func (s *Service) lookPath(cmd string) (string, error) {
+	full := expandHome(cmd)
+	now := time.Now()
+
+	s.mu.Lock()
+	hit, ok := s.lookups[full]
+	s.mu.Unlock()
+	if ok && now.Sub(hit.at) < lookupTTL {
+		return hit.path, hit.err
+	}
+
+	path, err := exec.LookPath(full) // off the lock: it touches the filesystem
+
+	s.mu.Lock()
+	if s.lookups == nil {
+		s.lookups = map[string]lookup{}
+	}
+	s.lookups[full] = lookup{path: path, err: err, at: now}
+	s.mu.Unlock()
+	return path, err
 }
 
 // ---- editors ----
