@@ -52,6 +52,8 @@ func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws works
 	p.tree.IconFor = p.iconFor
 	p.tree.OnActivate = p.activate
 	p.tree.ContextMenu = p.menu
+	p.tree.CanDrop = p.canDrop
+	p.tree.OnDrop = p.drop
 	p.Rebuild()
 	return p
 }
@@ -88,8 +90,38 @@ func (p *Requests) Rebuild() {
 		}
 		return out
 	}
+	open := p.expandedCollections()
 	p.tree.SetRoot(&ui.TreeNode{Label: "root", Data: "root"})
+	p.expandCollections(open)
 	p.tree.SetFilter(p.query)
+}
+
+// expandedCollections records which collections are open. Rebuild replaces the
+// root, which would otherwise collapse the whole sidebar under the user.
+func (p *Requests) expandedCollections() map[string]bool {
+	open := make(map[string]bool)
+	root := p.tree.Root()
+	if root == nil {
+		return open
+	}
+	for _, n := range root.Children {
+		if ref, ok := n.Data.(NodeRef); ok && n.Expanded() {
+			open[ref.ID] = true
+		}
+	}
+	return open
+}
+
+func (p *Requests) expandCollections(open map[string]bool) {
+	root := p.tree.Root()
+	if root == nil {
+		return
+	}
+	for _, n := range root.Children {
+		if ref, ok := n.Data.(NodeRef); ok && open[ref.ID] {
+			p.tree.SetExpanded(n, true)
+		}
+	}
 }
 
 func requestNode(r *domain.Request) *ui.TreeNode {
@@ -171,6 +203,100 @@ func (p *Requests) activate(n *ui.TreeNode) {
 		if col := p.cat.CollectionByID(ref.ID); col != nil {
 			p.ws.OpenCollection(col)
 		}
+	}
+}
+
+// dropCollection resolves the collection a drag lands in. A nil collection is
+// the top level (standalone requests); ok is false when the drop makes no
+// sense, such as a target whose collection no longer exists.
+func (p *Requests) dropCollection(ev ui.DropEvent) (col *domain.Collection, ok bool) {
+	// A nil target is the empty space below the rows: the top level.
+	if ev.Target == nil {
+		return nil, true
+	}
+	ref, isRef := ev.Target.Data.(NodeRef)
+	if !isRef {
+		return nil, true // the root node
+	}
+	switch ref.Kind {
+	case domain.KindCollection:
+		// Dropping onto the row itself moves into the collection; dropping
+		// above or below it lands next to it, at the top level.
+		if ev.Pos != ui.DropInside {
+			return nil, true
+		}
+		col = p.cat.CollectionByID(ref.ID)
+		return col, col != nil
+	case domain.KindRequest:
+		// Land wherever the request under the cursor lives.
+		parentRef, isRef := parentRef(ev.Target)
+		if !isRef || parentRef.Kind != domain.KindCollection {
+			return nil, true
+		}
+		col = p.cat.CollectionByID(parentRef.ID)
+		return col, col != nil
+	default:
+		return nil, false
+	}
+}
+
+func parentRef(n *ui.TreeNode) (NodeRef, bool) {
+	parent := n.Parent()
+	if parent == nil {
+		return NodeRef{}, false
+	}
+	ref, ok := parent.Data.(NodeRef)
+	return ref, ok
+}
+
+// canDrop accepts only request moves that change the owning collection.
+// Collections themselves are not nestable, so they never move.
+func (p *Requests) canDrop(ev ui.DropEvent) bool {
+	_, _, ok := p.resolveDrop(ev)
+	return ok
+}
+
+func (p *Requests) resolveDrop(ev ui.DropEvent) (req *domain.Request, dst *domain.Collection, ok bool) {
+	ref, isRef := ev.Source.Data.(NodeRef)
+	if !isRef || ref.Kind != domain.KindRequest {
+		return nil, nil, false
+	}
+	req = p.cat.RequestByID(ref.ID)
+	if req == nil {
+		return nil, nil, false
+	}
+	dst, ok = p.dropCollection(ev)
+	if !ok {
+		return nil, nil, false
+	}
+	dstID := ""
+	if dst != nil {
+		dstID = dst.MetaData.ID
+	}
+	if dstID == req.CollectionID {
+		return nil, nil, false // already there
+	}
+	return req, dst, true
+}
+
+func (p *Requests) drop(ev ui.DropEvent) {
+	req, dst, ok := p.resolveDrop(ev)
+	if !ok {
+		return
+	}
+	var src *domain.Collection
+	if req.CollectionID != "" {
+		src = p.cat.CollectionByID(req.CollectionID)
+	}
+	if err := p.repo.MoveRequest(req, src, dst); err != nil {
+		p.err(err)
+		return
+	}
+	_ = p.cat.Load()
+	p.Rebuild()
+	if dst != nil {
+		// Show the request where it landed.
+		p.expandCollections(map[string]bool{dst.MetaData.ID: true})
 	}
 }
 

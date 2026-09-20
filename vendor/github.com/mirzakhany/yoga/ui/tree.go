@@ -21,7 +21,9 @@ const (
 	DropAfter                 // insert after the target in its parent
 )
 
-// DropEvent is passed to Tree.OnDrop when the user completes a drag.
+// DropEvent is passed to Tree.OnDrop when the user completes a drag. A nil
+// Target means the empty space below the last row: the drop lands at the top
+// level, as a child of the (undrawn) root, and Pos is always DropInside.
 type DropEvent struct {
 	Source *TreeNode
 	Target *TreeNode
@@ -98,6 +100,12 @@ type Tree struct {
 	// and calling Rebuild as needed.
 	OnDrop func(ev DropEvent)
 
+	// CanDrop optionally vetoes a prospective drop. It is called continuously
+	// while dragging; returning false suppresses the drop indicator and stops
+	// OnDrop from firing for that target. Dropping a node onto itself or into
+	// its own subtree is always rejected before CanDrop is consulted.
+	CanDrop func(ev DropEvent) bool
+
 	hover     int
 	selected  int
 	focused   bool
@@ -110,8 +118,9 @@ type Tree struct {
 	dragStartX    float32
 	dragStartY    float32
 	dragX, dragY  float32 // current cursor position during drag (for ghost rendering)
-	dragTargetIdx int     // prospective drop-target index in t.visible (-1 = none)
+	dragTargetIdx int     // prospective drop-target index in t.visible (-1 = the root, i.e. the empty area below the rows)
 	dragPos       DropPos // placement within dragTargetIdx
+	dragValid     bool    // whether the prospective drop is allowed (see allowDrop)
 
 	// auto-expand: open a collapsed folder when the drag cursor lingers over it
 	dragHoverNode  *TreeNode
@@ -444,6 +453,18 @@ func (t *Tree) toggle(n *TreeNode) {
 	}
 }
 
+// Expanded reports whether a branch is currently open.
+func (n *TreeNode) Expanded() bool { return n.expanded }
+
+// SetExpanded opens or closes a branch, loading its children on first open.
+// Use it to restore the open branches after replacing the root.
+func (t *Tree) SetExpanded(n *TreeNode, open bool) {
+	if n == nil || n.Leaf || n.expanded == open {
+		return
+	}
+	t.toggle(n)
+}
+
 // branch reports whether a node should be treated as expandable.
 func (n *TreeNode) branch() bool { return !n.Leaf }
 
@@ -496,7 +517,7 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 
 		if t.dragging && t.visible[i] == t.dragNode {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListHover)
-		} else if t.dragging && i == t.dragTargetIdx && t.dragPos == DropInside {
+		} else if t.dragging && t.dragValid && i == t.dragTargetIdx && t.dragPos == DropInside {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
 		} else if t.focused && i == t.selected {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
@@ -527,15 +548,23 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 	}
 
 	// Draw drop indicator on top of row content.
-	if t.dragging && t.dragTargetIdx >= 0 {
-		tIdx := t.dragTargetIdx
-		ty := f.Y + float32(tIdx)*t.rowH - t.scrollY
-		switch t.dragPos {
-		case DropBefore:
-			dl.AddRect(render.Rect{X: f.X, Y: ty, W: vp.W, H: 2}, th.Accent)
-		case DropAfter:
-			dl.AddRect(render.Rect{X: f.X, Y: ty + t.rowH - 2, W: vp.W, H: 2}, th.Accent)
-			// DropInside highlight is drawn in the row loop (before text) so it never covers it.
+	if t.dragging && t.dragValid {
+		if t.dragTargetIdx < 0 {
+			// Root target: outline the whole panel, since a line under the last
+			// row would read as "after that row" and say nothing about depth.
+			dl.AddRect(render.Rect{X: vp.X, Y: vp.Y, W: vp.W, H: 2}, th.Accent)
+			dl.AddRect(render.Rect{X: vp.X, Y: vp.Y + vp.H - 2, W: vp.W, H: 2}, th.Accent)
+			dl.AddRect(render.Rect{X: vp.X, Y: vp.Y, W: 2, H: vp.H}, th.Accent)
+			dl.AddRect(render.Rect{X: vp.X + vp.W - 2, Y: vp.Y, W: 2, H: vp.H}, th.Accent)
+		} else {
+			ty := f.Y + float32(t.dragTargetIdx)*t.rowH - t.scrollY
+			switch t.dragPos {
+			case DropBefore:
+				dl.AddRect(render.Rect{X: f.X, Y: ty, W: vp.W, H: 2}, th.Accent)
+			case DropAfter:
+				dl.AddRect(render.Rect{X: f.X, Y: ty + t.rowH - 2, W: vp.W, H: 2}, th.Accent)
+				// DropInside highlight is drawn in the row loop (before text) so it never covers it.
+			}
 		}
 	}
 
@@ -582,15 +611,23 @@ func (t *Tree) onMouse(el *layout.Element, m *input.Mouse) {
 	if t.dragging {
 		if m.Released {
 			t.finishDrag()
+			if t.markPaint != nil {
+				t.markPaint()
+			}
 		} else if m.Down {
 			if el.Frame.Contains(m.X, m.Y) && !t.overScrollbar(m) {
 				t.updateDragTarget(el, m)
+				// The ghost follows the cursor, so every move needs a frame.
+				if t.markPaint != nil {
+					t.markPaint()
+				}
 			}
 			m.Consumed = true
 		} else {
 			t.dragging = false
 			t.dragNode = nil
 			t.dragTargetIdx = -1
+			t.dragValid = false
 		}
 		return
 	}
@@ -674,15 +711,18 @@ func (t *Tree) updateDragTarget(el *layout.Element, m *input.Mouse) {
 	t.dragX = m.X
 	t.dragY = m.Y
 
-	if len(t.visible) == 0 {
-		return
-	}
 	idx := int((m.Y - el.Frame.Y + t.scrollY) / t.rowH)
 	if idx < 0 {
 		idx = 0
 	}
+	// Past the last row (or on an empty tree) the drop lands at the top level,
+	// which is how a node is dragged out of the branch that holds it.
 	if idx >= len(t.visible) {
-		idx = len(t.visible) - 1
+		t.dragTargetIdx = -1
+		t.dragPos = DropInside
+		t.dragValid = t.allowDrop(nil, DropInside)
+		t.dragHoverNode = nil
+		return
 	}
 	t.dragTargetIdx = idx
 	rowTop := el.Frame.Y + float32(idx)*t.rowH - t.scrollY
@@ -702,6 +742,7 @@ func (t *Tree) updateDragTarget(el *layout.Element, m *input.Mouse) {
 			t.dragPos = DropAfter
 		}
 	}
+	t.dragValid = t.allowDrop(n, t.dragPos)
 
 	// Auto-expand: open a collapsed branch after the cursor lingers over it.
 	if n.branch() && !n.expanded {
@@ -719,18 +760,41 @@ func (t *Tree) updateDragTarget(el *layout.Element, m *input.Mouse) {
 	}
 }
 
+// allowDrop reports whether the dragged node may land on target (nil = the
+// root). A node can never be dropped on itself or into its own subtree; beyond
+// that the application decides through CanDrop.
+func (t *Tree) allowDrop(target *TreeNode, pos DropPos) bool {
+	src := t.dragNode
+	if src == nil {
+		return false
+	}
+	for n := target; n != nil; n = n.parent {
+		if n == src {
+			return false
+		}
+	}
+	if t.CanDrop != nil {
+		return t.CanDrop(DropEvent{Source: src, Target: target, Pos: pos})
+	}
+	return true
+}
+
 func (t *Tree) finishDrag() {
-	tgt := t.dragTargetIdx
-	if t.OnDrop != nil && t.dragNode != nil && tgt >= 0 && t.visible[tgt] != t.dragNode {
+	if t.OnDrop != nil && t.dragNode != nil && t.dragValid {
+		var target *TreeNode
+		if t.dragTargetIdx >= 0 && t.dragTargetIdx < len(t.visible) {
+			target = t.visible[t.dragTargetIdx]
+		}
 		t.OnDrop(DropEvent{
 			Source: t.dragNode,
-			Target: t.visible[tgt],
+			Target: target,
 			Pos:    t.dragPos,
 		})
 	}
 	t.dragging = false
 	t.dragNode = nil
 	t.dragTargetIdx = -1
+	t.dragValid = false
 	t.dragHoverNode = nil
 }
 

@@ -78,14 +78,19 @@ func NewFileTree(rootPath string) *FileTree {
 		if !ok {
 			return
 		}
-		tgtPath, ok := ev.Target.Data.(string)
+		// A nil target is the empty space below the rows: move to the tree root.
+		target := ev.Target
+		if target == nil {
+			target = t.Root()
+		}
+		tgtPath, ok := target.Data.(string)
 		if !ok {
 			return
 		}
 
 		// Resolve destination directory.
 		var dstDir string
-		if ev.Pos == DropInside {
+		if ev.Pos == DropInside || target == t.Root() {
 			dstDir = tgtPath
 		} else {
 			dstDir = filepath.Dir(tgtPath)
@@ -106,9 +111,9 @@ func NewFileTree(rootPath string) *FileTree {
 		}
 
 		// Reload the directories that changed on disk.
-		dstParent := ev.Target.Parent()
-		if ev.Pos == DropInside {
-			dstParent = ev.Target
+		dstParent := target.Parent()
+		if ev.Pos == DropInside || target == t.Root() {
+			dstParent = target
 		}
 		ft.reloadNode(ev.Source.Parent())
 		if dstParent != ev.Source.Parent() {

@@ -183,7 +183,53 @@ func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain
 	return f.writeStandaloneRequest(request, collection, true)
 }
 
-func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain.Collection) error {
+// MoveRequest moves a request from one collection to another. A nil collection
+// stands for the standalone requests directory, so this also covers dragging a
+// request into a collection or back out of it.
+func (f *FilesystemV2) MoveRequest(request *domain.Request, from, to *domain.Collection) error {
+	if collectionID(from) == collectionID(to) {
+		return nil
+	}
+
+	dstDir, err := f.requestDir(to)
+	if err != nil {
+		return err
+	}
+
+	// The destination may already hold a request with this name.
+	taken, err := doesFileNameExistWithDifferentID(filepath.Join(dstDir, request.GetName()+".yaml"), request.ID())
+	if err != nil {
+		return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+	}
+
+	if err := f.DeleteRequest(request, from); err != nil {
+		return err
+	}
+
+	if taken {
+		request.SetName(f.ensureUniqueName(dstDir, request.GetName(), ".yaml"))
+	}
+	if to != nil {
+		request.CollectionID = to.MetaData.ID
+		request.CollectionName = to.MetaData.Name
+	} else {
+		request.CollectionID = ""
+		request.CollectionName = ""
+	}
+
+	return f.CreateRequest(request, to)
+}
+
+func collectionID(c *domain.Collection) string {
+	if c == nil {
+		return ""
+	}
+	return c.MetaData.ID
+}
+
+// requestDir is where a request's file lives: the collection's directory, or
+// the standalone requests directory when collection is nil.
+func (f *FilesystemV2) requestDir(collection *domain.Collection) (string, error) {
 	kind := domain.KindRequest
 	if collection != nil {
 		kind = domain.KindCollection
@@ -191,12 +237,19 @@ func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain
 
 	dir, err := f.EntityPath(kind)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// If the request is part of a collection, we need to delete it from the collection directory
 	if collection != nil {
 		dir = filepath.Join(dir, collection.GetName())
+	}
+	return dir, nil
+}
+
+func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain.Collection) error {
+	dir, err := f.requestDir(collection)
+	if err != nil {
+		return err
 	}
 
 	if err := f.deleteEntity(dir, request); err != nil {
