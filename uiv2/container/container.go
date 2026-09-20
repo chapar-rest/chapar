@@ -5,6 +5,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/uiv2/langsrv"
 	"github.com/chapar-rest/chapar/uiv2/sender"
 	"github.com/mirzakhany/yoga/highlight"
@@ -60,6 +61,11 @@ type Deps struct {
 	Lang *langsrv.Service
 	// ManageCookies opens the cookie jar dialog. Nil hides the entry points.
 	ManageCookies func()
+	// Secrets holds the key that encrypts secret environment values. Nil means
+	// values cannot be marked secret.
+	Secrets *secret.Manager
+	// Clipboard copies text on the user's behalf. Nil hides Copy actions.
+	Clipboard func(string)
 }
 
 // NewScriptEditor returns an editor for a Python pre/post-request script.

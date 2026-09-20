@@ -18,9 +18,21 @@ type Entity interface {
 	MarshalYaml() ([]byte, error)
 }
 
+// SecretCipher encrypts and decrypts environment values the user marked as
+// secret. It is satisfied by *secret.Manager.
+type SecretCipher interface {
+	Encrypt(aad, plain string) (string, error)
+	Decrypt(aad, encoded string) (string, error)
+	Unlocked() bool
+}
+
 type FilesystemV2 struct {
 	dataDir       string
 	workspaceName string
+
+	// secrets encrypts secret environment values on their way to disk. When
+	// nil, environments that hold secrets cannot be saved.
+	secrets SecretCipher
 
 	// entities is a map to hold loaded entities so filesystem can name changes
 	entities *safemap.Map[string]
@@ -48,6 +60,11 @@ func NewFilesystemV2(dataDir, workspaceName string) (*FilesystemV2, error) {
 
 	return fs, nil
 }
+
+// SetSecrets installs the cipher used for secret environment values. Passing a
+// manager that is locked is fine: secret values then stay encrypted and are
+// written back untouched.
+func (f *FilesystemV2) SetSecrets(c SecretCipher) { f.secrets = c }
 
 func (f *FilesystemV2) SetActiveWorkspace(workspaceName string) {
 	f.workspaceName = workspaceName
@@ -378,6 +395,7 @@ func (f *FilesystemV2) LoadEnvironments() ([]*domain.Environment, error) {
 
 	return loadList[domain.Environment](path, func(n *domain.Environment) {
 		f.entities.Set(n.ID(), n.GetName())
+		f.openEnvironment(n)
 	})
 }
 
@@ -622,7 +640,16 @@ func (f *FilesystemV2) writeEnvironmentFile(environment *domain.Environment, ove
 	if err != nil {
 		return err
 	}
-	return f.writeFile(path, environment, override)
+	sealed, err := f.sealEnvironment(environment)
+	if err != nil {
+		return err
+	}
+	if err := f.writeFile(path, sealed, override); err != nil {
+		return err
+	}
+	// writeFile may have uniquified the name on the copy it wrote.
+	environment.SetName(sealed.GetName())
+	return nil
 }
 
 func (f *FilesystemV2) deleteEntity(path string, e Entity) error {

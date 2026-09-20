@@ -1,11 +1,14 @@
 package settings
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
+	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/uiv2/langsrv"
+	"github.com/chapar-rest/chapar/uiv2/secretui"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
@@ -17,6 +20,7 @@ const (
 	catScripting
 	catEditor
 	catLanguageServers
+	catSecurity
 	catData
 )
 
@@ -27,6 +31,7 @@ type Panel struct {
 	dirty        bool
 	pathWarn     bool
 	lang         *langsrv.Service
+	secrets      secretui.Deps
 	install      func(language string)
 	onAppearance func(domain.GlobalConfigSpec)
 }
@@ -84,6 +89,7 @@ func (p *Panel) Layout(c *ui.Ctx) ui.View {
 			ui.NavItem{ID: "scripting", Label: "Scripting", Icon: icons.Terminal},
 			ui.NavItem{ID: "editor", Label: "Editor", Icon: icons.Pen},
 			ui.NavItem{ID: "language-servers", Label: "Language servers", Icon: icons.Code},
+			ui.NavItem{ID: "security", Label: "Security", Icon: icons.Lock},
 			ui.NavItem{ID: "data", Label: "Data", Icon: icons.Folder},
 		).Selected(p.category).OnSelectItem(func(i int, _ string) { p.category = i }).Width(200),
 		ui.VLine(th.Stroke.Thin, th.Border),
@@ -135,6 +141,8 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 		return p.scriptingForm(th, g)
 	case catLanguageServers:
 		return p.languageServersForm(th, g)
+	case catSecurity:
+		return p.securityForm(th)
 	case catEditor:
 		indentOpts := []ui.SelectOption{
 			{Label: "Spaces", Value: domain.IndentationSpaces},
@@ -348,4 +356,103 @@ func selectIndex(v string, opts []ui.SelectOption) int {
 		}
 	}
 	return 0
+}
+
+// wrapped is muted body text that wraps to the width of the settings pane; a
+// plain Text would run past its right edge.
+func wrapped(th *theme.Theme, s string) ui.View {
+	_ = th
+	return ui.Row(
+		ui.Paragraph(s).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)).Grow(1),
+	).Grow(0)
+}
+
+// SetSecrets wires the secret key flows into the Security category.
+func (p *Panel) SetSecrets(d secretui.Deps) { p.secrets = d }
+
+// securityForm shows the state of the secret key and the actions that change
+// it. None of it goes through the settings draft: the key is applied at once.
+func (p *Panel) securityForm(th *theme.Theme) ui.View {
+	m := p.secrets.Manager
+	if m == nil {
+		return ui.Column(
+			ui.Strong("Secret key"),
+			wrapped(th, "Secrets are not available in this session."),
+		).Gap(th.Spacing.S).Padding(th.Spacing.M)
+	}
+
+	rows := []ui.View{
+		ui.Strong("Secret key"),
+		wrapped(th, "Environment values marked secret are encrypted with this key. Chapar never writes the key itself to disk."),
+	}
+
+	switch {
+	case !m.Configured():
+		rows = append(rows,
+			ui.Text("No key is set up yet."),
+			ui.Row(
+				ui.Button("secret-setup", ui.Text("Set up a key")).Primary().IconStart(icons.Key).
+					OnClick(func() { secretui.EnsureKey(p.secrets, nil) }),
+			).Gap(th.Spacing.S),
+		)
+	default:
+		where := m.StoreName()
+		if m.Mode() == secret.ModePassphrase {
+			where = "a passphrase, entered once per session"
+		}
+		state := "unlocked"
+		if !m.Unlocked() {
+			state = "locked"
+		}
+		rows = append(rows,
+			wrapped(th, fmt.Sprintf("Key %s, kept in %s (%s).", m.KeyID(), where, state)),
+			wrapped(th, fmt.Sprintf("Created %s.", m.CreatedAt().Local().Format("2 Jan 2006"))),
+			ui.Row(
+				ui.Button("secret-reveal", ui.Text("Show key")).IconStart(icons.Eye).
+					Disabled(!m.Unlocked()).
+					OnClick(p.revealKey),
+				ui.Button("secret-import", ui.Text("Replace with pasted key")).IconStart(icons.Key).
+					OnClick(func() { secretui.Unlock(p.secrets, nil) }),
+				ui.Button("secret-forget", ui.Text("Remove from this machine")).IconStart(icons.Trash2).
+					OnClick(p.forgetKey),
+			).Gap(th.Spacing.S),
+		)
+	}
+
+	return ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M)
+}
+
+func (p *Panel) revealKey() {
+	host := p.secrets.Dialogs
+	if host == nil || host() == nil {
+		return
+	}
+	host().ShowAction("Show secret key",
+		"The key will be displayed in this window. Make sure nobody is looking over your shoulder or recording your screen.",
+		func() {
+			key, err := p.secrets.Manager.Reveal()
+			if err != nil {
+				if p.secrets.Error != nil {
+					p.secrets.Error(err)
+				}
+				return
+			}
+			secretui.ShowKeyOnce(p.secrets, key, "Your secret key",
+				"Keep this somewhere safe. Anyone holding it can read your secret values.", nil)
+		}, nil)
+}
+
+func (p *Panel) forgetKey() {
+	host := p.secrets.Dialogs
+	if host == nil || host() == nil {
+		return
+	}
+	m := p.secrets.Manager
+	host().ShowAction("Remove the secret key",
+		fmt.Sprintf("The key is deleted from your %s. Secret values stay encrypted and unreadable until you paste the key back, so make sure you have a copy.", m.StoreName()),
+		func() {
+			if err := m.Forget(); err != nil && p.secrets.Error != nil {
+				p.secrets.Error(err)
+			}
+		}, nil)
 }

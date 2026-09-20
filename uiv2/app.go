@@ -2,6 +2,7 @@ package uiv2
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,10 +12,12 @@ import (
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/scripting"
+	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/chapar-rest/chapar/uiv2/cookieui"
 	"github.com/chapar-rest/chapar/uiv2/langsrv"
 	"github.com/chapar-rest/chapar/uiv2/pages"
+	"github.com/chapar-rest/chapar/uiv2/secretui"
 	"github.com/chapar-rest/chapar/uiv2/sender"
 	"github.com/chapar-rest/chapar/uiv2/settings"
 	"github.com/chapar-rest/chapar/version"
@@ -52,6 +55,7 @@ type App struct {
 	lang     *langsrv.Service
 	// lspPromptClosed holds languages whose install prompt the user closed.
 	lspPromptClosed map[string]bool
+	secrets         *secret.Manager
 	console         *ConsolePanel
 	notifs          NotificationHistory
 	notifsOpen      bool
@@ -90,6 +94,9 @@ func BuildApp() *App {
 		return a
 	}
 	a.repo = repo
+	a.secrets = newSecretManager()
+	repo.SetSecrets(a.secrets)
+	a.settings.SetSecrets(a.secretDeps())
 	a.catalog = newCatalog(repo)
 	if err := a.catalog.Load(); err != nil {
 		a.initErr = err
@@ -164,6 +171,16 @@ func (a *App) dialogs() *ui.DialogHost {
 	return a.uiCtx.Dialogs()
 }
 
+// copyToClipboard puts text on the system clipboard.
+func (a *App) copyToClipboard(text string) {
+	if a.uiCtx == nil {
+		return
+	}
+	if clip := a.uiCtx.Clipboard(); clip != nil {
+		clip.Set(text)
+	}
+}
+
 func (a *App) toasts() *ui.ToastHost {
 	if a.uiCtx == nil {
 		return nil
@@ -187,6 +204,8 @@ func (a *App) deps() container.Deps {
 		},
 		Lang:          a.lang,
 		ManageCookies: a.openCookies,
+		Secrets:       a.secrets,
+		Clipboard:     a.copyToClipboard,
 	}
 }
 
@@ -611,4 +630,33 @@ func (a *App) OnKey(_ *ui.Ctx, k input.KeyEvent) bool {
 	// Save/Send are registered as commands (⌘S / ⌘Enter).
 	_ = k
 	return false
+}
+
+// secretDeps drives the secret key dialogs from anywhere in the app.
+func (a *App) secretDeps() secretui.Deps {
+	return secretui.Deps{
+		Manager:   a.secrets,
+		Dialogs:   a.dialogs,
+		Clipboard: a.copyToClipboard,
+		Toast:     a.toast,
+		Error:     a.showError,
+		Changed:   a.invalidate,
+	}
+}
+
+// invalidate asks for a redraw after something changed outside a frame.
+func (a *App) invalidate() {
+	if a.wake != nil {
+		a.wake()
+	}
+}
+
+// newSecretManager wires the secret key store to the config directory. A
+// failure here is not fatal: chapar runs, and secret values stay locked.
+func newSecretManager() *secret.Manager {
+	configDir, err := prefs.GetConfigDir()
+	if err != nil {
+		configDir = "."
+	}
+	return secret.New(secret.NewOSStore(), filepath.Join(configDir, secret.MetaFileName))
 }
