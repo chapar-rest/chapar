@@ -16,11 +16,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/inkeliz/giosvg v0.0.0-20240821232107-3208d4350d55
 	github.com/jhump/protoreflect v1.16.0
-	github.com/mirzakhany/yoga v0.11.1
+	github.com/mirzakhany/yoga v0.12.0
 	github.com/oligo/gioview v0.8.2
 	github.com/oligo/gvcode v0.4.0
 	github.com/stretchr/testify v1.12.1
 	github.com/tidwall/pretty v1.2.1
+	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/exp/shiny v0.0.0-20260820142414-ca536658362e
 	golang.org/x/net v0.59.0
 	golang.org/x/sync v0.23.0
@@ -48,6 +49,7 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/docker/go-units v0.5.0 // indirect

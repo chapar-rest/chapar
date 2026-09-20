@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
@@ -21,7 +22,14 @@ const (
 	TableColEditable
 	TableColCheckbox
 	TableColActions
+	// TableColToggle is a per-row icon button with two states. The cell value
+	// is "1" when on and anything else when off; clicking flips it and reports
+	// the new value through OnCellChange.
+	TableColToggle
 )
+
+// tableToggleOn is the cell value a TableColToggle column treats as on.
+const tableToggleOn = "1"
 
 // TableColumn defines one column in a Table.
 type TableColumn struct {
@@ -33,6 +41,11 @@ type TableColumn struct {
 	Sortable bool
 	// Locked fixes the column: no header sort and no resize handle on its right edge.
 	Locked bool
+	// IconOn, IconOff and their tooltips describe a TableColToggle column.
+	IconOn     icons.Icon
+	IconOff    icons.Icon
+	TooltipOn  string
+	TooltipOff string
 }
 
 // TableAction is an icon button in a TableColActions column.
@@ -40,6 +53,33 @@ type TableAction struct {
 	Icon    icons.Icon
 	Tooltip string
 	OnClick func(rowID string)
+	// Visible hides the action on rows it does not apply to. nil shows it on
+	// every row; the slot stays reserved either way, so the icons of the rows
+	// line up.
+	Visible func(rowID string) bool
+	// IconFor overrides Icon per row, for an action whose icon follows row
+	// state. nil uses Icon.
+	IconFor func(rowID string) icons.Icon
+	// TooltipFor overrides Tooltip per row. nil uses Tooltip.
+	TooltipFor func(rowID string) string
+}
+
+func (a TableAction) visible(rowID string) bool {
+	return a.Visible == nil || a.Visible(rowID)
+}
+
+func (a TableAction) iconFor(rowID string) icons.Icon {
+	if a.IconFor != nil {
+		return a.IconFor(rowID)
+	}
+	return a.Icon
+}
+
+func (a TableAction) tooltipFor(rowID string) string {
+	if a.TooltipFor != nil {
+		return a.TooltipFor(rowID)
+	}
+	return a.Tooltip
 }
 
 // TableRow is one data row. Cells map column IDs to display/edit values.
@@ -75,6 +115,10 @@ type Table struct {
 	HighlightSelected bool
 	// Editable allows click-to-edit on TableColEditable columns. Default true.
 	Editable bool
+	// Masked hides a cell's value behind bullets, both in the row and in the
+	// inline edit field, which then behaves like a password field (no copy).
+	// nil masks nothing.
+	Masked func(rowID, colID string) bool
 
 	// Background fills the table body. nil = transparent (parent surface shows through).
 	Background *render.Color
@@ -94,6 +138,7 @@ type Table struct {
 	rowH, headerH    float32
 	hoverRow         int
 	hoverAction      int
+	hoverToggleCol   int
 	headerCheckHover bool
 	editingRowID     string
 	editingColID     string
@@ -138,6 +183,7 @@ func NewTable(columns []TableColumn, actions []TableAction) *Table {
 		MinHeight:         200,
 		hoverRow:          -1,
 		hoverResizeCol:    -1,
+		hoverToggleCol:    -1,
 	}
 	if len(t.Actions) == 0 {
 		t.Actions = []TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}}
@@ -215,18 +261,13 @@ func (t *Table) applyHostSize() {
 }
 
 func (t *Table) layoutActionTooltip(c *Ctx) {
-	if t.hoverAction < 0 || t.hoverAction >= len(t.Actions) || t.hoverRow < 0 {
+	tip, slot := t.hoveredTooltip()
+	if tip == "" || t.hoverRow < 0 {
 		t.tipKey = -1
 		t.tipVisible = false
 		return
 	}
-	tip := t.Actions[t.hoverAction].Tooltip
-	if tip == "" {
-		t.tipKey = -1
-		t.tipVisible = false
-		return
-	}
-	key := t.hoverRow*1000 + t.hoverAction
+	key := t.hoverRow*1000 + slot
 	now := c.Now()
 	if key != t.tipKey {
 		t.tipKey = key
@@ -246,6 +287,30 @@ func (t *Table) layoutActionTooltip(c *Ctx) {
 		}
 	}
 	showTooltipAt(c, t.tipAnchor, tip)
+}
+
+// hoveredTooltip returns the tooltip for the hovered action or toggle button,
+// plus a per-row slot number that identifies it for the delay timer.
+func (t *Table) hoveredTooltip() (tip string, slot int) {
+	if t.hoverToggleCol >= 0 && t.hoverToggleCol < len(t.Columns) {
+		col := t.Columns[t.hoverToggleCol]
+		tip = col.TooltipOff
+		if t.hoverRow >= 0 && t.hoverRow < len(t.visible) {
+			if t.Rows[t.visible[t.hoverRow]].Cells[col.ID] == tableToggleOn {
+				tip = col.TooltipOn
+			}
+		}
+		return tip, len(t.Actions) + t.hoverToggleCol
+	}
+	if t.hoverAction >= 0 && t.hoverAction < len(t.Actions) {
+		act := t.Actions[t.hoverAction]
+		rowID := ""
+		if t.hoverRow >= 0 && t.hoverRow < len(t.visible) {
+			rowID = t.Rows[t.visible[t.hoverRow]].ID
+		}
+		return act.tooltipFor(rowID), t.hoverAction
+	}
+	return "", -1
 }
 
 // SetRows replaces all rows and clears edit state.
@@ -397,6 +462,10 @@ func (t *Table) rowMatches(rowIdx int) bool {
 	row := t.Rows[rowIdx]
 	for _, col := range t.Columns {
 		if col.Kind == TableColText || col.Kind == TableColEditable {
+			if t.cellMasked(row.ID, col.ID) {
+				// Matching a hidden value would leak it one guess at a time.
+				continue
+			}
 			if strings.Contains(strings.ToLower(row.Cells[col.ID]), q) {
 				return true
 			}
@@ -650,6 +719,9 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 				if t.editingRowID == row.ID && t.editingColID == col.ID {
 					continue
 				}
+				if t.cellMasked(row.ID, col.ID) {
+					val = maskText(val)
+				}
 				style := th.Typography.Body
 				_, lh := text.MeasureAt(val, style.Size)
 				tx := cr.X + t.padX()
@@ -665,10 +737,34 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 				dl.PushClip(clipR)
 				text.DrawStringTopAt(dl, val, tx, cr.Y+(t.rowH-lh)/2, th.Foreground, style.Size)
 				dl.PopClip()
+			case TableColToggle:
+				iconSz, slot := t.actionSlotSize()
+				on := row.Cells[col.ID] == tableToggleOn
+				icon := col.IconOff
+				iconCol := th.ForegroundMuted
+				if on {
+					icon = col.IconOn
+					iconCol = th.Accent
+				}
+				if icon.Empty() {
+					break
+				}
+				tr := t.toggleSlotRect(cr, slot)
+				if vi == t.hoverRow && i == t.hoverToggleCol {
+					dl.AddRoundedRect(tr, th.Radius.Small, th.ListHover)
+					if !on {
+						iconCol = th.Foreground
+					}
+				}
+				ir := render.Rect{X: tr.X + (slot-iconSz)/2, Y: tr.Y + (slot-iconSz)/2, W: iconSz, H: iconSz}
+				frameIcons().Draw(dl, icon, ir, iconCol)
 			case TableColActions:
 				iconSz, slot := t.actionSlotSize()
 				pad := th.Spacing.XS
 				for ai, act := range t.Actions {
+					if !act.visible(row.ID) {
+						continue
+					}
 					ax := t.actionSlotX(cr, ai)
 					ir := render.Rect{X: ax + pad, Y: cr.Y + (t.rowH-iconSz)/2, W: iconSz, H: iconSz}
 					actionCol := th.ForegroundMuted
@@ -677,7 +773,7 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 						dl.AddRoundedRect(bg, th.Radius.Small, th.ListHover)
 						actionCol = th.Foreground
 					}
-					frameIcons().Draw(dl, act.Icon, ir, actionCol)
+					frameIcons().Draw(dl, act.iconFor(row.ID), ir, actionCol)
 				}
 			}
 		}
@@ -770,6 +866,24 @@ func (t *Table) actionSlotSize() (iconSz, slot float32) {
 	return iconSz, slot
 }
 
+// toggleSlotRect centers a toggle button of size slot inside its cell.
+func (t *Table) toggleSlotRect(cr render.Rect, slot float32) render.Rect {
+	return render.Rect{
+		X: cr.X + (cr.W-slot)/2,
+		Y: cr.Y + (t.rowH-slot)/2,
+		W: slot,
+		H: slot,
+	}
+}
+
+func (t *Table) cellMasked(rowID, colID string) bool {
+	return t.Masked != nil && t.Masked(rowID, colID)
+}
+
+func maskText(s string) string {
+	return strings.Repeat("•", utf8.RuneCountInString(s))
+}
+
 func (t *Table) actionSlotX(cr render.Rect, actionIdx int) float32 {
 	_, slot := t.actionSlotSize()
 	ax := cr.X + float32(actionIdx)*slot
@@ -854,6 +968,7 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 	t.syncMetrics()
 	t.hoverRow = -1
 	t.hoverAction = -1
+	t.hoverToggleCol = -1
 	if !t.resizeDragging {
 		t.hoverResizeCol = -1
 	}
@@ -949,9 +1064,27 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 				}
 				handled = true
 			}
+		case TableColToggle:
+			_, slot := t.actionSlotSize()
+			tr := t.toggleSlotRect(cr, slot)
+			if tr.Contains(m.X, m.Y) {
+				t.hoverToggleCol = i
+				t.tipAnchor = tr
+				if m.Released {
+					t.toggleCell(rowIdx, col.ID)
+					m.Consumed = true
+				}
+				if m.Pressed {
+					m.Consumed = true
+				}
+			}
+			handled = true
 		case TableColActions:
 			_, slot := t.actionSlotSize()
 			for ai, act := range t.Actions {
+				if !act.visible(row.ID) {
+					continue
+				}
 				ax := t.actionSlotX(cr, ai)
 				ar := render.Rect{X: ax, Y: cr.Y + (t.rowH-slot)/2, W: slot, H: slot}
 				if ar.Contains(m.X, m.Y) {
@@ -1028,6 +1161,37 @@ func (t *Table) applyRowClick(rowID string, visibleIdx int, mods input.Mod) {
 	}
 }
 
+// toggleCell flips a TableColToggle cell and reports the new value.
+func (t *Table) toggleCell(rowIdx int, colID string) {
+	row := &t.Rows[rowIdx]
+	if row.Cells == nil {
+		row.Cells = map[string]string{}
+	}
+	val := tableToggleOn
+	if row.Cells[colID] == tableToggleOn {
+		val = ""
+	}
+	row.Cells[colID] = val
+	if t.OnCellChange != nil {
+		t.OnCellChange(row.ID, colID, val)
+	}
+}
+
+// SetCell writes a cell value without firing OnCellChange. Returns whether the
+// row exists.
+func (t *Table) SetCell(rowID, colID, value string) bool {
+	rowIdx, ok := t.rowByID(rowID)
+	if !ok {
+		return false
+	}
+	if t.Rows[rowIdx].Cells == nil {
+		t.Rows[rowIdx].Cells = map[string]string{}
+	}
+	t.Rows[rowIdx].Cells[colID] = value
+	t.rebuildVisible()
+	return true
+}
+
 func (t *Table) fireAction(act TableAction, rowID string) {
 	if act.OnClick != nil {
 		act.OnClick(rowID)
@@ -1050,6 +1214,7 @@ func (t *Table) startEdit(rowID, colID string) {
 	t.editingRowID = rowID
 	t.editingColID = colID
 	t.editOriginal = val
+	t.editField.cfg.Password = t.cellMasked(rowID, colID)
 	t.editField.load(val)
 	t.editField.Focus()
 }
