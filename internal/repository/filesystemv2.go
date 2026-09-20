@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
 )
@@ -50,6 +51,11 @@ func NewFilesystemV2(dataDir, workspaceName string) (*FilesystemV2, error) {
 
 func (f *FilesystemV2) SetActiveWorkspace(workspaceName string) {
 	f.workspaceName = workspaceName
+}
+
+// WorkspaceDir returns the directory of the active workspace.
+func (f *FilesystemV2) WorkspaceDir() (string, error) {
+	return filepath.Join(f.dataDir, f.workspaceName), nil
 }
 
 func (f *FilesystemV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
@@ -372,6 +378,11 @@ func (f *FilesystemV2) DeleteEnvironment(environment *domain.Environment) error 
 
 	// Remove the environment from the entities map
 	f.entities.Delete(environment.ID())
+
+	jar := cookies.File(filepath.Join(f.dataDir, f.workspaceName), environment.ID())
+	if err := os.Remove(jar); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete cookie jar: %w", err)
+	}
 	return nil
 }
 

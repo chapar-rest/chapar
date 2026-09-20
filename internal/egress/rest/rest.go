@@ -16,6 +16,7 @@ import (
 
 	"golang.org/x/net/http2"
 
+	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
@@ -28,6 +29,13 @@ import (
 type Service struct {
 	requests     *state.Requests
 	environments *state.Environments
+	cookies      *cookies.Store
+}
+
+// SetCookieStore makes requests send and store cookies in the jar of the
+// environment they are sent with. A nil store disables cookie handling.
+func (s *Service) SetCookieStore(store *cookies.Store) {
+	s.cookies = store
 }
 
 func New(requests *state.Requests, environments *state.Environments) *Service {
@@ -191,6 +199,15 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 		httpReq.Header.Add("User-Agent", version.GetAgentName())
 	}
 
+	envID := ""
+	if e != nil {
+		envID = e.ID()
+	}
+	jar, err := s.cookies.Attach(envID, client, httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("cookie jar: %w", err)
+	}
+
 	traceCol := egress.NewHTTPTraceCollector()
 	httpReq = httpReq.WithContext(httptrace.WithClientTrace(httpReq.Context(), traceCol.ClientTrace()))
 
@@ -228,6 +245,11 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 
 	for k, v := range httpReq.Header {
 		response.RequestHeaders[k] = strings.Join(v, ", ")
+	}
+
+	if jar != nil {
+		response.CookieEvents = jar.Events()
+		response.SentCookies = jar.Sent()
 	}
 
 	ct := response.ResponseHeaders["Content-Type"]

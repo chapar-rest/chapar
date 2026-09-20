@@ -29,7 +29,6 @@ type Container struct {
 	descEd     *ui.Editor
 	respEd     *ui.Editor
 	respHdrEd  *ui.Editor
-	respCkEd   *ui.Editor
 	preScript  *ui.Editor
 	postScript *ui.Editor
 
@@ -59,6 +58,7 @@ type Container struct {
 	respRaw    bool
 
 	timeline container.TimelineState
+	cookies  container.CookiesState
 
 	authState container.AuthState
 }
@@ -91,7 +91,6 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = ui.NewEditor(nil, highlight.NewJSON(), ui.WithSoftWrap(true))
 	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
-	c.respCkEd = ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
 
 	id := r.MetaData.ID
 	c.queryParams = container.NewKVTable("query-"+id, c.markDirty)
@@ -131,7 +130,7 @@ func (c *Container) Close() {
 	c.descEd.Close()
 	c.respEd.Close()
 	c.respHdrEd.Close()
-	c.respCkEd.Close()
+	c.cookies.Close()
 	c.timeline.Close()
 	if c.preScript != nil {
 		c.preScript.Close()
@@ -366,8 +365,10 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 
 	var content ui.View
-	switch c.respActive {
-	case 3:
+	switch {
+	case c.respActive == 2 && !c.respErr:
+		content = container.CookiesView("http-ck-"+id, th, ctx, c.deps, &c.cookies, c.respRaw)
+	case c.respActive == 3:
 		var steps []egress.TimelineStep
 		if c.lastResp != nil {
 			steps = c.lastResp.Timeline
@@ -409,8 +410,6 @@ func (c *Container) activeResp() *ui.Editor {
 	switch c.respActive {
 	case 1:
 		return c.respHdrEd
-	case 2:
-		return c.respCkEd
 	default:
 		return c.respEd
 	}
@@ -466,11 +465,7 @@ func (c *Container) handleResult(r result) {
 		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
 	c.respHdrEd = container.ReplaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
-	var ck strings.Builder
-	for _, cookie := range res.Cookies {
-		fmt.Fprintf(&ck, "%s=%s\n", cookie.Name, cookie.Value)
-	}
-	c.respCkEd = container.ReplaceEditor(c.respCkEd, []byte(ck.String()), highlight.Noop{})
+	c.cookies.Set(c.deps, res)
 	c.timeline.SetSteps(res.Timeline)
 	vars := container.DumpVariables(c.vars)
 	container.UpdateVariablePreviews(c.vars, vars, res)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
 	"github.com/chapar-rest/chapar/internal/logger"
@@ -37,6 +38,12 @@ type Response struct {
 	ResponseHeaders map[string]string
 	RequestHeaders  map[string]string
 	Cookies         []*http.Cookie
+
+	// CookieEvents is what the cookie jar did with each Set-Cookie header,
+	// including those on redirect hops. SentCookies are the jar cookies that
+	// were attached to the request. Both are empty when no jar was used.
+	CookieEvents []cookies.Event
+	SentCookies  []*http.Cookie
 
 	// grpc
 	RequestMetadata  []domain.KeyValue

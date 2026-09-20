@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	graphqlsvc "github.com/chapar-rest/chapar/internal/egress/graphql"
@@ -35,6 +36,20 @@ type Service struct {
 	proto   func() []*domain.ProtoFile
 	onEnv   func(*domain.Environment)
 	script  scripting.Executor
+	cookies *cookies.Store
+}
+
+// SetCookieStore makes HTTP and GraphQL requests use the cookie jar of the
+// environment they are sent with.
+func (s *Service) SetCookieStore(store *cookies.Store) {
+	s.cookies = store
+	s.rest.SetCookieStore(store)
+	s.graphql.SetCookieStore(store)
+}
+
+// Cookies returns the cookie store, or nil when cookies are not handled.
+func (s *Service) Cookies() *cookies.Store {
+	return s.cookies
 }
 
 // SetExecutor wires the Python scripting executor for pre/post scripts.
@@ -93,6 +108,7 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 	default:
 		return nil, fmt.Errorf("unknown request type: %s", req.MetaData.Type)
 	}
+	s.saveCookies(env)
 	if err != nil {
 		if res == nil {
 			res = &egress.Response{Error: err}
@@ -387,5 +403,18 @@ func copyEnv(e *domain.Environment) *domain.Environment {
 		Kind:       e.Kind,
 		MetaData:   e.MetaData,
 		Spec:       e.Spec.Clone(),
+	}
+}
+
+func (s *Service) saveCookies(env *domain.Environment) {
+	if s.cookies == nil {
+		return
+	}
+	envID := ""
+	if env != nil {
+		envID = env.ID()
+	}
+	if err := s.cookies.Save(envID); err != nil {
+		logger.Error(fmt.Sprintf("failed to save cookies: %v", err))
 	}
 }

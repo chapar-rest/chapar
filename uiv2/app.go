@@ -5,12 +5,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	"github.com/chapar-rest/chapar/uiv2/cookieui"
 	"github.com/chapar-rest/chapar/uiv2/langsrv"
 	"github.com/chapar-rest/chapar/uiv2/pages"
 	"github.com/chapar-rest/chapar/uiv2/sender"
@@ -34,6 +36,7 @@ type App struct {
 	catalog  *Catalog
 	sender   *sender.Service
 	settings *settings.Panel
+	cookies  *cookieui.Dialog
 	ws       *Workspace
 
 	requests *pages.Requests
@@ -95,6 +98,15 @@ func BuildApp() *App {
 
 	a.sender = sender.New(repo, a.catalog.RequestByID, a.catalog.CollectionByID, a.catalog.ProtoFileList, func(env *domain.Environment) {
 		a.catalog.ReplaceEnvironment(env)
+	})
+	cookieStore := cookies.NewStore(repo.WorkspaceDir, nil)
+	a.sender.SetCookieStore(cookieStore)
+	a.cookies = cookieui.New(cookieui.Deps{
+		Store:     cookieStore,
+		Envs:      func() []*domain.Environment { return a.catalog.Environments },
+		ActiveEnv: a.catalog.ActiveEnvironment,
+		Error:     a.showError,
+		Toast:     a.toast,
 	})
 
 	a.ws = newWorkspace(a.deps, a.confirmClose)
@@ -173,7 +185,14 @@ func (a *App) deps() container.Deps {
 			Error: a.showError,
 			Toast: a.toast,
 		},
-		Lang: a.lang,
+		Lang:          a.lang,
+		ManageCookies: a.openCookies,
+	}
+}
+
+func (a *App) openCookies() {
+	if a.cookies != nil && a.uiCtx != nil {
+		a.cookies.Show(a.uiCtx)
 	}
 }
 
@@ -476,7 +495,7 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 			OnClick(func() { c.Commands().Show() }),
 		ui.Spacer(),
 		ui.IconButton("top-website", icons.Globe).OnClick(func() {}),
-		ui.IconButton("top-cookies", icons.Cookie).OnClick(func() {}),
+		ui.IconButton("top-cookies", icons.Cookie).Tooltip("Cookies").OnClick(a.openCookies),
 		ui.Select("top-env", envOpts).Width(180).Selected(envSel).OnChange(func(v string) {
 			_ = a.catalog.SetActiveEnv(v)
 		}),

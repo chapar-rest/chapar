@@ -58,6 +58,8 @@ type Deps struct {
 	// Lang creates code editors wired to language servers. Nil means
 	// highlighting only.
 	Lang *langsrv.Service
+	// ManageCookies opens the cookie jar dialog. Nil hides the entry points.
+	ManageCookies func()
 }
 
 // NewScriptEditor returns an editor for a Python pre/post-request script.

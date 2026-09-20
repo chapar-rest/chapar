@@ -43,6 +43,7 @@ type Container struct {
 	errText               string // error of the last failed send; shown by ErrorView
 	respRaw               bool
 	timeline              container.TimelineState
+	cookies               container.CookiesState
 	authState             container.AuthState
 }
 
@@ -60,7 +61,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 			{Title: "Query"}, {Title: "Variables"}, {Title: "Headers"},
 			{Title: "Auth"}, {Title: "Actions"}, {Title: "Info"},
 		},
-		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Timeline"}},
+		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Cookies"}, {Title: "Timeline"}},
 		statusText: "Ready",
 	}
 	c.queryEd = ui.NewEditor([]byte(g.Query), highlight.Noop{})
@@ -95,6 +96,7 @@ func (c *Container) Close() {
 	c.respEd.Close()
 	c.respHdrEd.Close()
 	c.timeline.Close()
+	c.cookies.Close()
 	if c.preScript != nil {
 		c.preScript.Close()
 	}
@@ -238,8 +240,10 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 
 	var content ui.View
-	switch c.respActive {
-	case 2:
+	switch {
+	case c.respActive == 2 && c.errText == "":
+		content = container.CookiesView("gql-ck-"+id, th, ctx, c.deps, &c.cookies, c.respRaw)
+	case c.respActive == 3:
 		var steps []egress.TimelineStep
 		if c.lastResp != nil {
 			steps = c.lastResp.Timeline
@@ -317,5 +321,6 @@ func (c *Container) handle(r result) {
 		fmt.Fprintf(&hdr, "%s: %s\n", k, v)
 	}
 	c.respHdrEd = container.ReplaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
+	c.cookies.Set(c.deps, res)
 	c.timeline.SetSteps(res.Timeline)
 }
