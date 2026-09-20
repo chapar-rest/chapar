@@ -30,7 +30,6 @@ import (
 const (
 	navRequests = iota
 	navEnvs
-	navProto
 	navWorkspaces
 )
 
@@ -44,7 +43,6 @@ type App struct {
 
 	requests *pages.Requests
 	envs     *pages.Environments
-	protos   *pages.ProtoFiles
 	spaces   *pages.Workspaces
 
 	navIndex int
@@ -103,7 +101,7 @@ func BuildApp() *App {
 		return a
 	}
 
-	a.sender = sender.New(repo, a.catalog.RequestByID, a.catalog.CollectionByID, a.catalog.ProtoFileList, func(env *domain.Environment) {
+	a.sender = sender.New(repo, a.catalog.RequestByID, a.catalog.CollectionByID, func(env *domain.Environment) {
 		a.catalog.ReplaceEnvironment(env)
 	})
 	cookieStore := cookies.NewStore(repo.WorkspaceDir, nil)
@@ -131,7 +129,6 @@ func BuildApp() *App {
 		a.catalog.EnvironmentByID,
 		a.catalog.Load,
 		a.ws, files, a.showError)
-	a.protos = pages.NewProtoFilesPage(repo, a.catalog.ProtoFileList, a.catalog.Load, files, a.showError)
 	a.spaces = pages.NewWorkspacesPage(pages.WorkspacesDeps{
 		Repo:     repo,
 		List:     func() []*domain.Workspace { return a.catalog.Workspaces },
@@ -221,9 +218,6 @@ func (a *App) rebuildTrees() {
 	}
 	if a.envs != nil {
 		a.envs.Rebuild()
-	}
-	if a.protos != nil {
-		a.protos.Reload()
 	}
 }
 
@@ -375,7 +369,6 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		ui.Section("Navigation"),
 		ui.Cmd("nav.requests").Title("Go to Requests").Icon(icons.Send).Run(func() { a.navIndex = navRequests }),
 		ui.Cmd("nav.envs").Title("Go to Environments").Icon(icons.FolderPlus).Run(func() { a.navIndex = navEnvs }),
-		ui.Cmd("nav.protos").Title("Go to Proto files").Icon(icons.Code).Run(func() { a.navIndex = navProto }),
 		ui.Cmd("nav.spaces").Title("Go to Workspaces").Icon(icons.Boxes).Run(func() { a.navIndex = navWorkspaces }),
 		ui.Cmd("app.settings").Title("Open Settings").Shortcut("⌘,").Icon(icons.Settings).Run(func() { a.openSettings(c) }),
 		ui.Cmd("file.save").Title("Save").Shortcut("⌘S").Icon(icons.Save).Run(func() { a.ws.SaveActive() }),
@@ -464,8 +457,6 @@ func (a *App) pageView(c *ui.Ctx) ui.View {
 	switch a.navIndex {
 	case navEnvs:
 		return a.envs.Layout(c)
-	case navProto:
-		return a.protos.Layout(c)
 	case navWorkspaces:
 		return a.spaces.Layout(c)
 	default:
@@ -567,7 +558,6 @@ func (a *App) nav(c *ui.Ctx) ui.View {
 	return ui.Nav("main-nav", ui.NavVertical, ui.NavIconTop,
 		ui.NavItem{ID: "requests", Label: "Requests", Icon: icons.Send},
 		ui.NavItem{ID: "environments", Label: "Envs", Icon: icons.FolderPlus},
-		ui.NavItem{ID: "protofiles", Label: "Protos", Icon: icons.Code},
 		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: icons.Boxes},
 	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).
 		Width(75).NavBackground(&th.ChromeMuted)

@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
+	grpcsvc "github.com/chapar-rest/chapar/internal/egress/grpc"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/mirzakhany/yoga/highlight"
@@ -19,6 +21,9 @@ import (
 type result struct {
 	resp *egress.Response
 	err  error
+	// missing carries unresolved proto imports back to the UI thread, where
+	// the dialog that asks the user to locate them can be opened.
+	missing []grpcsvc.MissingImport
 	// exampleBody carries a generated request body back to the UI thread.
 	// Editors must not be built off it: ui.NewEditor measures text through the
 	// window's shared text engine.
@@ -172,7 +177,10 @@ func (c *Container) loadMethods() {
 	env := c.deps.ActiveEnv()
 	go func() {
 		svcs, err := c.deps.Sender.LoadGRPCServices(req, env)
-		if err != nil {
+		var missingErr *grpcsvc.MissingImportsError
+		if errors.As(err, &missingErr) {
+			c.resultCh <- result{missing: missingErr.Missing}
+		} else if err != nil {
 			c.resultCh <- result{err: err}
 		} else {
 			c.req.Spec.GRPC.Services = svcs
@@ -293,25 +301,114 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 }
 
 func (c *Container) serverTab(th *theme.Theme, id string, spec *domain.GRPCRequestSpec) []ui.View {
-	protoLabel := "Choose proto file…"
-	if len(spec.ServerInfo.ProtoFiles) > 0 {
-		protoLabel = spec.ServerInfo.ProtoFiles[len(spec.ServerInfo.ProtoFiles)-1]
-	}
-	return []ui.View{
+	info := &spec.ServerInfo
+	rows := []ui.View{
 		ui.Checkbox("grpc-reflect-"+id, "Server reflection").
-			Check(spec.ServerInfo.ServerReflection).
-			OnToggle(func(v bool) { spec.ServerInfo.ServerReflection = v; c.markDirty() }),
-		ui.Row(
-			ui.Button("grpc-proto-"+id, ui.Text(protoLabel)).OnClick(func() {
-				container.PickProtoFile(c.deps, func(p string) {
-					spec.ServerInfo.ProtoFiles = append(spec.ServerInfo.ProtoFiles, p)
-					spec.ServerInfo.ServerReflection = false
-					c.markDirty()
-				})
-			}),
-			ui.Button("grpc-load-"+id, ui.Text("Reload methods")).Disabled(c.loading).OnClick(c.loadMethods),
-		).Gap(th.Spacing.S),
+			Check(info.ServerReflection).
+			OnToggle(func(v bool) { info.ServerReflection = v; c.markDirty() }),
 	}
+
+	if info.ServerReflection {
+		rows = append(rows, ui.Muted("Methods come from the server; proto files are not needed."))
+	} else {
+		rows = append(rows,
+			ui.Strong("Proto files"),
+			ui.PathList("grpc-protos-"+id, info.ProtoFiles).
+				AddLabel("Add proto files…").
+				PathEmptyText("No proto files").
+				OnPaths(func(paths []string) { info.ProtoFiles = paths; c.markDirty() }).
+				OnAdd(func() {
+					container.PickProtoFiles(c.deps, func(picked []string) {
+						for _, p := range picked {
+							info.ProtoFiles = appendUnique(info.ProtoFiles, p)
+						}
+						c.markDirty()
+						c.loadMethods()
+					})
+				}),
+			ui.Strong("Import paths"),
+			ui.Muted("Roots for the dependencies your proto files import."),
+			ui.PathList("grpc-imports-"+id, info.ImportPaths).
+				PathIcon(icons.Folder).
+				AddLabel("Add import path…").
+				PathEmptyText("None; each proto file's own folder is always searched").
+				OnPaths(func(paths []string) { info.ImportPaths = paths; c.markDirty() }).
+				OnAdd(func() {
+					container.PickFolder(c.deps, "Add import path", func(dir string) {
+						info.ImportPaths = appendUnique(info.ImportPaths, dir)
+						c.markDirty()
+						c.loadMethods()
+					})
+				}),
+		)
+	}
+
+	rows = append(rows, ui.Row(
+		ui.Button("grpc-load-"+id, ui.Text("Reload methods")).Disabled(c.loading).OnClick(c.loadMethods),
+		ui.Spacer(),
+	).Gap(th.Spacing.S))
+	return rows
+}
+
+// showMissingImports asks the user to locate each dependency the proto files
+// import but no import path holds. Locating one adds its root and retries, so
+// the dialog reappears only while something is still unresolved.
+func (c *Container) showMissingImports(missing []grpcsvc.MissingImport) {
+	if c.deps.Dialogs == nil {
+		c.deps.ShowError(&grpcsvc.MissingImportsError{Missing: missing})
+		return
+	}
+	dialogs := c.deps.Dialogs()
+	if dialogs == nil {
+		c.deps.ShowError(&grpcsvc.MissingImportsError{Missing: missing})
+		return
+	}
+
+	info := &c.req.Spec.GRPC.ServerInfo
+	locate := func(name string) {
+		dialogs.Close()
+		container.PickFolder(c.deps, "Locate "+name, func(dir string) {
+			info.ImportPaths = appendUnique(info.ImportPaths, grpcsvc.ImportRootFor(dir, name))
+			c.markDirty()
+			c.loadMethods()
+		})
+	}
+
+	dialogs.Show(ui.DialogOpts{
+		Title:    "Missing proto dependencies",
+		Severity: ui.DialogSeverityWarning,
+		Width:    560,
+		Height:   float32(200 + 44*len(missing)),
+		Body: func(ctx *ui.Ctx) ui.View {
+			th := ctx.Theme()
+			kids := []ui.View{
+				ui.Muted("These imports were not found. Point Chapar at the folder each one lives in."),
+			}
+			for _, m := range missing {
+				name := m.Name
+				kids = append(kids, ui.Row(
+					ui.Icon(icons.FileQuestionMark, th.Metrics.IconSizeSM, th.ForegroundMuted),
+					ui.Text(name).Ellipsis(ui.EllipsisMiddle).Grow(1).Tooltip(name),
+					ui.Button("grpc-locate-"+name, ui.Text("Locate…")).OnClick(func() { locate(name) }),
+				).Gap(th.Spacing.S))
+			}
+			return ui.Scroll("grpc-missing-scroll", ui.Column(kids...).Gap(th.Spacing.S).Padding(th.Spacing.M))
+		},
+		Actions: []ui.DialogAction{{Label: "Close"}},
+	})
+}
+
+// appendUnique adds p to paths unless it is already there.
+func appendUnique(paths []string, p string) []string {
+	if p == "" {
+		return paths
+	}
+	for _, existing := range paths {
+		if existing == p {
+			return paths
+		}
+	}
+	return append(paths, p)
 }
 
 func (c *Container) settingsTab(th *theme.Theme, id string, spec *domain.GRPCRequestSpec) []ui.View {
@@ -424,6 +521,11 @@ func (c *Container) applyBodyEditor() {
 
 func (c *Container) handle(r result) {
 	c.pending = false
+	if len(r.missing) > 0 {
+		c.statusText = "Missing proto dependencies"
+		c.showMissingImports(r.missing)
+		return
+	}
 	if r.exampleBody != nil {
 		c.bodyEd.Close()
 		c.bodyEd = container.NewBodyEditor(c.deps, "grpc-body-"+c.req.MetaData.ID, domain.RequestBodyTypeJSON, []byte(*r.exampleBody), ui.WithSoftWrap(true))

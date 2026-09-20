@@ -7,12 +7,38 @@ import (
 	"github.com/mirzakhany/yoga/theme"
 )
 
+// EllipsisMode selects how Text shortens a string that does not fit its box.
+type EllipsisMode int
+
+const (
+	// EllipsisNone keeps Text at its measured width; it never shrinks.
+	EllipsisNone EllipsisMode = iota
+	// EllipsisEnd keeps the head of the string: "a/very/long/pa…".
+	EllipsisEnd
+	// EllipsisMiddle keeps the head and the tail, which is what long file
+	// paths need: "/Users/me/…/api/v1.proto".
+	EllipsisMiddle
+)
+
+const ellipsisRune = "…"
+
 // Text renders a string. .Size(n) sets the font size in logical pixels.
 // .Weight(w) selects Regular (400) or SemiBold (600+).
 // Color and size inherit from the parent environment (e.g. a Button's TextColor)
 // unless overridden with Style.
 func Text(s string) *Node {
 	return &Node{kind: kindText, text: s}
+}
+
+// Ellipsis lets Text shrink below its measured width and paint a shortened
+// string ending in "…" instead of overflowing its parent. The node keeps its
+// full width as the flex basis, so it only shortens when the parent is too
+// narrow; give it Grow or a MaxWidth to control how much room it claims.
+func (n *Node) Ellipsis(m EllipsisMode) *Node {
+	if n.kind == kindText {
+		n.ellipsis = m
+	}
+	return n
 }
 
 func (n *Node) layoutText(c *Ctx) *layout.Element {
@@ -57,9 +83,20 @@ func (n *Node) layoutText(c *Ctx) *layout.Element {
 		padL, padR = n.spec.pad.Left, n.spec.pad.Right
 		padT, padB = n.spec.pad.Top, n.spec.pad.Bottom
 	}
-	st := applyLayoutSpec(layout.Box().Size(tw+padL+padR, lh+padT+padB).FlexShrink(0), n.spec)
+	box := layout.Box().Size(tw+padL+padR, lh+padT+padB).FlexShrink(0)
+	mode := n.ellipsis
+	if mode != EllipsisNone {
+		// Shrinking is what makes the ellipsis reachable: keep the measured
+		// width as the basis but let the parent take it down to nothing.
+		box = box.FlexShrink(1).Min(0, box.MinHeight)
+	}
+	st := applyLayoutSpec(box, n.spec)
 	el := layout.New(st)
 	content := n.text
+	// Truncation is resolved at paint time, when the final frame is known.
+	// Both fields are only ever touched from the paint pass.
+	lastAvail := float32(-1)
+	shown := content
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		pad := el.Style.Padding
 		x := el.Frame.X + pad.Left
@@ -68,10 +105,74 @@ func (n *Node) layoutText(c *Ctx) *layout.Element {
 		if contentH > lh {
 			y += (contentH - lh) / 2
 		}
-		text.DrawStringTopAtWeight(dl, content, x, y, col, size, weight)
+		draw := content
+		if mode != EllipsisNone {
+			avail := el.Frame.W - pad.Left - pad.Right
+			if avail != lastAvail {
+				lastAvail = avail
+				shown = truncateToWidth(text, content, size, weight, avail, mode)
+			}
+			draw = shown
+		}
+		text.DrawStringTopAtWeight(dl, draw, x, y, col, size, weight)
 	}
 	_ = render.Color{}
 	return el
+}
+
+// truncateToWidth shortens s so that it fits avail logical pixels, ending (or
+// hinging) on "…". It returns s unchanged when it already fits.
+func truncateToWidth(eng *shape.Engine, s string, size float32, weight int, avail float32, mode EllipsisMode) string {
+	if eng == nil || mode == EllipsisNone || s == "" {
+		return s
+	}
+	width := func(v string) float32 {
+		w, _ := eng.MeasureAtWeight(v, size, weight)
+		return w
+	}
+	if avail <= 0 {
+		return ""
+	}
+	if width(s) <= avail {
+		return s
+	}
+	if width(ellipsisRune) > avail {
+		return ""
+	}
+	// Width grows with the number of kept runes, so the largest count that
+	// still fits can be found by bisection. len(runes) itself is excluded:
+	// the full string is already known not to fit.
+	runes := []rune(s)
+	lo, hi := 0, len(runes)-1
+	best := ellipsisRune
+	for lo <= hi {
+		mid := (lo + hi) / 2
+		cand := elide(runes, mid, mode)
+		if width(cand) <= avail {
+			best = cand
+			lo = mid + 1
+		} else {
+			hi = mid - 1
+		}
+	}
+	return best
+}
+
+// elide keeps n of the given runes and stands the rest down to "…", at the end
+// or in the middle.
+func elide(runes []rune, n int, mode EllipsisMode) string {
+	if n <= 0 {
+		return ellipsisRune
+	}
+	if n >= len(runes) {
+		return string(runes)
+	}
+	if mode == EllipsisMiddle {
+		head := (n + 1) / 2
+		tail := n - head
+		return string(runes[:head]) + ellipsisRune + string(runes[len(runes)-tail:])
+	}
+	return string(runes[:n]) + ellipsisRune
 }
 
 // Title is title-ramp text in SemiBold.

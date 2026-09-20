@@ -101,7 +101,6 @@ type Catalog interface {
 	Load() error
 	AllCollections() []*domain.Collection
 	StandaloneRequests() []*domain.Request
-	ProtoFileList() []*domain.ProtoFile
 }
 
 // OpenSpec is the factory input. Kind is inferred from the non-nil document.

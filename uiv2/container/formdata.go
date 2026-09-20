@@ -97,9 +97,46 @@ func pickFiles(deps Deps, onPick func([]string)) {
 	})
 }
 
-// PickProtoFile opens a file dialog for .proto files.
-func PickProtoFile(deps Deps, onPick func(string)) {
-	pickSingleFile(deps, "Choose proto file", []string{".proto"}, onPick)
+// PickProtoFiles opens a file dialog that takes one or more .proto files.
+func PickProtoFiles(deps Deps, onPick func([]string)) {
+	if deps.Files == nil {
+		return
+	}
+	fd := deps.Files()
+	if fd == nil {
+		return
+	}
+	fd.Show(ui.FileDialogOpts{
+		Title:    "Add proto files",
+		Mode:     ui.FileDialogOpenFile,
+		Multiple: true,
+		Filters:  []ui.FileFilter{{Label: "Proto", Exts: []string{".proto"}}},
+		OnConfirm: func(paths []string) {
+			if len(paths) > 0 {
+				onPick(paths)
+			}
+		},
+	})
+}
+
+// PickFolder opens a folder picker, for choosing an import root.
+func PickFolder(deps Deps, title string, onPick func(string)) {
+	if deps.Files == nil {
+		return
+	}
+	fd := deps.Files()
+	if fd == nil {
+		return
+	}
+	fd.Show(ui.FileDialogOpts{
+		Title: title,
+		Mode:  ui.FileDialogOpenFolder,
+		OnConfirm: func(paths []string) {
+			if len(paths) > 0 {
+				onPick(paths[0])
+			}
+		},
+	})
 }
 
 // PickCertFile opens a file dialog for certificate files.

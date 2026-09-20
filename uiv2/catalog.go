@@ -17,7 +17,6 @@ type Catalog struct {
 	Collections  []*domain.Collection
 	Requests     []*domain.Request
 	Environments []*domain.Environment
-	ProtoFiles   []*domain.ProtoFile
 	Workspaces   []*domain.Workspace
 
 	ActiveEnvID       string
@@ -53,10 +52,11 @@ func (c *Catalog) Load() error {
 		return err
 	}
 
+	migrateProtoImportPaths(c.repo, cols, reqs, protos)
+
 	c.Collections = cols
 	c.Requests = reqs
 	c.Environments = envs
-	c.ProtoFiles = protos
 	c.Workspaces = workspaces
 
 	state := prefs.GetAppState()
@@ -154,12 +154,6 @@ func (c *Catalog) ActiveWorkspace() *domain.Workspace {
 		return nil
 	}
 	return c.WorkspaceByID(c.ActiveWorkspaceID)
-}
-
-func (c *Catalog) ProtoFileList() []*domain.ProtoFile {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]*domain.ProtoFile(nil), c.ProtoFiles...)
 }
 
 func (c *Catalog) AllCollections() []*domain.Collection {

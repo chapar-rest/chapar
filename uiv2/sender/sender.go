@@ -33,7 +33,6 @@ type Service struct {
 	repo    repository.RepositoryV2
 	lookup  RequestLookup
 	colls   CollectionLookup
-	proto   func() []*domain.ProtoFile
 	onEnv   func(*domain.Environment)
 	script  scripting.Executor
 	cookies *cookies.Store
@@ -58,7 +57,7 @@ func (s *Service) SetExecutor(exec scripting.Executor) {
 }
 
 // New builds a sender that never reads internal/state.
-func New(repo repository.RepositoryV2, lookup RequestLookup, colls CollectionLookup, proto func() []*domain.ProtoFile, onEnv func(*domain.Environment)) *Service {
+func New(repo repository.RepositoryV2, lookup RequestLookup, colls CollectionLookup, onEnv func(*domain.Environment)) *Service {
 	return &Service{
 		rest:    &restsvc.Service{},
 		graphql: &graphqlsvc.Service{},
@@ -66,7 +65,6 @@ func New(repo repository.RepositoryV2, lookup RequestLookup, colls CollectionLoo
 		repo:    repo,
 		lookup:  lookup,
 		colls:   colls,
-		proto:   proto,
 		onEnv:   onEnv,
 	}
 }
@@ -100,11 +98,7 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 	case domain.RequestTypeGraphQL:
 		res, err = s.graphql.SendObject(req, sendEnv, collection)
 	case domain.RequestTypeGRPC:
-		var protoFiles []*domain.ProtoFile
-		if s.proto != nil {
-			protoFiles = s.proto()
-		}
-		res, err = s.grpc.SendObject(req, sendEnv, collection, protoFiles)
+		res, err = s.grpc.SendObject(req, sendEnv, collection)
 	default:
 		return nil, fmt.Errorf("unknown request type: %s", req.MetaData.Type)
 	}
@@ -132,20 +126,12 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 
 // LoadGRPCServices reflects or parses proto files for the given request.
 func (s *Service) LoadGRPCServices(req *domain.Request, env *domain.Environment) ([]domain.GRPCService, error) {
-	var protoFiles []*domain.ProtoFile
-	if s.proto != nil {
-		protoFiles = s.proto()
-	}
-	return s.grpc.GetServicesFrom(req, env, protoFiles)
+	return s.grpc.GetServicesFrom(req, env)
 }
 
 // GRPCExampleBody returns an example JSON payload for the selected method.
 func (s *Service) GRPCExampleBody(req *domain.Request, env *domain.Environment) (string, error) {
-	var protoFiles []*domain.ProtoFile
-	if s.proto != nil {
-		protoFiles = s.proto()
-	}
-	return s.grpc.GetRequestStructFrom(req, env, protoFiles)
+	return s.grpc.GetRequestStructFrom(req, env)
 }
 
 func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment) (*egress.TimelineStep, error) {

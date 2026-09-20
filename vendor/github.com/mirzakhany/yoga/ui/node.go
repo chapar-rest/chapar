@@ -56,6 +56,7 @@ const (
 	kindStepper
 	kindImage
 	kindEditableLabel
+	kindPathList
 )
 
 const (
@@ -103,6 +104,7 @@ type Node struct {
 	onSelectIdx  func(int, string)
 	onCloseIdx   func(int)
 	tooltip      string
+	ellipsis     EllipsisMode
 }
 
 var _ View = (*Node)(nil)
@@ -647,6 +649,8 @@ func (n *Node) layoutKind(c *Ctx) *layout.Element {
 		return n.layoutBreadcrumb(c)
 	case kindTagEdit:
 		return n.layoutTagEdit(c)
+	case kindPathList:
+		return n.layoutPathList(c)
 	case kindScroll:
 		return n.layoutScroll(c)
 	case kindSwitch:

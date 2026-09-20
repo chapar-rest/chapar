@@ -32,6 +32,9 @@ type ServerInfo struct {
 
 	ServerReflection bool     `yaml:"serverReflection"`
 	ProtoFiles       []string `yaml:"protoFiles"`
+	// ImportPaths are the roots protoc resolves `import` statements against,
+	// so a request carries everything its proto files need to parse.
+	ImportPaths []string `yaml:"importPaths"`
 }
 
 type GRPCSettings struct {
@@ -94,6 +97,11 @@ func (r *GRPCRequestSpec) Clone() *GRPCRequestSpec {
 	if len(r.ServerInfo.ProtoFiles) > 0 {
 		clone.ServerInfo.ProtoFiles = make([]string, len(r.ServerInfo.ProtoFiles))
 		copy(clone.ServerInfo.ProtoFiles, r.ServerInfo.ProtoFiles)
+	}
+
+	if len(r.ServerInfo.ImportPaths) > 0 {
+		clone.ServerInfo.ImportPaths = make([]string, len(r.ServerInfo.ImportPaths))
+		copy(clone.ServerInfo.ImportPaths, r.ServerInfo.ImportPaths)
 	}
 
 	// Clone Auth
@@ -215,17 +223,8 @@ func CompareServerInfo(a, b ServerInfo) bool {
 		return false
 	}
 
-	if len(a.ProtoFiles) != len(b.ProtoFiles) {
-		return false
-	}
-
-	for i, v := range a.ProtoFiles {
-		if v != b.ProtoFiles[i] {
-			return false
-		}
-	}
-
-	return true
+	return compareStringSlices(a.ProtoFiles, b.ProtoFiles) &&
+		compareStringSlices(a.ImportPaths, b.ImportPaths)
 }
 
 func CompareGRPCMethods(a, b []GRPCMethod) bool {

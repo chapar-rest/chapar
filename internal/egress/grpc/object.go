@@ -30,7 +30,7 @@ func NewDirect() *Service {
 }
 
 // GetServicesFrom lists methods using the given request, environment, and proto files.
-func (s *Service) GetServicesFrom(req *domain.Request, env *domain.Environment, protoFiles []*domain.ProtoFile) ([]domain.GRPCService, error) {
+func (s *Service) GetServicesFrom(req *domain.Request, env *domain.Environment) ([]domain.GRPCService, error) {
 	if req == nil || req.Spec.GRPC == nil {
 		return nil, ErrRequestNotFound
 	}
@@ -61,7 +61,7 @@ func (s *Service) GetServicesFrom(req *domain.Request, env *domain.Environment, 
 		return s.parseRegistryFiles(protoRegistryFiles)
 	}
 	if len(spec.ServerInfo.ProtoFiles) > 0 {
-		protoRegistryFiles, err := ProtoFilesFromDisk(GetImportPaths(protoFiles, spec.ServerInfo.ProtoFiles))
+		protoRegistryFiles, err := ResolveServerProtos(spec.ServerInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func (s *Service) GetServicesFrom(req *domain.Request, env *domain.Environment, 
 }
 
 // GetRequestStructFrom returns an example JSON body for the selected method.
-func (s *Service) GetRequestStructFrom(req *domain.Request, env *domain.Environment, protoFiles []*domain.ProtoFile) (string, error) {
+func (s *Service) GetRequestStructFrom(req *domain.Request, env *domain.Environment) (string, error) {
 	if req == nil || req.Spec.GRPC == nil {
 		return "", ErrRequestNotFound
 	}
@@ -81,7 +81,7 @@ func (s *Service) GetRequestStructFrom(req *domain.Request, env *domain.Environm
 	if method == "" {
 		return "", errors.New("no method selected")
 	}
-	md, err := s.methodDescFrom(req, env, protoFiles, method)
+	md, err := s.methodDescFrom(req, env, method)
 	if err != nil {
 		return "", err
 	}
@@ -93,7 +93,7 @@ func (s *Service) GetRequestStructFrom(req *domain.Request, env *domain.Environm
 }
 
 // SendObject invokes a gRPC method from domain objects instead of looking them up in state.
-func (s *Service) SendObject(req *domain.Request, env *domain.Environment, collection *domain.Collection, protoFiles []*domain.ProtoFile) (*egress.Response, error) {
+func (s *Service) SendObject(req *domain.Request, env *domain.Environment, collection *domain.Collection) (*egress.Response, error) {
 	if req == nil || req.Spec.GRPC == nil {
 		return nil, ErrRequestNotFound
 	}
@@ -128,7 +128,7 @@ func (s *Service) SendObject(req *domain.Request, env *domain.Environment, colle
 		return nil, err
 	}
 
-	md, err := s.methodDescFrom(cloned, env, protoFiles, method)
+	md, err := s.methodDescFrom(cloned, env, method)
 	if err != nil {
 		return nil, err
 	}
@@ -197,11 +197,11 @@ func (s *Service) SendObject(req *domain.Request, env *domain.Environment, colle
 	}, nil
 }
 
-func (s *Service) methodDescFrom(req *domain.Request, env *domain.Environment, protoFiles []*domain.ProtoFile, fullName string) (protoreflect.MethodDescriptor, error) {
+func (s *Service) methodDescFrom(req *domain.Request, env *domain.Environment, fullName string) (protoreflect.MethodDescriptor, error) {
 	id := req.MetaData.ID
 	registryFiles, exist := s.protoFilesRegistry.Get(id)
 	if !exist {
-		if _, err := s.GetServicesFrom(req, env, protoFiles); err != nil {
+		if _, err := s.GetServicesFrom(req, env); err != nil {
 			return nil, err
 		}
 		registryFiles, _ = s.protoFilesRegistry.Get(id)
