@@ -73,14 +73,18 @@ func (n *Node) layoutLink(c *Ctx) *layout.Element {
 		} else if st.hovered {
 			fg = th.AccentHover
 		}
+		// The ring fills its rect, so it goes under the label. The frame hugs
+		// the text, so the ring sits a little outside it to clear the glyphs.
+		if st.focused {
+			const pad = 3.0
+			ring := render.Rect{X: f.X - pad, Y: f.Y - pad/2, W: f.W + 2*pad, H: f.H + pad}
+			paintFocusRing(dl, ring, th.Surface, th)
+		}
 		_, mh := text.MeasureAt(label, style.Size)
 		ty := f.Y + (f.H-mh)/2
 		text.DrawStringTopAt(dl, label, f.X, ty, fg, style.Size)
 		underline := render.Rect{X: f.X, Y: ty + mh - 1, W: tw, H: 1}
 		dl.AddRect(underline, fg)
-		if st.focused {
-			paintFocusRing(dl, f, th.Surface, th)
-		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		if disabled {

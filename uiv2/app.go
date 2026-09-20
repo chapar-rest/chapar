@@ -504,7 +504,7 @@ func (a *App) topBar(c *ui.Ctx) ui.View {
 			Hint(c.Commands().ToggleLabel()).
 			OnClick(func() { c.Commands().Show() }),
 		ui.Spacer(),
-		ui.IconButton("top-website", icons.Globe).OnClick(func() {}),
+		ui.IconButton("top-about", icons.Info).Tooltip("About").OnClick(func() { a.openAbout(c) }),
 		ui.IconButton("top-cookies", icons.Cookie).Tooltip("Cookies").OnClick(a.openCookies),
 		ui.Select("top-env", envOpts).Width(180).Selected(envSel).OnChange(func(v string) {
 			_ = a.catalog.SetActiveEnv(v)
