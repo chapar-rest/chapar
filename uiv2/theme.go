@@ -17,10 +17,17 @@ func init() {
 
 // chaparDark is Chapar's classic Gio dark palette, ported to Yoga tokens.
 // Source: ui/chapartheme Switch("dark").
+//
+// Accent, its hover and pressed states, Selection, ForegroundMuted and
+// ScrollThumb sit a step deeper than the original Gio values: at the old
+// lightness a white button label reached only 3.4:1 and selected text 2.9:1.
+// Hues are unchanged. Everything else the palette needs — control outlines,
+// the focus ring, status text and fills, the editor washes — is derived by
+// theme.Register from these colors.
 func chaparDark() theme.Theme {
 	fg := rgb(0xd7, 0xda, 0xde)
-	muted := rgb(0x8b, 0x8e, 0x95)
-	accent := rgb(0x45, 0x89, 0xf5)
+	muted := rgb(0x91, 0x94, 0x9a)
+	accent := rgb(0x3b, 0x74, 0xd0)
 	success := rgb(0x8b, 0xc3, 0x4a)
 	warning := rgb(0xff, 0xe0, 0x73)
 	t := theme.Theme{
@@ -35,17 +42,17 @@ func chaparDark() theme.Theme {
 		ForegroundSubtle:   rgb(0x6c, 0x6f, 0x76),
 		ForegroundDisabled: rgba(0x8b, 0x8e, 0x95, 0.45),
 		Accent:             accent,
-		AccentHover:        rgb(0x5e, 0x9b, 0xfa),
-		AccentPressed:      rgb(0x36, 0x72, 0xd8),
+		AccentHover:        rgb(0x34, 0x66, 0xb7),
+		AccentPressed:      rgb(0x2d, 0x59, 0x9e),
 		AccentForeground:   rgb(0xff, 0xff, 0xff),
 		Border:             rgb(0x6c, 0x6f, 0x76),
 		BorderStrong:       rgb(0x8b, 0x8e, 0x95),
 		ListHover:          rgb(0x35, 0x37, 0x3c),
 		ListActive:         rgb(0x3a, 0x3c, 0x42),
 		FocusRing:          accent,
-		Selection:          rgb(0x63, 0x80, 0xad),
+		Selection:          rgb(0x4a, 0x60, 0x82),
 		ScrollTrack:        rgb(0x25, 0x27, 0x2a),
-		ScrollThumb:        rgb(0x6c, 0x6f, 0x76),
+		ScrollThumb:        rgb(0x6d, 0x70, 0x77),
 		ScrollThumbHover:   accent,
 		Error:              rgb(0xff, 0x73, 0x73),
 		Warning:            warning,
