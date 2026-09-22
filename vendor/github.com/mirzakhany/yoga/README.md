@@ -271,7 +271,11 @@ ui.TextField("url", app.url).
     })
 ```
 
-`Table` offers the same through `CellHighlight` and `CellSuggest`, which apply to the row text and to the inline edit field. A masked (password) value is never highlighted or completed, so neither hook can leak it.
+`.HoverInfo(fn)` adds the third piece: a card explaining whatever the pointer rests on, returning a `HoverCard{Title, Body, Start, End}` whose range the card is anchored under.
+
+`Table` offers all three per cell through `CellHighlight`, `CellSuggest`, and `CellHoverInfo`. A masked (password) value is never highlighted, completed, or explained, so none of the hooks can leak it.
+
+`Editor` takes the same two sources, as fields or through `WithSuggest` / `WithHoverInfo`. They run whether or not a language server is attached: the application source is asked first and the server answers for everything it declines, and the hover card is shown above any diagnostics and server hover text.
 
 Button variants: default **Secondary**; `.Primary()`, `.Subtle()`, and `.Ghost()`. Ghost is text-like (no padding or chrome) for footers and status bars; chain `.HoverFill()` for a hover background. Supports `.IconStart()` and `.Tooltip()`. Icon-only: `ui.IconButton(id, icons.Settings)`.
 

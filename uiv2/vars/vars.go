@@ -159,6 +159,55 @@ func (s Source) Highlight(value string) []ui.TextSpan {
 	return spans
 }
 
+// HoverAt is a ui.HoverInfoFunc: it explains the placeholder under the pointer,
+// so a name's current value can be read without opening the environment.
+func (s Source) HoverAt(value string, off int) (ui.HoverCard, bool) {
+	for _, loc := range envPattern.FindAllStringIndex(value, -1) {
+		if off < loc[0] || off >= loc[1] {
+			continue
+		}
+		name := value[loc[0]+2 : loc[1]-2]
+		if name == "" {
+			return ui.HoverCard{}, false
+		}
+		card := ui.HoverCard{Start: loc[0], End: loc[1]}
+		val, ok := s.Lookup(name)
+		switch {
+		case !ok:
+			card.Title = name + " · not defined"
+			card.Body = "No variable of this name is in scope."
+		case val == "":
+			card.Title = name + " · " + s.kindOf(name)
+			card.Body = "(empty)"
+		default:
+			card.Title = name + " · " + s.kindOf(name)
+			card.Body = val
+		}
+		return card, true
+	}
+	for _, loc := range paramPattern.FindAllStringIndex(value, -1) {
+		if off < loc[0] || off >= loc[1] {
+			continue
+		}
+		return ui.HoverCard{
+			Title: value[loc[0]+1:loc[1]-1] + " · " + KindParam,
+			Body:  "Set in the Path tab; substituted into the URL.",
+			Start: loc[0], End: loc[1],
+		}, true
+	}
+	return ui.HoverCard{}, false
+}
+
+// kindOf reports which source defines a name.
+func (s Source) kindOf(name string) string {
+	for _, e := range s.Entries() {
+		if e.Name == name {
+			return e.Kind
+		}
+	}
+	return ""
+}
+
 // HighlightURL is Highlight plus the {name} path parameters a URL carries. It
 // suits an address bar; a body or a header value should use Highlight, where a
 // lone brace is ordinary text.

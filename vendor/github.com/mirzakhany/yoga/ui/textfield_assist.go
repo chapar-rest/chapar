@@ -2,8 +2,10 @@ package ui
 
 import (
 	"sort"
+	"time"
 
 	"github.com/mirzakhany/yoga/input"
+	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
 	"github.com/mirzakhany/yoga/theme"
@@ -240,4 +242,86 @@ func drawSpannedText(dl *render.DrawList, text *shape.Engine, show string, spans
 	if at < len(show) {
 		text.DrawStringTopAt(dl, show[at:], x, y, base, size)
 	}
+}
+
+// HoverCard is what a field shows when the pointer rests over part of its
+// value: a title, a body, and the byte range they describe, which the field
+// uses to place the card under the words it explains.
+type HoverCard struct {
+	Title, Body string
+	Start, End  int
+}
+
+// HoverInfoFunc is asked what to show for the byte offset under the pointer.
+// Returning false shows nothing.
+type HoverInfoFunc func(value string, off int) (HoverCard, bool)
+
+// hoverState tracks the pointer resting over part of a field's value. The zero
+// value means the pointer has not been seen yet, which is why off is set to -1
+// when a field is built: offset 0 is a real place in the text.
+type hoverState struct {
+	off   int // byte offset under the pointer, or -1 for none
+	since time.Time
+	shown bool
+}
+
+// Explained sets the hover source: what to show when the pointer rests over
+// part of the value.
+func (tf *TextInput) Explained(fn HoverInfoFunc) *TextInput {
+	tf.HoverInfo = fn
+	return tf
+}
+
+// trackHover notes where the pointer is, so the card can appear once it has
+// rested over the same part of the value.
+func (tf *TextInput) trackHover(e *layout.Element, m *input.Mouse) {
+	if tf.HoverInfo == nil || tf.cfg.Password || m == nil {
+		return
+	}
+	off := -1
+	if !m.Down && e.Frame.Contains(m.X, m.Y) && m.X >= tf.textLeft() && m.X <= tf.textRight() {
+		off = tf.offsetAtX(m.X)
+	}
+	if off != tf.hover.off || tf.hover.since.IsZero() {
+		tf.hover = hoverState{off: off, since: time.Now()}
+	}
+}
+
+// layoutHoverCard registers the hover card overlay once the pointer has rested
+// long enough over a part of the value the source explains.
+func (tf *TextInput) layoutHoverCard(c *Ctx) {
+	if tf.HoverInfo == nil || tf.hover.off < 0 || tf.cfg.Password {
+		tf.hover.shown = false
+		return
+	}
+	card, ok := tf.HoverInfo(tf.Value, tf.hover.off)
+	if !ok || (card.Title == "" && card.Body == "") {
+		tf.hover.shown = false
+		return
+	}
+	if !tf.hover.shown {
+		if rest := c.Now().Sub(tf.hover.since); rest < tooltipDelay {
+			c.Animate(tooltipDelay - rest)
+			return
+		}
+		tf.hover.shown = true
+	}
+	c.Overlay(buildHoverCardOverlay(c, tf.hoverAnchor(card), card))
+}
+
+// hoverAnchor is the rectangle the card points at: the hovered range, clamped
+// to the visible part of the field.
+func (tf *TextInput) hoverAnchor(card HoverCard) render.Rect {
+	f := tf.host.Frame
+	lo, hi := tf.textLeft(), tf.textRight()
+	x0, x1 := lo, hi
+	if card.End > card.Start && card.End <= len(tf.Value) {
+		base := tf.textLeft() - tf.scrollX
+		x0 = clampf(base+tf.offsetXForValue(card.Start), lo, hi)
+		x1 = clampf(base+tf.offsetXForValue(card.End), lo, hi)
+	}
+	if x1 <= x0 {
+		x1 = x0 + 1
+	}
+	return render.Rect{X: x0, Y: f.Y, W: x1 - x0, H: f.H}
 }

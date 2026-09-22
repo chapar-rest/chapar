@@ -43,17 +43,37 @@ func AssistKV(t *ui.Table, src vars.Source) {
 		}
 		return src.Suggest(value, caret)
 	}
+	t.CellHoverInfo = func(_, colID, value string, off int) (ui.HoverCard, bool) {
+		if colID != kvColValue {
+			return ui.HoverCard{}, false
+		}
+		return src.HoverAt(value, off)
+	}
 }
 
-// AssistField gives a text field variable highlighting and completion.
+// AssistField gives a text field variable highlighting, completion, and a
+// hover card explaining the placeholder under the pointer.
 func AssistField(n *ui.Node, src vars.Source) *ui.Node {
-	return n.Highlight(src.Highlight).Suggest(src.Suggest)
+	return n.Highlight(src.Highlight).Suggest(src.Suggest).HoverInfo(src.HoverAt)
 }
 
 // AssistURLField is AssistField for an address bar, where {name} path
 // parameters are marked up as well as {{name}} variables.
 func AssistURLField(n *ui.Node, src vars.Source) *ui.Node {
-	return n.Highlight(src.HighlightURL).Suggest(src.Suggest)
+	return n.Highlight(src.HighlightURL).Suggest(src.Suggest).HoverInfo(src.HoverAt)
+}
+
+// AssistEditor gives a code editor the same variable completion and hover as
+// the single-line fields. A body or a script may hold {{name}} placeholders
+// wherever text is allowed, and a language server, when one is attached, keeps
+// answering for everything else.
+func AssistEditor(ed *ui.Editor, src vars.Source) *ui.Editor {
+	if ed == nil {
+		return nil
+	}
+	ed.Suggest = src.Suggest
+	ed.HoverInfo = src.HoverAt
+	return ed
 }
 
 // ParamEntries lists a table's keys as path-parameter entries.

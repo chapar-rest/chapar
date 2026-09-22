@@ -159,3 +159,48 @@ func TestFromKeys(t *testing.T) {
 		t.Fatalf("FromKeys: got %v", got)
 	}
 }
+
+func TestHoverAtExplainsPlaceholders(t *testing.T) {
+	s := testSource()
+	value := "{{host}}/users/{id}?t={{nope}}"
+
+	card, ok := s.HoverAt(value, 3)
+	if !ok {
+		t.Fatal("hovering a defined placeholder should say something")
+	}
+	if card.Title != "host · "+KindEnv {
+		t.Fatalf("title: got %q", card.Title)
+	}
+	if card.Body != "https://api.example.com" {
+		t.Fatalf("body: got %q", card.Body)
+	}
+	if card.Start != 0 || card.End != 8 {
+		t.Fatalf("range: got [%d,%d) want [0,8)", card.Start, card.End)
+	}
+
+	// A name nothing defines says so rather than showing an empty value.
+	card, ok = s.HoverAt(value, 24)
+	if !ok || card.Title != "nope · not defined" {
+		t.Fatalf("undefined placeholder: %+v ok=%v", card, ok)
+	}
+
+	// Path parameters are explained too, and plain text is not.
+	card, ok = s.HoverAt(value, 16)
+	if !ok || card.Title != "id · "+KindParam {
+		t.Fatalf("path param: %+v ok=%v", card, ok)
+	}
+	if _, ok := s.HoverAt(value, 10); ok {
+		t.Fatal("plain text should have no hover card")
+	}
+}
+
+func TestHoverAtEmptyValueSaysSo(t *testing.T) {
+	env := &domain.Environment{Spec: domain.EnvSpec{Values: []domain.KeyValue{
+		{Key: "token", Value: "", Enable: true},
+	}}}
+	s := Source{Env: func() *domain.Environment { return env }}
+	card, ok := s.HoverAt("{{token}}", 4)
+	if !ok || card.Body != "(empty)" {
+		t.Fatalf("empty value: %+v ok=%v", card, ok)
+	}
+}

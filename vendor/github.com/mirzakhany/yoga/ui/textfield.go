@@ -44,6 +44,9 @@ type TextInput struct {
 	Highlight func(value string) []TextSpan
 	// Suggest, when set, feeds the completion popup that opens while typing.
 	Suggest SuggestFunc
+	// HoverInfo, when set, explains the part of the value under a resting
+	// pointer — what a template placeholder stands for, say.
+	HoverInfo HoverInfoFunc
 
 	focused    bool
 	caret      int // byte offset
@@ -69,8 +72,9 @@ type TextInput struct {
 	lastMerge  editMerge // kind of the last edit, mergeNone after anything else
 	lastEditAt time.Time
 
-	menu editMenu
-	sugg suggestState
+	menu  editMenu
+	sugg  suggestState
+	hover hoverState
 }
 
 // textSnap is a TextInput state that undo/redo returns to.
@@ -99,6 +103,7 @@ func NewTextInput(cfg TextFieldConfig) *TextInput {
 		blinkStart: time.Now(),
 		caretShown: true,
 		selAnchor:  -1,
+		hover:      hoverState{off: -1},
 	}
 	padX := th.Spacing.MNudge
 	st := layout.Box().H(cfg.Height).FlexShrink(0).PaddingXY(padX, 0)
@@ -161,6 +166,7 @@ func (tf *TextInput) Layout(c *Ctx) *layout.Element {
 	c.Focus().Add(tf)
 	tf.Update(c.Mouse())
 	tf.menu.layout(c)
+	tf.layoutHoverCard(c)
 	if tf.focused {
 		since := time.Since(tf.blinkStart) % (2 * textFieldBlink)
 		wait := textFieldBlink - (since % textFieldBlink)
@@ -556,6 +562,7 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 	if tf.disabled {
 		return
 	}
+	tf.trackHover(e, m)
 	if m.RightPressed && e.Frame.Contains(m.X, m.Y) {
 		// Keep a selection the click lands in, so the menu can act on it;
 		// anywhere else moves the caret there first.

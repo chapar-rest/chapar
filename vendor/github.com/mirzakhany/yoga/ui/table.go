@@ -127,6 +127,9 @@ type Table struct {
 	// CellSuggest, when set, gives the inline edit field a completion popup
 	// fed with candidates for the cell being edited.
 	CellSuggest func(rowID, colID, value string, caret int) (items []Suggestion, start, end int)
+	// CellHoverInfo, when set, explains the part of a cell's value under a
+	// resting pointer while the cell is being edited.
+	CellHoverInfo func(rowID, colID, value string, off int) (HoverCard, bool)
 
 	// Background fills the table body. nil = transparent (parent surface shows through).
 	Background *render.Color
@@ -1246,6 +1249,12 @@ func (t *Table) startEdit(rowID, colID string) {
 	if fn := t.CellSuggest; fn != nil {
 		t.editField.Suggest = func(value string, caret int) ([]Suggestion, int, int) {
 			return fn(rowID, colID, value, caret)
+		}
+	}
+	t.editField.HoverInfo = nil
+	if fn := t.CellHoverInfo; fn != nil {
+		t.editField.HoverInfo = func(value string, off int) (HoverCard, bool) {
+			return fn(rowID, colID, value, off)
 		}
 	}
 	t.editField.load(val)

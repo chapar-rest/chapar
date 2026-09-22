@@ -90,6 +90,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	container.LoadKV(c.meta, r.Spec.GRPC.Metadata)
 	container.LoadVariables(c.vars, r.Spec.GRPC.Variables)
 	c.varSrc = container.VarSource(deps, container.VarsFromTable(c.vars))
+	container.AssistEditor(c.bodyEd, c.varSrc)
 	container.AssistKV(c.meta, c.varSrc)
 	c.authState = container.LoadAuthState(r.Spec.GRPC.Auth)
 	c.authState.Vars = c.varSrc

@@ -111,6 +111,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	container.LoadVariables(c.vars, http.Request.Variables)
 
 	c.varSrc = container.VarSource(deps, container.VarsFromTable(c.vars))
+	container.AssistEditor(c.bodyEd, c.varSrc)
 	for _, t := range []*ui.Table{c.queryParams, c.pathParams, c.headers, c.urlEncoded} {
 		container.AssistKV(t, c.varSrc)
 	}

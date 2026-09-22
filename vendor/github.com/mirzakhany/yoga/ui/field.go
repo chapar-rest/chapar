@@ -50,6 +50,7 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 	tf.OnSubmit = n.onSubmit
 	tf.Highlight = n.highlight
 	tf.Suggest = n.suggest
+	tf.HoverInfo = n.hoverInfo
 	tf.disabled = n.disabled
 	tf.visualSpec = c.styles().TextField.merge(n.spec)
 	if n.disabled && tf.focused {

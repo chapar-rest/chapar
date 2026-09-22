@@ -77,6 +77,8 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.headers = container.NewKVTable("gql-hdr-"+r.MetaData.ID, c.markDirty)
 	container.LoadKV(c.headers, g.Headers)
 	c.varSrc = container.VarSource(deps, nil)
+	container.AssistEditor(c.queryEd, c.varSrc)
+	container.AssistEditor(c.varsEd, c.varSrc)
 	container.AssistKV(c.headers, c.varSrc)
 	c.authState = container.LoadAuthState(g.Auth)
 	c.authState.Vars = c.varSrc

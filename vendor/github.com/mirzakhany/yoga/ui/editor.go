@@ -179,7 +179,16 @@ type Editor struct {
 	// own (Save…, Format, …). Returning none turns the menu off and leaves the
 	// right-click to widgets behind the editor.
 	ContextMenu func(items []MenuItem) []MenuItem
-	menu        editMenu
+	// Suggest, when set, offers completions the application knows about, such
+	// as template variables. It is asked after every edit, ahead of the
+	// language server, and returns candidates plus the byte range they
+	// replace.
+	Suggest SuggestFunc
+	// HoverInfo, when set, explains the byte offset under a resting pointer.
+	// It runs whether or not a language server is attached, and its card is
+	// shown above any diagnostics and server hover text.
+	HoverInfo HoverInfoFunc
+	menu      editMenu
 
 	paintRows []paintRow // scratch reused across paints
 
@@ -238,6 +247,12 @@ func WithSharedContent() EditorOption { return func(e *Editor) { e.shareContent 
 // WithReadOnly makes the editor a view: text can be selected, searched and
 // copied, but typing, paste, cut, undo and replace leave it unchanged.
 func WithReadOnly() EditorOption { return func(e *Editor) { e.readOnly = true } }
+
+// WithSuggest sets the application completion source (see Editor.Suggest).
+func WithSuggest(fn SuggestFunc) EditorOption { return func(e *Editor) { e.Suggest = fn } }
+
+// WithHoverInfo sets the application hover source (see Editor.HoverInfo).
+func WithHoverInfo(fn HoverInfoFunc) EditorOption { return func(e *Editor) { e.HoverInfo = fn } }
 
 // WithoutGutter hides the line-number gutter, for text where line numbers
 // carry no meaning, such as a log view.
@@ -1393,6 +1408,8 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 			e.replaceSelection("\t", mergeNone)
 		case input.KeyBackspace:
 			e.backspace()
+			// Deleting back into a placeholder should offer its names again.
+			e.suggestAfterEdit()
 		case input.KeyDelete:
 			e.deleteForward()
 		case input.KeyLeft:

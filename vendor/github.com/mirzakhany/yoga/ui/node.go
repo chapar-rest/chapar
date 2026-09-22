@@ -93,6 +93,7 @@ type Node struct {
 	password     bool
 	highlight    func(string) []TextSpan
 	suggest      SuggestFunc
+	hoverInfo    HoverInfoFunc
 	lineThick    float32
 	lineColor    render.Color
 	iconSize     float32
@@ -522,6 +523,10 @@ func (n *Node) Highlight(fn func(value string) []TextSpan) *Node { n.highlight =
 // Suggest gives a TextField a completion popup fed by fn, which is asked for
 // candidates after every edit.
 func (n *Node) Suggest(fn SuggestFunc) *Node { n.suggest = fn; return n }
+
+// HoverInfo gives a TextField a hover card explaining the part of its value
+// under a resting pointer.
+func (n *Node) HoverInfo(fn HoverInfoFunc) *Node { n.hoverInfo = fn; return n }
 
 // Password masks TextField contents.
 func (n *Node) Password(v bool) *Node { n.password = v; return n }

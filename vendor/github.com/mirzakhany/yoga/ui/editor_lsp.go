@@ -46,15 +46,20 @@ type lspState struct {
 	diags     []lsp.Diagnostic
 	diagSpans []diagSpan
 
-	// Completion popup.
+	// Completion popup. Items come either from the language server or from
+	// the editor's own Suggest source, which replaces an explicit range.
 	compOpen   bool
-	compItems  []lsp.CompletionItem
+	compItems  []Suggestion
 	compSel    int
 	compFirst  int // index of the first rendered row (simple windowing)
 	compAnchor int // byte offset where an accepted item replaces from
+	compEnd    int // end of that range; only meaningful when compApp is set
+	compApp    bool
 	compReqID  int // id of the most recent completion request
 
 	// Hover tooltip.
+	hoverCard    HoverCard // application hover (local, instant)
+	hoverCardOK  bool
 	hoverText    string     // LSP textDocument/hover reply (async)
 	hoverDiags   []diagSpan // diagnostics under the cursor (local, instant)
 	hoverReqID   int
@@ -152,6 +157,9 @@ func (e *Editor) lspDidChange() {
 // per frame from Editor.Update.
 func (e *Editor) lspUpdate(m *input.Mouse) {
 	if e.lsp == nil {
+		// A buffer with no language server still hovers what the application
+		// explains, and still completes from its own source.
+		e.trackHover(m)
 		return
 	}
 	if evs, ok := e.lsp.Poll(); ok {
@@ -208,6 +216,7 @@ func (e *Editor) trackHover(m *input.Mouse) {
 		e.lspUI.hovRequested = false
 		e.lspUI.hoverText = ""
 		e.lspUI.hoverDiags = nil
+		e.lspUI.hoverCardOK = false
 		return
 	}
 	if !e.lspUI.hovRequested && !e.lspUI.hovMoved.IsZero() && time.Since(e.lspUI.hovMoved) >= hoverDelay {
@@ -217,7 +226,10 @@ func (e *Editor) trackHover(m *input.Mouse) {
 		// Diagnostics under the cursor are local data — show them immediately,
 		// without waiting for the (async) language-server hover reply.
 		e.lspUI.hoverDiags = e.diagnosticsAt(off)
-		e.lspUI.hoverReqID = e.lsp.Hover(e.lspPos(off))
+		e.lspUI.hoverCard, e.lspUI.hoverCardOK = e.hoverCardAt(off)
+		if e.lsp != nil {
+			e.lspUI.hoverReqID = e.lsp.Hover(e.lspPos(off))
+		}
 		e.lspUI.hovRequested = true
 		e.lspUI.hoverX, e.lspUI.hoverY = m.X, m.Y
 	}
@@ -242,9 +254,22 @@ func (e *Editor) hoverableAt(x, y float32) bool {
 	return x >= e.viewport.Frame.X+e.gutterW
 }
 
+// hoverCardAt asks the application what it has to say about a byte offset.
+func (e *Editor) hoverCardAt(off int) (HoverCard, bool) {
+	if e.HoverInfo == nil {
+		return HoverCard{}, false
+	}
+	card, ok := e.HoverInfo(string(e.pt.Bytes()), off)
+	if !ok || (card.Title == "" && card.Body == "") {
+		return HoverCard{}, false
+	}
+	return card, true
+}
+
 func (e *Editor) clearHover() {
 	e.lspUI.hoverText = ""
 	e.lspUI.hoverDiags = nil
+	e.lspUI.hoverCardOK = false
 	e.lspUI.hovMoved = time.Time{}
 	e.lspUI.hovRequested = false
 }
@@ -284,6 +309,9 @@ func (e *Editor) identStart(off int) int {
 
 // lspAfterType opens or refilters completion after a text-producing keystroke.
 func (e *Editor) lspAfterType(runes []rune) {
+	if e.suggestAfterEdit() {
+		return
+	}
 	if e.lsp == nil || !e.focused {
 		return
 	}
@@ -314,20 +342,21 @@ func (e *Editor) requestCompletion() {
 
 func (e *Editor) setCompletions(items []lsp.CompletionItem) {
 	prefix := strings.ToLower(e.completionPrefix())
-	filtered := items[:0:0]
+	var filtered []Suggestion
 	for _, it := range items {
 		ft := it.FilterText
 		if ft == "" {
 			ft = it.Label
 		}
 		if prefix == "" || strings.HasPrefix(strings.ToLower(ft), prefix) {
-			filtered = append(filtered, it)
+			filtered = append(filtered, Suggestion{Label: it.Label, Detail: it.Detail, Insert: it.Insert()})
 		}
 	}
 	if len(filtered) == 0 {
 		e.closeCompletion()
 		return
 	}
+	e.lspUI.compApp = false
 	e.lspUI.compItems = filtered
 	e.lspUI.compSel = 0
 	e.lspUI.compFirst = 0
@@ -355,6 +384,8 @@ func (e *Editor) closeCompletion() {
 	e.lspUI.compItems = nil
 	e.lspUI.compSel = 0
 	e.lspUI.compFirst = 0
+	e.lspUI.compApp = false
+	e.lspUI.compEnd = 0
 }
 
 // handleCompletionKey processes a key while the popup is open. It returns true
@@ -382,7 +413,9 @@ func (e *Editor) handleCompletionKey(ev input.KeyEvent) bool {
 		return true
 	case input.KeyBackspace:
 		e.backspace()
-		if e.caret <= e.lspUI.compAnchor {
+		if e.lspUI.compApp {
+			e.suggestAfterEdit()
+		} else if e.caret <= e.lspUI.compAnchor {
 			e.closeCompletion()
 		} else {
 			e.requestCompletion()
@@ -411,12 +444,15 @@ func (e *Editor) acceptCompletion() {
 		return
 	}
 	it := e.lspUI.compItems[sel]
-	lo := e.lspUI.compAnchor
-	if lo > e.caret {
-		lo = e.caret
+	lo, hi := e.lspUI.compAnchor, e.caret
+	if e.lspUI.compApp {
+		hi = e.lspUI.compEnd
+	}
+	if lo > hi {
+		lo = hi
 	}
 	e.closeCompletion()
-	e.applyEdit(lo, e.caret-lo, it.Insert(), mergeNone)
+	e.applyEdit(lo, hi-lo, it.insertText(), mergeNone)
 }
 
 // ---------------------------------------------------------------------------
@@ -486,7 +522,7 @@ func (e *Editor) completionRect() render.Rect {
 func (e *Editor) PaintLSPOverlay(dl *render.DrawList, eng *shape.Engine) {
 	if e.lspUI.compOpen {
 		e.paintCompletion(dl, eng)
-	} else if len(e.lspUI.hoverDiags) > 0 || strings.TrimSpace(e.lspUI.hoverText) != "" {
+	} else if len(e.lspUI.hoverDiags) > 0 || e.lspUI.hoverCardOK || strings.TrimSpace(e.lspUI.hoverText) != "" {
 		e.paintTooltip(dl, eng)
 	}
 }
@@ -558,6 +594,18 @@ func (e *Editor) paintTooltip(dl *render.DrawList, eng *shape.Engine) {
 // severity) on top, then the language-server hover info beneath a blank gap.
 func (e *Editor) tooltipLines(th *theme.Theme) []tipLine {
 	var lines []tipLine
+	if e.lspUI.hoverCardOK {
+		card := e.lspUI.hoverCard
+		if card.Title != "" {
+			lines = append(lines, tipLine{text: card.Title, col: th.Info})
+		}
+		for _, ln := range strings.Split(card.Body, "\n") {
+			lines = append(lines, tipLine{text: ln, col: th.Foreground})
+		}
+		if len(e.lspUI.hoverDiags) > 0 || strings.TrimSpace(e.lspUI.hoverText) != "" {
+			lines = append(lines, tipLine{})
+		}
+	}
 	for _, d := range e.lspUI.hoverDiags {
 		col := th.Error
 		if d.sev >= lsp.SeverityWarning {
@@ -622,4 +670,40 @@ func (e *Editor) LSPOverlayMouse(_ *layout.Element, m *input.Mouse) {
 	if m.Released {
 		e.acceptCompletion()
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Application completion source
+//
+// The editor's own source runs ahead of the language server, so a document can
+// complete what only the application knows — template variables, say — even in
+// a buffer no server is attached to.
+// ---------------------------------------------------------------------------
+
+// suggestAfterEdit asks the application source about the caret and opens,
+// refilters, or closes the popup. It reports whether the source answered, in
+// which case the language server is not consulted for this keystroke.
+func (e *Editor) suggestAfterEdit() bool {
+	if e.Suggest == nil || !e.focused || e.readOnly {
+		return false
+	}
+	items, start, end := e.Suggest(string(e.pt.Bytes()), e.caret)
+	if len(items) == 0 {
+		if e.lspUI.compApp {
+			e.closeCompletion()
+		}
+		return false
+	}
+	if start < 0 || end > len(e.pt.Bytes()) || start > end {
+		return false
+	}
+	e.lspUI.compItems = items
+	e.lspUI.compAnchor = start
+	e.lspUI.compEnd = end
+	e.lspUI.compApp = true
+	e.lspUI.compOpen = true
+	e.lspUI.compSel = 0
+	e.lspUI.compFirst = 0
+	e.markParsePending()
+	return true
 }

@@ -69,11 +69,13 @@ type Deps struct {
 }
 
 // NewScriptEditor returns an editor for a Python pre/post-request script.
+// Scripts run against the active environment, so the editor completes and
+// explains the same {{variable}} placeholders the request's fields do.
 func NewScriptEditor(deps Deps, name, script string) *ui.Editor {
 	if deps.Lang == nil {
-		return ui.NewEditor([]byte(script), highlight.NewPython())
+		return AssistEditor(ui.NewEditor([]byte(script), highlight.NewPython()), VarSource(deps, nil))
 	}
-	return deps.Lang.NewScriptEditor(name, script)
+	return AssistEditor(deps.Lang.NewScriptEditor(name, script), VarSource(deps, nil))
 }
 
 // NewBodyEditor returns an editor for a request body of the given
@@ -87,9 +89,9 @@ func NewBodyEditor(deps Deps, name, bodyType string, body []byte, opts ...ui.Edi
 		case domain.RequestBodyTypeXML:
 			hl = highlight.NewXML()
 		}
-		return ui.NewEditor(body, hl, opts...)
+		return AssistEditor(ui.NewEditor(body, hl, opts...), VarSource(deps, nil))
 	}
-	return deps.Lang.NewBodyEditor(name, bodyType, body, opts...)
+	return AssistEditor(deps.Lang.NewBodyEditor(name, bodyType, body, opts...), VarSource(deps, nil))
 }
 
 // Catalog is the subset of app catalog a container may query.
