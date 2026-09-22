@@ -134,7 +134,7 @@ func (s *Service) SendObject(req *domain.Request, env *domain.Environment, colle
 	}
 
 	request := dynamicpb.NewMessage(md.Input())
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal([]byte(spec.Body), request); err != nil {
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(messageJSON(spec.Body), request); err != nil {
 		return nil, err
 	}
 

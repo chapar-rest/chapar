@@ -263,7 +263,7 @@ func (s *Service) SendRequest(id, activeEnvironmentID string) (*egress.Response,
 
 	// create the message
 	request := dynamicpb.NewMessage(md.Input())
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(rawJSON, request); err != nil {
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(messageJSON(string(rawJSON)), request); err != nil {
 		return nil, err
 	}
 
@@ -625,4 +625,13 @@ func (s *Service) parseRegistryFiles(in *protoregistry.Files) ([]domain.GRPCServ
 	})
 
 	return services, nil
+}
+
+// messageJSON is body as a JSON message. A blank body is the empty message,
+// which protojson would otherwise reject as a syntax error.
+func messageJSON(body string) []byte {
+	if strings.TrimSpace(body) == "" {
+		return []byte("{}")
+	}
+	return []byte(body)
 }
