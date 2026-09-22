@@ -260,6 +260,37 @@ func (a *App) reportLanguageServers() {
 	a.reportInstalls()
 }
 
+// reportSkippedFiles logs each data file that could not be read to the
+// console, where the full path and parse error have room, and points the user
+// there with one toast for the batch.
+func (a *App) reportSkippedFiles() {
+	if a.catalog == nil {
+		return
+	}
+	files := a.catalog.DrainSkipped()
+	if len(files) == 0 {
+		return
+	}
+	for _, f := range files {
+		logger.Warn(fmt.Sprintf("Skipped %s, it could not be read: %v", f.Path, f.Err))
+	}
+	title := "1 file could not be read"
+	if len(files) > 1 {
+		title = fmt.Sprintf("%d files could not be read", len(files))
+	}
+	a.notifs.Add(title+"; see the Console", ui.ToastWarning)
+	if host := a.toasts(); host != nil {
+		host.Notify(ui.ToastOpts{
+			ID:       "skipped-files",
+			Title:    title,
+			Message:  "They were skipped. The Console lists each file and what is wrong with it.",
+			Variant:  ui.ToastWarning,
+			Actions:  []ui.ToastAction{{Label: "Show console", OnClick: a.console.Show}},
+			Duration: 15 * time.Second,
+		})
+	}
+}
+
 func (a *App) confirmClose(title, message string, onYes func()) {
 	if host := a.dialogs(); host != nil {
 		host.ShowAction(title, message, onYes, nil)
@@ -342,6 +373,7 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 	a.wake = c.Invalidate
 	th := c.Theme()
 	a.reportLanguageServers()
+	a.reportSkippedFiles()
 
 	if a.initErr != nil {
 		return ui.Column(

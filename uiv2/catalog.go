@@ -21,6 +21,11 @@ type Catalog struct {
 
 	ActiveEnvID       string
 	ActiveWorkspaceID string
+
+	// skipped holds files the loads left out that nobody was told about yet;
+	// told remembers which ones were already handed out.
+	skipped []repository.SkippedFile
+	told    map[string]bool
 }
 
 func newCatalog(repo repository.RepositoryV2) *Catalog {
@@ -31,24 +36,26 @@ func (c *Catalog) Load() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// A file that cannot be read is left out of the lists rather than failing
+	// the whole load, so one malformed file does not keep the app from opening.
 	cols, err := c.repo.LoadCollections()
-	if err != nil {
+	if !c.noteSkipped(err) {
 		return err
 	}
 	reqs, err := c.repo.LoadRequests()
-	if err != nil {
+	if !c.noteSkipped(err) {
 		return err
 	}
 	envs, err := c.repo.LoadEnvironments()
-	if err != nil {
+	if !c.noteSkipped(err) {
 		return err
 	}
 	protos, err := c.repo.LoadProtoFiles()
-	if err != nil {
+	if !c.noteSkipped(err) {
 		return err
 	}
 	workspaces, err := c.repo.LoadWorkspaces()
-	if err != nil {
+	if !c.noteSkipped(err) {
 		return err
 	}
 
@@ -78,6 +85,40 @@ func (c *Catalog) Load() error {
 		c.ActiveEnvID = state.Spec.SelectedEnvironment.ID
 	}
 	return nil
+}
+
+// noteSkipped queues the files err reports as skipped. It returns false when
+// err is a failure the load cannot get past.
+func (c *Catalog) noteSkipped(err error) bool {
+	if err == nil {
+		return true
+	}
+	files, ok := repository.SkippedFiles(err)
+	if !ok {
+		return false
+	}
+	if c.told == nil {
+		c.told = map[string]bool{}
+	}
+	for _, f := range files {
+		key := f.Path + "\x00" + f.Err.Error()
+		if c.told[key] {
+			continue
+		}
+		c.told[key] = true
+		c.skipped = append(c.skipped, f)
+	}
+	return true
+}
+
+// DrainSkipped returns the files left out of loads since the last call. Each
+// problem is returned once, however often the catalog reloads.
+func (c *Catalog) DrainSkipped() []repository.SkippedFile {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := c.skipped
+	c.skipped = nil
+	return out
 }
 
 func (c *Catalog) RequestByID(id string) *domain.Request {

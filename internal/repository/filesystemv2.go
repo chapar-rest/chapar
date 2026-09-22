@@ -291,6 +291,7 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 	}
 
 	collections := make([]*domain.Collection, 0, len(dirs))
+	var skipped skippedFiles
 	for _, dir := range dirs {
 		if !dir.IsDir() {
 			continue // Skip non-directory entries
@@ -305,11 +306,12 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 		// Load the collection from the YAML file
 		collection, err := LoadFromYaml[domain.Collection](collectionFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load collection %s: %w", dir.Name(), err)
+			skipped = append(skipped, SkippedFile{Path: collectionFile, Err: err})
+			continue
 		}
 
 		requests, err := f.loadCollectionRequests(filepath.Join(path, dir.Name()))
-		if err != nil {
+		if !skipped.absorb(err) {
 			return nil, fmt.Errorf("failed to load requests for collection %s: %w", dir.Name(), err)
 		}
 		collection.Spec.Requests = requests
@@ -318,7 +320,7 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 		f.entities.Set(collection.ID(), collection.GetName())
 	}
 
-	return collections, nil
+	return collections, skipped.err()
 }
 
 func (f *FilesystemV2) loadCollectionRequests(path string) ([]*domain.Request, error) {
@@ -468,6 +470,7 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 	}
 
 	workspaces := make([]*domain.Workspace, 0, len(dirs))
+	var skipped skippedFiles
 	for _, dir := range dirs {
 		if !dir.IsDir() {
 			continue // Skip non-directory entries
@@ -482,14 +485,15 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 		// Load the workspace from the YAML file
 		workspace, err := LoadFromYaml[domain.Workspace](workspaceFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load workspace %s: %w", dir.Name(), err)
+			skipped = append(skipped, SkippedFile{Path: workspaceFile, Err: err})
+			continue
 		}
 
 		workspaces = append(workspaces, workspace)
 		f.entities.Set(workspace.ID(), workspace.GetName())
 	}
 
-	return workspaces, nil
+	return workspaces, skipped.err()
 }
 
 // CreateWorkspace creates a new workspace and writes it to the filesystem.
@@ -796,8 +800,11 @@ func (f *FilesystemV2) ReadLegacyPreferences() (*domain.Preferences, error) {
 	return LoadFromYaml[domain.Preferences](filePath)
 }
 
+// loadList reads every entity file in dir. A file that cannot be read is left
+// out and reported in a *SkippedFilesError next to the entities that loaded.
 func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 	var out []*T
+	var skipped skippedFiles
 
 	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
 	if err != nil {
@@ -811,7 +818,7 @@ func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 		}
 
 		if item, err := LoadFromYaml[T](file); err != nil {
-			return nil, err
+			skipped = append(skipped, SkippedFile{Path: file, Err: err})
 		} else {
 			out = append(out, item)
 			if fallback != nil {
@@ -820,5 +827,5 @@ func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 		}
 	}
 
-	return out, nil
+	return out, skipped.err()
 }
