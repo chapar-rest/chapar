@@ -8,6 +8,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/uiv2/langsrv"
+	"github.com/chapar-rest/chapar/uiv2/scriptsrv"
 	"github.com/chapar-rest/chapar/uiv2/secretui"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -31,6 +32,7 @@ type Panel struct {
 	dirty        bool
 	pathWarn     bool
 	lang         *langsrv.Service
+	scripts      *scriptsrv.Service
 	secrets      secretui.Deps
 	install      func(language string)
 	onAppearance func(domain.GlobalConfigSpec)
@@ -38,8 +40,8 @@ type Panel struct {
 
 // New builds the settings panel. install installs the default language
 // server for a language (config key); it backs the Install buttons.
-func New(lang *langsrv.Service, install func(language string), onAppearance func(domain.GlobalConfigSpec)) *Panel {
-	return &Panel{lang: lang, install: install, onAppearance: onAppearance}
+func New(lang *langsrv.Service, scripts *scriptsrv.Service, install func(language string), onAppearance func(domain.GlobalConfigSpec)) *Panel {
+	return &Panel{lang: lang, scripts: scripts, install: install, onAppearance: onAppearance}
 }
 
 func (p *Panel) Prepare() {
@@ -268,7 +270,39 @@ func (p *Panel) scriptingForm(th *theme.Theme, g *domain.GlobalConfigSpec) ui.Vi
 		g.Scripting.Port = int(v)
 		p.mark()
 	}))
-	return ui.Form("settings-scripting", items...).Padding(th.Spacing.M)
+	return ui.Column(
+		p.executorStatus(th),
+		ui.Form("settings-scripting", items...),
+	).Gap(th.Spacing.M).Padding(th.Spacing.M)
+}
+
+// executorStatus shows whether the script executor runs, with a Restart
+// button. Like language servers, Restart applies the saved settings.
+func (p *Panel) executorStatus(th *theme.Theme) ui.View {
+	if p.scripts == nil {
+		return nil
+	}
+	saved := prefs.GetGlobalConfig().Spec.Scripting
+	status := p.scripts.Status()
+	if !saved.Enabled {
+		status = "Stopped · scripting is disabled"
+	}
+	state, _ := p.scripts.State()
+	color := ui.TokenForegroundMuted
+	if saved.Enabled && state == scriptsrv.Failed {
+		color = ui.TokenError
+	}
+	return ui.Column(
+		ui.Strong("Executor"),
+		wrapped(th, "Runs pre/post-request scripts. Changes apply on Save; Restart applies to the saved settings."),
+		ui.Row(
+			ui.Paragraph(status).Size(th.Typography.Caption.Size).
+				Style(ui.Spec{}.TextColor(color)).Grow(1),
+			ui.Button("scripting-restart", ui.Text("Restart")).IconStart(icons.RefreshCw).
+				Disabled(!saved.Enabled || state == scriptsrv.Starting).
+				OnClick(func() { p.scripts.Restart(prefs.GetGlobalConfig().Spec.Scripting) }),
+		).Gap(th.Spacing.S),
+	).Gap(th.Spacing.S)
 }
 
 // fillLanguageServers gives the draft an entry for every language, so the

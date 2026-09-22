@@ -34,7 +34,7 @@ type Service struct {
 	lookup  RequestLookup
 	colls   CollectionLookup
 	onEnv   func(*domain.Environment)
-	script  scripting.Executor
+	script  Scripts
 	cookies *cookies.Store
 }
 
@@ -51,8 +51,13 @@ func (s *Service) Cookies() *cookies.Store {
 	return s.cookies
 }
 
+// Scripts runs pre/post-request scripts.
+type Scripts interface {
+	Execute(ctx context.Context, script string, params *scripting.ExecParams) (*scripting.ExecResult, error)
+}
+
 // SetExecutor wires the Python scripting executor for pre/post scripts.
-func (s *Service) SetExecutor(exec scripting.Executor) {
+func (s *Service) SetExecutor(exec Scripts) {
 	s.script = exec
 }
 

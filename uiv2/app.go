@@ -11,12 +11,12 @@ import (
 	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
-	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/chapar-rest/chapar/uiv2/cookieui"
 	"github.com/chapar-rest/chapar/uiv2/langsrv"
 	"github.com/chapar-rest/chapar/uiv2/pages"
+	"github.com/chapar-rest/chapar/uiv2/scriptsrv"
 	"github.com/chapar-rest/chapar/uiv2/secretui"
 	"github.com/chapar-rest/chapar/uiv2/sender"
 	"github.com/chapar-rest/chapar/uiv2/settings"
@@ -49,7 +49,7 @@ type App struct {
 	initErr  error
 	wake     func()
 	uiCtx    *ui.Ctx
-	executor scripting.Executor
+	scripts  *scriptsrv.Service
 	lang     *langsrv.Service
 	// lspPromptClosed holds languages whose install prompt the user closed.
 	lspPromptClosed map[string]bool
@@ -69,14 +69,18 @@ func BuildApp() *App {
 	a := &App{console: &ConsolePanel{}, sideOpen: true, lspPromptClosed: map[string]bool{}}
 	a.lang = langsrv.New(nil)
 	a.lang.Apply(prefs.GetGlobalConfig().Spec.LanguageServers)
-	prefs.AddGlobalConfigChangeListener(func(_, updated domain.GlobalConfig) {
+	a.scripts = scriptsrv.New()
+	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
 		a.lang.Apply(updated.Spec.LanguageServers)
+		if old.Spec.Scripting.Changed(updated.Spec.Scripting) {
+			a.scripts.Restart(updated.Spec.Scripting)
+		}
 	})
 	go func() {
 		langsrv.FixPath()
 		a.lang.PathReady()
 	}()
-	a.settings = settings.New(a.lang, a.installLanguageServer, func(spec domain.GlobalConfigSpec) {
+	a.settings = settings.New(a.lang, a.scripts, a.installLanguageServer, func(spec domain.GlobalConfigSpec) {
 		a.hideNavbar = spec.General.HideNavbar
 		applyChaparAppearance(spec.General, spec.Editor)
 	})
@@ -150,7 +154,8 @@ func BuildApp() *App {
 	a.hideNavbar = cfg.Spec.General.HideNavbar
 	applyChaparAppearance(cfg.Spec.General, cfg.Spec.Editor)
 
-	go a.initScripting()
+	a.sender.SetExecutor(a.scripts)
+	a.scripts.Restart(cfg.Spec.Scripting)
 	return a
 }
 
@@ -345,29 +350,10 @@ func (a *App) workspaceSummary() string {
 	}, " · ")
 }
 
-func (a *App) initScripting() {
-	cfg := prefs.GetGlobalConfig().Spec.Scripting
-	if !cfg.Enabled {
-		return
-	}
-	exec, err := scripting.GetExecutor(cfg.Language, cfg)
-	if err != nil {
-		logger.Error(fmt.Sprintf("scripting: %v", err))
-		return
-	}
-	if err := exec.Init(cfg); err != nil {
-		logger.Error(fmt.Sprintf("scripting init: %v", err))
-		return
-	}
-	a.executor = exec
-	if a.sender != nil {
-		a.sender.SetExecutor(exec)
-	}
-}
-
 func (a *App) Body(c *ui.Ctx) ui.View {
 	if a.uiCtx == nil {
 		a.lang.SetWake(c.Invalidate)
+		a.scripts.SetWake(c.Invalidate)
 	}
 	a.uiCtx = c
 	a.wake = c.Invalidate
@@ -643,9 +629,7 @@ func (a *App) Close() {
 	if a.ws != nil {
 		a.ws.CloseAll()
 	}
-	if a.executor != nil {
-		_ = a.executor.Shutdown()
-	}
+	a.scripts.Shutdown()
 }
 
 func (a *App) OnKey(_ *ui.Ctx, k input.KeyEvent) bool {
