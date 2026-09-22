@@ -91,6 +91,8 @@ type Node struct {
 	iconStart    icons.Icon
 	iconEnd      icons.Icon
 	password     bool
+	highlight    func(string) []TextSpan
+	suggest      SuggestFunc
 	lineThick    float32
 	lineColor    render.Color
 	iconSize     float32
@@ -512,6 +514,14 @@ func (n *Node) Hint(s string) *Node { n.hint = s; return n }
 
 // Placeholder sets TextField placeholder text.
 func (n *Node) Placeholder(s string) *Node { n.placeholder = s; return n }
+
+// Highlight colors ranges of a TextField's value, such as the {{name}}
+// placeholders in a URL. It is asked once per paint, so it should be cheap.
+func (n *Node) Highlight(fn func(value string) []TextSpan) *Node { n.highlight = fn; return n }
+
+// Suggest gives a TextField a completion popup fed by fn, which is asked for
+// candidates after every edit.
+func (n *Node) Suggest(fn SuggestFunc) *Node { n.suggest = fn; return n }
 
 // Password masks TextField contents.
 func (n *Node) Password(v bool) *Node { n.password = v; return n }

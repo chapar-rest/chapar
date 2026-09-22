@@ -118,18 +118,18 @@ func DefaultElevationLight() Elevation {
 
 // ComponentMetrics holds shared control sizing for Yoga widgets, all in logical pixels.
 type ComponentMetrics struct {
-	ControlHeight       render.Px // compact chrome: inputs, buttons, selects, tabs
+	ControlHeight         render.Px // compact chrome: inputs, buttons, selects, tabs
 	TitleBarControlHeight render.Px // controls inside ui.TitleBar (smaller than ControlHeight)
-	TitleBarHeight      render.Px // custom title bar row height
-	MenuItemHeight      render.Px
-	ScrollbarSize       render.Px
-	ScrollbarMinThumb   render.Px
-	ScrollbarThumbInset render.Px
-	IconSizeSM          render.Px
-	IconSizeMD          render.Px
-	TreeIndent          render.Px
-	TreeIconSize        render.Px
-	TreeChevronSize     render.Px
+	TitleBarHeight        render.Px // custom title bar row height
+	MenuItemHeight        render.Px
+	ScrollbarSize         render.Px
+	ScrollbarMinThumb     render.Px
+	ScrollbarThumbInset   render.Px
+	IconSizeSM            render.Px
+	IconSizeMD            render.Px
+	TreeIndent            render.Px
+	TreeIconSize          render.Px
+	TreeChevronSize       render.Px
 }
 
 // DefaultComponentMetrics returns Yoga control metrics.
@@ -138,15 +138,15 @@ func DefaultComponentMetrics() ComponentMetrics {
 		ControlHeight:         32,
 		TitleBarControlHeight: 26,
 		TitleBarHeight:        36,
-		MenuItemHeight:      32,
-		ScrollbarSize:       12,
-		ScrollbarMinThumb:   24,
-		ScrollbarThumbInset: 2,
-		IconSizeSM:          16,
-		IconSizeMD:          18,
-		TreeIndent:          14,
-		TreeIconSize:        14,
-		TreeChevronSize:     14,
+		MenuItemHeight:        32,
+		ScrollbarSize:         12,
+		ScrollbarMinThumb:     24,
+		ScrollbarThumbInset:   2,
+		IconSizeSM:            16,
+		IconSizeMD:            18,
+		TreeIndent:            14,
+		TreeIconSize:          14,
+		TreeChevronSize:       14,
 	}
 }
 

@@ -178,7 +178,7 @@ func (b *winCtrlButton) Layout(c *Ctx) *layout.Element {
 		}
 		col := th.Foreground
 		if closeBtn && (st.hovered || st.pressed) {
-			col = th.AccentForeground
+			col = th.OnColor(bg)
 		}
 		inset := b.h * 0.32
 		inner := render.Rect{X: frame.X + (frame.W-inset)/2, Y: frame.Y + (frame.H-inset)/2, W: inset, H: inset}

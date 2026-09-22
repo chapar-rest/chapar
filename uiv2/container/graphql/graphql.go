@@ -9,6 +9,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -21,15 +22,19 @@ type result struct {
 }
 
 type Container struct {
-	req                   *domain.Request
-	deps                  container.Deps
-	dirty                 bool
-	queryEd               *ui.Editor
-	varsEd                *ui.Editor
-	descEd                *ui.Editor
-	respEd                *ui.Editor
-	respHdrEd             *ui.Editor
-	headers               *ui.Table
+	req       *domain.Request
+	deps      container.Deps
+	dirty     bool
+	queryEd   *ui.Editor
+	varsEd    *ui.Editor
+	descEd    *ui.Editor
+	respEd    *ui.Editor
+	respHdrEd *ui.Editor
+	headers   *ui.Table
+
+	// varSrc is what the URL, header and auth fields complete and paint their
+	// {{variable}} placeholders from.
+	varSrc                vars.Source
 	preScript             *ui.Editor
 	postScript            *ui.Editor
 	reqTabs               []ui.TabModel
@@ -71,7 +76,10 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{})
 	c.headers = container.NewKVTable("gql-hdr-"+r.MetaData.ID, c.markDirty)
 	container.LoadKV(c.headers, g.Headers)
+	c.varSrc = container.VarSource(deps, nil)
+	container.AssistKV(c.headers, c.varSrc)
 	c.authState = container.LoadAuthState(g.Auth)
+	c.authState.Vars = c.varSrc
 	c.authState.AllowInherit = true
 	c.authState.CollectionID = r.CollectionID
 	if g.PreRequest.Type == domain.PrePostTypePython && g.PreRequest.Script != "" {
@@ -169,7 +177,8 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
 	return ui.Column(
 		ui.Row(
-			ui.TextField("gql-url-"+id, g.URL).Placeholder("https://…/graphql").
+			container.AssistURLField(ui.TextField("gql-url-"+id, g.URL), c.varSrc).
+				Placeholder("https://…/graphql").
 				OnChange(func(s string) { g.URL = s; c.markDirty() }).
 				OnSubmit(func(string) { c.Send() }).
 				Grow(1),

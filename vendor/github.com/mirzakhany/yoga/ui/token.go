@@ -34,6 +34,17 @@ const (
 	TokenError
 	TokenWarning
 	TokenSuccess
+	TokenInfo
+	TokenBorderControl
+	TokenErrorForeground
+	TokenWarningForeground
+	TokenSuccessForeground
+	TokenInfoForeground
+	TokenErrorSurface
+	TokenWarningSurface
+	TokenSuccessSurface
+	TokenInfoSurface
+	TokenLink
 )
 
 // Resolve looks up t on th. TokenUnset yields a fully transparent color.
@@ -88,6 +99,28 @@ func (t Token) Resolve(th *theme.Theme) render.Color {
 		return th.Warning
 	case TokenSuccess:
 		return th.Success
+	case TokenInfo:
+		return th.Info
+	case TokenBorderControl:
+		return th.BorderControl
+	case TokenErrorForeground:
+		return th.ErrorForeground
+	case TokenWarningForeground:
+		return th.WarningForeground
+	case TokenSuccessForeground:
+		return th.SuccessForeground
+	case TokenInfoForeground:
+		return th.InfoForeground
+	case TokenErrorSurface:
+		return th.ErrorSurface
+	case TokenWarningSurface:
+		return th.WarningSurface
+	case TokenSuccessSurface:
+		return th.SuccessSurface
+	case TokenInfoSurface:
+		return th.InfoSurface
+	case TokenLink:
+		return th.Link
 	default:
 		return render.Color{}
 	}

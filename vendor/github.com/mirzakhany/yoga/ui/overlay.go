@@ -5,6 +5,7 @@ import (
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
+	"github.com/mirzakhany/yoga/theme"
 )
 
 // Scrim is a full-window dimmed backdrop for modals.
@@ -40,9 +41,7 @@ func (s *Scrim) paint(dl *render.DrawList, _ *shape.Engine) {
 	if !s.Open {
 		return
 	}
-	c := render.RGBA8(0, 0, 0, 255)
-	c.A = 0.45
-	dl.AddRect(s.host.Frame, c)
+	dl.AddRect(s.host.Frame, theme.Current().Scrim)
 }
 
 func (s *Scrim) onMouse(e *layout.Element, m *input.Mouse) {

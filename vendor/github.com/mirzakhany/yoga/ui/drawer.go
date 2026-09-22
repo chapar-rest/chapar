@@ -411,8 +411,8 @@ func (d *drawerView) layoutOverlay(c *Ctx, st *drawerState, th *theme.Theme) *la
 	if d.modal && st.progress > 0 {
 		scrim := layout.New(layout.Box().AbsLeft(0).AbsTop(0).AbsRight(0).AbsBottom(0))
 		scrim.Paint = func(dl *render.DrawList, _ *shape.Engine) {
-			col := render.RGBA8(0, 0, 0, 255)
-			col.A = 0.45 * st.progress
+			col := th.Scrim
+			col.A *= st.progress
 			dl.AddRect(scrim.Frame, col)
 		}
 		scrim.OnMouse = func(_ *layout.Element, m *input.Mouse) {

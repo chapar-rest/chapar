@@ -260,6 +260,19 @@ ui.Radio("ra", "A").Check(app.mode == 0).OnClick(func() { app.mode = 0 })
 ui.Select("lang", opts).Width(200).Selected(i).OnChange(func(v string) { app.lang = v })
 ```
 
+A text field can also mark up its own text and finish it for the user. `.Highlight(fn)` colors byte ranges of the value — template placeholders, matches, tokens — and `.Suggest(fn)` opens a completion popup under the field, driven by ↑ ↓ Enter/Tab and Escape:
+
+```go
+ui.TextField("url", app.url).
+    Highlight(func(v string) []ui.TextSpan { return app.vars.Spans(v) }).
+    Suggest(func(v string, caret int) ([]ui.Suggestion, int, int) {
+        // Candidates, plus the byte range they replace.
+        return app.vars.Complete(v, caret)
+    })
+```
+
+`Table` offers the same through `CellHighlight` and `CellSuggest`, which apply to the row text and to the inline edit field. A masked (password) value is never highlighted or completed, so neither hook can leak it.
+
 Button variants: default **Secondary**; `.Primary()`, `.Subtle()`, and `.Ghost()`. Ghost is text-like (no padding or chrome) for footers and status bars; chain `.HoverFill()` for a hover background. Supports `.IconStart()` and `.Tooltip()`. Icon-only: `ui.IconButton(id, icons.Settings)`.
 
 Typography: `Text`, `Title`, `Subtitle`, `Caption`, `Strong`, `Muted`. Color inherits from the parent (for example a button’s label uses the button’s text token) unless you override with `.Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted))`.
@@ -407,7 +420,17 @@ ui.Text("status").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted))
 
 Default theme is `yoga-dark`. If you switch before opening the window, call `theme.Use` **before** `yoga.Run` (see `example/apitest`).
 
-Shipped names include `yoga-dark`, `yoga-light`, `system` (matches OS appearance), `yoga-midnight`, `yoga-high-contrast`, `github-dark`, `github-light`, `catppuccin`, `catppuccin-latte`, `dracula`, `nord`, `solarized-dark`, `solarized-light`, `gruvbox-dark`, `gruvbox-light`, `monokai`, `everforest-dark`, and `everforest-light` (`theme.Names()`). Use `theme.Use("system")` to follow the platform dark/light setting; the runtime re-syncs each frame. `theme.Selected()` returns `"system"` while that mode is active; `theme.Current()` holds the resolved yoga palette.
+Shipped names: `yoga-dark`, `yoga-light`, `system`, `yoga-high-contrast`, `yoga-high-contrast-light`, `yoga-colorblind-dark`, `yoga-colorblind-light`, `yoga-midnight`, `github-dark`, `github-light`, `catppuccin`, `catppuccin-latte`, `dracula`, `nord`, `solarized-dark`, `solarized-light`, `gruvbox-dark`, `gruvbox-light`, `monokai`, `tokyo-night`, `tokyo-night-day`, `one-dark`, `one-light`, `everforest-dark`, `everforest-light` (`theme.Names()`).
+
+Use `theme.Use("system")` to follow the platform dark/light setting; the runtime re-syncs each frame. `theme.Selected()` returns `"system"` while that mode is active; `theme.Current()` holds the resolved palette.
+
+`theme.UseSystem(name)` follows the OS appearance *within a theme family*, so a reader on `catppuccin` gets `catppuccin-latte` in daylight instead of being moved to the yoga palette. Each theme names its counterpart through `LightSibling` / `DarkSibling`; themes with no counterpart stay put.
+
+Two themes exist for accessibility rather than taste: `yoga-high-contrast-light` for readers who need maximum contrast on a light workspace, and the `yoga-colorblind-*` pair, whose status colors come from the Okabe-Ito palette so Error, Warning and Success stay separable without color vision.
+
+Every shipped palette is checked against WCAG 2.1 AA by `theme`'s contrast tests: 4.5:1 for text on every surface it can land on, 3:1 for control outlines and focus rings. Tokens that are defined by a contrast relationship rather than by taste — `BorderControl`, `FocusRing`, the `*Foreground` / `*Surface` status pairs, and the editor washes — are derived from the palette in `normalize`, so a custom theme only sets its brand colors and still passes. Use `theme.ContrastRatio` to check your own.
+
+For text, always use the `*Foreground` status tokens (`th.ErrorForeground`), never the raw `th.Error` hue: an amber `Warning` cannot reach 4.5:1 on a light surface. Draw focus rings through `th.FocusRingOn(fill)` rather than reading `th.FocusRing`, so the ring stays visible on accent-filled controls.
 
 Spacing, radius, stroke, and type ramps live on `c.Theme()` (`th.Spacing.M`, `th.Radius.Medium`, `th.Stroke.Thin`, `th.Typography.Body`).
 

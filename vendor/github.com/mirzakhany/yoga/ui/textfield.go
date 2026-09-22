@@ -39,6 +39,11 @@ type TextInput struct {
 	// standard edit items and returns the ones to show. Returning none turns
 	// the menu off and leaves the right-click to widgets behind the field.
 	ContextMenu func(items []MenuItem) []MenuItem
+	// Highlight, when set, colors ranges of the value, such as template
+	// placeholders. It runs once per paint.
+	Highlight func(value string) []TextSpan
+	// Suggest, when set, feeds the completion popup that opens while typing.
+	Suggest SuggestFunc
 
 	focused    bool
 	caret      int // byte offset
@@ -65,6 +70,7 @@ type TextInput struct {
 	lastEditAt time.Time
 
 	menu editMenu
+	sugg suggestState
 }
 
 // textSnap is a TextInput state that undo/redo returns to.
@@ -139,6 +145,7 @@ func (tf *TextInput) Focused() bool { return tf.focused }
 func (tf *TextInput) Blur() {
 	tf.focused = false
 	tf.menu.close()
+	tf.closeSuggest()
 }
 
 // CapturesTab reports that plain Tab should move focus rather than insert text.
@@ -324,6 +331,8 @@ func (tf *TextInput) moveTo(off int, extend bool) {
 	tf.lastMerge = mergeNone
 	tf.blinkStart = time.Now()
 	tf.caretShown = true
+	// The suggestions described the old caret position.
+	tf.closeSuggest()
 }
 
 // edit runs fn, which changes the value, and records the state before it as
@@ -529,7 +538,11 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 				}
 			}
 		}
-		text.DrawStringTopAt(dl, show, tx-tf.scrollX, ty, col, style.Size)
+		if spans := tf.highlightSpans(show); len(spans) > 0 {
+			drawSpannedText(dl, text, show, spans, tx-tf.scrollX, ty, col, style.Size)
+		} else {
+			text.DrawStringTopAt(dl, show, tx-tf.scrollX, ty, col, style.Size)
+		}
 		dl.PopClip()
 	}
 
@@ -668,6 +681,7 @@ func (tf *TextInput) HandleText(runes []rune) {
 	}
 	s := string(runes)
 	tf.edit(mergeType, s, func() { tf.insertAtCaret(s) })
+	tf.refreshSuggest()
 }
 
 // ── Builder/modifier methods ─────────────────────────────────────────────────
@@ -766,6 +780,11 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 	}
 	for _, ev := range keys {
 		shift := ev.Mods.Has(input.ModShift)
+		// An open completion popup takes navigation and acceptance keys first,
+		// so Enter picks a suggestion rather than submitting the field.
+		if tf.handleSuggestKey(ev) {
+			continue
+		}
 		if ev.Key == input.KeyEnter && !ev.Mods.Primary() {
 			if tf.OnSubmit != nil {
 				tf.OnSubmit(tf.Value)
@@ -804,6 +823,7 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 					tf.caret = prev
 				})
 			}
+			tf.refreshSuggest()
 		case input.KeyDelete:
 			if tf.hasSelection() {
 				tf.edit(mergeNone, "", func() { tf.deleteSelection() })

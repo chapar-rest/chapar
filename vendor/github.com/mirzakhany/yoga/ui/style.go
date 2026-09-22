@@ -102,7 +102,7 @@ func drawFocusRing(dl *render.DrawList, rect render.Rect, fill render.Color, t *
 	if r <= 0 {
 		r = 4
 	}
-	dl.AddRoundedRectBorder(rect, r, t.Stroke.Thick, fill, t.FocusRing)
+	dl.AddRoundedRectBorder(rect, r, t.Stroke.Thick, fill, t.FocusRingOn(fill))
 }
 
 // drawElevationShadow approximates an elevation shadow behind rect.

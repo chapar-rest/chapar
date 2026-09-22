@@ -45,9 +45,7 @@ func (n *Node) layoutAlert(c *Ctx) *layout.Element {
 	if d != nil {
 		variant = d.variant
 	}
-	accent := alertAccent(th, variant)
-	tint := accent
-	tint.A = 0.15
+	accent, tint := alertColors(th, variant)
 	style := th.Typography.Body
 	var tw, lh float32
 	if eng := c.Text(); eng != nil {
@@ -83,15 +81,18 @@ func (n *Node) layoutAlert(c *Ctx) *layout.Element {
 	return el
 }
 
-func alertAccent(th *theme.Theme, v AlertVariant) render.Color {
+// alertColors returns the rule color and the panel fill for a variant. The
+// fill is the palette's status surface, which is built so Foreground still
+// reads on it.
+func alertColors(th *theme.Theme, v AlertVariant) (accent, fill render.Color) {
 	switch v {
 	case AlertWarning:
-		return th.Warning
+		return th.WarningForeground, th.WarningSurface
 	case AlertError:
-		return th.Error
+		return th.ErrorForeground, th.ErrorSurface
 	case AlertSuccess:
-		return th.Success
+		return th.SuccessForeground, th.SuccessSurface
 	default:
-		return th.Accent
+		return th.InfoForeground, th.InfoSurface
 	}
 }

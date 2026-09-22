@@ -48,6 +48,8 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 	}
 	tf.OnChange = n.onChange
 	tf.OnSubmit = n.onSubmit
+	tf.Highlight = n.highlight
+	tf.Suggest = n.suggest
 	tf.disabled = n.disabled
 	tf.visualSpec = c.styles().TextField.merge(n.spec)
 	if n.disabled && tf.focused {
@@ -64,6 +66,7 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 	tf.host.Style.Height = h
 	tf.host.Style.MinHeight = h
 	el := tf.Layout(c)
+	tf.RegisterSuggest(c)
 	if n.defaultFocus && c.Focus() != nil {
 		c.Focus().EnsureFocus(tf)
 	}

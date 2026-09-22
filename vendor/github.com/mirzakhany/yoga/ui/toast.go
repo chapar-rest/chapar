@@ -176,13 +176,13 @@ func (t *ToastHost) prune() {
 func (t *ToastHost) variantIcon(v ToastVariant) (icons.Icon, Token) {
 	switch v {
 	case ToastSuccess:
-		return icons.CircleCheck, TokenSuccess
+		return icons.CircleCheck, TokenSuccessForeground
 	case ToastWarning:
-		return icons.TriangleAlert, TokenWarning
+		return icons.TriangleAlert, TokenWarningForeground
 	case ToastError:
-		return icons.CircleAlert, TokenError
+		return icons.CircleAlert, TokenErrorForeground
 	default:
-		return icons.Info, TokenAccent
+		return icons.Info, TokenInfoForeground
 	}
 }
 
@@ -295,13 +295,13 @@ func (t *ToastHost) variantColor(v ToastVariant) render.Color {
 	th := theme.Current()
 	switch v {
 	case ToastSuccess:
-		return th.Success
+		return th.SuccessForeground
 	case ToastWarning:
-		return th.Warning
+		return th.WarningForeground
 	case ToastError:
-		return th.Error
+		return th.ErrorForeground
 	default:
-		return th.Accent
+		return th.InfoForeground
 	}
 }
 

@@ -67,11 +67,11 @@ func (n *Node) layoutLink(c *Ctx) *layout.Element {
 
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		f := el.Frame
-		fg := th.Accent
+		fg := th.Link
 		if disabled {
 			fg = th.ForegroundDisabled
 		} else if st.hovered {
-			fg = th.AccentHover
+			fg = th.LinkHover
 		}
 		// The ring fills its rect, so it goes under the label. The frame hugs
 		// the text, so the ring sits a little outside it to clear the glyphs.

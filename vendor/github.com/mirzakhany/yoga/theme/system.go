@@ -8,6 +8,10 @@ var (
 	selectedName       = "yoga-dark"
 	systemResolvedDark bool
 	prefersDarkFn      = osPrefersDark
+	// systemFamily is the theme whose LightSibling/DarkSibling pair the system
+	// appearance resolves through. Following the OS should not force the user
+	// back onto the yoga palette.
+	systemFamily = "yoga-dark"
 )
 
 // PrefersDark reports whether the OS is set to a dark appearance.
@@ -39,11 +43,36 @@ func SyncSystem() bool {
 	return applyResolved(systemTarget())
 }
 
-func systemTarget() string {
-	if prefersDarkFn() {
-		return "yoga-dark"
+// SystemFamily returns the theme name the system appearance resolves through.
+func SystemFamily() string { return systemFamily }
+
+// UseSystem follows the OS appearance within the given theme's family,
+// resolving to that theme's LightSibling or DarkSibling. Pass any member of the
+// family; "catppuccin" and "catppuccin-latte" select the same pair. Returns
+// false if the name is unknown, leaving the active theme unchanged.
+func UseSystem(family string) bool {
+	root, ok := registry[family]
+	if !ok {
+		return false
 	}
-	return "yoga-light"
+	systemFamily = root.Name
+	selectedName = SystemName
+	systemResolvedDark = PrefersDark()
+	return applyResolved(systemTarget())
+}
+
+func systemTarget() string {
+	root, ok := registry[systemFamily]
+	if !ok {
+		if prefersDarkFn() {
+			return "yoga-dark"
+		}
+		return "yoga-light"
+	}
+	if prefersDarkFn() {
+		return root.DarkSibling
+	}
+	return root.LightSibling
 }
 
 func applyResolved(name string) bool {
@@ -65,5 +94,6 @@ func applyResolved(name string) bool {
 func yogaSystem() Theme {
 	t := yogaDark()
 	t.Name = SystemName
+	t.DarkSibling, t.LightSibling = "yoga-dark", "yoga-light"
 	return t
 }

@@ -3,6 +3,7 @@ package collection
 import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -19,6 +20,10 @@ type Container struct {
 	active                      int
 	authType, token, user, pass string
 	key, val                    string
+
+	// varSrc is what the header and auth fields complete and paint their
+	// {{variable}} placeholders from.
+	varSrc vars.Source
 }
 
 func Open(col *domain.Collection, deps container.Deps) *Container {
@@ -30,6 +35,8 @@ func Open(col *domain.Collection, deps container.Deps) *Container {
 	c.notes = ui.NewEditor([]byte(c.col.Spec.Notes), highlight.Noop{})
 	c.headers = container.NewKVTable("col-hdr-"+c.col.MetaData.ID, c.markDirty)
 	container.LoadKV(c.headers, c.col.Spec.Headers)
+	c.varSrc = container.VarSource(deps, nil)
+	container.AssistKV(c.headers, c.varSrc)
 	c.authType = c.col.Spec.Auth.Type
 	if c.col.Spec.Auth.TokenAuth != nil {
 		c.token = c.col.Spec.Auth.TokenAuth.Token
@@ -119,19 +126,19 @@ func (c *Container) body(th *theme.Theme) ui.View {
 				OnChange(func(v string) { c.authType = v; c.markDirty() }),
 		}
 		if c.authType == domain.AuthTypeToken {
-			rows = append(rows, ui.TextField("col-token-"+id, c.token).Placeholder("Token").
+			rows = append(rows, container.AssistField(ui.TextField("col-token-"+id, c.token), c.varSrc).Placeholder("Token").
 				OnChange(func(s string) { c.token = s; c.markDirty() }).Grow(1))
 		}
 		if c.authType == domain.AuthTypeBasic {
 			rows = append(rows,
-				ui.TextField("col-user-"+id, c.user).Placeholder("Username").OnChange(func(s string) { c.user = s; c.markDirty() }),
+				container.AssistField(ui.TextField("col-user-"+id, c.user), c.varSrc).Placeholder("Username").OnChange(func(s string) { c.user = s; c.markDirty() }),
 				ui.TextField("col-pass-"+id, c.pass).Placeholder("Password").Password(true).OnChange(func(s string) { c.pass = s; c.markDirty() }),
 			)
 		}
 		if c.authType == domain.AuthTypeAPIKey {
 			rows = append(rows,
-				ui.TextField("col-apikey-"+id, c.key).Placeholder("Header").OnChange(func(s string) { c.key = s; c.markDirty() }),
-				ui.TextField("col-apival-"+id, c.val).Placeholder("Value").OnChange(func(s string) { c.val = s; c.markDirty() }),
+				container.AssistField(ui.TextField("col-apikey-"+id, c.key), c.varSrc).Placeholder("Header").OnChange(func(s string) { c.key = s; c.markDirty() }),
+				container.AssistField(ui.TextField("col-apival-"+id, c.val), c.varSrc).Placeholder("Value").OnChange(func(s string) { c.val = s; c.markDirty() }),
 			)
 		}
 		return ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)

@@ -9,12 +9,12 @@ func yogaDark() Theme {
 		Chrome:             rgb(33, 33, 40),
 		ChromeMuted:        rgb(43, 43, 52),
 		Foreground:         rgb(213, 217, 227),
-		ForegroundMuted:    rgb(126, 131, 145),
-		ForegroundSubtle:   rgb(98, 104, 118),
-		ForegroundDisabled: rgba(126, 131, 145, 0.45),
-		Accent:             rgb(94, 129, 232),
-		AccentHover:        rgb(110, 145, 245),
-		AccentPressed:      rgb(70, 100, 200),
+		ForegroundMuted:    rgb(143, 147, 159),
+		ForegroundSubtle:   rgb(103, 109, 122),
+		ForegroundDisabled: rgba(126, 131, 145, 0.50),
+		Accent:             rgb(83, 114, 204),
+		AccentHover:        rgb(73, 100, 180),
+		AccentPressed:      rgb(63, 87, 155),
 		AccentForeground:   rgb(255, 255, 255),
 		Border:             rgb(54, 56, 68),
 		BorderStrong:       rgb(70, 74, 88),
@@ -24,7 +24,7 @@ func yogaDark() Theme {
 
 		Selection:        rgb(58, 70, 104),
 		ScrollTrack:      rgb(36, 36, 44),
-		ScrollThumb:      rgb(100, 104, 118),
+		ScrollThumb:      rgb(106, 110, 123),
 		ScrollThumbHover: rgb(94, 129, 232),
 
 		Error:   rgb(224, 108, 117),
@@ -55,22 +55,22 @@ func yogaLight() Theme {
 		Chrome:             rgb(240, 240, 244),
 		ChromeMuted:        rgb(230, 230, 236),
 		Foreground:         rgb(30, 32, 38),
-		ForegroundMuted:    rgb(110, 116, 128),
-		ForegroundSubtle:   rgb(140, 146, 158),
-		ForegroundDisabled: rgba(110, 116, 128, 0.45),
+		ForegroundMuted:    rgb(98, 103, 114),
+		ForegroundSubtle:   rgb(133, 139, 150),
+		ForegroundDisabled: rgba(110, 116, 128, 0.55),
 		Accent:             rgb(40, 110, 230),
-		AccentHover:        rgb(55, 125, 245),
-		AccentPressed:      rgb(30, 90, 200),
+		AccentHover:        rgb(35, 97, 202),
+		AccentPressed:      rgb(30, 84, 175),
 		AccentForeground:   rgb(255, 255, 255),
 		Border:             rgb(215, 218, 225),
 		BorderStrong:       rgb(190, 195, 205),
-		ListHover:          rgb(225, 228, 235),
-		ListActive:         rgb(210, 215, 225),
+		ListHover:          rgb(221, 223, 230),
+		ListActive:         rgb(204, 209, 219),
 		FocusRing:          rgb(40, 110, 230),
 
 		Selection:        rgb(180, 205, 250),
 		ScrollTrack:      rgb(220, 222, 228),
-		ScrollThumb:      rgb(160, 165, 175),
+		ScrollThumb:      rgb(122, 125, 133),
 		ScrollThumbHover: rgb(40, 110, 230),
 
 		Error:   rgb(200, 50, 60),
@@ -101,10 +101,10 @@ func yogaHighContrast() Theme {
 	t.Foreground = rgb(255, 255, 255)
 	t.ForegroundMuted = rgb(200, 200, 200)
 	t.ForegroundSubtle = rgb(160, 160, 160)
-	t.ForegroundDisabled = rgba(160, 160, 160, 0.5)
+	t.ForegroundDisabled = rgba(160, 160, 160, 0.50)
 	t.Accent = rgb(255, 213, 0)
-	t.AccentHover = rgb(255, 230, 80)
-	t.AccentPressed = rgb(220, 180, 0)
+	t.AccentHover = rgb(255, 221, 51)
+	t.AccentPressed = rgb(255, 230, 102)
 	t.AccentForeground = rgb(0, 0, 0)
 	t.Border = rgb(200, 200, 200)
 	t.BorderStrong = rgb(255, 255, 255)
@@ -136,25 +136,25 @@ func yogaHighContrast() Theme {
 // step above Surface, plus the 1px Border around editor panels.
 func yogaMidnight() Theme {
 	t := baseTheme("yoga-midnight", true)
-	t.Surface = rgb(21, 26, 33)    // #151A21 editor / workspace
-	t.Chrome = rgb(28, 35, 44)   // #1C232C toolbars, tab bars, controls
+	t.Surface = rgb(21, 26, 33)     // #151A21 editor / workspace
+	t.Chrome = rgb(28, 35, 44)      // #1C232C toolbars, tab bars, controls
 	t.ChromeMuted = rgb(14, 18, 24) // darker gutters/tracks — distinct from Chrome
 	t.Foreground = rgb(232, 236, 241)
 	t.ForegroundMuted = rgb(154, 164, 178)
-	t.ForegroundSubtle = rgb(90, 101, 115)
+	t.ForegroundSubtle = rgb(100, 110, 123)
 	t.ForegroundDisabled = rgba(154, 164, 178, 0.40)
 	t.Accent = rgb(47, 111, 237)
-	t.AccentHover = rgb(59, 125, 240)
-	t.AccentPressed = rgb(37, 96, 216)
+	t.AccentHover = rgb(41, 98, 209)
+	t.AccentPressed = rgb(36, 84, 180)
 	t.AccentForeground = rgb(255, 255, 255)
 	t.Border = rgb(42, 50, 61)
 	t.BorderStrong = rgb(58, 68, 82)
-	t.ListHover = rgb(34, 41, 51)
-	t.ListActive = rgb(42, 50, 61)
+	t.ListHover = rgb(41, 47, 57)
+	t.ListActive = rgb(48, 56, 67)
 	t.FocusRing = rgb(47, 111, 237)
 	t.Selection = rgb(40, 64, 110)
 	t.ScrollTrack = rgb(14, 18, 24)
-	t.ScrollThumb = rgb(58, 68, 82)
+	t.ScrollThumb = rgb(90, 98, 110)
 	t.ScrollThumbHover = rgb(47, 111, 237)
 	t.Error = rgb(237, 106, 94)
 	t.Warning = rgb(224, 165, 59)
@@ -164,7 +164,7 @@ func yogaMidnight() Theme {
 		rgb(220, 224, 232), // default
 		rgb(100, 149, 237), // keyword — cornflower blue
 		rgb(95, 191, 135),  // string — emerald
-		rgb(108, 118, 138), // comment — slate gray
+		rgb(121, 130, 149), // comment — slate gray
 		rgb(240, 180, 100), // number — amber
 		rgb(130, 170, 255), // type — cobalt
 	)

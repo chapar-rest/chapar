@@ -66,24 +66,20 @@ func (n *Node) layoutBadge(c *Ctx) *layout.Element {
 	return el
 }
 
+// badgeColors returns the tinted fill and the label color for a tone. Both
+// come from the palette: tinting the status hue at a fixed alpha and then
+// drawing the same hue on top leaves the label at the hue's own contrast,
+// which amber cannot meet on a light surface.
 func badgeColors(th *theme.Theme, tone BadgeTone) (bg, fg render.Color) {
 	switch tone {
 	case BadgeAccent:
-		bg = th.Accent
-		bg.A = 0.22
-		return bg, th.Accent
+		return th.InfoSurface, th.InfoForeground
 	case BadgeSuccess:
-		bg = th.Success
-		bg.A = 0.22
-		return bg, th.Success
+		return th.SuccessSurface, th.SuccessForeground
 	case BadgeWarning:
-		bg = th.Warning
-		bg.A = 0.22
-		return bg, th.Warning
+		return th.WarningSurface, th.WarningForeground
 	case BadgeError:
-		bg = th.Error
-		bg.A = 0.22
-		return bg, th.Error
+		return th.ErrorSurface, th.ErrorForeground
 	default:
 		return th.ChromeMuted, th.ForegroundMuted
 	}

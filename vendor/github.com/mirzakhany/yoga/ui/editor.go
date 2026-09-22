@@ -2112,11 +2112,8 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		r := e.rowOfByte(e.caret)
 		lineY := f.Y + float32(r)*e.lineH - e.ScrollPx
 		if lineY >= vp.Y-e.lineH && lineY < vp.Y+vp.H {
-			lineHL := render.Color{
-				R: th.Foreground.R, G: th.Foreground.G, B: th.Foreground.B, A: 0.05,
-			}
 			dl.PushClip(vp)
-			dl.AddRect(render.Rect{X: vp.X, Y: lineY, W: vp.W, H: e.lineH}, lineHL)
+			dl.AddRect(render.Rect{X: vp.X, Y: lineY, W: vp.W, H: e.lineH}, th.CurrentLine)
 			dl.PopClip()
 		}
 	}
@@ -2157,20 +2154,17 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		// Block guide lines at each tab-stop within the line's indentation.
 		if pr.first {
 			if depth := indentDepth(txt, e.tabW); depth > 0 {
-				guideCol := render.Color{
-					R: th.Border.R, G: th.Border.G, B: th.Border.B, A: 0.98,
-				}
 				for col := e.tabW; col < depth; col += e.tabW {
 					gx := x0 + float32(col)*cellW
-					dl.AddRect(render.Rect{X: gx, Y: y, W: 1, H: e.lineH}, guideCol)
+					dl.AddRect(render.Rect{X: gx, Y: y, W: 1, H: e.lineH}, th.IndentGuide)
 				}
 			}
 		}
 
 		// Search match highlights.
 		if e.search.open {
-			matchCol := render.Color{R: 0.85, G: 0.72, B: 0.18, A: 0.35}
-			activeCol := render.Color{R: 1.0, G: 0.60, B: 0.10, A: 0.60}
+			matchCol := th.SearchMatch
+			activeCol := th.SearchMatchActive
 			for i, mr := range e.search.matches {
 				if mr.hi <= ls || mr.lo >= lineEnd {
 					continue
@@ -2198,7 +2192,7 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 
 		// Bracket match highlights.
 		if hasBrackets {
-			bracketHL := render.Color{R: 0.35, G: 0.90, B: 0.55, A: 0.40}
+			bracketHL := th.BracketMatch
 			for _, bpos := range [2]int{bracketA, bracketB} {
 				if bpos >= ls+pr.rowStart && bpos < ls+pr.rowEnd {
 					_, bsz := utf8.DecodeRune(doc[bpos:])
@@ -2613,8 +2607,9 @@ func (e *Editor) paintSearchBar(dl *render.DrawList, engine *shape.Engine) {
 	noMatch := e.search.query != "" && len(e.search.matches) == 0
 	searchFieldBg := th.Background
 	if noMatch {
-		// Tint the input red when query has no matches.
-		searchFieldBg = render.Color{R: 0.40, G: 0.10, B: 0.10, A: 1}
+		// Tint the input when the query has no matches. ErrorSurface is built
+		// from the palette, so this stays legible on light themes too.
+		searchFieldBg = th.ErrorSurface
 	}
 
 	// --- Search row ---
@@ -2625,13 +2620,13 @@ func (e *Editor) paintSearchBar(dl *render.DrawList, engine *shape.Engine) {
 	dl.PushClip(render.Rect{X: inputX, Y: barY, W: inputW, H: searchRowH})
 	textColor := th.Foreground
 	if noMatch {
-		textColor = render.Color{R: 0.95, G: 0.40, B: 0.40, A: 1}
+		textColor = th.ErrorForeground
 	}
 	engine.DrawStringTopMono(dl, e.search.query, inputX+4, textTopY(0), textColor)
 	if e.search.focused && e.search.focusField == 0 {
 		qw, _ := engine.MeasureMono(e.search.query[:e.search.queryCaret])
 		cx := inputX + 4 + qw
-		dl.AddRect(render.Rect{X: cx, Y: barY + 5, W: 1.5, H: searchRowH - 10}, th.Accent)
+		dl.AddRect(render.Rect{X: cx, Y: barY + 5, W: 1.5, H: searchRowH - 10}, th.Caret)
 	}
 	dl.PopClip()
 

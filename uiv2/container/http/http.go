@@ -9,6 +9,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -37,6 +38,10 @@ type Container struct {
 	headers     *ui.Table
 	urlEncoded  *ui.Table
 	vars        *ui.Table
+
+	// varSrc is what the URL, headers and parameter fields complete and paint
+	// their {{variable}} placeholders from.
+	varSrc vars.Source
 
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
@@ -105,7 +110,13 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	container.LoadKV(c.urlEncoded, http.Request.Body.URLEncoded)
 	container.LoadVariables(c.vars, http.Request.Variables)
 
+	c.varSrc = container.VarSource(deps, container.VarsFromTable(c.vars))
+	for _, t := range []*ui.Table{c.queryParams, c.pathParams, c.headers, c.urlEncoded} {
+		container.AssistKV(t, c.varSrc)
+	}
+
 	c.authState = container.LoadAuthState(http.Request.Auth)
+	c.authState.Vars = c.varSrc
 	c.authState.AllowInherit = true
 	c.authState.CollectionID = r.CollectionID
 
@@ -217,7 +228,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Width(110).
 				Selected(optionIndex(http.Method, methods)).
 				OnChange(func(v string) { http.Method = v; c.markDirty() }),
-			ui.TextField("http-url-"+id, http.URL).
+			container.AssistURLField(ui.TextField("http-url-"+id, http.URL), c.varSrc).
 				Placeholder("https://…").
 				OnChange(func(s string) {
 					http.URL = s

@@ -120,6 +120,14 @@ type Table struct {
 	// nil masks nothing.
 	Masked func(rowID, colID string) bool
 
+	// CellHighlight, when set, colors ranges of a cell's value — a template
+	// placeholder, say — in the row and in the inline edit field. A masked
+	// cell is painted plain.
+	CellHighlight func(rowID, colID, value string) []TextSpan
+	// CellSuggest, when set, gives the inline edit field a completion popup
+	// fed with candidates for the cell being edited.
+	CellSuggest func(rowID, colID, value string, caret int) (items []Suggestion, start, end int)
+
 	// Background fills the table body. nil = transparent (parent surface shows through).
 	Background *render.Color
 	// HeaderBackground fills the header strip. nil = theme ChromeMuted.
@@ -225,6 +233,7 @@ func (t *Table) Layout(c *Ctx) *layout.Element {
 	if t.editingRowID != "" && t.editField != nil && t.editField.host != nil {
 		c.Overlay(t.editField.host)
 		t.editField.menu.layout(c)
+		t.editField.RegisterSuggest(c)
 	} else if t.editField != nil {
 		t.editField.menu.close()
 	}
@@ -735,7 +744,12 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 				}
 				clipR := render.Rect{X: tx, Y: cr.Y, W: f32max(0, cr.X+cr.W-tx-t.padX()), H: cr.H}
 				dl.PushClip(clipR)
-				text.DrawStringTopAt(dl, val, tx, cr.Y+(t.rowH-lh)/2, th.Foreground, style.Size)
+				ty := cr.Y + (t.rowH-lh)/2
+				if spans := t.cellSpans(row.ID, col.ID, val); len(spans) > 0 {
+					drawSpannedText(dl, text, val, spans, tx, ty, th.Foreground, style.Size)
+				} else {
+					text.DrawStringTopAt(dl, val, tx, ty, th.Foreground, style.Size)
+				}
 				dl.PopClip()
 			case TableColToggle:
 				iconSz, slot := t.actionSlotSize()
@@ -878,6 +892,15 @@ func (t *Table) toggleSlotRect(cr render.Rect, slot float32) render.Rect {
 
 func (t *Table) cellMasked(rowID, colID string) bool {
 	return t.Masked != nil && t.Masked(rowID, colID)
+}
+
+// cellSpans is the highlighting for a cell painted in its row. A masked cell is
+// painted plain: the bullets have neither the value's offsets nor its meaning.
+func (t *Table) cellSpans(rowID, colID, value string) []TextSpan {
+	if t.CellHighlight == nil || value == "" || t.cellMasked(rowID, colID) {
+		return nil
+	}
+	return clampSpans(t.CellHighlight(rowID, colID, value), len(value))
 }
 
 func maskText(s string) string {
@@ -1215,6 +1238,16 @@ func (t *Table) startEdit(rowID, colID string) {
 	t.editingColID = colID
 	t.editOriginal = val
 	t.editField.cfg.Password = t.cellMasked(rowID, colID)
+	t.editField.Highlight = nil
+	t.editField.Suggest = nil
+	if fn := t.CellHighlight; fn != nil {
+		t.editField.Highlight = func(value string) []TextSpan { return fn(rowID, colID, value) }
+	}
+	if fn := t.CellSuggest; fn != nil {
+		t.editField.Suggest = func(value string, caret int) ([]Suggestion, int, int) {
+			return fn(rowID, colID, value, caret)
+		}
+	}
 	t.editField.load(val)
 	t.editField.Focus()
 }
@@ -1311,10 +1344,14 @@ func (t *Table) HandleText(runes []rune) {
 
 func (t *Table) HandleKeys(keys []input.KeyEvent) {
 	if t.editingRowID != "" {
-		for _, ev := range keys {
-			if ev.Key == input.KeyEnter && ev.Mods == 0 {
-				t.commitEdit()
-				return
+		// While the completion popup is open Enter belongs to it, not to the
+		// table's commit-and-close.
+		if !t.editField.SuggestOpen() {
+			for _, ev := range keys {
+				if ev.Key == input.KeyEnter && ev.Mods == 0 {
+					t.commitEdit()
+					return
+				}
 			}
 		}
 		t.editField.HandleKeys(keys)

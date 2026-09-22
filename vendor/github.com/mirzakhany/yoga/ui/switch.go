@@ -101,7 +101,7 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 			fill = th.ListHover
 		}
 		if st.focused && !disabled {
-			border = th.FocusRing
+			border = th.FocusRingOn(fill)
 		}
 		bw := uniformBorderWidth(r.borderW, th.Stroke.Thin)
 		paintChromeBox(dl, f, r, fill, border, bw, trackR)

@@ -4,6 +4,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/uiv2/container"
 	"github.com/chapar-rest/chapar/uiv2/secretui"
+	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
@@ -43,6 +44,11 @@ func Open(env *domain.Environment, deps container.Deps) *Container {
 		Locked:       func(rowID string) bool { return c.locked[rowID] },
 	})
 	container.LoadKV(c.table, c.env.Spec.Values)
+	// An environment value may stand on another value of the same environment,
+	// so the table completes its own keys rather than the active environment's.
+	container.AssistKV(c.table, container.VarSource(container.Deps{}, func() []vars.Entry {
+		return container.EnvEntries(container.DumpKV(c.table))
+	}))
 	return c
 }
 

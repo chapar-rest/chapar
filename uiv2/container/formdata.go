@@ -64,7 +64,8 @@ func FormDataPane(th *theme.Theme, id string, fields *[]domain.FormField, deps D
 				})
 			}).Grow(1))
 		} else {
-			cells = append(cells, ui.TextField("form-val-"+f.ID, f.Value).Placeholder("Value").Grow(1).
+			cells = append(cells, AssistField(ui.TextField("form-val-"+f.ID, f.Value), VarSource(deps, nil)).
+				Placeholder("Value").Grow(1).
 				OnChange(func(s string) { f.Value = s; markDirty() }))
 		}
 		cells = append(cells, ui.IconButton("form-del-"+f.ID, icons.Trash2).OnClick(func() {

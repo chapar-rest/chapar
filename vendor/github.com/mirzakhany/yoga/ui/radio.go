@@ -88,15 +88,15 @@ func (n *Node) layoutRadio(c *Ctx) *layout.Element {
 		br := render.Rect{X: bx, Y: by, W: box, H: box}
 		inter := interactStateFor(disabled, st.hovered, false, st.focused)
 		r := spec.resolve(th, inter)
+		fill := th.Chrome
+		if r.hasBg {
+			fill = r.bg
+		}
 		border := th.Border
 		if r.hasBorder {
 			border = r.border
 		} else if st.focused && !disabled {
-			border = th.FocusRing
-		}
-		fill := th.Chrome
-		if r.hasBg {
-			fill = r.bg
+			border = th.FocusRingOn(fill)
 		}
 		if selected && !disabled {
 			border = th.Accent

@@ -12,6 +12,7 @@ import (
 	grpcsvc "github.com/chapar-rest/chapar/internal/egress/grpc"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -31,16 +32,20 @@ type result struct {
 }
 
 type Container struct {
-	req                   *domain.Request
-	deps                  container.Deps
-	dirty                 bool
-	bodyEd                *ui.Editor
-	descEd                *ui.Editor
-	respEd                *ui.Editor
-	respMetaEd            *ui.Editor
-	respTrailEd           *ui.Editor
-	meta                  *ui.Table
-	vars                  *ui.Table
+	req         *domain.Request
+	deps        container.Deps
+	dirty       bool
+	bodyEd      *ui.Editor
+	descEd      *ui.Editor
+	respEd      *ui.Editor
+	respMetaEd  *ui.Editor
+	respTrailEd *ui.Editor
+	meta        *ui.Table
+	vars        *ui.Table
+
+	// varSrc is what the address, metadata and auth fields complete and paint
+	// their {{variable}} placeholders from.
+	varSrc                vars.Source
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
 	reqActive, respActive int
@@ -84,7 +89,10 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.vars = container.NewVariablesTable("grpc-vars-"+r.MetaData.ID, nil, c.markDirty)
 	container.LoadKV(c.meta, r.Spec.GRPC.Metadata)
 	container.LoadVariables(c.vars, r.Spec.GRPC.Variables)
+	c.varSrc = container.VarSource(deps, container.VarsFromTable(c.vars))
+	container.AssistKV(c.meta, c.varSrc)
 	c.authState = container.LoadAuthState(r.Spec.GRPC.Auth)
+	c.authState.Vars = c.varSrc
 	c.refreshMethods()
 	return c
 }
@@ -222,7 +230,8 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
 	return ui.Column(
 		ui.Row(
-			ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address).Placeholder("host:port").
+			container.AssistURLField(ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address), c.varSrc).
+				Placeholder("host:port").
 				IconStart(icons.Server).
 				Width(300).
 				OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }),

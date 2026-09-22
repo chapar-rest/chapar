@@ -7,6 +7,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
+	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/theme"
@@ -21,6 +22,9 @@ type AuthState struct {
 	Key, Val     string
 	CollectionID string
 	AllowInherit bool
+	// Vars is what the auth fields complete and paint their {{variable}}
+	// placeholders from. The zero value offers nothing.
+	Vars vars.Source
 }
 
 // AuthForm builds the auth type selector and sub-forms.
@@ -53,20 +57,20 @@ func AuthForm(th *theme.Theme, id string, auth *domain.Auth, st *AuthState, cata
 		}
 		rows = append(rows, ui.Text(label).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)))
 	case domain.AuthTypeToken:
-		rows = append(rows, ui.TextField("auth-token-"+id, st.Token).Placeholder("Token").
+		rows = append(rows, AssistField(ui.TextField("auth-token-"+id, st.Token), st.Vars).Placeholder("Token").
 			OnChange(func(s string) { st.Token = s; markDirty() }).Grow(1))
 	case domain.AuthTypeBasic:
 		rows = append(rows,
-			ui.TextField("auth-user-"+id, st.User).Placeholder("Username").
+			AssistField(ui.TextField("auth-user-"+id, st.User), st.Vars).Placeholder("Username").
 				OnChange(func(s string) { st.User = s; markDirty() }).Grow(1),
 			ui.TextField("auth-pass-"+id, st.Pass).Placeholder("Password").Password(true).
 				OnChange(func(s string) { st.Pass = s; markDirty() }).Grow(1),
 		)
 	case domain.AuthTypeAPIKey:
 		rows = append(rows,
-			ui.TextField("auth-key-"+id, st.Key).Placeholder("Header").
+			AssistField(ui.TextField("auth-key-"+id, st.Key), st.Vars).Placeholder("Header").
 				OnChange(func(s string) { st.Key = s; markDirty() }).Grow(1),
-			ui.TextField("auth-val-"+id, st.Val).Placeholder("Value").
+			AssistField(ui.TextField("auth-val-"+id, st.Val), st.Vars).Placeholder("Value").
 				OnChange(func(s string) { st.Val = s; markDirty() }).Grow(1),
 		)
 	}

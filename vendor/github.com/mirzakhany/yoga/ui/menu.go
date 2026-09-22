@@ -139,6 +139,73 @@ func (mu *Menu) selectable(i int) bool {
 	return i >= 0 && i < len(mu.items) && !mu.items[i].Separator && !mu.items[i].Disabled
 }
 
+// HoverIndex reports the highlighted row, or -1 when none is.
+func (mu *Menu) HoverIndex() int { return mu.hover }
+
+// MoveHover walks the highlight by delta selectable rows, wrapping around, and
+// scrolls it into view. Widgets that drive a menu from the keyboard use it.
+func (mu *Menu) MoveHover(delta int) {
+	n := len(mu.items)
+	if n == 0 || delta == 0 {
+		return
+	}
+	step := 1
+	if delta < 0 {
+		step = -1
+		delta = -delta
+	}
+	for ; delta > 0; delta-- {
+		// A full turn without landing on a selectable row means there is none.
+		i := mu.hover
+		for t := 0; t < n; t++ {
+			i = (i + step + n) % n
+			if mu.selectable(i) {
+				mu.hover = i
+				break
+			}
+		}
+	}
+	mu.ensureHoverVisible()
+	if mu.markPaint != nil {
+		mu.markPaint()
+	}
+}
+
+// ActivateHover runs the highlighted item and closes the menu, reporting
+// whether an item ran.
+func (mu *Menu) ActivateHover() bool {
+	if !mu.selectable(mu.hover) {
+		return false
+	}
+	fn := mu.items[mu.hover].OnSelect
+	mu.Close()
+	if mu.markPaint != nil {
+		mu.markPaint()
+	}
+	if fn != nil {
+		fn()
+	}
+	return true
+}
+
+// ensureHoverVisible scrolls the highlighted row inside the menu frame.
+func (mu *Menu) ensureHoverVisible() {
+	if !mu.selectable(mu.hover) || mu.host.Frame.H <= 0 {
+		return
+	}
+	var top float32
+	for i := 0; i < mu.hover; i++ {
+		top += mu.rowHeight(i)
+	}
+	bottom := top + mu.rowHeight(mu.hover)
+	if top < mu.scrollY {
+		mu.scrollY = top
+	} else if bottom > mu.scrollY+mu.host.Frame.H {
+		mu.scrollY = bottom - mu.host.Frame.H
+	}
+	mu.clampScroll()
+}
+
 // OpenAt positions and shows the menu at the given screen coordinates, shifted
 // to stay inside the viewport recorded via SetViewport (if any). A menu too
 // tall for the viewport scrolls. When there is room for a good number of rows
