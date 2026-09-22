@@ -114,6 +114,17 @@ func (e *Environment) SetKey(key string, value string) {
 	})
 }
 
+// UnsetKey removes key and reports whether it was there.
+func (e *Environment) UnsetKey(key string) bool {
+	for i, v := range e.Spec.Values {
+		if v.Key == key {
+			e.Spec.Values = append(e.Spec.Values[:i], e.Spec.Values[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Environment) ApplyToGRPCRequest(req *GRPCRequestSpec) {
 	if e == nil || req == nil {
 		return
@@ -133,8 +144,8 @@ func (e *Environment) ApplyToGRPCRequest(req *GRPCRequestSpec) {
 		}
 
 		for i, kv := range req.Metadata {
-			if strings.Contains(kv.Value, "{{"+kv.Key+"}}") {
-				req.Metadata[i].Value = strings.ReplaceAll(kv.Value, "{{"+kv.Key+"}}", kv.Value)
+			if strings.Contains(kv.Value, "{{"+envKv.Key+"}}") {
+				req.Metadata[i].Value = strings.ReplaceAll(kv.Value, "{{"+envKv.Key+"}}", envKv.Value)
 			}
 		}
 

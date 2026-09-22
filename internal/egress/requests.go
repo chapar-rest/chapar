@@ -294,41 +294,34 @@ func (s *Service) executeScript(script string, request *domain.Request, resp *Re
 	}
 
 	params := &scripting.ExecParams{
-		Env: env,
-		Req: scripting.RequestDataFromDomain(request),
-		Res: &scripting.ResponseData{
-			StatusCode: resp.StatusCode,
-			Headers:    resp.ResponseHeaders,
-			Body:       resp.JSON,
-		},
+		Phase:    scripting.PhasePost,
+		Protocol: scripting.ProtocolOf(request.MetaData.Type),
+		Env:      env,
+		Req:      scripting.RequestDataFromDomain(request, env, nil),
+		Res:      resp.ScriptData(),
 	}
 
 	result, err := s.scriptExecutor.Execute(context.Background(), script, params)
 	if err != nil {
 		return err
 	}
+	if result.Error != nil {
+		return result.Error
+	}
 
 	if env != nil {
-		changed := false
-		for k, v := range result.SetEnvironments {
-			if data, ok := v.(string); ok {
-				env.SetKey(k, data)
-				changed = true
-			}
-		}
-
-		if changed {
+		if result.ApplyEnv(env) {
 			if err := s.environments.UpdateEnvironment(env, state.SourceRestService, false); err != nil {
 				return err
 			}
 		}
-	} else if len(result.SetEnvironments) > 0 {
+	} else if len(result.EnvSet) > 0 || len(result.EnvUnset) > 0 {
 		// let user know that the environment is nil
 		logger.Warn("No active environment, cannot set environment variables from script")
 	}
 
-	for _, pt := range result.Prints {
-		logger.Print(pt)
+	if summary := result.Summary(); summary != "" {
+		logger.Print(summary)
 	}
 
 	return nil

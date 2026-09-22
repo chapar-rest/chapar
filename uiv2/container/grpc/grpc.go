@@ -285,9 +285,9 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 		rows = append(rows, container.ActionsPane(th, container.ActionsOpts{
 			ID: id, Selected: &c.actionsNav, Deps: c.deps,
 			Pre: &spec.PreRequest, Post: &spec.PostRequest,
-			PreOpts: container.PrePostOpts{ID: id + "-pre"},
+			PreOpts: container.PrePostOpts{ID: id + "-pre", AllowPython: true},
 			PostOpts: container.PrePostOpts{
-				ID: id + "-post", AllowSetEnv: true,
+				ID: id + "-post", AllowPython: true, AllowSetEnv: true,
 				FromOptions: container.GRPCPostFromOptions(), DefaultFrom: domain.PostRequestSetFromResponseBody,
 			},
 			PreScript: &c.preScript, PostScript: &c.postScript, Preview: preview,

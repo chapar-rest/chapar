@@ -2,6 +2,7 @@ package sender
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -36,6 +37,9 @@ type Service struct {
 	onEnv   func(*domain.Environment)
 	script  Scripts
 	cookies *cookies.Store
+	// scriptingOn reports whether scripting is enabled in settings;
+	// replaced in tests.
+	scriptingOn func() bool
 }
 
 // SetCookieStore makes HTTP and GraphQL requests use the cookie jar of the
@@ -71,10 +75,16 @@ func New(repo repository.RepositoryV2, lookup RequestLookup, colls CollectionLoo
 		lookup:  lookup,
 		colls:   colls,
 		onEnv:   onEnv,
+		scriptingOn: func() bool {
+			return prefs.GetGlobalConfig().Spec.Scripting.Enabled
+		},
 	}
 }
 
 // Send runs pre-request, the protocol send, and post-request using the given documents.
+//
+// A pre-request script's changes to the request go into a copy made for
+// this send; req itself is never changed.
 func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is nil")
@@ -82,28 +92,49 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 
 	var timeline []egress.TimelineStep
 
-	preStep, err := s.preRequestTimed(req, env)
+	var collection *domain.Collection
+	if req.CollectionID != "" && s.colls != nil {
+		collection = s.colls(req.CollectionID)
+	}
+
+	preStep, preResult, err := s.preRequestTimed(req, env, collection)
 	if preStep != nil {
 		timeline = append(timeline, *preStep)
 	}
 	if err != nil {
 		return &egress.Response{Timeline: timeline, Error: err}, err
 	}
+	if preResult != nil && preResult.Skip {
+		err := errors.New("the pre-request script skipped this request")
+		if preResult.SkipReason != "" {
+			err = fmt.Errorf("the pre-request script skipped this request: %s", preResult.SkipReason)
+		}
+		return &egress.Response{Timeline: timeline, Error: err}, err
+	}
 
-	var collection *domain.Collection
-	if req.CollectionID != "" && s.colls != nil {
-		collection = s.colls(req.CollectionID)
+	sendReq := req
+	if preResult != nil && !preResult.Request.Empty() {
+		sendReq = req.Clone()
+		sendReq.MetaData.ID = req.MetaData.ID
+		scripting.ApplyChanges(sendReq, preResult.Request)
+		if preResult.Request.Headers != nil && collection != nil {
+			// The script saw the collection headers merged in and returned
+			// the full set; merging them again would undo its removals.
+			c := *collection
+			c.Spec.Headers = nil
+			collection = &c
+		}
 	}
 
 	sendEnv := copyEnv(env)
 	var res *egress.Response
 	switch req.MetaData.Type {
 	case domain.RequestTypeHTTP:
-		res, err = s.rest.SendObject(req, sendEnv, collection)
+		res, err = s.rest.SendObject(sendReq, sendEnv, collection)
 	case domain.RequestTypeGraphQL:
-		res, err = s.graphql.SendObject(req, sendEnv, collection)
+		res, err = s.graphql.SendObject(sendReq, sendEnv, collection)
 	case domain.RequestTypeGRPC:
-		res, err = s.grpc.SendObject(req, sendEnv, collection)
+		res, err = s.grpc.SendObject(sendReq, sendEnv, collection)
 	default:
 		return nil, fmt.Errorf("unknown request type: %s", req.MetaData.Type)
 	}
@@ -118,7 +149,7 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 
 	timeline = append(timeline, res.Timeline...)
 
-	postStep, postErr := s.postRequestTimed(req, res, env)
+	postStep, postErr := s.postRequestTimed(sendReq, res, env, collection)
 	if postStep != nil {
 		timeline = append(timeline, *postStep)
 	}
@@ -139,18 +170,25 @@ func (s *Service) GRPCExampleBody(req *domain.Request, env *domain.Environment) 
 	return s.grpc.GetRequestStructFrom(req, env)
 }
 
-func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment) (*egress.TimelineStep, error) {
+func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment, collection *domain.Collection) (*egress.TimelineStep, *scripting.ExecResult, error) {
 	preReq := req.Spec.GetPreRequest()
 	if !domain.DoablePreRequest(preReq) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	start := time.Now()
 	detail := ""
-	var err error
+	var (
+		result *scripting.ExecResult
+		err    error
+	)
 	switch {
 	case preReq.Type == domain.PrePostTypePython && preReq.Script != "":
 		detail = "Python pre-request script"
-		err = s.executeScript(preReq.Script, req, nil, env)
+		result, err = s.executeScript(scripting.PhasePre, preReq.Script, req, collection, nil, env)
+		if err == nil && result != nil && result.ApplyEnv(env) {
+			err = s.persistEnv(env)
+		}
+		detail = scriptDetail(detail, result)
 	case preReq.TriggerRequest != nil && s.lookup != nil:
 		triggered := s.lookup(preReq.TriggerRequest.RequestID)
 		if triggered == nil {
@@ -161,7 +199,7 @@ func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment) 
 			_, err = s.Send(triggered, env)
 		}
 	default:
-		return nil, nil
+		return nil, nil, nil
 	}
 	step := &egress.TimelineStep{
 		Name:     "Pre-request",
@@ -171,11 +209,13 @@ func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment) 
 	}
 	if err != nil {
 		step.Err = err.Error()
+	} else if n := result.FailedTests(); n > 0 {
+		step.Err = testsFailed(n)
 	}
-	return step, err
+	return step, result, err
 }
 
-func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, env *domain.Environment) (*egress.TimelineStep, error) {
+func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, env *domain.Environment, collection *domain.Collection) (*egress.TimelineStep, error) {
 	if res == nil {
 		return nil, nil
 	}
@@ -187,9 +227,9 @@ func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, en
 
 	start := time.Now()
 	var details []string
-	err := s.postRequest(req, res, env)
+	result, err := s.postRequest(req, collection, res, env)
 	if postReq.Type == domain.PrePostTypePython && postReq.Script != "" {
-		details = append(details, "Python post-request script")
+		details = append(details, scriptDetail("Python post-request script", result))
 	}
 	if postReq.Type == domain.PrePostTypeSetEnv && postReq.PostRequestSet.IsValid() {
 		details = append(details, fmt.Sprintf("Set env %s from %s", postReq.PostRequestSet.Target, postReq.PostRequestSet.From))
@@ -208,38 +248,58 @@ func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, en
 	}
 	if err != nil {
 		step.Err = err.Error()
+	} else if n := result.FailedTests(); n > 0 {
+		step.Err = testsFailed(n)
 	}
 	return step, err
 }
 
-func (s *Service) postRequest(req *domain.Request, res *egress.Response, env *domain.Environment) error {
+func scriptDetail(title string, result *scripting.ExecResult) string {
+	if result == nil {
+		return title
+	}
+	if summary := result.Summary(); summary != "" {
+		return title + "\n" + summary
+	}
+	return title
+}
+
+func testsFailed(n int) string {
+	if n == 1 {
+		return "1 test failed"
+	}
+	return fmt.Sprintf("%d tests failed", n)
+}
+
+func (s *Service) postRequest(req *domain.Request, collection *domain.Collection, res *egress.Response, env *domain.Environment) (*scripting.ExecResult, error) {
 	if res == nil {
-		return nil
+		return nil, nil
 	}
 	postReq := req.Spec.GetPostRequest()
 	if !domain.DoablePostRequest(postReq) {
 		if env == nil {
-			return nil
+			return nil, nil
 		}
 		if err := s.extractVariables(req.Spec, res, env); err != nil {
-			return err
+			return nil, err
 		}
-		return s.persistEnv(env)
+		return nil, s.persistEnv(env)
 	}
 	if postReq.Type == domain.PrePostTypePython && postReq.Script != "" {
-		if err := s.executeScript(postReq.Script, req, res, env); err != nil {
-			return err
+		result, err := s.executeScript(scripting.PhasePost, postReq.Script, req, collection, res, env)
+		if err != nil || env == nil || result == nil {
+			return result, err
 		}
-		if env == nil {
-			return nil
+		if !result.ApplyEnv(env) {
+			return result, nil
 		}
-		return s.persistEnv(env)
+		return result, s.persistEnv(env)
 	}
 	if env == nil {
-		return nil
+		return nil, nil
 	}
 	if err := s.extractVariables(req.Spec, res, env); err != nil {
-		return err
+		return nil, err
 	}
 	if postReq.Type == domain.PrePostTypeSetEnv && postReq.PostRequestSet.IsValid() {
 		code := res.StatusCode
@@ -250,7 +310,7 @@ func (s *Service) postRequest(req *domain.Request, res *egress.Response, env *do
 			s.applyPostSet(postReq, res, env)
 		}
 	}
-	return s.persistEnv(env)
+	return nil, s.persistEnv(env)
 }
 
 func (s *Service) applyPostSet(postReq domain.PostRequest, res *egress.Response, env *domain.Environment) {
@@ -339,37 +399,39 @@ func (s *Service) extractVariables(spec domain.RequestSpec, res *egress.Response
 	return nil
 }
 
-func (s *Service) executeScript(script string, request *domain.Request, resp *egress.Response, env *domain.Environment) error {
-	if !prefs.GetGlobalConfig().Spec.Scripting.Enabled || s.script == nil {
+// ErrScriptingDisabled is reported when a request has a script but
+// scripting is turned off in settings.
+var ErrScriptingDisabled = errors.New("scripting is disabled; turn it on in Settings > Scripting")
+
+// executeScript runs a pre- or post-request script. It does not touch env:
+// the caller applies result's env changes. A script that raised returns its
+// result (prints, tests) along with the error.
+func (s *Service) executeScript(phase scripting.Phase, script string, req *domain.Request, collection *domain.Collection, resp *egress.Response, env *domain.Environment) (*scripting.ExecResult, error) {
+	if !s.scriptingOn() || s.script == nil {
 		logger.Warn("Scripting is disabled, cannot execute script")
-		return nil
+		return nil, ErrScriptingDisabled
 	}
 	params := &scripting.ExecParams{
-		Env: env,
-		Req: scripting.RequestDataFromDomain(request),
-	}
-	if resp != nil {
-		params.Res = &scripting.ResponseData{
-			StatusCode: resp.StatusCode,
-			Headers:    resp.ResponseHeaders,
-			Body:       resp.JSON,
-		}
+		Phase:    phase,
+		Protocol: scripting.ProtocolOf(req.MetaData.Type),
+		Env:      env,
+		Req:      scripting.RequestDataFromDomain(req, env, collection),
+		Res:      resp.ScriptData(),
 	}
 	result, err := s.script.Execute(context.Background(), script, params)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if env != nil {
-		for k, v := range result.SetEnvironments {
-			if data, ok := v.(string); ok {
-				env.SetKey(k, data)
-			}
+	if summary := result.Summary(); summary != "" {
+		logger.Print(summary)
+	}
+	if result.Error != nil {
+		if result.Error.Traceback != "" {
+			logger.Print(result.Error.Traceback)
 		}
+		return result, result.Error
 	}
-	for _, pt := range result.Prints {
-		logger.Print(pt)
-	}
-	return nil
+	return result, nil
 }
 
 func (s *Service) persistEnv(env *domain.Environment) error {

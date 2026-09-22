@@ -202,9 +202,10 @@ func (dc *DockerClient) runContainer(imageName, containerName string, ports, env
 		}
 
 		exposedPorts[containerPort] = struct{}{}
+		// Loopback only: the executor runs any code it is sent.
 		portBindings[containerPort] = []nat.PortBinding{
 			{
-				HostIP:   "0.0.0.0",
+				HostIP:   "127.0.0.1",
 				HostPort: hostPort,
 			},
 		}
@@ -217,8 +218,20 @@ func (dc *DockerClient) runContainer(imageName, containerName string, ports, env
 		ExposedPorts: exposedPorts,
 	}
 
+	// Scripts are untrusted code: no root, no capabilities, no writes
+	// outside /tmp, and bounded memory, CPU and process count.
+	pids := int64(256)
 	hostConfig := &container.HostConfig{
-		PortBindings: portBindings,
+		PortBindings:   portBindings,
+		ReadonlyRootfs: true,
+		Tmpfs:          map[string]string{"/tmp": "rw,noexec,nosuid,size=64m"},
+		CapDrop:        []string{"ALL"},
+		SecurityOpt:    []string{"no-new-privileges"},
+		Resources: container.Resources{
+			Memory:    512 * 1024 * 1024,
+			NanoCPUs:  1_000_000_000,
+			PidsLimit: &pids,
+		},
 	}
 
 	// Create the container
