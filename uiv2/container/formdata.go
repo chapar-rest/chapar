@@ -140,10 +140,8 @@ func PickFolder(deps Deps, title string, onPick func(string)) {
 	})
 }
 
-// PickCertFile opens a file dialog for certificate files.
-func PickCertFile(deps Deps, onPick func(string)) {
-	pickSingleFile(deps, "Choose certificate", []string{".pem", ".crt", ".key"}, onPick)
-}
+// CertFileFilters limit a file dialog to certificate and key files.
+var CertFileFilters = []ui.FileFilter{{Label: "Certificates", Exts: []string{".pem", ".crt", ".key"}}}
 
 func pickSingleFile(deps Deps, title string, exts []string, onPick func(string)) {
 	if deps.Files == nil {

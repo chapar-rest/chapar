@@ -376,8 +376,11 @@ ui.Form("prefs",
 	ui.FormSelect("theme", "Theme", "Color scheme", opts, idx, onChange),
 	ui.FormNumber("size", "Font size", "Editor size in pt", 14, 10, 24, 1, onSize),
 	ui.FormText("file", "Default file", "Open on startup", name, onName),
+	ui.FormFile("cert", "Certificate", "PEM for TLS", path, filters, onPath),
 )
 ```
+
+`FormFile` opens the window's file dialog (`c.Files()`) in the current file's folder; the button shows the file name, and a clear button passes `""` to the callback. Descriptions wrap to the width the control leaves.
 
 `ui.Switch(id).Check(on).OnToggle(fn)` is an unlabeled pill toggle for compact rows.
 

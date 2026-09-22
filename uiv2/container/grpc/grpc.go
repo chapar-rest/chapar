@@ -3,7 +3,6 @@ package grpc
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -271,10 +270,7 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 			ui.ViewOf(c.bodyEd).Grow(1),
 		)
 	case 1:
-		rows = append(rows,
-			ui.Button("grpc-md-add-"+id, ui.Text("Add")).OnClick(func() { container.AddKVRow(c.meta, c.markDirty) }),
-			ui.ViewOf(c.meta).Grow(1),
-		)
+		rows = append(rows, container.MetadataPane(th, id, c.meta, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 2:
 		rows = append(rows, container.AuthForm(th, id, &spec.Auth, &c.authState, c.deps.Catalog, c.markDirty))
 	case 3:
@@ -421,51 +417,41 @@ func appendUnique(paths []string, p string) []string {
 	return append(paths, p)
 }
 
+// settingsTab lists the connection settings the old UI offered, each with the
+// label and explanation it had there. The TLS rows only apply to a secure
+// connection, so they hide while plain text is on.
 func (c *Container) settingsTab(th *theme.Theme, id string, spec *domain.GRPCRequestSpec) []ui.View {
-	rows := []ui.View{
-		ui.Checkbox("grpc-insecure-"+id, "Insecure").
-			Check(spec.Settings.Insecure).
-			OnToggle(func(v bool) { spec.Settings.Insecure = v; c.markDirty() }),
-		ui.TextField("grpc-timeout-"+id, strconv.Itoa(spec.Settings.TimeoutMilliseconds)).
-			Placeholder("Timeout (ms)").
-			OnChange(func(s string) {
-				n, _ := strconv.Atoi(s)
-				if n == 0 {
-					n = 1000
-				}
-				spec.Settings.TimeoutMilliseconds = n
-				c.markDirty()
-			}),
+	set := &spec.Settings
+	items := []ui.FormItem{
+		ui.FormSwitch("grpc-insecure-"+id, "Plain text", "Connect without TLS (insecure connection)", set.Insecure, func(v bool) {
+			set.Insecure = v
+			c.markDirty()
+		}),
+		ui.FormNumber("grpc-timeout-"+id, "Timeout (ms)", "Timeout for the request in milliseconds; zero means none", float64(set.TimeoutMilliseconds), 0, 3_600_000, 100, func(v float64) {
+			set.TimeoutMilliseconds = int(v)
+			c.markDirty()
+		}),
 	}
-	if !spec.Settings.Insecure {
-		rows = append(rows,
-			ui.TextField("grpc-override-"+id, spec.Settings.NameOverride).Placeholder("Server name override").
-				OnChange(func(s string) { spec.Settings.NameOverride = s; c.markDirty() }),
-			certPicker(id, "Root cert", spec.Settings.RootCertFile, c.deps, func(p string) {
-				spec.Settings.RootCertFile = p
+	if !set.Insecure {
+		certFile := func(key, label, desc string, path *string) ui.FormItem {
+			return ui.FormFile("grpc-cert-"+key+"-"+id, label, desc, *path, container.CertFileFilters, func(p string) {
+				*path = p
+				c.markDirty()
+			})
+		}
+		items = append(items,
+			ui.FormText("grpc-override-"+id, "Server name override", "The name used to verify the common name in the server certificate", set.NameOverride, func(v string) {
+				set.NameOverride = v
 				c.markDirty()
 			}),
-			certPicker(id, "Client cert", spec.Settings.ClientCertFile, c.deps, func(p string) {
-				spec.Settings.ClientCertFile = p
-				c.markDirty()
-			}),
-			certPicker(id, "Client key", spec.Settings.ClientKeyFile, c.deps, func(p string) {
-				spec.Settings.ClientKeyFile = p
-				c.markDirty()
-			}),
+			certFile("root", "Trusted root certificate", "x509 PEM trusted root certificate", &set.RootCertFile),
+			certFile("cert", "Client certificate", "Public key for mutual TLS", &set.ClientCertFile),
+			certFile("key", "Client key", "Private key for mutual TLS", &set.ClientKeyFile),
 		)
 	}
-	return rows
-}
-
-func certPicker(id, label, path string, deps container.Deps, onPick func(string)) ui.View {
-	name := path
-	if name == "" {
-		name = "Choose " + label + "…"
+	return []ui.View{
+		ui.Scroll("grpc-settings-scroll-"+id, ui.Form("grpc-settings-"+id, items...)).Grow(1),
 	}
-	return ui.Button("grpc-cert-"+label+"-"+id, ui.Text(name)).OnClick(func() {
-		container.PickCertFile(deps, onPick)
-	})
 }
 
 func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -19,13 +20,14 @@ const (
 	FormItemText
 	FormItemSlider
 	FormItemStepper
+	FormItemFile
 )
 
 // FormItem is one labeled settings row.
 type FormItem struct {
 	ID, Label, Description string
-	Icon                         icons.Icon
-	Kind                         FormKind
+	Icon                   icons.Icon
+	Kind                   FormKind
 	// Switch
 	Checked  bool
 	OnToggle func(bool)
@@ -40,6 +42,9 @@ type FormItem struct {
 	Step     float64
 	OnNumber func(float64)
 	OnText   func(string)
+	// File: Text holds the path, OnText receives the picked path ("" when
+	// cleared), and Filters restrict what the file dialog lists.
+	Filters []FileFilter
 }
 
 // FormSwitch builds a switch row.
@@ -70,6 +75,14 @@ func FormSlider(id, label, desc string, value, min, max, step float64, fn func(f
 // FormStepper builds a number-stepper row.
 func FormStepper(id, label, desc string, value, min, max, step float64, fn func(float64)) FormItem {
 	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemStepper, Number: value, Min: min, Max: max, Step: step, OnNumber: fn}
+}
+
+// FormFile builds a row that picks one file with the window's file dialog.
+// The button shows the file's name (its full path on hover) and a clear
+// button empties it again; fn receives the picked path, or "" when cleared.
+// Filters restrict which files the dialog lists; none lists every file.
+func FormFile(id, label, desc, path string, filters []FileFilter, fn func(string)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemFile, Text: path, Filters: filters, OnText: fn}
 }
 
 type formData struct {
@@ -104,9 +117,12 @@ func (n *Node) formRow(c *Ctx, item FormItem) View {
 		lead = Icon(item.Icon, iconSz, th.ForegroundMuted)
 	}
 
+	// The description wraps to whatever width the control leaves; a Text
+	// would keep its full width and run underneath the control.
 	textCol := Column(
 		Strong(item.Label),
-		Caption(item.Description),
+		Paragraph(item.Description).Size(th.Typography.Caption.Size).
+			Style(Spec{}.TextColor(TokenForegroundMuted)),
 	).Gap(th.Spacing.XXS).Grow(1)
 
 	control := n.formControl(c, item)
@@ -137,6 +153,8 @@ func (n *Node) formControl(c *Ctx, item FormItem) View {
 	case FormItemStepper:
 		return NumberStepper(item.ID, item.Number).Min(item.Min).Max(item.Max).Step(item.Step).
 			OnFloatChange(item.OnNumber)
+	case FormItemFile:
+		return formFileControl(c, item)
 	default:
 		return Spacer()
 	}
@@ -194,4 +212,45 @@ func formatFormNumber(v float64) string {
 		return fmt.Sprintf("%d", int64(v))
 	}
 	return fmt.Sprintf("%g", v)
+}
+
+func formFileControl(c *Ctx, item FormItem) View {
+	th := c.Theme()
+	path := item.Text
+	set := func(p string) {
+		if item.OnText != nil {
+			item.OnText(p)
+		}
+	}
+	name := "Choose file…"
+	if path != "" {
+		name = filepath.Base(path)
+	}
+	files := c.Files()
+	pick := Button(item.ID, Text(name).Ellipsis(EllipsisMiddle)).
+		IconStart(icons.FileText).
+		Width(180).
+		OnClick(func() {
+			opts := FileDialogOpts{
+				Title:   "Choose " + item.Label,
+				Mode:    FileDialogOpenFile,
+				Filters: item.Filters,
+				OnConfirm: func(paths []string) {
+					if len(paths) > 0 {
+						set(paths[0])
+					}
+				},
+			}
+			if path != "" {
+				opts.Dir = filepath.Dir(path)
+			}
+			files.Show(opts)
+		})
+	if path == "" {
+		return pick
+	}
+	return Row(
+		pick.Tooltip(path),
+		IconButton(item.ID+"#clear", icons.X).Tooltip("Clear").OnClick(func() { set("") }),
+	).Gap(th.Spacing.XS)
 }
