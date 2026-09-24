@@ -212,7 +212,7 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	}
 	switch c.reqActive {
 	case 1:
-		rows = append(rows, container.JSONBodyEditor("gql-vars-"+id, c.varsEd, c.deps))
+		rows = append(rows, container.JSONBodyEditor("gql-vars-"+id, c.varsEd, c.deps, nil))
 	case 2:
 		rows = append(rows, container.HeadersPane(th, id, c.headers, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 3:

@@ -370,7 +370,7 @@ func (c *Container) bodyTab(th *theme.Theme, id string, http *domain.HTTPRequest
 		)
 	case domain.RequestBodyTypeNone:
 	case domain.RequestBodyTypeJSON:
-		rows = append(rows, container.JSONBodyEditor("http-body-"+id, c.bodyEd, c.deps))
+		rows = append(rows, container.JSONBodyEditor("http-body-"+id, c.bodyEd, c.deps, nil))
 	default:
 		rows = append(rows, ui.ViewOf(c.bodyEd).Grow(1))
 	}

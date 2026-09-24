@@ -278,30 +278,23 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 func (c *Container) reqPane(th *theme.Theme) ui.View {
 	id := c.req.MetaData.ID
 	spec := c.req.Spec.GRPC
-	tabsRow := []ui.View{
+	rows := []ui.View{
 		ui.Tabs("grpc-req-tabs-"+id, c.reqTabs).Selected(c.reqActive).
 			Closable(false).
-			OnSelectItem(func(i int, _ string) { c.reqActive = i }).TabBackground(th.Background).
-			Grow(1),
+			OnSelectItem(func(i int, _ string) { c.reqActive = i }).TabBackground(th.Background),
 	}
-	if c.reqActive == 0 {
-		// Load example sits at the body's top right, on the tab row, so it
-		// costs the editor no height.
+	switch c.reqActive {
+	case 0:
 		label := "Load example"
 		if c.exampleLoading {
 			label = "Loading…"
 		}
-		tabsRow = append(tabsRow, ui.Button("grpc-example-"+id, ui.Text(label)).
-			Subtle().
+		example := ui.Button("grpc-example-"+id, ui.Text(label)).
 			IconStart(icons.FileInput).
 			Tooltip("Fill the body with an example message for the selected method").
 			Disabled(c.exampleLoading).
-			OnClick(c.loadExample))
-	}
-	rows := []ui.View{ui.Row(tabsRow...).Gap(th.Spacing.S)}
-	switch c.reqActive {
-	case 0:
-		rows = append(rows, container.JSONBodyEditor("grpc-body-"+id, c.bodyEd, c.deps))
+			OnClick(c.loadExample)
+		rows = append(rows, container.JSONBodyEditor("grpc-body-"+id, c.bodyEd, c.deps, example))
 	case 1:
 		rows = append(rows, container.MetadataPane(th, id, c.meta, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 2:
