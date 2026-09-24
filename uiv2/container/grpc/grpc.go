@@ -11,9 +11,11 @@ import (
 	grpcsvc "github.com/chapar-rest/chapar/internal/egress/grpc"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	reqicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -28,6 +30,14 @@ type result struct {
 	// Editors must not be built off it: ui.NewEditor measures text through the
 	// window's shared text engine.
 	exampleBody *string
+	// exampleErr is why an example body could not be generated. It is shown
+	// as a toast rather than in the response pane, which it has nothing to do
+	// with.
+	exampleErr error
+	// collection is the collection built from the loaded methods, and
+	// collectionErr why building it failed.
+	collection    *domain.Collection
+	collectionErr error
 }
 
 type Container struct {
@@ -58,6 +68,8 @@ type Container struct {
 	timeline              container.TimelineState
 	methods               []ui.SelectOption
 	loading               bool
+	exampleLoading        bool
+	creatingCollection    bool
 	authState             container.AuthState
 	preScript             *ui.Editor
 	postScript            *ui.Editor
@@ -202,12 +214,20 @@ func (c *Container) loadMethods() {
 }
 
 func (c *Container) loadExample() {
+	if c.exampleLoading {
+		return
+	}
+	if c.req.Spec.GRPC.LasSelectedMethod == "" {
+		c.deps.Toast("Choose a method to load its example")
+		return
+	}
+	c.exampleLoading = true
 	req := container.CopyRequest(c.req)
 	env := c.deps.ActiveEnv()
 	go func() {
 		body, err := c.deps.Sender.GRPCExampleBody(req, env)
 		if err != nil {
-			c.resultCh <- result{err: err}
+			c.resultCh <- result{exampleErr: err}
 		} else {
 			c.resultCh <- result{exampleBody: &body}
 		}
@@ -221,7 +241,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 		c.handle(r)
 	default:
 	}
-	if c.pending || c.loading {
+	if c.pending || c.loading || c.exampleLoading || c.creatingCollection {
 		ctx.Animate(30 * time.Millisecond)
 	}
 	th := ctx.Theme()
@@ -258,17 +278,30 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 func (c *Container) reqPane(th *theme.Theme) ui.View {
 	id := c.req.MetaData.ID
 	spec := c.req.Spec.GRPC
-	rows := []ui.View{
+	tabsRow := []ui.View{
 		ui.Tabs("grpc-req-tabs-"+id, c.reqTabs).Selected(c.reqActive).
 			Closable(false).
-			OnSelectItem(func(i int, _ string) { c.reqActive = i }).TabBackground(th.Background),
+			OnSelectItem(func(i int, _ string) { c.reqActive = i }).TabBackground(th.Background).
+			Grow(1),
 	}
+	if c.reqActive == 0 {
+		// Load example sits at the body's top right, on the tab row, so it
+		// costs the editor no height.
+		label := "Load example"
+		if c.exampleLoading {
+			label = "Loading…"
+		}
+		tabsRow = append(tabsRow, ui.Button("grpc-example-"+id, ui.Text(label)).
+			Subtle().
+			IconStart(icons.FileInput).
+			Tooltip("Fill the body with an example message for the selected method").
+			Disabled(c.exampleLoading).
+			OnClick(c.loadExample))
+	}
+	rows := []ui.View{ui.Row(tabsRow...).Gap(th.Spacing.S)}
 	switch c.reqActive {
 	case 0:
-		rows = append(rows,
-			ui.Button("grpc-example-"+id, ui.Text("Load example")).OnClick(c.loadExample),
-			ui.ViewOf(c.bodyEd).Grow(1),
-		)
+		rows = append(rows, container.JSONBodyEditor("grpc-body-"+id, c.bodyEd, c.deps))
 	case 1:
 		rows = append(rows, container.MetadataPane(th, id, c.meta, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 2:
@@ -306,54 +339,120 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	)
 }
 
+// serverTab says where the methods come from — the server's reflection
+// service or proto files — with what was loaded and what can be done with it,
+// then only the settings that source needs.
 func (c *Container) serverTab(th *theme.Theme, id string, spec *domain.GRPCRequestSpec) []ui.View {
 	info := &spec.ServerInfo
+	sourceIdx := 1
+	if info.ServerReflection {
+		sourceIdx = 0
+	}
 	rows := []ui.View{
-		ui.Checkbox("grpc-reflect-"+id, "Server reflection").
-			Check(info.ServerReflection).
-			OnToggle(func(v bool) { info.ServerReflection = v; c.markDirty() }),
+		ui.Row(
+			ui.Strong("Methods from"),
+			ui.Segmented("grpc-source-"+id,
+				ui.SegmentItem{Label: "Server reflection", Value: "reflection", Icon: icons.Radar},
+				ui.SegmentItem{Label: "Proto files", Value: "protos", Icon: icons.FileCode},
+			).Selected(sourceIdx).OnChange(func(v string) {
+				info.ServerReflection = v == "reflection"
+				c.markDirty()
+			}),
+		).Gap(th.Spacing.M),
 	}
 
+	services, methods := 0, 0
+	for _, svc := range spec.Services {
+		services++
+		methods += len(svc.Methods)
+	}
+	summary := "No methods loaded yet"
+	switch {
+	case c.loading:
+		summary = "Loading methods…"
+	case methods > 0:
+		summary = fmt.Sprintf("%s in %s", plural(methods, "method"), plural(services, "service"))
+	}
+	createLabel := "Create collection…"
+	if c.creatingCollection {
+		createLabel = "Creating…"
+	}
+	actions := ui.Row(
+		ui.Muted(summary).Grow(1),
+		ui.Button("grpc-load-"+id, ui.Text("Reload methods")).
+			IconStart(icons.RefreshCw).
+			Disabled(c.loading).
+			OnClick(c.loadMethods),
+		ui.Button("grpc-mkcol-"+id, ui.Text(createLabel)).
+			IconStart(icons.FolderPlus).
+			Tooltip("Make a collection with one request per method").
+			Disabled(methods == 0 || c.loading || c.creatingCollection).
+			OnClick(c.promptCreateCollection),
+	).Gap(th.Spacing.S)
+
+	// What was loaded, and what to do with it, stays at the top where a short
+	// pane still shows it.
+	rows = append(rows, actions)
+
 	if info.ServerReflection {
-		rows = append(rows, ui.Muted("Methods come from the server; proto files are not needed."))
+		rows = append(rows, ui.Paragraph("Chapar asks the server for its services, so no proto files are needed. The server must have gRPC reflection enabled.").
+			Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)))
 	} else {
 		rows = append(rows,
-			ui.Strong("Proto files"),
-			ui.PathList("grpc-protos-"+id, info.ProtoFiles).
-				AddLabel("Add proto files…").
-				PathEmptyText("No proto files").
-				OnPaths(func(paths []string) { info.ProtoFiles = paths; c.markDirty() }).
-				OnAdd(func() {
-					container.PickProtoFiles(c.deps, func(picked []string) {
-						for _, p := range picked {
-							info.ProtoFiles = appendUnique(info.ProtoFiles, p)
-						}
-						c.markDirty()
-						c.loadMethods()
-					})
-				}),
-			ui.Strong("Import paths"),
-			ui.Muted("Roots for the dependencies your proto files import."),
-			ui.PathList("grpc-imports-"+id, info.ImportPaths).
-				PathIcon(icons.Folder).
-				AddLabel("Add import path…").
-				PathEmptyText("None; each proto file's own folder is always searched").
-				OnPaths(func(paths []string) { info.ImportPaths = paths; c.markDirty() }).
-				OnAdd(func() {
-					container.PickFolder(c.deps, "Add import path", func(dir string) {
-						info.ImportPaths = appendUnique(info.ImportPaths, dir)
-						c.markDirty()
-						c.loadMethods()
-					})
-				}),
+			serverSection(th, "Proto files", "The .proto files that define the service.",
+				ui.PathList("grpc-protos-"+id, info.ProtoFiles).
+					PathIcon(icons.FileCode).
+					AddLabel("Add proto files…").
+					PathEmptyText("No proto files yet").
+					OnPaths(func(paths []string) { info.ProtoFiles = paths; c.markDirty() }).
+					OnAdd(func() {
+						container.PickProtoFiles(c.deps, func(picked []string) {
+							for _, p := range picked {
+								info.ProtoFiles = appendUnique(info.ProtoFiles, p)
+							}
+							c.markDirty()
+							c.loadMethods()
+						})
+					})),
+			serverSection(th, "Import paths", "Only needed when your proto files import others that live elsewhere. Each proto file's own folder is always searched.",
+				ui.PathList("grpc-imports-"+id, info.ImportPaths).
+					PathIcon(icons.Folder).
+					AddLabel("Add import path…").
+					PathEmptyText("None").
+					OnPaths(func(paths []string) { info.ImportPaths = paths; c.markDirty() }).
+					OnAdd(func() {
+						container.PickFolder(c.deps, "Add import path", func(dir string) {
+							info.ImportPaths = appendUnique(info.ImportPaths, dir)
+							c.markDirty()
+							c.loadMethods()
+						})
+					})),
 		)
 	}
 
-	rows = append(rows, ui.Row(
-		ui.Button("grpc-load-"+id, ui.Text("Reload methods")).Disabled(c.loading).OnClick(c.loadMethods),
-		ui.Spacer(),
-	).Gap(th.Spacing.S))
-	return rows
+	return []ui.View{
+		ui.Scroll("grpc-server-scroll-"+id, ui.Column(rows...).Gap(th.Spacing.M)).Grow(1),
+	}
+}
+
+// serverSection is a titled, bordered group on the Server tab, styled like a
+// settings form row.
+func serverSection(th *theme.Theme, title, desc string, body ui.View) ui.View {
+	return ui.Column(
+		ui.Strong(title),
+		ui.Paragraph(desc).Size(th.Typography.Caption.Size).
+			Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+		body,
+	).Gap(th.Spacing.XS).Padding(th.Spacing.M).
+		Background(ui.TokenSurface).
+		Style(ui.Spec{}.Radius(th.Radius.Medium).Border(ui.TokenBorder, th.Stroke.Thin))
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 // showMissingImports asks the user to locate each dependency the proto files
@@ -417,9 +516,11 @@ func appendUnique(paths []string, p string) []string {
 	return append(paths, p)
 }
 
-// settingsTab lists the connection settings the old UI offered, each with the
-// label and explanation it had there. The TLS rows only apply to a secure
-// connection, so they hide while plain text is on.
+// settingsTab lists the connection settings. With plain text off the
+// connection uses TLS, which works with none of the TLS rows filled: the
+// server's certificate is checked against the system's trusted roots. So
+// every TLS row is marked optional and says what leaving it empty does, and
+// the client certificate and key are grouped as the pair mutual TLS needs.
 func (c *Container) settingsTab(th *theme.Theme, id string, spec *domain.GRPCRequestSpec) []ui.View {
 	set := &spec.Settings
 	items := []ui.FormItem{
@@ -433,24 +534,36 @@ func (c *Container) settingsTab(th *theme.Theme, id string, spec *domain.GRPCReq
 		}),
 	}
 	if !set.Insecure {
-		certFile := func(key, label, desc string, path *string) ui.FormItem {
-			return ui.FormFile("grpc-cert-"+key+"-"+id, label, desc, *path, container.CertFileFilters, func(p string) {
+		certFile := func(key, label, desc, placeholder string, path *string) ui.FormItem {
+			item := ui.FormFile("grpc-cert-"+key+"-"+id, label, desc, *path, container.CertFileFilters, func(p string) {
 				*path = p
 				c.markDirty()
 			})
+			item.Optional = true
+			item.Placeholder = placeholder
+			return item
 		}
+		override := ui.FormText("grpc-override-"+id, "Server name override", "The name to verify the server certificate against, when it differs from the address's host", set.NameOverride, func(v string) {
+			set.NameOverride = v
+			c.markDirty()
+		})
+		override.Optional = true
+		override.Placeholder = "Host from the address"
 		items = append(items,
-			ui.FormText("grpc-override-"+id, "Server name override", "The name used to verify the common name in the server certificate", set.NameOverride, func(v string) {
-				set.NameOverride = v
-				c.markDirty()
-			}),
-			certFile("root", "Trusted root certificate", "x509 PEM trusted root certificate", &set.RootCertFile),
-			certFile("cert", "Client certificate", "Public key for mutual TLS", &set.ClientCertFile),
-			certFile("key", "Client key", "Private key for mutual TLS", &set.ClientKeyFile),
+			ui.FormHeading("TLS", "The connection is encrypted and the server's certificate is checked against your system's trusted roots. Nothing below is required; fill a row only when your server needs it."),
+			certFile("root", "Trusted root certificate", "A PEM CA certificate to trust as well, for servers with a private or self-signed certificate", "System roots only", &set.RootCertFile),
+			override,
+			ui.FormHeading("Mutual TLS", "Only for servers that ask the client for a certificate. Set both the certificate and its key."),
+			certFile("cert", "Client certificate", "PEM certificate presented to the server", "None", &set.ClientCertFile),
+			certFile("key", "Client key", "PEM private key for the client certificate", "None", &set.ClientKeyFile),
 		)
 	}
+	rows := []ui.View{ui.Form("grpc-settings-"+id, items...)}
+	if !set.Insecure && (set.ClientCertFile == "") != (set.ClientKeyFile == "") {
+		rows = append(rows, ui.Alert("Mutual TLS needs both a client certificate and its key.", ui.AlertWarning))
+	}
 	return []ui.View{
-		ui.Scroll("grpc-settings-scroll-"+id, ui.Form("grpc-settings-"+id, items...)).Grow(1),
+		ui.Scroll("grpc-settings-scroll-"+id, ui.Column(rows...).Gap(th.Spacing.S)).Grow(1),
 	}
 }
 
@@ -516,16 +629,24 @@ func (c *Container) applyBodyEditor() {
 }
 
 func (c *Container) handle(r result) {
+	if r.exampleErr != nil || r.exampleBody != nil {
+		c.exampleLoading = false
+		if r.exampleErr != nil {
+			c.deps.Toast("Could not load an example: " + r.exampleErr.Error())
+			return
+		}
+		// An edit, not a new editor, so Undo brings the previous body back.
+		c.bodyEd.SetText(*r.exampleBody)
+		return
+	}
+	if r.collection != nil || r.collectionErr != nil {
+		c.collectionCreated(r.collection, r.collectionErr)
+		return
+	}
 	c.pending = false
 	if len(r.missing) > 0 {
 		c.statusText = "Missing proto dependencies"
 		c.showMissingImports(r.missing)
-		return
-	}
-	if r.exampleBody != nil {
-		c.bodyEd.Close()
-		c.bodyEd = container.NewBodyEditor(c.deps, "grpc-body-"+c.req.MetaData.ID, domain.RequestBodyTypeJSON, []byte(*r.exampleBody), ui.WithSoftWrap(true))
-		c.markDirty()
 		return
 	}
 	c.errText = ""
@@ -567,4 +688,9 @@ func optionIndex(v string, opts []ui.SelectOption) int {
 		}
 	}
 	return 0
+}
+
+// TabIcon shows the request's badge, the one its row in the tree shows.
+func (c *Container) TabIcon(th *theme.Theme) (icons.Icon, render.Color) {
+	return reqicons.Badge(c.req), reqicons.Color(c.req, th)
 }

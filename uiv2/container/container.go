@@ -66,6 +66,9 @@ type Deps struct {
 	Secrets *secret.Manager
 	// Clipboard copies text on the user's behalf. Nil hides Copy actions.
 	Clipboard func(string)
+	// OpenCollection opens a collection in its own tab, for a container that
+	// creates one.
+	OpenCollection func(*domain.Collection)
 }
 
 // NewScriptEditor returns an editor for a Python pre/post-request script.

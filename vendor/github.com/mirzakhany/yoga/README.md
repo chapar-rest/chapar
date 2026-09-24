@@ -238,6 +238,15 @@ Chain modifiers on `*ui.Node`:
 
 Alignment: `ui.AlignStart|Center|End|Stretch`, `ui.JustifyStart|Center|End|Between`.
 
+`.Float(corner, dx, dy)` takes a node out of the flow and pins it to a corner of its parent, over the siblings before it — a button in the corner of an editor, for example:
+
+```go
+ui.Column(
+	ui.ViewOf(editor).Grow(1),
+	ui.Button("fmt", ui.Text("Format")).Float(ui.CornerBottomRight, 22, 22),
+).Grow(1)
+```
+
 A pane that should fill leftover space needs `.Grow(1)` on itself **and** every ancestor up to the Body root. Root trees almost always end with `.Grow(1).Background(ui.TokenSurface)`. A `Row` whose children should stretch vertically needs `.Align(ui.AlignStretch)`.
 
 Use `c.Theme().Spacing` (`XXS` 2px … `XXXL` 32px) instead of magic numbers. Typical: `S` 8, `M` 12, `L` 16.
@@ -301,6 +310,8 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 ```
 
 Constructing these inside `Body` resets caret, scroll, and selection every frame.
+
+`editor.SetText(s)` replaces the document as one undoable edit, for actions such as Format. Tree-sitter highlighters skip documents over `highlight.MaxBytes` (2 MB by default); `editor.HighlightOversize()` reports when that happened, so the app can say why the text is uncolored, and `editor.HighlightAnyway()` lifts the limit for that editor.
 
 ### Splitter, drawer, tabs, nav, menus
 
@@ -381,6 +392,8 @@ ui.Form("prefs",
 ```
 
 `FormFile` opens the window's file dialog (`c.Files()`) in the current file's folder; the button shows the file name, and a clear button passes `""` to the callback. Descriptions wrap to the width the control leaves.
+
+`ui.FormHeading(title, desc)` opens a group of rows. Set `Optional` on an item to tag its label "Optional", and `Placeholder` to say what an empty text or file row means (the file button shows it instead of "Choose file…").
 
 `ui.Switch(id).Check(on).OnToggle(fn)` is an unlabeled pill toggle for compact rows.
 

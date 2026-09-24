@@ -6,6 +6,7 @@ import (
 	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -154,4 +155,9 @@ func optionIndex(v string, opts []ui.SelectOption) int {
 		}
 	}
 	return 0
+}
+
+// TabIcon shows the folder the collection's row in the tree shows.
+func (c *Container) TabIcon(th *theme.Theme) (icons.Icon, render.Color) {
+	return icons.Folder, th.Accent
 }

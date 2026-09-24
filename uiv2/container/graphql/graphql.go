@@ -9,9 +9,11 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	reqicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -210,7 +212,7 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 	}
 	switch c.reqActive {
 	case 1:
-		rows = append(rows, ui.ViewOf(c.varsEd).Grow(1))
+		rows = append(rows, container.JSONBodyEditor("gql-vars-"+id, c.varsEd, c.deps))
 	case 2:
 		rows = append(rows, container.HeadersPane(th, id, c.headers, c.req.CollectionID, c.deps.Catalog, c.markDirty))
 	case 3:
@@ -334,4 +336,9 @@ func (c *Container) handle(r result) {
 	c.respHdrEd = container.ReplaceEditor(c.respHdrEd, []byte(hdr.String()), highlight.Noop{})
 	c.cookies.Set(c.deps, res)
 	c.timeline.SetSteps(res.Timeline)
+}
+
+// TabIcon shows the request's badge, the one its row in the tree shows.
+func (c *Container) TabIcon(th *theme.Theme) (icons.Icon, render.Color) {
+	return reqicons.Badge(c.req), reqicons.Color(c.req, th)
 }

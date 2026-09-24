@@ -12,6 +12,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/util"
 	"github.com/dustin/go-humanize"
 	"github.com/mirzakhany/yoga/highlight"
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -162,7 +163,30 @@ func ResponseEditorMenu(ed *ui.Editor, ctx *ui.Ctx, deps Deps, defaultName strin
 			SaveEditorBytes(deps, defaultName, ed.Bytes())
 		}})
 	}
+	if ed.HighlightOversize() {
+		return ui.Column(HighlightOffNotice(ed), ui.ViewOf(ed).Grow(1)).
+			Gap(ctx.Theme().Spacing.XS).Grow(1)
+	}
 	return ui.ViewOf(ed).Grow(1)
+}
+
+// HighlightOffNotice tells the reader why ed shows no syntax colors — its
+// document is over the size limit — and offers to highlight it anyway.
+func HighlightOffNotice(ed *ui.Editor) ui.View {
+	th := theme.Current()
+	msg := fmt.Sprintf("Syntax highlighting is off: this body is %s, over the %s limit (Settings › Editor).",
+		humanize.IBytes(uint64(len(ed.Bytes()))), humanize.IBytes(uint64(highlight.MaxBytes)))
+	return ui.Row(
+		ui.Icon(icons.Info, th.Metrics.IconSizeSM, th.Info),
+		ui.Paragraph(msg).Size(th.Typography.Caption.Size).Grow(1),
+		ui.Button(fmt.Sprintf("hl-anyway-%p", ed), ui.Text("Highlight anyway")).
+			Subtle().
+			Tooltip("Color this body; large documents take more memory and time").
+			OnClick(ed.HighlightAnyway),
+	).Gap(th.Spacing.S).
+		PaddingXY(th.Spacing.S, th.Spacing.XS).
+		Background(ui.TokenInfoSurface).
+		Style(ui.Spec{}.Radius(th.Radius.Medium))
 }
 
 // SaveEditorBytes opens a save dialog and writes data to the chosen path.

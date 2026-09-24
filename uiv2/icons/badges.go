@@ -33,4 +33,5 @@ var badgeLabels = map[string]string{
 	"req-grpc": "gRPC",
 	"req-gql":  "GQL",
 	"req-unk":  "?",
+	"env":      "ENV",
 }

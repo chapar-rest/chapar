@@ -460,15 +460,14 @@ func (h *tsHighlighter) recycleSource(buf []byte) {
 // retained tree, releasing both the editor's tokens and the worker's native
 // memory; the first one back under the limit reparses normally.
 func (h *tsHighlighter) skipOversize(source []byte) bool {
+	// Read the limit and flip the flag under one lock so concurrent updates
+	// cannot both see the transition and clear twice.
+	h.mu.Lock()
 	limit := h.maxBytes
 	if limit <= 0 {
 		limit = DefaultMaxBytes
 	}
 	over := len(source) > limit
-
-	// Read and flip the flag under one lock so concurrent updates cannot both
-	// see the transition and clear twice.
-	h.mu.Lock()
 	crossed := over && !h.oversize
 	h.oversize = over
 	if crossed {
@@ -492,6 +491,17 @@ func (h *tsHighlighter) wasOversize() bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.oversize
+}
+
+// Oversize reports whether the last source was left unhighlighted for being
+// over the limit.
+func (h *tsHighlighter) Oversize() bool { return h.wasOversize() }
+
+// SetMaxBytes changes the size limit applied to sources passed from now on.
+func (h *tsHighlighter) SetMaxBytes(n int) {
+	h.mu.Lock()
+	h.maxBytes = n
+	h.mu.Unlock()
 }
 
 // SetRange restricts classification to [lo, hi), and asks for a fresh result

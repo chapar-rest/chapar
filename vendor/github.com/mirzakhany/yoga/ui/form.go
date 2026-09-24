@@ -21,6 +21,8 @@ const (
 	FormItemSlider
 	FormItemStepper
 	FormItemFile
+	// FormItemHeading is a title over a group of rows, with no control.
+	FormItemHeading
 )
 
 // FormItem is one labeled settings row.
@@ -45,6 +47,14 @@ type FormItem struct {
 	// File: Text holds the path, OnText receives the picked path ("" when
 	// cleared), and Filters restrict what the file dialog lists.
 	Filters []FileFilter
+
+	// Optional tags the label "Optional", for a row that can be left empty.
+	// Without it a column of empty fields reads as a list of things to fill.
+	Optional bool
+	// Placeholder is the hint an empty text row shows, and the button label of
+	// an empty file row (instead of "Choose file…"). Use it to say what
+	// happens when the row is left empty.
+	Placeholder string
 }
 
 // FormSwitch builds a switch row.
@@ -85,6 +95,12 @@ func FormFile(id, label, desc, path string, filters []FileFilter, fn func(string
 	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemFile, Text: path, Filters: filters, OnText: fn}
 }
 
+// FormHeading builds a heading that opens a group of related rows: a title
+// and a description, with no control. The description wraps.
+func FormHeading(title, desc string) FormItem {
+	return FormItem{Label: title, Description: desc, Kind: FormItemHeading}
+}
+
 type formData struct {
 	items []FormItem
 }
@@ -109,6 +125,9 @@ func (n *Node) layoutForm(c *Ctx) *layout.Element {
 
 func (n *Node) formRow(c *Ctx, item FormItem) View {
 	th := c.Theme()
+	if item.Kind == FormItemHeading {
+		return formHeading(c, item)
+	}
 	pad := th.Spacing.M
 	iconSz := th.Metrics.IconSizeMD
 
@@ -119,8 +138,16 @@ func (n *Node) formRow(c *Ctx, item FormItem) View {
 
 	// The description wraps to whatever width the control leaves; a Text
 	// would keep its full width and run underneath the control.
+	var label View = Strong(item.Label)
+	if item.Optional {
+		label = Row(
+			Strong(item.Label),
+			Text("Optional").Size(th.Typography.Caption.Size).
+				Style(Spec{}.TextColor(TokenForegroundMuted)),
+		).Gap(th.Spacing.S)
+	}
 	textCol := Column(
-		Strong(item.Label),
+		label,
 		Paragraph(item.Description).Size(th.Typography.Caption.Size).
 			Style(Spec{}.TextColor(TokenForegroundMuted)),
 	).Gap(th.Spacing.XXS).Grow(1)
@@ -146,7 +173,7 @@ func (n *Node) formControl(c *Ctx, item FormItem) View {
 	case FormItemNumber:
 		return formNumberField(c, item)
 	case FormItemText:
-		return TextField(item.ID, item.Text).Width(180).OnChange(item.OnText)
+		return TextField(item.ID, item.Text).Width(180).Placeholder(item.Placeholder).OnChange(item.OnText)
 	case FormItemSlider:
 		return Slider(item.ID, item.Number).Min(item.Min).Max(item.Max).Step(item.Step).
 			OnFloatChange(item.OnNumber).Width(160)
@@ -158,6 +185,18 @@ func (n *Node) formControl(c *Ctx, item FormItem) View {
 	default:
 		return Spacer()
 	}
+}
+
+// formHeading lays out a FormHeading: a title with its description under it,
+// spaced from the rows above so it reads as the start of a group.
+func formHeading(c *Ctx, item FormItem) View {
+	th := c.Theme()
+	kids := []View{Strong(item.Label)}
+	if item.Description != "" {
+		kids = append(kids, Paragraph(item.Description).Size(th.Typography.Caption.Size).
+			Style(Spec{}.TextColor(TokenForegroundMuted)))
+	}
+	return Column(kids...).Gap(th.Spacing.XXS).PaddingTop(th.Spacing.M).PaddingLeft(th.Spacing.XS)
 }
 
 // formNumberDraft holds the raw text of a number field while it is being
@@ -223,6 +262,9 @@ func formFileControl(c *Ctx, item FormItem) View {
 		}
 	}
 	name := "Choose file…"
+	if item.Placeholder != "" {
+		name = item.Placeholder
+	}
 	if path != "" {
 		name = filepath.Base(path)
 	}

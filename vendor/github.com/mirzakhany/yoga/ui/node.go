@@ -108,6 +108,7 @@ type Node struct {
 	onCloseIdx   func(int)
 	tooltip      string
 	ellipsis     EllipsisMode
+	float        *floatSpec
 }
 
 var _ View = (*Node)(nil)
@@ -571,6 +572,9 @@ func (n *Node) Layout(c *Ctx) *layout.Element {
 		return layout.New(layout.Box())
 	}
 	el := n.layoutKind(c)
+	if el != nil && n.float != nil {
+		n.float.apply(&el.Style)
+	}
 	if el != nil && n.tooltip != "" {
 		tipID := n.id
 		if tipID == "" {

@@ -70,6 +70,23 @@ type RangeHighlighter interface {
 	SetRange(lo, hi int)
 }
 
+// SizeLimited is an optional Highlighter capability: the highlighter leaves
+// documents over a size limit uncolored, reports when it did, and lets the
+// consumer move the limit.
+//
+// A consumer can use it to tell the reader why a large document has no colors
+// and to offer highlighting it anyway.
+type SizeLimited interface {
+	Highlighter
+	// Oversize reports whether the last source passed to Update or UpdateEdit
+	// was over the limit and so left unhighlighted.
+	Oversize() bool
+	// SetMaxBytes changes the limit for sources passed from now on. Values
+	// <= 0 mean DefaultMaxBytes; math.MaxInt removes the limit. The current
+	// source is not reparsed until the next Update.
+	SetMaxBytes(n int)
+}
+
 // Noop is a highlighter that produces no tokens; the editor falls back to the
 // default text color. Useful for tests, non-code text, web/WASM builds (no
 // Tree-sitter CGO), or when Tree-sitter is undesirable.

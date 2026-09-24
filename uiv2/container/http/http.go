@@ -9,9 +9,11 @@ import (
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	reqicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -367,6 +369,8 @@ func (c *Container) bodyTab(th *theme.Theme, id string, http *domain.HTTPRequest
 			ui.ViewOf(c.urlEncoded).Grow(1),
 		)
 	case domain.RequestBodyTypeNone:
+	case domain.RequestBodyTypeJSON:
+		rows = append(rows, container.JSONBodyEditor("http-body-"+id, c.bodyEd, c.deps))
 	default:
 		rows = append(rows, ui.ViewOf(c.bodyEd).Grow(1))
 	}
@@ -501,3 +505,8 @@ func optionIndex(v string, opts []ui.SelectOption) int {
 }
 
 func optsID(id, suffix string) string { return id + "-" + suffix }
+
+// TabIcon shows the request's badge, the one its row in the tree shows.
+func (c *Container) TabIcon(th *theme.Theme) (icons.Icon, render.Color) {
+	return reqicons.Badge(c.req), reqicons.Color(c.req, th)
+}

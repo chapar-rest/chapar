@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bytes"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -446,6 +447,47 @@ func (e *Editor) Modified() bool { return e.modified }
 
 // MarkSaved clears the modified flag.
 func (e *Editor) MarkSaved() { e.modified = false }
+
+// SetText replaces the whole document with s as a single undoable edit, the
+// way selecting everything and pasting s would, so the editor reports itself
+// modified and Undo brings the old text back. The caret keeps its offset,
+// clamped to the new text. It does nothing when s is already the content or
+// the editor is read-only.
+func (e *Editor) SetText(s string) {
+	if e.readOnly || s == string(e.pt.Bytes()) {
+		return
+	}
+	caret := e.caret
+	e.applyEdit(0, e.pt.Len(), s, mergeNone)
+	e.lastMerge = mergeNone
+	if caret > len(s) {
+		caret = len(s)
+	}
+	e.caret = caret
+	e.ensureCaretVisible()
+}
+
+// HighlightOversize reports whether the document is larger than its
+// highlighter's size limit and is shown without syntax colors. Only
+// highlighters that implement highlight.SizeLimited ever report it.
+func (e *Editor) HighlightOversize() bool {
+	sl, ok := e.hl.(highlight.SizeLimited)
+	return ok && sl.Oversize()
+}
+
+// HighlightAnyway lifts the highlighter's size limit for this editor and
+// highlights the document, however large. Parsing a big document costs memory
+// and time on the highlighter's worker (see highlight.DefaultMaxBytes), so it
+// is meant for a reader who asked for it.
+func (e *Editor) HighlightAnyway() {
+	sl, ok := e.hl.(highlight.SizeLimited)
+	if !ok {
+		return
+	}
+	sl.SetMaxBytes(math.MaxInt)
+	sl.Update(e.pt.Bytes())
+	e.markParsePending()
+}
 
 // Update polls the highlighter, recomputes scroll extents, and drives scrollbars.
 func (e *Editor) Update(m *input.Mouse) {

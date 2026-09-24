@@ -3,9 +3,11 @@ package env
 import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/uiv2/container"
+	reqicons "github.com/chapar-rest/chapar/uiv2/icons"
 	"github.com/chapar-rest/chapar/uiv2/secretui"
 	"github.com/chapar-rest/chapar/uiv2/vars"
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 )
@@ -218,4 +220,9 @@ func (c *Container) reloadValues() {
 	}
 	container.LoadKV(c.table, c.env.Spec.Values)
 	c.table.SetFilter(c.query)
+}
+
+// TabIcon marks the tab as an environment's.
+func (c *Container) TabIcon(th *theme.Theme) (icons.Icon, render.Color) {
+	return reqicons.Env(th)
 }

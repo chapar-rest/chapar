@@ -61,16 +61,21 @@ func (s *Service) Dial(req *domain.GRPCRequestSpec, extraOpts ...grpc.DialOption
 	}
 
 	if !req.Settings.Insecure {
-		var tlsCfg tls.Config
-		tlsCfg.InsecureSkipVerify = req.Settings.Insecure
+		// NameOverride is the name the server's certificate is verified
+		// against; empty means the host of the address.
+		tlsCfg := tls.Config{ServerName: req.Settings.NameOverride}
 
-		if req.Settings.ClientCertFile != "" {
-			certFile, err := os.ReadFile(req.Settings.ClientCertFile)
+		certPath, keyPath := req.Settings.ClientCertFile, req.Settings.ClientKeyFile
+		if (certPath == "") != (keyPath == "") {
+			return nil, errors.New("mutual TLS needs both a client certificate and a client key")
+		}
+		if certPath != "" {
+			certFile, err := os.ReadFile(certPath)
 			if err != nil {
 				return nil, err
 			}
 
-			keyFile, err := os.ReadFile(req.Settings.ClientCertFile)
+			keyFile, err := os.ReadFile(keyPath)
 			if err != nil {
 				return nil, err
 			}
@@ -93,7 +98,9 @@ func (s *Service) Dial(req *domain.GRPCRequestSpec, extraOpts ...grpc.DialOption
 				return nil, err
 			}
 
-			tlsCfg.RootCAs.AppendCertsFromPEM(rootFile)
+			if !tlsCfg.RootCAs.AppendCertsFromPEM(rootFile) {
+				return nil, fmt.Errorf("trusted root certificate %s holds no PEM certificate", req.Settings.RootCertFile)
+			}
 		}
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tlsCfg)))
 	} else {

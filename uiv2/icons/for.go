@@ -114,3 +114,13 @@ func For(req *domain.Request) (yogaicons.Icon, render.Color) {
 	th := theme.Current()
 	return Badge(req), Color(req, th)
 }
+
+// Env returns the badge and tint an environment's tab shows. Environments
+// and requests open side by side in one tab strip, so the environment badge
+// takes a color no request badge uses.
+func Env(th *theme.Theme) (yogaicons.Icon, render.Color) {
+	if th.Dark {
+		return icon("env"), render.RGBA8(0xc5, 0x9b, 0xf5, 0xff)
+	}
+	return icon("env"), render.RGBA8(0x7a, 0x3e, 0xb3, 0xff)
+}

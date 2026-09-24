@@ -96,6 +96,7 @@ func applyChaparTheme(name string) {
 func applyChaparAppearance(general domain.GeneralConfig, editor domain.EditorConfig) {
 	applyChaparTheme(general.Theme)
 	applyChaparFonts(general, editor)
+	highlight.MaxBytes = editor.HighlightLimitBytes()
 }
 
 func applyChaparFonts(general domain.GeneralConfig, editor domain.EditorConfig) {

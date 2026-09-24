@@ -13,9 +13,16 @@ import (
 
 // TabModel is the display state of a single tab.
 type TabModel struct {
-	Title    string
+	Title string
+	// Modified marks unsaved changes: the close button shows a dot in the
+	// theme's warning color until the pointer is over it.
 	Modified bool
 	Badge    string
+	// Icon, when set, is drawn before the title, tinted IconColor (the muted
+	// foreground when IconColor is unset). It tells apart tabs whose titles
+	// alone do not say what kind of document they hold.
+	Icon      icons.Icon
+	IconColor render.Color
 }
 
 type tabsData struct {
@@ -412,7 +419,7 @@ func tabGeometry(el *layout.Element, tabs []TabModel, closable bool, scrollX flo
 		if badgeW > 0 {
 			badgeW += th.Spacing.SNudge
 		}
-		widths[i] = tw + badgeW + 2*padX + closeW
+		widths[i] = tabIconWidth(tab) + tw + badgeW + 2*padX + closeW
 		g.content += widths[i]
 	}
 	g.view = render.Rect{X: f.X + el.Style.Padding.Left, Y: f.Y, W: f.W - el.Style.Padding.Left - el.Style.Padding.Right, H: f.H}
@@ -438,6 +445,15 @@ func tabGeometry(el *layout.Element, tabs []TabModel, closable bool, scrollX flo
 		x += w
 	}
 	return g
+}
+
+// tabIconWidth is the room a tab's leading icon takes, gap included.
+func tabIconWidth(tab TabModel) float32 {
+	if tab.Icon.Empty() {
+		return 0
+	}
+	th := theme.Current()
+	return th.Metrics.IconSizeSM + th.Spacing.S
 }
 
 // tabExtents returns the tab extents with the strip scrolled to the start.
@@ -475,16 +491,28 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, g ta
 		if st.focused && i == active {
 			drawFocusRing(dl, rect, th.ListActive, th)
 		}
+		tx := e.x + padX
+		if !tab.Icon.Empty() {
+			isz := th.Metrics.IconSizeSM
+			col := tab.IconColor
+			if col.A == 0 {
+				col = th.ForegroundMuted
+			}
+			if sheet := frameIcons(); sheet != nil {
+				sheet.Draw(dl, tab.Icon, render.Rect{X: tx, Y: f.Y + (f.H-isz)/2, W: isz, H: isz}, col)
+			}
+			tx += tabIconWidth(tab)
+		}
 		title := truncate(tab.Title, tabMaxText)
 		tw, lh := text.MeasureAt(title, style.Size)
 		ty := f.Y + (f.H-lh)/2
-		text.DrawStringTopAt(dl, title, e.x+padX, ty, th.Foreground, style.Size)
+		text.DrawStringTopAt(dl, title, tx, ty, th.Foreground, style.Size)
 		if tab.Badge != "" {
 			bsz := th.Typography.Caption.Size
 			bw, bh := text.MeasureAt(tab.Badge, bsz)
 			pillW := bw + 10
 			pillH := bh + 2
-			px := e.x + padX + tw + th.Spacing.SNudge
+			px := tx + tw + th.Spacing.SNudge
 			py := f.Y + (f.H-pillH)/2
 			dl.AddRoundedRect(render.Rect{X: px, Y: py, W: pillW, H: pillH}, th.Radius.Circular, th.ChromeMuted)
 			text.DrawStringTopAt(dl, tab.Badge, px+5, py+(pillH-bh)/2, th.ForegroundMuted, bsz)
@@ -497,9 +525,10 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, g ta
 					sheet.Draw(dl, icons.X, c, th.Foreground)
 				}
 			} else if tab.Modified {
-				if sheet := frameIcons(); sheet != nil {
-					sheet.Draw(dl, icons.Circle, shrinkRect(c, 0.5), th.ForegroundMuted)
-				}
+				// A filled dot, not an outline: unsaved changes should read at
+				// a glance, in the same color whether the tab is active or not.
+				d := c.W * 0.45
+				dl.AddRoundedRect(render.Rect{X: c.X + (c.W-d)/2, Y: c.Y + (c.H-d)/2, W: d, H: d}, d/2, th.Warning)
 			} else if i == hoverTab || i == active {
 				if sheet := frameIcons(); sheet != nil {
 					sheet.Draw(dl, icons.X, c, th.ForegroundMuted)
@@ -538,11 +567,6 @@ func paintTabOverflow(dl *render.DrawList, text *shape.Engine, g tabGeom, hot bo
 		ix := o.X + o.W - th.Spacing.S - icon
 		sheet.Draw(dl, icons.ChevronDown, render.Rect{X: ix, Y: o.Y + (o.H-icon)/2, W: icon, H: icon}, col)
 	}
-}
-
-func shrinkRect(r render.Rect, factor float32) render.Rect {
-	w, h := r.W*factor, r.H*factor
-	return render.Rect{X: r.X + (r.W-w)/2, Y: r.Y + (r.H-h)/2, W: w, H: h}
 }
 
 func truncate(s string, max int) string {

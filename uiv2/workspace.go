@@ -37,6 +37,7 @@ func (w *Workspace) OpenEnv(env *domain.Environment) {
 
 func (w *Workspace) containerDeps(id string) container.Deps {
 	d := w.deps()
+	d.OpenCollection = w.OpenCollection
 	d.Report = container.Reporter{
 		Dirty: func(dirty bool) { w.setDirty(id, dirty) },
 		Title: func(title string) { w.setTitle(id, title) },
@@ -248,6 +249,9 @@ func (w *Workspace) Layout(c *ui.Ctx) ui.View {
 	for i, d := range w.docs {
 		w.tabs[i].Modified = d.Dirty()
 		w.tabs[i].Title = d.Title()
+		if ic, ok := d.(container.TabIconer); ok {
+			w.tabs[i].Icon, w.tabs[i].IconColor = ic.TabIcon(th)
+		}
 	}
 	body := w.docs[w.active].Layout(c)
 	return ui.Column(

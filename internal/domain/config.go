@@ -77,6 +77,22 @@ type EditorConfig struct {
 	AutoCloseQuotes   bool   `yaml:"autoCloseQuotes"`
 	ShowLineNumbers   bool   `yaml:"showLineNumbers"`
 	WrapLines         bool   `yaml:"wrapLines"`
+	// HighlightLimitKB is the largest document, in KB, that editors color.
+	// Past it text is shown plain, since a syntax tree costs many times the
+	// text it describes. Zero means DefaultHighlightLimitKB.
+	HighlightLimitKB int `yaml:"highlightLimitKb"`
+}
+
+// DefaultHighlightLimitKB is the highlight limit when none is configured.
+const DefaultHighlightLimitKB = 2048
+
+// HighlightLimitBytes is the configured highlight limit in bytes.
+func (e EditorConfig) HighlightLimitBytes() int {
+	kb := e.HighlightLimitKB
+	if kb <= 0 {
+		kb = DefaultHighlightLimitKB
+	}
+	return kb << 10
 }
 
 func (e EditorConfig) Changed(other EditorConfig) bool {
@@ -87,7 +103,8 @@ func (e EditorConfig) Changed(other EditorConfig) bool {
 		e.AutoCloseBrackets != other.AutoCloseBrackets ||
 		e.AutoCloseQuotes != other.AutoCloseQuotes ||
 		e.ShowLineNumbers != other.ShowLineNumbers ||
-		e.WrapLines != other.WrapLines
+		e.WrapLines != other.WrapLines ||
+		e.HighlightLimitKB != other.HighlightLimitKB
 }
 
 type ScriptingConfig struct {

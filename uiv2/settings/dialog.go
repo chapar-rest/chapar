@@ -186,6 +186,12 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 				g.Editor.WrapLines = v
 				p.mark()
 			}),
+			ui.FormNumber("highlightLimit", "Syntax highlighting limit (KB)",
+				"Larger bodies and files are shown without colors; a highlighted document takes many times its size in memory. Applies to documents opened from now on.",
+				float64(g.Editor.HighlightLimitBytes()>>10), 16, 256<<10, 256, func(v float64) {
+					g.Editor.HighlightLimitKB = int(v)
+					p.mark()
+				}),
 		).Padding(th.Spacing.M)
 	case catData:
 		return ui.Form("settings-data",
