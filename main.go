@@ -6,7 +6,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/chapar-rest/chapar/uiv2"
+	"github.com/chapar-rest/chapar/ui"
 )
 
 var enablePprof = flag.Bool("pprof", false, "enable pprof")
@@ -20,7 +20,7 @@ func main() {
 		}()
 	}
 
-	if err := uiv2.Run(); err != nil {
+	if err := ui.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
