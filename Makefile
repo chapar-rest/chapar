@@ -57,7 +57,7 @@ build_appstore:
 	@if [ -z "$(APPLE_TEAM_ID)" ]; then echo "ERROR: APPLE_TEAM_ID is not set"; exit 1; fi
 	$(YOGA) package -os darwin -arch universal -format pkg \
 		-version $(TAG_NAME) -build-number $(BUILD_NUMBER) \
-		-sign "3rd Party Mac Developer Application: Mohsen Mirzakhani ($(APPLE_TEAM_ID))" \
+		-sign "Apple Distribution: Mohsen Mirzakhani ($(APPLE_TEAM_ID))" \
 		-installer-sign "3rd Party Mac Developer Installer: Mohsen Mirzakhani ($(APPLE_TEAM_ID))" \
 		-entitlements build/appstore/entitlements.plist
 
