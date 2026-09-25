@@ -37,34 +37,6 @@ func (dc *DockerClient) Close() error {
 	return dc.client.Close()
 }
 
-func (dc *DockerClient) isContainerRunning(containerName string) (bool, error) {
-	ctx := context.Background()
-
-	// Create filter for container name
-	filterArgs := filters.NewArgs()
-	filterArgs.Add("name", fmt.Sprintf("^%s$", containerName))
-
-	containers, err := dc.client.ContainerList(ctx, container.ListOptions{
-		Filters: filterArgs,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to check running containers: %v", err)
-	}
-
-	// Check if any container matches and is running
-	for _, cn := range containers {
-		for _, name := range cn.Names {
-			// Docker API returns names with leading slash
-			cleanName := strings.TrimPrefix(name, "/")
-			if cleanName == containerName {
-				return cn.State == "running", nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 func (dc *DockerClient) isContainerExists(containerName string) (bool, error) {
 	ctx := context.Background()
 
@@ -202,9 +174,10 @@ func (dc *DockerClient) runContainer(imageName, containerName string, ports, env
 		}
 
 		exposedPorts[containerPort] = struct{}{}
+		// Loopback only: the executor runs any code it is sent.
 		portBindings[containerPort] = []nat.PortBinding{
 			{
-				HostIP:   "0.0.0.0",
+				HostIP:   "127.0.0.1",
 				HostPort: hostPort,
 			},
 		}
@@ -217,8 +190,20 @@ func (dc *DockerClient) runContainer(imageName, containerName string, ports, env
 		ExposedPorts: exposedPorts,
 	}
 
+	// Scripts are untrusted code: no root, no capabilities, no writes
+	// outside /tmp, and bounded memory, CPU and process count.
+	pids := int64(256)
 	hostConfig := &container.HostConfig{
-		PortBindings: portBindings,
+		PortBindings:   portBindings,
+		ReadonlyRootfs: true,
+		Tmpfs:          map[string]string{"/tmp": "rw,noexec,nosuid,size=64m"},
+		CapDrop:        []string{"ALL"},
+		SecurityOpt:    []string{"no-new-privileges"},
+		Resources: container.Resources{
+			Memory:    512 * 1024 * 1024,
+			NanoCPUs:  1_000_000_000,
+			PidsLimit: &pids,
+		},
 	}
 
 	// Create the container
@@ -314,17 +299,6 @@ func (dc *DockerClient) removeImage(imageName string) error {
 	return nil
 }
 
-// Helper functions that maintain the original API for backward compatibility
-func isContainerRunning(containerName string) (bool, error) {
-	dc, err := NewDockerClient()
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = dc.Close() }()
-
-	return dc.isContainerRunning(containerName)
-}
-
 func isContainerExists(containerName string) (bool, error) {
 	dc, err := NewDockerClient()
 	if err != nil {
@@ -380,7 +354,7 @@ func forceRemoveContainer(containerName string) error {
 	if err != nil {
 		return err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.forceRemoveContainer(containerName)
 }

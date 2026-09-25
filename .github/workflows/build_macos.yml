@@ -10,23 +10,20 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-    env:
-      MACOSX_DEPLOYMENT_TARGET: "11.0"
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22.1
+          go-version-file: go.mod
 
-      - name: Install gogio tool
-        run: go install gioui.org/cmd/gogio@latest
-
-      - name: Install create-dmg tool
-        run: brew install create-dmg
+      - name: Install yoga CLI
+        shell: bash
+        # The same yoga version go.mod builds the app with.
+        run: go install github.com/mirzakhany/yoga/cmd/yoga@$(go list -m -f '{{.Version}}' github.com/mirzakhany/yoga)
 
       - name: Import Developer ID certificate
         env:
@@ -47,32 +44,28 @@ jobs:
             -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
-      - name: Build and sign macOS apps
+      # yoga signs each app with hardened runtime, notarizes and staples it,
+      # then wraps it in the DMG (layout in yoga.toml).
+      - name: Build, sign and notarize
         env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: make build_macos_signed
-
-      - name: Notarize macOS apps
-        env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: make notarize_macos
-
-      - name: Staple notarization tickets
         run: |
-          xcrun stapler staple ./dist/amd64/Chapar.app
-          xcrun stapler staple ./dist/arm64/Chapar.app
-
-      - name: Create DMG installers
-        run: make build_macos_dmg
+          BUILD_NUMBER=$(date +%Y%m%d%H%M)
+          for arch in amd64 arm64; do
+            yoga package -os darwin -arch "$arch" \
+              -version "${{ github.event.release.tag_name }}" \
+              -build-number "$BUILD_NUMBER" \
+              -sign "$IDENTITY" -notarize
+          done
 
       - name: Upload Release Assets
         run: |
           gh release upload ${{ github.event.release.tag_name }} \
-            ./dist/chapar-macos-${{ github.ref_name }}-amd64.dmg
+            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-amd64.dmg
           gh release upload ${{ github.event.release.tag_name }} \
-            ./dist/chapar-macos-${{ github.ref_name }}-arm64.dmg
+            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-arm64.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

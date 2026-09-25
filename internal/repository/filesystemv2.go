@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/safemap"
 )
@@ -17,9 +18,21 @@ type Entity interface {
 	MarshalYaml() ([]byte, error)
 }
 
+// SecretCipher encrypts and decrypts environment values the user marked as
+// secret. It is satisfied by *secret.Manager.
+type SecretCipher interface {
+	Encrypt(aad, plain string) (string, error)
+	Decrypt(aad, encoded string) (string, error)
+	Unlocked() bool
+}
+
 type FilesystemV2 struct {
 	dataDir       string
 	workspaceName string
+
+	// secrets encrypts secret environment values on their way to disk. When
+	// nil, environments that hold secrets cannot be saved.
+	secrets SecretCipher
 
 	// entities is a map to hold loaded entities so filesystem can name changes
 	entities *safemap.Map[string]
@@ -48,8 +61,18 @@ func NewFilesystemV2(dataDir, workspaceName string) (*FilesystemV2, error) {
 	return fs, nil
 }
 
+// SetSecrets installs the cipher used for secret environment values. Passing a
+// manager that is locked is fine: secret values then stay encrypted and are
+// written back untouched.
+func (f *FilesystemV2) SetSecrets(c SecretCipher) { f.secrets = c }
+
 func (f *FilesystemV2) SetActiveWorkspace(workspaceName string) {
 	f.workspaceName = workspaceName
+}
+
+// WorkspaceDir returns the directory of the active workspace.
+func (f *FilesystemV2) WorkspaceDir() (string, error) {
+	return filepath.Join(f.dataDir, f.workspaceName), nil
 }
 
 func (f *FilesystemV2) LoadProtoFiles() ([]*domain.ProtoFile, error) {
@@ -177,7 +200,53 @@ func (f *FilesystemV2) UpdateRequest(request *domain.Request, collection *domain
 	return f.writeStandaloneRequest(request, collection, true)
 }
 
-func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain.Collection) error {
+// MoveRequest moves a request from one collection to another. A nil collection
+// stands for the standalone requests directory, so this also covers dragging a
+// request into a collection or back out of it.
+func (f *FilesystemV2) MoveRequest(request *domain.Request, from, to *domain.Collection) error {
+	if collectionID(from) == collectionID(to) {
+		return nil
+	}
+
+	dstDir, err := f.requestDir(to)
+	if err != nil {
+		return err
+	}
+
+	// The destination may already hold a request with this name.
+	taken, err := doesFileNameExistWithDifferentID(filepath.Join(dstDir, request.GetName()+".yaml"), request.ID())
+	if err != nil {
+		return fmt.Errorf("failed to check if another file with the same name exists: %w", err)
+	}
+
+	if err := f.DeleteRequest(request, from); err != nil {
+		return err
+	}
+
+	if taken {
+		request.SetName(f.ensureUniqueName(dstDir, request.GetName(), ".yaml"))
+	}
+	if to != nil {
+		request.CollectionID = to.MetaData.ID
+		request.CollectionName = to.MetaData.Name
+	} else {
+		request.CollectionID = ""
+		request.CollectionName = ""
+	}
+
+	return f.CreateRequest(request, to)
+}
+
+func collectionID(c *domain.Collection) string {
+	if c == nil {
+		return ""
+	}
+	return c.MetaData.ID
+}
+
+// requestDir is where a request's file lives: the collection's directory, or
+// the standalone requests directory when collection is nil.
+func (f *FilesystemV2) requestDir(collection *domain.Collection) (string, error) {
 	kind := domain.KindRequest
 	if collection != nil {
 		kind = domain.KindCollection
@@ -185,12 +254,19 @@ func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain
 
 	dir, err := f.EntityPath(kind)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// If the request is part of a collection, we need to delete it from the collection directory
 	if collection != nil {
 		dir = filepath.Join(dir, collection.GetName())
+	}
+	return dir, nil
+}
+
+func (f *FilesystemV2) DeleteRequest(request *domain.Request, collection *domain.Collection) error {
+	dir, err := f.requestDir(collection)
+	if err != nil {
+		return err
 	}
 
 	if err := f.deleteEntity(dir, request); err != nil {
@@ -215,6 +291,7 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 	}
 
 	collections := make([]*domain.Collection, 0, len(dirs))
+	var skipped skippedFiles
 	for _, dir := range dirs {
 		if !dir.IsDir() {
 			continue // Skip non-directory entries
@@ -229,11 +306,12 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 		// Load the collection from the YAML file
 		collection, err := LoadFromYaml[domain.Collection](collectionFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load collection %s: %w", dir.Name(), err)
+			skipped = append(skipped, SkippedFile{Path: collectionFile, Err: err})
+			continue
 		}
 
 		requests, err := f.loadCollectionRequests(filepath.Join(path, dir.Name()))
-		if err != nil {
+		if !skipped.absorb(err) {
 			return nil, fmt.Errorf("failed to load requests for collection %s: %w", dir.Name(), err)
 		}
 		collection.Spec.Requests = requests
@@ -242,7 +320,7 @@ func (f *FilesystemV2) LoadCollections() ([]*domain.Collection, error) {
 		f.entities.Set(collection.ID(), collection.GetName())
 	}
 
-	return collections, nil
+	return collections, skipped.err()
 }
 
 func (f *FilesystemV2) loadCollectionRequests(path string) ([]*domain.Request, error) {
@@ -319,6 +397,7 @@ func (f *FilesystemV2) LoadEnvironments() ([]*domain.Environment, error) {
 
 	return loadList[domain.Environment](path, func(n *domain.Environment) {
 		f.entities.Set(n.ID(), n.GetName())
+		f.openEnvironment(n)
 	})
 }
 
@@ -372,6 +451,11 @@ func (f *FilesystemV2) DeleteEnvironment(environment *domain.Environment) error 
 
 	// Remove the environment from the entities map
 	f.entities.Delete(environment.ID())
+
+	jar := cookies.File(filepath.Join(f.dataDir, f.workspaceName), environment.ID())
+	if err := os.Remove(jar); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete cookie jar: %w", err)
+	}
 	return nil
 }
 
@@ -386,6 +470,7 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 	}
 
 	workspaces := make([]*domain.Workspace, 0, len(dirs))
+	var skipped skippedFiles
 	for _, dir := range dirs {
 		if !dir.IsDir() {
 			continue // Skip non-directory entries
@@ -400,14 +485,15 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 		// Load the workspace from the YAML file
 		workspace, err := LoadFromYaml[domain.Workspace](workspaceFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load workspace %s: %w", dir.Name(), err)
+			skipped = append(skipped, SkippedFile{Path: workspaceFile, Err: err})
+			continue
 		}
 
 		workspaces = append(workspaces, workspace)
 		f.entities.Set(workspace.ID(), workspace.GetName())
 	}
 
-	return workspaces, nil
+	return workspaces, skipped.err()
 }
 
 // CreateWorkspace creates a new workspace and writes it to the filesystem.
@@ -558,7 +644,16 @@ func (f *FilesystemV2) writeEnvironmentFile(environment *domain.Environment, ove
 	if err != nil {
 		return err
 	}
-	return f.writeFile(path, environment, override)
+	sealed, err := f.sealEnvironment(environment)
+	if err != nil {
+		return err
+	}
+	if err := f.writeFile(path, sealed, override); err != nil {
+		return err
+	}
+	// writeFile may have uniquified the name on the copy it wrote.
+	environment.SetName(sealed.GetName())
+	return nil
 }
 
 func (f *FilesystemV2) deleteEntity(path string, e Entity) error {
@@ -705,8 +800,11 @@ func (f *FilesystemV2) ReadLegacyPreferences() (*domain.Preferences, error) {
 	return LoadFromYaml[domain.Preferences](filePath)
 }
 
+// loadList reads every entity file in dir. A file that cannot be read is left
+// out and reported in a *SkippedFilesError next to the entities that loaded.
 func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 	var out []*T
+	var skipped skippedFiles
 
 	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
 	if err != nil {
@@ -720,7 +818,7 @@ func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 		}
 
 		if item, err := LoadFromYaml[T](file); err != nil {
-			return nil, err
+			skipped = append(skipped, SkippedFile{Path: file, Err: err})
 		} else {
 			out = append(out, item)
 			if fallback != nil {
@@ -729,5 +827,5 @@ func loadList[T any](dir string, fallback func(n *T)) ([]*T, error) {
 		}
 	}
 
-	return out, nil
+	return out, skipped.err()
 }

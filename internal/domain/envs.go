@@ -49,6 +49,8 @@ func (e *EnvSpec) Clone() EnvSpec {
 			Key:    v.Key,
 			Value:  v.Value,
 			Enable: v.Enable,
+			Secret: v.Secret,
+			Locked: v.Locked,
 		}
 	}
 
@@ -67,19 +69,6 @@ func NewEnvironment(name string) *Environment {
 			Values: make([]KeyValue, 0),
 		},
 	}
-}
-
-func CompareEnvValue(a, b KeyValue) bool {
-	// compare length of the values
-	if len(a.Key) != len(b.Key) || len(a.Value) != len(b.Value) || len(a.ID) != len(b.ID) {
-		return false
-	}
-
-	if a.Key != b.Key || a.Value != b.Value || a.Enable != b.Enable || a.ID != b.ID {
-		return false
-	}
-
-	return true
 }
 
 func (e *Environment) Clone() *Environment {
@@ -112,12 +101,27 @@ func (e *Environment) SetKey(key string, value string) {
 	})
 }
 
+// UnsetKey removes key and reports whether it was there.
+func (e *Environment) UnsetKey(key string) bool {
+	for i, v := range e.Spec.Values {
+		if v.Key == key {
+			e.Spec.Values = append(e.Spec.Values[:i], e.Spec.Values[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Environment) ApplyToGRPCRequest(req *GRPCRequestSpec) {
 	if e == nil || req == nil {
 		return
 	}
 
 	for _, envKv := range e.Spec.Values {
+		if envKv.Locked {
+			// Still encrypted: substituting it would send ciphertext.
+			continue
+		}
 		if strings.Contains(req.ServerInfo.Address, "{{"+envKv.Key+"}}") {
 			req.ServerInfo.Address = strings.ReplaceAll(req.ServerInfo.Address, "{{"+envKv.Key+"}}", envKv.Value)
 		}
@@ -127,8 +131,8 @@ func (e *Environment) ApplyToGRPCRequest(req *GRPCRequestSpec) {
 		}
 
 		for i, kv := range req.Metadata {
-			if strings.Contains(kv.Value, "{{"+kv.Key+"}}") {
-				req.Metadata[i].Value = strings.ReplaceAll(kv.Value, "{{"+kv.Key+"}}", kv.Value)
+			if strings.Contains(kv.Value, "{{"+envKv.Key+"}}") {
+				req.Metadata[i].Value = strings.ReplaceAll(kv.Value, "{{"+envKv.Key+"}}", envKv.Value)
 			}
 		}
 
@@ -164,6 +168,10 @@ func (e *Environment) ApplyToHTTPRequest(req *HTTPRequestSpec) {
 	}
 
 	for _, envKv := range e.Spec.Values {
+		if envKv.Locked {
+			// Still encrypted: substituting it would send ciphertext.
+			continue
+		}
 		for i, kv := range req.Request.Headers {
 			// if value contain the variable in double curly braces then replace it
 			if strings.Contains(kv.Value, "{{"+envKv.Key+"}}") {
@@ -244,6 +252,10 @@ func (e *Environment) ApplyToGraphQLRequest(req *GraphQLRequestSpec) {
 	}
 
 	for _, envKv := range e.Spec.Values {
+		if envKv.Locked {
+			// Still encrypted: substituting it would send ciphertext.
+			continue
+		}
 		if strings.Contains(req.URL, "{{"+envKv.Key+"}}") {
 			req.URL = strings.ReplaceAll(req.URL, "{{"+envKv.Key+"}}", envKv.Value)
 		}
@@ -299,6 +311,9 @@ func (e *Environment) GetKeyValues() map[string]interface{} {
 	values := make(map[string]interface{})
 
 	for _, kv := range e.Spec.Values {
+		if kv.Locked {
+			continue
+		}
 		values[kv.Key] = kv.Value
 	}
 

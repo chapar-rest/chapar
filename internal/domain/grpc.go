@@ -32,6 +32,9 @@ type ServerInfo struct {
 
 	ServerReflection bool     `yaml:"serverReflection"`
 	ProtoFiles       []string `yaml:"protoFiles"`
+	// ImportPaths are the roots protoc resolves `import` statements against,
+	// so a request carries everything its proto files need to parse.
+	ImportPaths []string `yaml:"importPaths"`
 }
 
 type GRPCSettings struct {
@@ -96,6 +99,11 @@ func (r *GRPCRequestSpec) Clone() *GRPCRequestSpec {
 		copy(clone.ServerInfo.ProtoFiles, r.ServerInfo.ProtoFiles)
 	}
 
+	if len(r.ServerInfo.ImportPaths) > 0 {
+		clone.ServerInfo.ImportPaths = make([]string, len(r.ServerInfo.ImportPaths))
+		copy(clone.ServerInfo.ImportPaths, r.ServerInfo.ImportPaths)
+	}
+
 	// Clone Auth
 	if r.Auth != (Auth{}) {
 		clone.Auth = r.Auth.Clone()
@@ -139,121 +147,10 @@ func NewGRPCRequest(name string) *Request {
 	}
 }
 
-func CompareGRPCRequestSpecs(a, b *GRPCRequestSpec) bool {
-	if a == nil && b == nil {
-		return true
-	}
-
-	if a == nil || b == nil {
-		return false
-	}
-
-	if a.Body != b.Body {
-		return false
-	}
-
-	if !CompareKeyValues(a.Metadata, b.Metadata) {
-		return false
-	}
-
-	if !CompareAuth(a.Auth, b.Auth) {
-		return false
-	}
-
-	if !CompareServerInfo(a.ServerInfo, b.ServerInfo) {
-		return false
-	}
-
-	if !CompareGRPCSettings(a.Settings, b.Settings) {
-		return false
-	}
-
-	if a.LasSelectedMethod != b.LasSelectedMethod {
-		return false
-	}
-
-	if !CompareGRPCServices(a.Services, b.Services) {
-		return false
-	}
-
-	if !ComparePreRequest(a.PreRequest, b.PreRequest) {
-		return false
-	}
-
-	if !ComparePostRequest(a.PostRequest, b.PostRequest) {
-		return false
-	}
-
-	if !CompareVariables(a.Variables, b.Variables) {
-		return false
-	}
-
-	return true
-}
-
 func (r *Request) SetDefaultValuesForGRPC() {
 	if r.Spec.GRPC.ServerInfo.Address == "" {
 		r.Spec.GRPC.ServerInfo.Address = "localhost:8090"
 	}
-}
-
-func CompareGRPCSettings(a, b GRPCSettings) bool {
-	if a.Insecure != b.Insecure ||
-		a.TimeoutMilliseconds != b.TimeoutMilliseconds ||
-		a.NameOverride != b.NameOverride ||
-		a.RootCertFile != b.RootCertFile ||
-		a.ClientCertFile != b.ClientCertFile ||
-		a.ClientKeyFile != b.ClientKeyFile {
-		return false
-	}
-
-	return true
-}
-
-func CompareServerInfo(a, b ServerInfo) bool {
-	if a.Address != b.Address || a.ServerReflection != b.ServerReflection {
-		return false
-	}
-
-	if len(a.ProtoFiles) != len(b.ProtoFiles) {
-		return false
-	}
-
-	for i, v := range a.ProtoFiles {
-		if v != b.ProtoFiles[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func CompareGRPCMethods(a, b []GRPCMethod) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i, v := range a {
-		if v.Name != b[i].Name || v.FullName != b[i].FullName || v.IsStreamingClient != b[i].IsStreamingClient || v.IsStreamingServer != b[i].IsStreamingServer {
-			return false
-		}
-	}
-
-	return true
-}
-
-func CompareGRPCServices(a, b []GRPCService) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i, v := range a {
-		if v.Name != b[i].Name || !CompareGRPCMethods(v.Methods, b[i].Methods) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func MetadataToKeyValue(md metadata.MD) []KeyValue {

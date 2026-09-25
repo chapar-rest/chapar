@@ -42,15 +42,30 @@ const (
 	phantomCount
 )
 
+type glyphSet map[tables.GlyphID]struct{}
+
+func (f *Face) getPointsForGlyph(gid tables.GlyphID) []contourPoint {
+	var out []contourPoint
+	seenGlyphs := make(glyphSet) // used to deny loops
+	f.getPointsForGlyphRec(gid, 0, seenGlyphs, &out)
+	return out
+}
+
 const maxCompositeNesting = 20 // protect against malicious fonts
 
 // use the `glyf` table to fetch the contour points,
 // applying variation if needed.
-// for composite, recursively calls itself; allPoints includes phantom points and will be at least of length 4
-func (f *Face) getPointsForGlyph(gid tables.GlyphID, currentDepth int, allPoints *[]contourPoint /* OUT */) {
-	// adapted from harfbuzz/src/hb-ot-glyf-table.hh
+// for composite, recursively calls itself; allPoints includes phantom points and is
+// always at least of length phantomCount, even for a missing, too-deeply-nested or
+// otherwise malformed glyph (in which case an empty-but-valid outline is produced).
+func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, currentGlyphs glyphSet, allPoints *[]contourPoint /* OUT */) {
+	// adapted from harfbuzz/src/OT/glyf/Glyph.hh
 
 	if currentDepth > maxCompositeNesting || int(gid) >= len(f.glyf) {
+		// The glyph is missing or too deeply nested; still contribute the
+		// phantom points so the invariant documented above holds and callers
+		// never see a slice shorter than phantomCount.
+		*allPoints = append(*allPoints, make([]contourPoint, phantomCount)...)
 		return
 	}
 
@@ -67,8 +82,8 @@ func (f *Face) getPointsForGlyph(gid tables.GlyphID, currentDepth int, allPoints
 	points = append(points, make([]contourPoint, phantomCount)...)
 	phantoms := points[len(points)-phantomCount:]
 
-	hDelta := float32(g.XMin - getSideBearing(gid, f.hmtx))
-	vOrig := float32(g.YMax + getSideBearing(gid, f.vmtx))
+	hDelta := float32(g.XMin - f.hmtx.SideBearing(gid))
+	vOrig := float32(g.YMax + f.vmtx.SideBearing(gid))
 	hAdv := float32(f.getBaseAdvance(gid, f.hmtx, false))
 	vAdv := float32(f.getBaseAdvance(gid, f.vmtx, true))
 	phantoms[phantomLeft].X = hDelta
@@ -85,15 +100,19 @@ func (f *Face) getPointsForGlyph(gid tables.GlyphID, currentDepth int, allPoints
 		*allPoints = append(*allPoints, points...)
 	case tables.CompositeGlyph:
 		for compIndex, item := range data.Glyphs {
+			if _, has := currentGlyphs[item.GlyphIndex]; has {
+				continue
+			}
+			currentGlyphs[item.GlyphIndex] = struct{}{}
+
 			// recurse on component
 			var compPoints []contourPoint
 
-			f.getPointsForGlyph(item.GlyphIndex, currentDepth+1, &compPoints)
+			f.getPointsForGlyphRec(item.GlyphIndex, currentDepth+1, currentGlyphs, &compPoints)
 
+			// getPointsForGlyphRec guarantees at least the phantom points, so a
+			// component always contributes a well-formed slice here.
 			LC := len(compPoints)
-			if LC < phantomCount { // in case of max depth reached
-				return
-			}
 
 			/* Copy phantom points from component if USE_MY_METRICS flag set */
 			if item.HasUseMyMetrics() {
@@ -120,6 +139,8 @@ func (f *Face) getPointsForGlyph(gid tables.GlyphID, currentDepth int, allPoints
 			}
 
 			*allPoints = append(*allPoints, compPoints[0:LC-phantomCount]...)
+
+			delete(currentGlyphs, item.GlyphIndex)
 		}
 
 		*allPoints = append(*allPoints, phantoms...)
@@ -192,8 +213,7 @@ func (f *Face) getGlyfPoints(gid tables.GlyphID, computeExtents bool) (ext Glyph
 	if int(gid) >= len(f.glyf) {
 		return
 	}
-	var allPoints []contourPoint
-	f.getPointsForGlyph(gid, 0, &allPoints)
+	allPoints := f.getPointsForGlyph(gid)
 
 	copy(ph[:], allPoints[len(allPoints)-phantomCount:])
 
@@ -276,7 +296,7 @@ func getGlyphExtents(g tables.Glyph, metrics tables.Hmtx, gid gID) GlyphExtents 
 	var extents GlyphExtents
 	/* Undocumented rasterizer behavior: shift glyph to the left by (lsb - xMin), i.e., xMin = lsb */
 	/* extents.XBearing = hb_min (glyph_header.xMin, glyph_header.xMax); */
-	extents.XBearing = float32(getSideBearing(gid, metrics))
+	extents.XBearing = float32(metrics.SideBearing(gid))
 
 	extents.YBearing = float32(max16(g.YMin, g.YMax))
 	extents.Width = float32(max16(g.XMin, g.XMax) - min16(g.XMin, g.XMax))

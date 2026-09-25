@@ -7,73 +7,30 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"golang.org/x/net/http2"
-
+	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
-	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/internal/util"
 	"github.com/chapar-rest/chapar/internal/variables"
 	"github.com/chapar-rest/chapar/version"
 )
 
 type Service struct {
-	requests     *state.Requests
-	environments *state.Environments
+	cookies *cookies.Store
 }
 
-func New(requests *state.Requests, environments *state.Environments) *Service {
-	return &Service{
-		requests:     requests,
-		environments: environments,
-	}
-}
-
-func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*egress.Response, error) {
-	req := s.requests.GetRequest(requestID)
-	if req == nil {
-		return nil, fmt.Errorf("request with id %s not found", requestID)
-	}
-
-	// clone the request to make sure we do not modify the original request
-	r := req.Clone()
-
-	// Merge collection headers and auth if request belongs to a collection
-	if r.CollectionID != "" && r.Spec.HTTP != nil {
-		collection := s.requests.GetCollection(r.CollectionID)
-		if collection != nil {
-			// Merge headers: collection headers as base, request headers override
-			r.Spec.HTTP.Request.Headers = domain.MergeHeaders(collection.Spec.Headers, r.Spec.HTTP.Request.Headers)
-
-			// Resolve auth: if request auth is inherit, use collection auth
-			if r.Spec.HTTP.Request.Auth.Type == domain.AuthTypeInherit {
-				r.Spec.HTTP.Request.Auth = collection.Spec.Auth
-			}
-		}
-	}
-
-	var activeEnvironment *domain.Environment
-	// Get environment if provided
-	if activeEnvironmentID != "" {
-		activeEnvironment = s.environments.GetEnvironment(activeEnvironmentID)
-		if activeEnvironment == nil {
-			return nil, fmt.Errorf("environment with id %s not found", activeEnvironmentID)
-		}
-	}
-
-	response, err := s.sendRequest(r.Spec.HTTP, activeEnvironment)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+// SetCookieStore makes requests send and store cookies in the jar of the
+// environment they are sent with. A nil store disables cookie handling.
+func (s *Service) SetCookieStore(store *cookies.Store) {
+	s.cookies = store
 }
 
 func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment) (*egress.Response, error) {
@@ -175,11 +132,10 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	}
 
 	if globalConfig.Spec.General.HTTPVersion == "http/2" {
-		client.Transport = &http2.Transport{
-			AllowHTTP:        true,
-			MaxReadFrameSize: uint32(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
-			TLSClientConfig:  &tls.Config{InsecureSkipVerify: !globalConfig.Spec.General.VaidateTLSCertificates},
-		}
+		client.Transport = egress.NewHTTP2Transport(
+			globalConfig.Spec.General.ResponseSizeMb*1024*1024,
+			&tls.Config{InsecureSkipVerify: !globalConfig.Spec.General.VaidateTLSCertificates},
+		)
 	}
 
 	if globalConfig.Spec.General.SendNoCacheHeader {
@@ -190,16 +146,30 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 		httpReq.Header.Add("User-Agent", version.GetAgentName())
 	}
 
+	envID := ""
+	if e != nil {
+		envID = e.ID()
+	}
+	jar, err := s.cookies.Attach(envID, client, httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("cookie jar: %w", err)
+	}
+
+	traceCol := egress.NewHTTPTraceCollector()
+	httpReq = httpReq.WithContext(httptrace.WithClientTrace(httpReq.Context(), traceCol.ClientTrace()))
+
 	res, err := client.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = res.Body.Close() }()
 
 	// read body
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
+	downloadEnd := time.Now()
 
 	// measure time
 	elapsed := time.Since(start)
@@ -212,16 +182,7 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 		Cookies:         res.Cookies(),
 		Body:            body,
 		TimePassed:      elapsed,
-		IsJSON:          false,
-	}
-
-	if util.IsJSON(string(body)) {
-		response.IsJSON = true
-		if js, err := util.PrettyJSON(body); err != nil {
-			return nil, err
-		} else {
-			response.JSON = js
-		}
+		Timeline:        traceCol.Steps(downloadEnd),
 	}
 
 	// handle headers
@@ -232,6 +193,21 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	for k, v := range httpReq.Header {
 		response.RequestHeaders[k] = strings.Join(v, ", ")
 	}
+
+	if jar != nil {
+		response.CookieEvents = jar.Events()
+		response.SentCookies = jar.Sent()
+	}
+
+	ct := response.ResponseHeaders["Content-Type"]
+	if ct == "" {
+		ct = response.ResponseHeaders["content-type"]
+	}
+	kind, pretty, jsonStr, isJSON := util.ApplyBodyFormat(ct, body)
+	response.BodyKind = kind
+	response.Pretty = pretty
+	response.IsJSON = isJSON
+	response.JSON = jsonStr
 
 	return response, nil
 }

@@ -10,6 +10,7 @@ import (
 	"io"
 
 	ot "github.com/go-text/typesetting/font/opentype"
+	"github.com/go-text/typesetting/font/opentype/tables"
 )
 
 var (
@@ -31,6 +32,7 @@ type GlyphData interface {
 func (GlyphOutline) isGlyphData() {}
 func (GlyphSVG) isGlyphData()     {}
 func (GlyphBitmap) isGlyphData()  {}
+func (GlyphColor) isGlyphData()   {}
 
 // GlyphOutline exposes the path to draw for
 // vector glyph.
@@ -62,6 +64,13 @@ type GlyphSVG struct {
 	// with id="glyph<GID>" (as in id="glyph12"),
 	// and several glyphs may share the same Source
 	Source []byte
+
+	// ViewBox is the initial viewport of the SVG document:
+	// the rectangle in SVG user space mapped to the em square
+	// when rendering.
+	// It is resolved from the root <svg> element attributes,
+	// defaulting to (0, 0, upem, upem) as required by the specification.
+	ViewBox SVGViewBox
 
 	// According to the specification, a fallback outline
 	// should be specified for each SVG glyphs
@@ -96,6 +105,9 @@ const (
 	JPG
 	// The [GlyphBitmap.Data] slice stores a TIFF encoded image
 	TIFF
+	// BlackAndWhiteBitAligned is the same as [BlackAndWhite], but
+	// each row is padded to a byte boundary.
+	BlackAndWhiteByteAligned
 )
 
 // BitmapSize expose the size of bitmap glyphs.
@@ -105,42 +117,10 @@ type BitmapSize struct {
 	XPpem, YPpem  uint16
 }
 
-// GlyphData returns the glyph content for [gid], or nil if
-// not found.
-func (f *Face) GlyphData(gid GID) GlyphData {
-	// since outline may be specified for SVG and bitmaps, check it at the end
-	outB, err := f.sbix.glyphData(gID(gid), f.xPpem, f.yPpem)
-	if err == nil {
-		outline, ok := f.outlineGlyphData(gID(gid))
-		if ok {
-			outB.Outline = &outline
-		}
-		return outB
-	}
-
-	outB, err = f.bitmap.glyphData(gID(gid), f.xPpem, f.yPpem)
-	if err == nil {
-		outline, ok := f.outlineGlyphData(gID(gid))
-		if ok {
-			outB.Outline = &outline
-		}
-		return outB
-	}
-
-	outS, ok := f.svg.glyphData(gID(gid))
-	if ok {
-		// Spec :
-		// For every SVG glyph description, there must be a corresponding TrueType,
-		// CFF or CFF2 glyph description in the font.
-		outS.Outline, _ = f.outlineGlyphData(gID(gid))
-		return outS
-	}
-
-	if out, ok := f.outlineGlyphData(gID(gid)); ok {
-		return out
-	}
-
-	return nil
+// GlyphColor describe a colored glyph, as found in
+// COLR tables
+type GlyphColor struct {
+	Paint tables.PaintTable
 }
 
 func (sb sbix) glyphData(gid gID, xPpem, yPpem uint16) (GlyphBitmap, error) {
@@ -185,6 +165,13 @@ func (bt bitmap) glyphData(gid gID, xPpem, yPpem uint16) (GlyphBitmap, error) {
 	switch subtable.imageFormat {
 	case 17, 18, 19: // PNG
 		out.Format = PNG
+	case 1: // See https://learn.microsoft.com/en-us/typography/opentype/spec/ebdt#format-1-small-metrics-byte-aligned-data
+		out.Format = BlackAndWhiteByteAligned
+		// ensure data length
+		rowL := (out.Width + 7) / 8 // ceil
+		if exp := rowL * out.Height; len(out.Data) < exp {
+			return GlyphBitmap{}, fmt.Errorf("EOF in glyph bitmap: expected %d, got %d", exp, len(out.Data))
+		}
 	case 2, 5:
 		out.Format = BlackAndWhite
 		// ensure data length
@@ -199,27 +186,7 @@ func (bt bitmap) glyphData(gid gID, xPpem, yPpem uint16) (GlyphBitmap, error) {
 	return out, nil
 }
 
-// look for data in 'glyf', 'CFF ' and 'CFF2' tables
-func (f *Face) outlineGlyphData(gid gID) (GlyphOutline, bool) {
-	out, err := f.glyphDataFromCFF1(gid)
-	if err == nil {
-		return out, true
-	}
-
-	out, err = f.glyphDataFromCFF2(gid)
-	if err == nil {
-		return out, true
-	}
-
-	out, err = f.glyphDataFromGlyf(gid)
-	if err == nil {
-		return out, true
-	}
-
-	return GlyphOutline{}, false
-}
-
-func (s svg) glyphData(gid gID) (GlyphSVG, bool) {
+func (s svg) glyphData(gid gID, upem uint16) (GlyphSVG, bool) {
 	data, ok := s.rawGlyphData(gid)
 	if !ok {
 		return GlyphSVG{}, false
@@ -233,7 +200,7 @@ func (s svg) glyphData(gid gID) (GlyphSVG, bool) {
 		}
 	}
 
-	return GlyphSVG{Source: data}, true
+	return GlyphSVG{Source: data, ViewBox: svgViewBox(data, upem)}, true
 }
 
 // this file converts from font format for glyph outlines to
@@ -375,8 +342,7 @@ func (f *Face) glyphDataFromGlyf(glyph gID) (GlyphOutline, error) {
 	if int(glyph) >= len(f.glyf) {
 		return GlyphOutline{}, errGlyphOutOfRange(glyph)
 	}
-	var points []contourPoint
-	f.getPointsForGlyph(glyph, 0, &points)
+	points := f.getPointsForGlyph(glyph)
 	segments := buildSegments(points[:len(points)-phantomCount])
 	return GlyphOutline{Segments: segments}, nil
 }
@@ -408,6 +374,8 @@ func (f *Face) glyphDataFromCFF2(glyph gID) (GlyphOutline, error) {
 	return GlyphOutline{Segments: segments}, nil
 }
 
+// -------------------------- Public API --------------------------
+
 // BitmapSizes returns the size of bitmap glyphs present in the font.
 func (font *Font) BitmapSizes() []BitmapSize {
 	upem := font.head.UnitsPerEm
@@ -430,4 +398,99 @@ func (font *Font) BitmapSizes() []BitmapSize {
 	}
 
 	return nil
+}
+
+// GlyphData returns the glyph content for [gid], or nil if
+// not found.
+//
+// See also the various GlyphDataXXX methods, for more control
+// on the types of glyphs loaded.
+func (f *Face) GlyphData(gid GID) GlyphData {
+	// since outline may be specified for SVG and bitmaps, check it at the end
+	// check color first over SVG, since it is more optimized format
+
+	if out, ok := f.GlyphDataColor(gid); ok {
+		return out
+	}
+
+	if out, ok := f.GlyphDataBitmap(gid); ok {
+		return out
+	}
+
+	if out, ok := f.GlyphDataSVG(gid); ok {
+		return out
+	}
+
+	if out, ok := f.GlyphDataOutline(gid); ok {
+		return out
+	}
+
+	return nil
+}
+
+// GlyphDataOutline looks for glyph data in 'glyf', 'CFF ' and 'CFF2' tables.
+//
+// It is a bit faster than calling [Face.GlyphData] and may be used for instance
+// when rendering colored glyphs (from the 'COLR' table).
+func (f *Face) GlyphDataOutline(gid GID) (GlyphOutline, bool) {
+	g := gID(gid)
+	out, err := f.glyphDataFromCFF1(g)
+	if err == nil {
+		return out, true
+	}
+
+	out, err = f.glyphDataFromCFF2(g)
+	if err == nil {
+		return out, true
+	}
+
+	out, err = f.glyphDataFromGlyf(g)
+	if err == nil {
+		return out, true
+	}
+
+	return GlyphOutline{}, false
+}
+
+// GlyphDataSVG looks for glyph data in the 'SVG ' table.
+func (f *Face) GlyphDataSVG(gid GID) (GlyphSVG, bool) {
+	outS, ok := f.svg.glyphData(gID(gid), f.upem)
+	if !ok {
+		return GlyphSVG{}, false
+	}
+	// Spec :
+	// For every SVG glyph description, there must be a corresponding TrueType,
+	// CFF or CFF2 glyph description in the font.
+	outS.Outline, _ = f.GlyphDataOutline(gid)
+	return outS, true
+}
+
+// GlyphDataColor looks for glyph data in the 'COLR' table.
+func (f *Face) GlyphDataColor(gid GID) (GlyphColor, bool) {
+	v, ok := f.COLR.Search(gID(gid))
+	return GlyphColor{v}, ok
+}
+
+// GlyphDataBitmap looks for glyph data in the 'sbix', 'CBDT', 'EBDT' and 'BDAT' tables.
+func (f *Face) GlyphDataBitmap(gid GID) (GlyphBitmap, bool) {
+	g := gID(gid)
+	outB, err := f.sbix.glyphData(g, f.xPpem, f.yPpem)
+	if err == nil {
+		outline, ok := f.GlyphDataOutline(gid)
+		if ok {
+			outB.Outline = &outline
+		}
+		return outB, true
+	}
+
+	outB, err = f.bitmap.glyphData(g, f.xPpem, f.yPpem)
+	if err == nil {
+		outline, ok := f.GlyphDataOutline(gid)
+		if ok {
+			outB.Outline = &outline
+		}
+		return outB, true
+	}
+
+	return GlyphBitmap{}, false
 }

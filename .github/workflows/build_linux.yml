@@ -9,34 +9,45 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
-      - name: Update dependencies
-        run: sudo apt-get update
-
-      - name: Install specific dependencies
-        run: sudo apt install gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev libgl1-mesa-dev xz-utils
 
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22.1
+          go-version-file: go.mod
+
+      - name: Install yoga CLI
+        shell: bash
+        # The same yoga version go.mod builds the app with.
+        run: go install github.com/mirzakhany/yoga/cmd/yoga@$(go list -m -f '{{.Version}}' github.com/mirzakhany/yoga)
 
       - name: Update Version in chapar.desktop
         run: |
           VERSION=${{ github.event.release.tag_name }}
           sed -i "s/^Version=.*/Version=${VERSION:1}/" build/desktop-assets/chapar.desktop
 
-      - name: Build linux amd64
-        run: make build_linux
+      - name: Build linux ${{ matrix.arch }}
+        run: yoga package -os linux -arch ${{ matrix.arch }} -version ${{ github.event.release.tag_name }}
 
       - name: Upload Release Asset
         run: |
-          gh release upload ${{github.event.release.tag_name}} ./dist/chapar-linux-${{ github.ref_name }}-amd64.tar.xz
+          gh release upload ${{ github.event.release.tag_name }} ./dist/linux/chapar-linux-${{ github.event.release.tag_name }}-${{ matrix.arch }}.tar.xz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash

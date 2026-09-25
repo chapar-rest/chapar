@@ -812,3 +812,90 @@ func setupTest(t *testing.T) (*FilesystemV2, func()) {
 
 	return fs, cleanup
 }
+
+func TestFilesystemV2_MoveRequestIntoAndOutOfCollection(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	col := domain.NewCollection("TestMoveCollection")
+	err := fs.CreateCollection(col)
+	assert.NoError(t, err, "expected no error creating collection")
+
+	req := domain.NewHTTPRequest("TestMovedRequest")
+	err = fs.CreateRequest(req, nil)
+	assert.NoError(t, err, "expected no error creating standalone request")
+
+	// Standalone -> collection.
+	err = fs.MoveRequest(req, nil, col)
+	assert.NoError(t, err, "expected no error moving request into collection")
+	assert.Equal(t, col.MetaData.ID, req.CollectionID, "expected request to belong to the collection")
+
+	requests, err := fs.LoadRequests()
+	assert.NoError(t, err, "expected no error loading standalone requests")
+	assert.Len(t, requests, 0, "expected no standalone requests after the move")
+
+	collections, err := fs.LoadCollections()
+	assert.NoError(t, err, "expected no error loading collections")
+	assert.Len(t, collections[0].Spec.Requests, 1, "expected the request inside the collection")
+	assert.Equal(t, req.MetaData.ID, collections[0].Spec.Requests[0].MetaData.ID, "expected the moved request ID to match")
+
+	// Collection -> standalone.
+	err = fs.MoveRequest(req, col, nil)
+	assert.NoError(t, err, "expected no error moving request out of collection")
+	assert.Equal(t, "", req.CollectionID, "expected request to be standalone again")
+
+	collections, err = fs.LoadCollections()
+	assert.NoError(t, err, "expected no error loading collections")
+	assert.Len(t, collections[0].Spec.Requests, 0, "expected the collection to be empty after the move")
+
+	requests, err = fs.LoadRequests()
+	assert.NoError(t, err, "expected no error loading standalone requests")
+	assert.Len(t, requests, 1, "expected the request back at the top level")
+	assert.Equal(t, req.MetaData.ID, requests[0].MetaData.ID, "expected the moved request ID to match")
+}
+
+func TestFilesystemV2_MoveRequestRenamesOnNameClash(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	col := domain.NewCollection("TestClashCollection")
+	err := fs.CreateCollection(col)
+	assert.NoError(t, err, "expected no error creating collection")
+
+	occupant := domain.NewHTTPRequest("SameName")
+	err = fs.CreateRequest(occupant, col)
+	assert.NoError(t, err, "expected no error creating request in collection")
+
+	req := domain.NewHTTPRequest("SameName")
+	err = fs.CreateRequest(req, nil)
+	assert.NoError(t, err, "expected no error creating standalone request")
+
+	err = fs.MoveRequest(req, nil, col)
+	assert.NoError(t, err, "expected no error moving request into collection")
+	assert.NotEqual(t, occupant.MetaData.Name, req.MetaData.Name, "expected the moved request to be renamed")
+
+	collections, err := fs.LoadCollections()
+	assert.NoError(t, err, "expected no error loading collections")
+	assert.Len(t, collections[0].Spec.Requests, 2, "expected both requests in the collection")
+}
+
+func TestFilesystemV2_MoveRequestSameCollectionIsNoop(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	col := domain.NewCollection("TestNoopCollection")
+	err := fs.CreateCollection(col)
+	assert.NoError(t, err, "expected no error creating collection")
+
+	req := domain.NewHTTPRequest("StayingPut")
+	err = fs.CreateRequest(req, col)
+	assert.NoError(t, err, "expected no error creating request in collection")
+
+	err = fs.MoveRequest(req, col, col)
+	assert.NoError(t, err, "expected no error on a move that changes nothing")
+
+	collections, err := fs.LoadCollections()
+	assert.NoError(t, err, "expected no error loading collections")
+	assert.Len(t, collections[0].Spec.Requests, 1, "expected the request to stay in place")
+	assert.Equal(t, "StayingPut", collections[0].Spec.Requests[0].MetaData.Name, "expected the request name to be unchanged")
+}

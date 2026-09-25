@@ -1,0 +1,268 @@
+package ui
+
+import (
+	"fmt"
+
+	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/container"
+)
+
+// Workspace is the unified tab strip for requests, collections, and environments.
+type Workspace struct {
+	tabs       []ui.TabModel
+	docs       []container.Container
+	active     int
+	deps       func() container.Deps
+	confirm    func(title, message string, onYes func())
+	onTrees    func()
+	onSettings func()
+}
+
+func newWorkspace(deps func() container.Deps, confirm func(title, message string, onYes func())) *Workspace {
+	return &Workspace{deps: deps, confirm: confirm}
+}
+
+func (w *Workspace) OpenRequest(req *domain.Request) {
+	w.open(container.OpenSpec{Request: req, Deps: w.containerDeps(req.MetaData.ID)})
+}
+
+func (w *Workspace) OpenCollection(col *domain.Collection) {
+	w.open(container.OpenSpec{Collection: col, Deps: w.containerDeps(col.MetaData.ID)})
+}
+
+func (w *Workspace) OpenEnv(env *domain.Environment) {
+	w.open(container.OpenSpec{Env: env, Deps: w.containerDeps(env.MetaData.ID)})
+}
+
+func (w *Workspace) containerDeps(id string) container.Deps {
+	d := w.deps()
+	d.OpenCollection = w.OpenCollection
+	d.Report = container.Reporter{
+		Dirty: func(dirty bool) { w.setDirty(id, dirty) },
+		Title: func(title string) { w.setTitle(id, title) },
+		Error: d.Report.Error,
+		Toast: d.Report.Toast,
+		Saved: func() {
+			if d.Catalog != nil {
+				_ = d.Catalog.Load()
+			}
+			if w.onTrees != nil {
+				w.onTrees()
+			}
+		},
+	}
+	return d
+}
+
+func (w *Workspace) open(spec container.OpenSpec) {
+	ct, err := openContainer(spec)
+	if err != nil {
+		w.deps().ShowError(err)
+		return
+	}
+	for i, existing := range w.docs {
+		if existing.ID() == ct.ID() {
+			ct.Close()
+			w.active = i
+			return
+		}
+	}
+	w.docs = append(w.docs, ct)
+	w.tabs = append(w.tabs, ui.TabModel{Title: ct.Title(), Modified: ct.Dirty()})
+	w.active = len(w.docs) - 1
+}
+
+func (w *Workspace) setDirty(id string, dirty bool) {
+	for i, d := range w.docs {
+		if d.ID() == id {
+			w.tabs[i].Modified = dirty
+			return
+		}
+	}
+}
+
+func (w *Workspace) setTitle(id, title string) {
+	for i, d := range w.docs {
+		if d.ID() == id {
+			w.tabs[i].Title = title
+			return
+		}
+	}
+}
+
+func (w *Workspace) Active() container.Container {
+	if len(w.docs) == 0 || w.active < 0 || w.active >= len(w.docs) {
+		return nil
+	}
+	return w.docs[w.active]
+}
+
+func (w *Workspace) CloseAll() {
+	for _, d := range w.docs {
+		d.Close()
+	}
+	w.docs = nil
+	w.tabs = nil
+	w.active = 0
+}
+
+func (w *Workspace) requestClose(i int) {
+	if i < 0 || i >= len(w.docs) {
+		return
+	}
+	if w.docs[i].Dirty() && w.confirm != nil {
+		idx := i
+		w.confirm("Unsaved changes", fmt.Sprintf("%q has unsaved changes. Close anyway?", w.docs[i].Title()), func() {
+			w.drop(idx)
+		})
+		return
+	}
+	w.drop(i)
+}
+
+// closeWhere closes every tab close(i) picks, asking once first when any of
+// them has unsaved changes.
+func (w *Workspace) closeWhere(close func(i int) bool) {
+	var ids []string
+	dirty := 0
+	for i, d := range w.docs {
+		if close(i) {
+			ids = append(ids, d.ID())
+			if d.Dirty() {
+				dirty++
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	drop := func() {
+		for _, id := range ids {
+			w.CloseByID(id)
+		}
+	}
+	if dirty > 0 && w.confirm != nil {
+		msg := fmt.Sprintf("%d tabs have unsaved changes. Close anyway?", dirty)
+		if dirty == 1 {
+			msg = "1 tab has unsaved changes. Close anyway?"
+		}
+		w.confirm("Unsaved changes", msg, drop)
+		return
+	}
+	drop()
+}
+
+// tabMenu is the right-click menu of tab i.
+func (w *Workspace) tabMenu(i int) []ui.MenuItem {
+	n := len(w.docs)
+	if i < 0 || i >= n {
+		return nil
+	}
+	anySaved := false
+	for _, d := range w.docs {
+		if !d.Dirty() {
+			anySaved = true
+			break
+		}
+	}
+	return []ui.MenuItem{
+		{Label: "Close", OnSelect: func() { w.requestClose(i) }},
+		{Label: "Close Others", Disabled: n < 2, OnSelect: func() { w.closeWhere(func(j int) bool { return j != i }) }},
+		{Label: "Close to the Right", Disabled: i == n-1, OnSelect: func() { w.closeWhere(func(j int) bool { return j > i }) }},
+		{Label: "Close to the Left", Disabled: i == 0, OnSelect: func() { w.closeWhere(func(j int) bool { return j < i }) }},
+		ui.MenuSeparator,
+		{Label: "Close Saved", Disabled: !anySaved, OnSelect: func() { w.closeWhere(func(j int) bool { return !w.docs[j].Dirty() }) }},
+		{Label: "Close All", OnSelect: func() { w.closeWhere(func(int) bool { return true }) }},
+	}
+}
+
+func (w *Workspace) CloseByID(id string) {
+	for i, d := range w.docs {
+		if d.ID() == id {
+			w.drop(i)
+			return
+		}
+	}
+}
+
+func (w *Workspace) drop(i int) {
+	if i < 0 || i >= len(w.docs) {
+		return
+	}
+	w.docs[i].Close()
+	// Shift the tail down, then clear the slot the tail vacated. The backing
+	// array outlives the shortened slice, so leaving the old value in place
+	// keeps a closed tab's container — and with it its editors, syntax tree and
+	// response body — reachable for as long as the workspace lives.
+	copy(w.docs[i:], w.docs[i+1:])
+	w.docs[len(w.docs)-1] = nil
+	w.docs = w.docs[:len(w.docs)-1]
+
+	copy(w.tabs[i:], w.tabs[i+1:])
+	w.tabs[len(w.tabs)-1] = ui.TabModel{}
+	w.tabs = w.tabs[:len(w.tabs)-1]
+	// Closing a tab left of the active one shifts the active tab down a slot;
+	// follow it so the same document stays active.
+	if i < w.active {
+		w.active--
+	}
+	if w.active >= len(w.docs) {
+		w.active = len(w.docs) - 1
+	}
+	if w.active < 0 {
+		w.active = 0
+	}
+}
+
+func (w *Workspace) HasDirty() bool {
+	for _, d := range w.docs {
+		if d.Dirty() {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *Workspace) SaveActive() {
+	if a := w.Active(); a != nil {
+		if err := a.Save(); err != nil {
+			w.deps().ShowError(err)
+		}
+	}
+}
+
+func (w *Workspace) SendActive() {
+	if a := w.Active(); a != nil {
+		a.Send()
+	}
+}
+
+func (w *Workspace) Layout(c *ui.Ctx) ui.View {
+	th := c.Theme()
+	if len(w.docs) == 0 {
+		return w.emptyWorkspace(c)
+	}
+	if w.active < 0 || w.active >= len(w.docs) {
+		w.active = 0
+	}
+	for i, d := range w.docs {
+		w.tabs[i].Modified = d.Dirty()
+		w.tabs[i].Title = d.Title()
+		if ic, ok := d.(container.TabIconer); ok {
+			w.tabs[i].Icon, w.tabs[i].IconColor = ic.TabIcon(th)
+		}
+	}
+	body := w.docs[w.active].Layout(c)
+	return ui.Column(
+		ui.Tabs("workspace-tabs", w.tabs).
+			Selected(w.active).
+			OnSelectItem(func(i int, _ string) { w.active = i }).
+			OnTabClose(func(i int) { w.requestClose(i) }).
+			OnTabContextMenu(w.tabMenu).
+			TabBackground(th.Background),
+		ui.HLine(th.Stroke.Thin, th.Border),
+		ui.ViewOf(body).Grow(1),
+	).Grow(1).Background(ui.TokenSurface)
+}

@@ -1,0 +1,41 @@
+# Packaging config for the yoga CLI (go tool yoga package ...).
+# CI passes the release tag with -version; this version is only the fallback.
+name = "Chapar"
+id = "rest.chapar.app"
+version = "0.0.0"
+main = "."
+icon = "build/appicon-1024.png"
+artifact = "chapar-{platform}-v{version}-{arch}"
+
+[build]
+ldflags = "-s -w -X github.com/chapar-rest/chapar/version.AppVersion=v{version}"
+
+[darwin]
+icon = "build/appicon.icns"
+category = "public.app-category.developer-tools"
+min_system = "11.0"
+formats = ["dmg"]
+
+[darwin.dmg]
+volume_name = "Chapar Installer"
+volume_icon = "build/appicon.icns"
+background = "build/chapar-installer-bk.png"
+window_pos = [300, 300]
+window_width = 500
+window_height = 350
+icon_size = 100
+app_pos = [125, 150]
+applications_pos = [375, 150]
+
+[linux]
+binary = "chapar"
+format = "tar.xz"
+
+[linux.files]
+"install-linux.sh" = "build/install-linux.sh"
+"appicon.png" = "build/appicon.png"
+"LICENSE" = "LICENSE"
+"desktop-assets" = "build/desktop-assets"
+
+[windows]
+description = "Chapar - API client for HTTP, gRPC and GraphQL"

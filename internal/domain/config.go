@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/chapar-rest/chapar/internal/util"
 )
@@ -19,16 +20,18 @@ type GlobalConfig struct {
 }
 
 type GlobalConfigSpec struct {
-	General   GeneralConfig   `yaml:"general"`
-	Editor    EditorConfig    `yaml:"editor"`
-	Scripting ScriptingConfig `yaml:"scripting"`
-	Data      DataConfig      `yaml:"data"`
+	General         GeneralConfig         `yaml:"general"`
+	Editor          EditorConfig          `yaml:"editor"`
+	Scripting       ScriptingConfig       `yaml:"scripting"`
+	LanguageServers LanguageServersConfig `yaml:"languageServers"`
+	Data            DataConfig            `yaml:"data"`
 }
 
 func (g *GlobalConfig) Changed(other *GlobalConfig) bool {
 	return g.Spec.General.Changed(other.Spec.General) ||
 		g.Spec.Editor.Changed(other.Spec.Editor) ||
 		g.Spec.Scripting.Changed(other.Spec.Scripting) ||
+		g.Spec.LanguageServers.Changed(other.Spec.LanguageServers) ||
 		g.Spec.Data.Changed(other.Spec.Data)
 }
 
@@ -42,6 +45,8 @@ type GeneralConfig struct {
 	FollowRedirects        bool   `yaml:"followRedirects"`
 	VaidateTLSCertificates bool   `yaml:"validateTLSCertificates"`
 	Theme                  string `yaml:"theme"`
+	UIFontSize             int    `yaml:"uiFontSize"`
+	HideNavbar             bool   `yaml:"hideNavbar"`
 }
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
@@ -53,7 +58,9 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.SendChaparAgentHeader != other.SendChaparAgentHeader ||
 		g.FollowRedirects != other.FollowRedirects ||
 		g.VaidateTLSCertificates != other.VaidateTLSCertificates ||
-		g.Theme != other.Theme
+		g.Theme != other.Theme ||
+		g.UIFontSize != other.UIFontSize ||
+		g.HideNavbar != other.HideNavbar
 }
 
 const (
@@ -70,6 +77,22 @@ type EditorConfig struct {
 	AutoCloseQuotes   bool   `yaml:"autoCloseQuotes"`
 	ShowLineNumbers   bool   `yaml:"showLineNumbers"`
 	WrapLines         bool   `yaml:"wrapLines"`
+	// HighlightLimitKB is the largest document, in KB, that editors color.
+	// Past it text is shown plain, since a syntax tree costs many times the
+	// text it describes. Zero means DefaultHighlightLimitKB.
+	HighlightLimitKB int `yaml:"highlightLimitKb"`
+}
+
+// DefaultHighlightLimitKB is the highlight limit when none is configured.
+const DefaultHighlightLimitKB = 2048
+
+// HighlightLimitBytes is the configured highlight limit in bytes.
+func (e EditorConfig) HighlightLimitBytes() int {
+	kb := e.HighlightLimitKB
+	if kb <= 0 {
+		kb = DefaultHighlightLimitKB
+	}
+	return kb << 10
 }
 
 func (e EditorConfig) Changed(other EditorConfig) bool {
@@ -80,7 +103,8 @@ func (e EditorConfig) Changed(other EditorConfig) bool {
 		e.AutoCloseBrackets != other.AutoCloseBrackets ||
 		e.AutoCloseQuotes != other.AutoCloseQuotes ||
 		e.ShowLineNumbers != other.ShowLineNumbers ||
-		e.WrapLines != other.WrapLines
+		e.WrapLines != other.WrapLines ||
+		e.HighlightLimitKB != other.HighlightLimitKB
 }
 
 type ScriptingConfig struct {
@@ -103,6 +127,44 @@ func (s ScriptingConfig) Changed(other ScriptingConfig) bool {
 		s.ExecutablePath != other.ExecutablePath ||
 		s.ServerScriptPath != other.ServerScriptPath ||
 		s.Port != other.Port
+}
+
+// LanguageServersConfig configures the language servers that power
+// completion, hover, and diagnostics in code editors. Languages missing from
+// Servers use their built-in defaults.
+type LanguageServersConfig struct {
+	Servers []LanguageServerConfig `yaml:"servers"`
+}
+
+// LanguageServerConfig configures the server for one language.
+type LanguageServerConfig struct {
+	Language string   `yaml:"language"` // e.g. python, json, go
+	Enabled  bool     `yaml:"enabled"`
+	Command  string   `yaml:"command"` // executable name on PATH, or an absolute path
+	Args     []string `yaml:"args"`
+}
+
+func (l LanguageServerConfig) Changed(other LanguageServerConfig) bool {
+	return l.Language != other.Language ||
+		l.Enabled != other.Enabled ||
+		l.Command != other.Command ||
+		!slices.Equal(l.Args, other.Args)
+}
+
+// Server returns the entry for language, if configured.
+func (l LanguageServersConfig) Server(language string) (LanguageServerConfig, bool) {
+	for _, s := range l.Servers {
+		if s.Language == language {
+			return s, true
+		}
+	}
+	return LanguageServerConfig{}, false
+}
+
+func (l LanguageServersConfig) Changed(other LanguageServersConfig) bool {
+	return !slices.EqualFunc(l.Servers, other.Servers, func(a, b LanguageServerConfig) bool {
+		return !a.Changed(b)
+	})
 }
 
 type DataConfig struct {
@@ -147,6 +209,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				FollowRedirects:        true,
 				VaidateTLSCertificates: true,
 				Theme:                  "light",
+				UIFontSize:             14,
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -161,7 +224,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 			Scripting: ScriptingConfig{
 				Enabled:     false,
 				UseDocker:   true,
-				DockerImage: "chapar/python-executor:latest",
+				DockerImage: "chapar/python-executor:0.3.0", // pinned to the scripting API this build speaks
 				Language:    "python",
 				Port:        2397,
 			},
@@ -184,6 +247,8 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"followRedirects":        g.Spec.General.FollowRedirects,
 			"validateTLSCertificate": g.Spec.General.VaidateTLSCertificates,
 			"theme":                  g.Spec.General.Theme,
+			"uiFontSize":             g.Spec.General.UIFontSize,
+			"hideNavbar":             g.Spec.General.HideNavbar,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,
@@ -208,52 +273,6 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"workspacePath": g.Spec.Data.WorkspacePath,
 		},
 	}
-}
-
-func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalConfig {
-	if values == nil {
-		return initial
-	}
-
-	g := initial
-
-	g.Spec.General.HTTPVersion = getOrDefault(values, "httpVersion", g.Spec.General.HTTPVersion).(string)
-	g.Spec.General.RequestTimeoutSec = getOrDefault(values, "requestTimeoutSec", g.Spec.General.RequestTimeoutSec).(int)
-	g.Spec.General.ResponseSizeMb = getOrDefault(values, "responseSizeMb", g.Spec.General.ResponseSizeMb).(int)
-	g.Spec.General.SendNoCacheHeader = getOrDefault(values, "sendNoCacheHeader", g.Spec.General.SendNoCacheHeader).(bool)
-	g.Spec.General.SendChaparAgentHeader = getOrDefault(values, "sendChaparAgentHeader", g.Spec.General.SendChaparAgentHeader).(bool)
-	g.Spec.General.UseHorizontalSplit = getOrDefault(values, "useHorizontalSplit", g.Spec.General.UseHorizontalSplit).(bool)
-	g.Spec.General.FollowRedirects = getOrDefault(values, "followRedirects", g.Spec.General.FollowRedirects).(bool)
-	g.Spec.General.VaidateTLSCertificates = getOrDefault(values, "validateTLSCertificates", g.Spec.General.VaidateTLSCertificates).(bool)
-	g.Spec.General.Theme = getOrDefault(values, "theme", g.Spec.General.Theme).(string)
-
-	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
-	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)
-	g.Spec.Editor.Indentation = getOrDefault(values, "indentation", g.Spec.Editor.Indentation).(string)
-	g.Spec.Editor.TabWidth = getOrDefault(values, "tabWidth", g.Spec.Editor.TabWidth).(int)
-	g.Spec.Editor.AutoCloseBrackets = getOrDefault(values, "autoCloseBrackets", g.Spec.Editor.AutoCloseBrackets).(bool)
-	g.Spec.Editor.AutoCloseQuotes = getOrDefault(values, "autoCloseQuotes", g.Spec.Editor.AutoCloseQuotes).(bool)
-	g.Spec.Editor.ShowLineNumbers = getOrDefault(values, "showLineNumbers", g.Spec.Editor.ShowLineNumbers).(bool)
-	g.Spec.Editor.WrapLines = getOrDefault(values, "wrapLines", g.Spec.Editor.WrapLines).(bool)
-
-	g.Spec.Scripting.Enabled = getOrDefault(values, "enable", g.Spec.Scripting.Enabled).(bool)
-	g.Spec.Scripting.Language = getOrDefault(values, "language", g.Spec.Scripting.Language).(string)
-	g.Spec.Scripting.UseDocker = getOrDefault(values, "useDocker", g.Spec.Scripting.UseDocker).(bool)
-	g.Spec.Scripting.DockerImage = getOrDefault(values, "dockerImage", g.Spec.Scripting.DockerImage).(string)
-	g.Spec.Scripting.ExecutablePath = getOrDefault(values, "executablePath", g.Spec.Scripting.ExecutablePath).(string)
-	g.Spec.Scripting.ServerScriptPath = getOrDefault(values, "serverScriptPath", g.Spec.Scripting.ServerScriptPath).(string)
-	g.Spec.Scripting.Port = getOrDefault(values, "port", g.Spec.Scripting.Port).(int)
-
-	g.Spec.Data.WorkspacePath = getOrDefault(values, "workspacePath", g.Spec.Data.WorkspacePath).(string)
-
-	return g
-}
-
-func getOrDefault(m map[string]any, key string, defaultValue any) any {
-	if v, ok := m[key]; ok {
-		return v
-	}
-	return defaultValue
 }
 
 // GetDefaultAppState returns a default app state

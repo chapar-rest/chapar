@@ -1,0 +1,298 @@
+package ui
+
+import (
+	"fmt"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/layout"
+)
+
+// FormKind selects the control shown on the right of a form row.
+type FormKind int
+
+const (
+	FormItemSwitch FormKind = iota
+	FormItemSelect
+	FormItemNumber
+	FormItemText
+	FormItemSlider
+	FormItemStepper
+	FormItemFile
+	// FormItemHeading is a title over a group of rows, with no control.
+	FormItemHeading
+)
+
+// FormItem is one labeled settings row.
+type FormItem struct {
+	ID, Label, Description string
+	Icon                   icons.Icon
+	Kind                   FormKind
+	// Switch
+	Checked  bool
+	OnToggle func(bool)
+	// Select
+	Options  []SelectOption
+	Selected int
+	OnChange func(string)
+	// Number / text
+	Text     string
+	Number   float64
+	Min, Max float64
+	Step     float64
+	OnNumber func(float64)
+	OnText   func(string)
+	// File: Text holds the path, OnText receives the picked path ("" when
+	// cleared), and Filters restrict what the file dialog lists.
+	Filters []FileFilter
+
+	// Optional tags the label "Optional", for a row that can be left empty.
+	// Without it a column of empty fields reads as a list of things to fill.
+	Optional bool
+	// Placeholder is the hint an empty text row shows, and the button label of
+	// an empty file row (instead of "Choose file…"). Use it to say what
+	// happens when the row is left empty.
+	Placeholder string
+}
+
+// FormSwitch builds a switch row.
+func FormSwitch(id, label, desc string, on bool, fn func(bool)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemSwitch, Checked: on, OnToggle: fn}
+}
+
+// FormSelect builds a select row.
+func FormSelect(id, label, desc string, opts []SelectOption, selected int, fn func(string)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemSelect, Options: opts, Selected: selected, OnChange: fn}
+}
+
+// FormNumber builds a numeric text-field row.
+func FormNumber(id, label, desc string, value, min, max, step float64, fn func(float64)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemNumber, Number: value, Min: min, Max: max, Step: step, OnNumber: fn}
+}
+
+// FormText builds a text-field row.
+func FormText(id, label, desc, value string, fn func(string)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemText, Text: value, OnText: fn}
+}
+
+// FormSlider builds a slider row.
+func FormSlider(id, label, desc string, value, min, max, step float64, fn func(float64)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemSlider, Number: value, Min: min, Max: max, Step: step, OnNumber: fn}
+}
+
+// FormStepper builds a number-stepper row.
+func FormStepper(id, label, desc string, value, min, max, step float64, fn func(float64)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemStepper, Number: value, Min: min, Max: max, Step: step, OnNumber: fn}
+}
+
+// FormFile builds a row that picks one file with the window's file dialog.
+// The button shows the file's name (its full path on hover) and a clear
+// button empties it again; fn receives the picked path, or "" when cleared.
+// Filters restrict which files the dialog lists; none lists every file.
+func FormFile(id, label, desc, path string, filters []FileFilter, fn func(string)) FormItem {
+	return FormItem{ID: id, Label: label, Description: desc, Kind: FormItemFile, Text: path, Filters: filters, OnText: fn}
+}
+
+// FormHeading builds a heading that opens a group of related rows: a title
+// and a description, with no control. The description wraps.
+func FormHeading(title, desc string) FormItem {
+	return FormItem{Label: title, Description: desc, Kind: FormItemHeading}
+}
+
+type formData struct {
+	items []FormItem
+}
+
+// Form renders a vertical list of labeled setting rows.
+func Form(id string, items ...FormItem) *Node {
+	return &Node{kind: kindForm, id: id, extra: &formData{items: items}}
+}
+
+func (n *Node) layoutForm(c *Ctx) *layout.Element {
+	d, _ := n.extra.(*formData)
+	if d == nil {
+		d = &formData{}
+	}
+	th := c.Theme()
+	rows := make([]View, 0, len(d.items))
+	for _, item := range d.items {
+		rows = append(rows, n.formRow(c, item))
+	}
+	return Column(rows...).Gap(th.Spacing.S).Style(n.spec).Layout(c)
+}
+
+func (n *Node) formRow(c *Ctx, item FormItem) View {
+	th := c.Theme()
+	if item.Kind == FormItemHeading {
+		return formHeading(c, item)
+	}
+	pad := th.Spacing.M
+	iconSz := th.Metrics.IconSizeMD
+
+	var lead View
+	if !item.Icon.Empty() {
+		lead = Icon(item.Icon, iconSz, th.ForegroundMuted)
+	}
+
+	// The description wraps to whatever width the control leaves; a Text
+	// would keep its full width and run underneath the control.
+	var label View = Strong(item.Label)
+	if item.Optional {
+		label = Row(
+			Strong(item.Label),
+			Text("Optional").Size(th.Typography.Caption.Size).
+				Style(Spec{}.TextColor(TokenForegroundMuted)),
+		).Gap(th.Spacing.S)
+	}
+	textCol := Column(
+		label,
+		Paragraph(item.Description).Size(th.Typography.Caption.Size).
+			Style(Spec{}.TextColor(TokenForegroundMuted)),
+	).Gap(th.Spacing.XXS).Grow(1)
+
+	control := n.formControl(c, item)
+
+	kids := []View{textCol, control}
+	if lead != nil {
+		kids = append([]View{lead}, kids...)
+	}
+
+	return Row(kids...).Align(AlignStretch).Gap(th.Spacing.M).Padding(pad).
+		Background(TokenSurface).
+		Style(Spec{}.Radius(th.Radius.Medium).Border(TokenBorder, th.Stroke.Thin))
+}
+
+func (n *Node) formControl(c *Ctx, item FormItem) View {
+	switch item.Kind {
+	case FormItemSwitch:
+		return Switch(item.ID).Check(item.Checked).OnToggle(item.OnToggle)
+	case FormItemSelect:
+		return Select(item.ID, item.Options).Width(180).Selected(item.Selected).OnChange(item.OnChange)
+	case FormItemNumber:
+		return formNumberField(c, item)
+	case FormItemText:
+		return TextField(item.ID, item.Text).Width(180).Placeholder(item.Placeholder).OnChange(item.OnText)
+	case FormItemSlider:
+		return Slider(item.ID, item.Number).Min(item.Min).Max(item.Max).Step(item.Step).
+			OnFloatChange(item.OnNumber).Width(160)
+	case FormItemStepper:
+		return NumberStepper(item.ID, item.Number).Min(item.Min).Max(item.Max).Step(item.Step).
+			OnFloatChange(item.OnNumber)
+	case FormItemFile:
+		return formFileControl(c, item)
+	default:
+		return Spacer()
+	}
+}
+
+// formHeading lays out a FormHeading: a title with its description under it,
+// spaced from the rows above so it reads as the start of a group.
+func formHeading(c *Ctx, item FormItem) View {
+	th := c.Theme()
+	kids := []View{Strong(item.Label)}
+	if item.Description != "" {
+		kids = append(kids, Paragraph(item.Description).Size(th.Typography.Caption.Size).
+			Style(Spec{}.TextColor(TokenForegroundMuted)))
+	}
+	return Column(kids...).Gap(th.Spacing.XXS).PaddingTop(th.Spacing.M).PaddingLeft(th.Spacing.XS)
+}
+
+// formNumberDraft holds the raw text of a number field while it is being
+// edited, so partial input ("1" on the way to "16", or an empty field) is not
+// clamped or overwritten by the committed value between keystrokes.
+type formNumberDraft struct {
+	text   string
+	active bool
+}
+
+func formNumberField(c *Ctx, item FormItem) View {
+	draft := c.Widget(item.ID+"#draft", func() any { return &formNumberDraft{} }).(*formNumberDraft)
+	tf, _ := c.peekWidget(item.ID).(*TextInput)
+	if draft.active && (tf == nil || !tf.Focused()) {
+		draft.active = false
+	}
+	text := formatFormNumber(item.Number)
+	if draft.active {
+		text = draft.text
+	}
+	bounded := item.Min != 0 || item.Max != 0
+	return TextField(item.ID, text).Width(100).OnChange(func(s string) {
+		draft.text, draft.active = s, true
+		v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+		if err != nil || item.OnNumber == nil {
+			return
+		}
+		// Commit only in-range values while typing; out-of-range input stays
+		// as draft until Enter clamps it or blur discards it.
+		if bounded && (v < item.Min || (item.Max > item.Min && v > item.Max)) {
+			return
+		}
+		item.OnNumber(v)
+	}).OnSubmit(func(s string) {
+		draft.active = false
+		v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+		if err != nil || item.OnNumber == nil {
+			return
+		}
+		if bounded {
+			v = max(v, item.Min)
+			if item.Max > item.Min {
+				v = min(v, item.Max)
+			}
+		}
+		item.OnNumber(v)
+	})
+}
+
+func formatFormNumber(v float64) string {
+	if v == float64(int64(v)) {
+		return fmt.Sprintf("%d", int64(v))
+	}
+	return fmt.Sprintf("%g", v)
+}
+
+func formFileControl(c *Ctx, item FormItem) View {
+	th := c.Theme()
+	path := item.Text
+	set := func(p string) {
+		if item.OnText != nil {
+			item.OnText(p)
+		}
+	}
+	name := "Choose file…"
+	if item.Placeholder != "" {
+		name = item.Placeholder
+	}
+	if path != "" {
+		name = filepath.Base(path)
+	}
+	files := c.Files()
+	pick := Button(item.ID, Text(name).Ellipsis(EllipsisMiddle)).
+		IconStart(icons.FileText).
+		Width(180).
+		OnClick(func() {
+			opts := FileDialogOpts{
+				Title:   "Choose " + item.Label,
+				Mode:    FileDialogOpenFile,
+				Filters: item.Filters,
+				OnConfirm: func(paths []string) {
+					if len(paths) > 0 {
+						set(paths[0])
+					}
+				},
+			}
+			if path != "" {
+				opts.Dir = filepath.Dir(path)
+			}
+			files.Show(opts)
+		})
+	if path == "" {
+		return pick
+	}
+	return Row(
+		pick.Tooltip(path),
+		IconButton(item.ID+"#clear", icons.X).Tooltip("Clear").OnClick(func() { set("") }),
+	).Gap(th.Spacing.XS)
+}
