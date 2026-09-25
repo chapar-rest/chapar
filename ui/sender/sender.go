@@ -154,9 +154,8 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 		timeline = append(timeline, *postStep)
 	}
 	res.Timeline = timeline
-	if postErr != nil {
-		return res, postErr
-	}
+	// The response arrived; a failing post-request action must not hide it.
+	res.PostRequestError = postErr
 	return res, nil
 }
 
@@ -196,7 +195,12 @@ func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment, 
 			detail = fmt.Sprintf("Trigger request %s", preReq.TriggerRequest.RequestID)
 		} else {
 			detail = fmt.Sprintf("Trigger request %s (%s)", triggered.MetaData.Name, triggered.MetaData.ID)
-			_, err = s.Send(triggered, env)
+			var tres *egress.Response
+			tres, err = s.Send(triggered, env)
+			// Chained requests usually depend on what the trigger extracts.
+			if err == nil && tres != nil && tres.PostRequestError != nil {
+				err = tres.PostRequestError
+			}
 		}
 	default:
 		return nil, nil, nil
@@ -280,10 +284,8 @@ func (s *Service) postRequest(req *domain.Request, collection *domain.Collection
 		if env == nil {
 			return nil, nil
 		}
-		if err := s.extractVariables(req.Spec, res, env); err != nil {
-			return nil, err
-		}
-		return nil, s.persistEnv(env)
+		extractErr := s.extractVariables(req.Spec, res, env)
+		return nil, errors.Join(extractErr, s.persistEnv(env))
 	}
 	if postReq.Type == domain.PrePostTypePython && postReq.Script != "" {
 		result, err := s.executeScript(scripting.PhasePost, postReq.Script, req, collection, res, env)
@@ -298,9 +300,7 @@ func (s *Service) postRequest(req *domain.Request, collection *domain.Collection
 	if env == nil {
 		return nil, nil
 	}
-	if err := s.extractVariables(req.Spec, res, env); err != nil {
-		return nil, err
-	}
+	extractErr := s.extractVariables(req.Spec, res, env)
 	if postReq.Type == domain.PrePostTypeSetEnv && postReq.PostRequestSet.IsValid() {
 		code := res.StatusCode
 		if code == 0 {
@@ -310,7 +310,7 @@ func (s *Service) postRequest(req *domain.Request, collection *domain.Collection
 			s.applyPostSet(postReq, res, env)
 		}
 	}
-	return nil, s.persistEnv(env)
+	return nil, errors.Join(extractErr, s.persistEnv(env))
 }
 
 func (s *Service) applyPostSet(postReq domain.PostRequest, res *egress.Response, env *domain.Environment) {
@@ -352,6 +352,7 @@ func (s *Service) applyPostSet(postReq domain.PostRequest, res *egress.Response,
 
 func (s *Service) extractVariables(spec domain.RequestSpec, res *egress.Response, env *domain.Environment) error {
 	settings := spec.GetVariables()
+	var errs []error
 	code := res.StatusCode
 	if code == 0 {
 		code = res.StatueCode
@@ -367,7 +368,9 @@ func (s *Service) extractVariables(spec domain.RequestSpec, res *egress.Response
 		case domain.VariableFromBody:
 			data, err := jsonpath.Get(res.JSON, v.JsonPath)
 			if err != nil {
-				return err
+				// Keep going so one bad path does not block the other rules.
+				errs = append(errs, fmt.Errorf("extract %s from %s: %w", v.TargetEnvVariable, v.JsonPath, err))
+				continue
 			}
 			if result, ok := data.(string); ok {
 				env.SetKey(v.TargetEnvVariable, result)
@@ -396,7 +399,7 @@ func (s *Service) extractVariables(spec domain.RequestSpec, res *egress.Response
 			}
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // ErrScriptingDisabled is reported when a request has a script but

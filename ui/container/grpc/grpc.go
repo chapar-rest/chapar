@@ -586,6 +586,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	return ui.Column(
 		ui.Column(
 			ui.Text(c.statusText).Style(container.StatusLineStyle(c.errText != "", 0, c.statusText != "" && c.statusText != "Ready")),
+			c.postNotice(ctx),
 			container.ResponseTabsRow("grpc-resp-"+id, th, c.respTabs, c.respActive,
 				func(i int, _ string) { c.respActive = i },
 				c.respRaw,
@@ -686,4 +687,12 @@ func optionIndex(v string, opts []ui.SelectOption) int {
 // TabIcon shows the request's badge, the one its row in the tree shows.
 func (c *Container) TabIcon(th *theme.Theme) (icons.Icon, render.Color) {
 	return reqicons.Badge(c.req), reqicons.Color(c.req, th)
+}
+
+// postNotice shows a post-request failure above a response that still arrived.
+func (c *Container) postNotice(ctx *ui.Ctx) ui.View {
+	if c.errText != "" {
+		return nil
+	}
+	return container.PostRequestNotice("grpc-"+c.req.MetaData.ID, ctx, c.deps, c.lastResp)
 }

@@ -55,5 +55,9 @@ type Response struct {
 	Pretty   string
 	BodyKind string // util.BodyKindJSON | XML | HTML | Text
 
+	// PostRequestError is why the post-request actions (script, set env,
+	// extract variables) failed. The response itself arrived and is valid.
+	PostRequestError error
+
 	Timeline []TimelineStep
 }

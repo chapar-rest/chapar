@@ -174,3 +174,34 @@ func TestScriptingDisabled(t *testing.T) {
 		t.Fatalf("err = %v, want ErrScriptingDisabled", err)
 	}
 }
+
+func TestFailedExtractKeepsResponse(t *testing.T) {
+	srv, _ := echoServer(t)
+	s := newTestSender(&fakeScripts{}, nil)
+	req := domain.NewHTTPRequest("r")
+	req.Spec.HTTP.Method = "GET"
+	req.Spec.HTTP.URL = srv.URL
+	req.Spec.HTTP.Request.Variables = []domain.Variable{
+		{TargetEnvVariable: "id", From: domain.VariableFromBody, JsonPath: "$.id", Enable: true},
+		{TargetEnvVariable: "token", From: domain.VariableFromBody, JsonPath: "$.token", Enable: true},
+	}
+	env := domain.NewEnvironment("dev")
+
+	res, err := s.Send(req, env)
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if res.StatusCode != 200 || string(res.Body) != `{"token": "new"}` {
+		t.Errorf("response = %d %q", res.StatusCode, res.Body)
+	}
+	if res.PostRequestError == nil || !strings.Contains(res.PostRequestError.Error(), "extract id from $.id") {
+		t.Fatalf("PostRequestError = %v, want the extract error", res.PostRequestError)
+	}
+	// The failing rule does not block the others.
+	if got := env.GetKeyValues()["token"]; got != "new" {
+		t.Errorf("token = %v, want new", got)
+	}
+	if last := res.Timeline[len(res.Timeline)-1]; last.Name != "Post-request" || last.Err == "" {
+		t.Errorf("post step = %+v", last)
+	}
+}

@@ -120,6 +120,24 @@ func ErrorView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, msg string) u
 	).Gap(th.Spacing.M).Grow(1)
 }
 
+// PostRequestNotice shows why the post-request actions failed, above a
+// response that still arrived. It is nil when they did not fail. Right-click
+// copies the message.
+func PostRequestNotice(id string, ctx *ui.Ctx, deps Deps, res *egress.Response) ui.View {
+	if res == nil || res.PostRequestError == nil {
+		return nil
+	}
+	msg := "Post-request failed: " + res.PostRequestError.Error() + " (see Timeline)"
+	return ui.ContextMenu(id+"-post-err", ui.Paragraph(msg).
+		Style(ui.Spec{}.TextColor(ui.TokenError)),
+		[]ui.MenuItem{{Label: "Copy", OnSelect: func() {
+			if clip := ctx.Clipboard(); clip != nil {
+				clip.Set(msg)
+				deps.Toast("Copied")
+			}
+		}}})
+}
+
 // ResponseTabsRow lays out response tabs with a stable Raw checkbox on the right
 // so switching tabs does not change chrome height.
 func ResponseTabsRow(id string, th *theme.Theme, tabs []ui.TabModel, selected int, onSelect func(i int, title string), raw bool, onRawChange func(raw bool)) ui.View {

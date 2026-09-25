@@ -405,6 +405,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	return ui.Column(
 		ui.Column(
 			c.statusLine(th),
+			c.postNotice(ctx),
 			container.ResponseTabsRow("http-resp-"+id, th, c.respTabs, c.respActive,
 				func(i int, _ string) { c.respActive = i },
 				c.respRaw,
@@ -509,4 +510,12 @@ func optsID(id, suffix string) string { return id + "-" + suffix }
 // TabIcon shows the request's badge, the one its row in the tree shows.
 func (c *Container) TabIcon(th *theme.Theme) (icons.Icon, render.Color) {
 	return reqicons.Badge(c.req), reqicons.Color(c.req, th)
+}
+
+// postNotice shows a post-request failure above a response that still arrived.
+func (c *Container) postNotice(ctx *ui.Ctx) ui.View {
+	if c.errText != "" {
+		return nil
+	}
+	return container.PostRequestNotice("http-"+c.req.MetaData.ID, ctx, c.deps, c.lastResp)
 }
