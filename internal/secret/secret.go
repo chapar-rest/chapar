@@ -11,6 +11,7 @@ package secret
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -20,8 +21,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"crypto/pbkdf2"
 )
 
 const (

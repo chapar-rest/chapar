@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/secret"
 )
 
 // keyStore is an in-memory stand-in for the OS secret manager.

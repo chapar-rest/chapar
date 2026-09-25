@@ -1,9 +1,10 @@
 package ui
 
 import (
-	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/mirzakhany/yoga"
 	"github.com/mirzakhany/yoga/theme"
+
+	"github.com/chapar-rest/chapar/internal/prefs"
 )
 
 // Run starts the Yoga UI. It must be called from the main goroutine.

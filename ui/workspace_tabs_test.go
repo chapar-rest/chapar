@@ -3,8 +3,9 @@ package ui
 import (
 	"testing"
 
-	"github.com/chapar-rest/chapar/ui/container"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/ui/container"
 )
 
 func tabsWorkspace(confirm func(title, message string, onYes func()), ids ...string) *Workspace {

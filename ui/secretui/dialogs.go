@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/secret"
 )
 
 // Dialog widths. Bodies are laid out at the width minus the body padding, so

@@ -3,8 +3,9 @@ package vars
 import (
 	"testing"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga/theme"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 func testSource() Source {

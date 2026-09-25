@@ -97,7 +97,7 @@ func (s *Service) runInstall(l Language, inst Installer, command string) {
 	cmd.Stdout, cmd.Stderr = pw, pw
 	emit(InstallEvent{Line: "$ " + inst.String()})
 	if err := cmd.Start(); err != nil {
-		pw.Close()
+		_ = pw.Close()
 		emit(InstallEvent{Done: true, Err: err})
 		return
 	}
@@ -114,7 +114,7 @@ func (s *Service) runInstall(l Language, inst Installer, command string) {
 		_, _ = io.Copy(io.Discard, pr)
 	}()
 	err := cmd.Wait()
-	pw.Close()
+	_ = pw.Close()
 	<-lines
 	if ctx.Err() != nil {
 		err = fmt.Errorf("timed out after %v", installTimeout)
@@ -153,6 +153,6 @@ func OpenURL(url string) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	go cmd.Wait()
+	go func() { _ = cmd.Wait() }()
 	return nil
 }

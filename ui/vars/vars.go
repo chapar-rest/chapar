@@ -13,10 +13,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/variables"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/variables"
 )
 
 // Kinds of variable, painted as the right-hand hint of a suggestion.

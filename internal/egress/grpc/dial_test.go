@@ -59,7 +59,7 @@ func TestDialTLSNeedsNoFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TLS with no files: %v", err)
 	}
-	conn.Close()
+	_ = conn.Close()
 }
 
 // The client key used to be read from the certificate's path, so mutual TLS
@@ -70,7 +70,7 @@ func TestDialMutualTLSReadsTheKeyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mutual TLS with a matching pair: %v", err)
 	}
-	conn.Close()
+	_ = conn.Close()
 }
 
 func TestDialMutualTLSNeedsBothFiles(t *testing.T) {

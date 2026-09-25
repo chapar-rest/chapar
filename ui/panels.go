@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/logger"
 )
 
 // ConsolePanel shows application logs in a bottom push drawer.

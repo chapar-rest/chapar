@@ -3,17 +3,18 @@ package ui
 import (
 	"fmt"
 
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/container"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 // Workspace is the unified tab strip for requests, collections, and environments.
 type Workspace struct {
-	tabs    []ui.TabModel
-	docs    []container.Container
-	active  int
-	deps    func() container.Deps
+	tabs       []ui.TabModel
+	docs       []container.Container
+	active     int
+	deps       func() container.Deps
 	confirm    func(title, message string, onYes func())
 	onTrees    func()
 	onSettings func()

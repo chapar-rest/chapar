@@ -6,6 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mirzakhany/yoga"
+	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/input"
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/logger"
@@ -21,10 +26,6 @@ import (
 	"github.com/chapar-rest/chapar/ui/sender"
 	"github.com/chapar-rest/chapar/ui/settings"
 	"github.com/chapar-rest/chapar/version"
-	"github.com/mirzakhany/yoga"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/input"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 const (
@@ -579,16 +580,6 @@ func (a *App) nav(c *ui.Ctx) ui.View {
 		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: icons.Boxes},
 	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).
 		Width(75).NavBackground(&th.ChromeMuted)
-}
-
-func (a *App) createMenuItems() []ui.MenuItem {
-	return []ui.MenuItem{
-		{Label: "New HTTP request", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateHTTP() }},
-		{Label: "New gRPC request", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateGRPC() }},
-		{Label: "New GraphQL request", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateGraphQL() }},
-		{Label: "New collection", OnSelect: func() { a.navIndex = navRequests; a.requests.CreateCollection() }},
-		{Label: "New environment", OnSelect: func() { a.navIndex = navEnvs; a.envs.Create() }},
-	}
 }
 
 func (a *App) footer(c *ui.Ctx) ui.View {

@@ -37,34 +37,6 @@ func (dc *DockerClient) Close() error {
 	return dc.client.Close()
 }
 
-func (dc *DockerClient) isContainerRunning(containerName string) (bool, error) {
-	ctx := context.Background()
-
-	// Create filter for container name
-	filterArgs := filters.NewArgs()
-	filterArgs.Add("name", fmt.Sprintf("^%s$", containerName))
-
-	containers, err := dc.client.ContainerList(ctx, container.ListOptions{
-		Filters: filterArgs,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to check running containers: %v", err)
-	}
-
-	// Check if any container matches and is running
-	for _, cn := range containers {
-		for _, name := range cn.Names {
-			// Docker API returns names with leading slash
-			cleanName := strings.TrimPrefix(name, "/")
-			if cleanName == containerName {
-				return cn.State == "running", nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 func (dc *DockerClient) isContainerExists(containerName string) (bool, error) {
 	ctx := context.Background()
 
@@ -327,17 +299,6 @@ func (dc *DockerClient) removeImage(imageName string) error {
 	return nil
 }
 
-// Helper functions that maintain the original API for backward compatibility
-func isContainerRunning(containerName string) (bool, error) {
-	dc, err := NewDockerClient()
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = dc.Close() }()
-
-	return dc.isContainerRunning(containerName)
-}
-
 func isContainerExists(containerName string) (bool, error) {
 	dc, err := NewDockerClient()
 	if err != nil {
@@ -393,7 +354,7 @@ func forceRemoveContainer(containerName string) error {
 	if err != nil {
 		return err
 	}
-	defer dc.Close()
+	defer func() { _ = dc.Close() }()
 
 	return dc.forceRemoveContainer(containerName)
 }

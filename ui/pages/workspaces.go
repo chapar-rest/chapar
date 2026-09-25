@@ -5,10 +5,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/repository"
 )
 
 // workspacesMaxWidth caps the page's header and card column on wide windows.

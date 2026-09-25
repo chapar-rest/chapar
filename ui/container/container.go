@@ -3,13 +3,14 @@ package container
 import (
 	"time"
 
+	"github.com/mirzakhany/yoga/highlight"
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/ui/langsrv"
 	"github.com/chapar-rest/chapar/ui/sender"
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 type Kind string

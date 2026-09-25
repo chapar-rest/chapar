@@ -1,9 +1,10 @@
 package container
 
 import (
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/vars"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 // VarSource is the set of variables a container's fields complete and paint:

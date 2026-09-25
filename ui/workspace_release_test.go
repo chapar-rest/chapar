@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
-
-	"github.com/chapar-rest/chapar/ui/container"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/container"
 )
 
 // fakeDoc stands in for a request tab holding a large response body.

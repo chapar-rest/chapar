@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui/langsrv"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 func installToastID(l langsrv.Language) string { return "lsp-install-" + l.ID }

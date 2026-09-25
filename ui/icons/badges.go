@@ -4,8 +4,7 @@ import "fmt"
 
 // badgeSVG builds a compact square badge rasterized as a single-color glyph.
 func badgeSVG(label string) []byte {
-	size := 11.5
-	y := 17.0
+	var size, y float64
 	switch len(label) {
 	case 4:
 		size = 9.5

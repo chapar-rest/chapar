@@ -7,9 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chapar-rest/chapar/assets"
-	"github.com/chapar-rest/chapar/internal/egress"
-	"github.com/chapar-rest/chapar/internal/util"
 	"github.com/dustin/go-humanize"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
@@ -19,6 +16,10 @@ import (
 	"github.com/mirzakhany/yoga/shape"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/assets"
+	"github.com/chapar-rest/chapar/internal/egress"
+	"github.com/chapar-rest/chapar/internal/util"
 )
 
 // FormatBytes returns a human-readable size (e.g. "1.2 kB").

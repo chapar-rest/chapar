@@ -3,8 +3,9 @@ package icons
 import (
 	"testing"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga/render"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 func TestBadgesRegistered(t *testing.T) {

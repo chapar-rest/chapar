@@ -1,9 +1,10 @@
 package container
 
 import (
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // ActionsNav indices for ActionsPane.

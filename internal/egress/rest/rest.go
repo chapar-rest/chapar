@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/http2"
-
 	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -134,11 +132,10 @@ func (s *Service) sendRequest(req *domain.HTTPRequestSpec, e *domain.Environment
 	}
 
 	if globalConfig.Spec.General.HTTPVersion == "http/2" {
-		client.Transport = &http2.Transport{
-			AllowHTTP:        true,
-			MaxReadFrameSize: uint32(globalConfig.Spec.General.ResponseSizeMb * 1024 * 1024),
-			TLSClientConfig:  &tls.Config{InsecureSkipVerify: !globalConfig.Spec.General.VaidateTLSCertificates},
-		}
+		client.Transport = egress.NewHTTP2Transport(
+			globalConfig.Spec.General.ResponseSizeMb*1024*1024,
+			&tls.Config{InsecureSkipVerify: !globalConfig.Spec.General.VaidateTLSCertificates},
+		)
 	}
 
 	if globalConfig.Spec.General.SendNoCacheHeader {

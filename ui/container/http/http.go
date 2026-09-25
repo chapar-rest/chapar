@@ -5,17 +5,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mirzakhany/yoga/highlight"
+	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/render"
+	"github.com/mirzakhany/yoga/theme"
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui/container"
 	reqicons "github.com/chapar-rest/chapar/ui/icons"
 	"github.com/chapar-rest/chapar/ui/vars"
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 type result struct {

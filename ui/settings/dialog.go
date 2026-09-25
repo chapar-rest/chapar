@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/theme"
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/ui/langsrv"
 	"github.com/chapar-rest/chapar/ui/scriptsrv"
 	"github.com/chapar-rest/chapar/ui/secretui"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 const (

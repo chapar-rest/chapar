@@ -1,8 +1,9 @@
 package ui
 
 import (
-	"github.com/chapar-rest/chapar/assets"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/assets"
 )
 
 const emptyWorkspaceWidth = float32(380)

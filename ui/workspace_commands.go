@@ -3,9 +3,10 @@ package ui
 import (
 	"fmt"
 
-	"github.com/chapar-rest/chapar/ui/container"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/ui/container"
 )
 
 // tabsScope is the command palette scope that lists the open tabs.

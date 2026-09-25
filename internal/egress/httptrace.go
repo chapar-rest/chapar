@@ -19,14 +19,14 @@ type HTTPTraceCollector struct {
 	gotFirstByte              time.Time
 	start                     time.Time
 
-	dnsHost   string
-	connAddr  string
-	reused    bool
-	tlsVers   string
-	tlsErr    string
-	dnsErr    string
-	connErr   string
-	writeErr  string
+	dnsHost  string
+	connAddr string
+	reused   bool
+	tlsVers  string
+	tlsErr   string
+	dnsErr   string
+	connErr  string
+	writeErr string
 }
 
 // NewHTTPTraceCollector starts timing from now.

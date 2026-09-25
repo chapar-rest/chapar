@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chapar-rest/chapar/internal/codegen"
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/codegen"
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // ShowCodeDialog opens a modal with generated HTTP request code.

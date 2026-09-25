@@ -1,10 +1,11 @@
 package container
 
 import (
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/google/uuid"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // Column IDs shared by the key/value tables.

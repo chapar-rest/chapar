@@ -3,9 +3,10 @@ package container
 import (
 	"strings"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // SimpleTitleRow is the title row for collection and environment containers:

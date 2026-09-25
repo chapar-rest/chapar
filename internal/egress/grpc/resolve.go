@@ -2,15 +2,18 @@ package grpc
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // MissingImport is an import statement that none of the configured import
@@ -69,6 +72,10 @@ func ResolveProtos(files, importPaths []string) (registry *protoregistry.Files, 
 		return nil, nil, errors.New("app: no *.proto files found")
 	}
 
+	// protocompile resolves imports on parallel goroutines, so the hook
+	// below can run concurrently.
+	var mu sync.Mutex
+	var unresolved []MissingImport
 	seen := map[string]struct{}{}
 	parser := protoparse.Parser{
 		ImportPaths:      importPaths,
@@ -78,9 +85,11 @@ func ResolveProtos(files, importPaths []string) (registry *protoregistry.Files, 
 			// serves the well-known types right after this hook, so anything
 			// it does not already know is a dependency we must ask about.
 			if _, err := protoregistry.GlobalFiles.FindFileByPath(name); err != nil {
+				mu.Lock()
+				defer mu.Unlock()
 				if _, ok := seen[name]; !ok {
 					seen[name] = struct{}{}
-					missing = append(missing, MissingImport{Name: name})
+					unresolved = append(unresolved, MissingImport{Name: name})
 				}
 			}
 			return nil, errNotAnImportWeHold
@@ -96,16 +105,21 @@ func ResolveProtos(files, importPaths []string) (registry *protoregistry.Files, 
 	}
 
 	fds, err := parser.ParseFiles(names...)
-	if err != nil {
+	mu.Lock()
+	found := append([]MissingImport(nil), unresolved...)
+	mu.Unlock()
+	if len(found) > 0 {
 		// Unresolved imports are the expected failure; report those and let
-		// the caller drive the user through fixing them.
-		if len(missing) > 0 {
-			return nil, missing, nil
+		// the caller drive the user through fixing them. The compiler stops
+		// at the first failed import, so the hook may not have seen the
+		// rest; walk the imports to list them all.
+		if all, werr := missingImports(names, importPaths); werr == nil && len(all) > 0 {
+			return nil, all, nil
 		}
-		return nil, nil, err
+		return nil, found, nil
 	}
-	if len(missing) > 0 {
-		return nil, missing, nil
+	if err != nil {
+		return nil, nil, err
 	}
 
 	fdset := &descriptorpb.FileDescriptorSet{}
@@ -119,6 +133,54 @@ func ResolveProtos(files, importPaths []string) (registry *protoregistry.Files, 
 		return nil, nil, err
 	}
 	return registry, nil, nil
+}
+
+// missingImports walks the import graph of names, which are relative to
+// importPaths, and returns in import order every import that no import path
+// holds and that is not a well-known type.
+func missingImports(names, importPaths []string) ([]MissingImport, error) {
+	var missing []MissingImport
+	seen := make(map[string]struct{}, len(names))
+	var queue []string
+	for _, n := range names {
+		seen[n] = struct{}{}
+		if path, ok := findInImportPaths(importPaths, n); ok {
+			queue = append(queue, path)
+		}
+	}
+	for ; len(queue) > 0; queue = queue[1:] {
+		fds, err := protoparse.Parser{}.ParseFilesButDoNotLink(queue[0])
+		if err != nil {
+			return nil, err
+		}
+		for _, dep := range fds[0].GetDependency() {
+			if _, ok := seen[dep]; ok {
+				continue
+			}
+			seen[dep] = struct{}{}
+			if path, ok := findInImportPaths(importPaths, dep); ok {
+				queue = append(queue, path)
+				continue
+			}
+			if _, err := protoregistry.GlobalFiles.FindFileByPath(dep); err == nil {
+				continue
+			}
+			missing = append(missing, MissingImport{Name: dep})
+		}
+	}
+	return missing, nil
+}
+
+// findInImportPaths returns the file that name resolves to under the first
+// import path holding it.
+func findInImportPaths(importPaths []string, name string) (string, bool) {
+	for _, p := range importPaths {
+		path := filepath.Join(p, filepath.FromSlash(name))
+		if _, err := os.Stat(path); err == nil {
+			return path, true
+		}
+	}
+	return "", false
 }
 
 // ImportRootFor returns the directory to add as an import path so that dir

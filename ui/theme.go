@@ -1,12 +1,13 @@
 package ui
 
 import (
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
 	"github.com/mirzakhany/yoga/theme"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 const defaultUIFontSize = 14

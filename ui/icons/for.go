@@ -1,10 +1,11 @@
 package icons
 
 import (
-	"github.com/chapar-rest/chapar/internal/domain"
 	yogaicons "github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 const (

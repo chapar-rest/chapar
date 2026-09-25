@@ -70,7 +70,7 @@ func TestPrettyJSONPreservesKeyOrder(t *testing.T) {
 	if zebra < 0 || apple < 0 || mango < 0 {
 		t.Fatalf("missing keys in %q", out)
 	}
-	if !(zebra < apple && apple < mango) {
+	if zebra >= apple || apple >= mango {
 		t.Errorf("keys were reordered:\n%s", out)
 	}
 }

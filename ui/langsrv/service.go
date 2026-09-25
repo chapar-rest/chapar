@@ -12,10 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/lsp"
 	"github.com/mirzakhany/yoga/ui"
+
+	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // toastInterval limits how often one kind of problem from one server pops a

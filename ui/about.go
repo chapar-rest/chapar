@@ -3,10 +3,11 @@ package ui
 import (
 	"fmt"
 
+	"github.com/mirzakhany/yoga/ui"
+
 	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/ui/langsrv"
 	"github.com/chapar-rest/chapar/version"
-	"github.com/mirzakhany/yoga/ui"
 )
 
 const websiteURL = "https://chapar.rest"
