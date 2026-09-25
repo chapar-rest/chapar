@@ -71,19 +71,6 @@ func NewEnvironment(name string) *Environment {
 	}
 }
 
-func CompareEnvValue(a, b KeyValue) bool {
-	// compare length of the values
-	if len(a.Key) != len(b.Key) || len(a.Value) != len(b.Value) || len(a.ID) != len(b.ID) {
-		return false
-	}
-
-	if a.Key != b.Key || a.Value != b.Value || a.Enable != b.Enable || a.ID != b.ID || a.Secret != b.Secret {
-		return false
-	}
-
-	return true
-}
-
 func (e *Environment) Clone() *Environment {
 	clone := &Environment{
 		ApiVersion: e.ApiVersion,

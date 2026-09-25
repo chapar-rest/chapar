@@ -3,28 +3,18 @@ module github.com/chapar-rest/chapar
 go 1.26.2
 
 require (
-	gioui.org v0.10.2
-	gioui.org/x v0.8.1
 	github.com/PaesslerAG/gval v1.2.4
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/alecthomas/chroma/v2 v2.19.0
 	github.com/docker/docker v28.2.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/flopp/go-findfont v0.1.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
-	github.com/inkeliz/giosvg v0.0.0-20240821232107-3208d4350d55
 	github.com/jhump/protoreflect v1.16.0
-	github.com/mirzakhany/yoga v0.19.0
-	github.com/oligo/gioview v0.8.2
-	github.com/oligo/gvcode v0.4.0
+	github.com/mirzakhany/yoga v0.20.0
 	github.com/stretchr/testify v1.12.1
-	github.com/tidwall/pretty v1.2.1
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/exp/shiny v0.0.0-20260820142414-ca536658362e
 	golang.org/x/net v0.59.0
-	golang.org/x/sync v0.23.0
 	golang.org/x/text v0.42.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
@@ -33,8 +23,6 @@ require (
 
 require (
 	codeberg.org/go-pdf/fpdf v0.12.0 // indirect
-	gioui.org/shader v1.0.9 // indirect
-	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/BurntSushi/freetype-go v0.0.0-20160129220410-b763ddbfe298 // indirect
 	github.com/BurntSushi/graphics-go v0.0.0-20160129215708-b43f31a4a966 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
@@ -51,7 +39,6 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-fonts/latin-modern v0.3.3 // indirect
@@ -79,7 +66,6 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rdleal/intervalst v1.4.1 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388 // indirect
@@ -101,8 +87,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/exp v0.0.0-20251017212417-90e834f514db // indirect
 	golang.org/x/image v0.46.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250519155744-55703ea1f237 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

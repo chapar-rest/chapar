@@ -275,54 +275,6 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 	}
 }
 
-func GlobalConfigFromValues(initial GlobalConfig, values map[string]any) GlobalConfig {
-	if values == nil {
-		return initial
-	}
-
-	g := initial
-
-	g.Spec.General.HTTPVersion = getOrDefault(values, "httpVersion", g.Spec.General.HTTPVersion).(string)
-	g.Spec.General.RequestTimeoutSec = getOrDefault(values, "requestTimeoutSec", g.Spec.General.RequestTimeoutSec).(int)
-	g.Spec.General.ResponseSizeMb = getOrDefault(values, "responseSizeMb", g.Spec.General.ResponseSizeMb).(int)
-	g.Spec.General.SendNoCacheHeader = getOrDefault(values, "sendNoCacheHeader", g.Spec.General.SendNoCacheHeader).(bool)
-	g.Spec.General.SendChaparAgentHeader = getOrDefault(values, "sendChaparAgentHeader", g.Spec.General.SendChaparAgentHeader).(bool)
-	g.Spec.General.UseHorizontalSplit = getOrDefault(values, "useHorizontalSplit", g.Spec.General.UseHorizontalSplit).(bool)
-	g.Spec.General.FollowRedirects = getOrDefault(values, "followRedirects", g.Spec.General.FollowRedirects).(bool)
-	g.Spec.General.VaidateTLSCertificates = getOrDefault(values, "validateTLSCertificates", g.Spec.General.VaidateTLSCertificates).(bool)
-	g.Spec.General.Theme = getOrDefault(values, "theme", g.Spec.General.Theme).(string)
-	g.Spec.General.UIFontSize = getOrDefault(values, "uiFontSize", g.Spec.General.UIFontSize).(int)
-	g.Spec.General.HideNavbar = getOrDefault(values, "hideNavbar", g.Spec.General.HideNavbar).(bool)
-
-	g.Spec.Editor.FontFamily = getOrDefault(values, "fontFamily", g.Spec.Editor.FontFamily).(string)
-	g.Spec.Editor.FontSize = getOrDefault(values, "fontSize", g.Spec.Editor.FontSize).(int)
-	g.Spec.Editor.Indentation = getOrDefault(values, "indentation", g.Spec.Editor.Indentation).(string)
-	g.Spec.Editor.TabWidth = getOrDefault(values, "tabWidth", g.Spec.Editor.TabWidth).(int)
-	g.Spec.Editor.AutoCloseBrackets = getOrDefault(values, "autoCloseBrackets", g.Spec.Editor.AutoCloseBrackets).(bool)
-	g.Spec.Editor.AutoCloseQuotes = getOrDefault(values, "autoCloseQuotes", g.Spec.Editor.AutoCloseQuotes).(bool)
-	g.Spec.Editor.ShowLineNumbers = getOrDefault(values, "showLineNumbers", g.Spec.Editor.ShowLineNumbers).(bool)
-	g.Spec.Editor.WrapLines = getOrDefault(values, "wrapLines", g.Spec.Editor.WrapLines).(bool)
-
-	g.Spec.Scripting.Enabled = getOrDefault(values, "enable", g.Spec.Scripting.Enabled).(bool)
-	g.Spec.Scripting.Language = getOrDefault(values, "language", g.Spec.Scripting.Language).(string)
-	g.Spec.Scripting.UseDocker = getOrDefault(values, "useDocker", g.Spec.Scripting.UseDocker).(bool)
-	g.Spec.Scripting.DockerImage = getOrDefault(values, "dockerImage", g.Spec.Scripting.DockerImage).(string)
-	g.Spec.Scripting.ExecutablePath = getOrDefault(values, "executablePath", g.Spec.Scripting.ExecutablePath).(string)
-	g.Spec.Scripting.ServerScriptPath = getOrDefault(values, "serverScriptPath", g.Spec.Scripting.ServerScriptPath).(string)
-	g.Spec.Scripting.Port = getOrDefault(values, "port", g.Spec.Scripting.Port).(int)
-
-	g.Spec.Data.WorkspacePath = getOrDefault(values, "workspacePath", g.Spec.Data.WorkspacePath).(string)
-
-	return g
-}
-
-func getOrDefault(m map[string]any, key string, defaultValue any) any {
-	if v, ok := m[key]; ok {
-		return v
-	}
-	return defaultValue
-}
-
 // GetDefaultAppState returns a default app state
 func GetDefaultAppState() *AppState {
 	return &AppState{

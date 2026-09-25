@@ -46,35 +46,48 @@ go run ./cmd/yoga package -os web ./example/todo
 |---|---|
 | `yoga package -os web` | `dist/web/` — `index.html`, `app.wasm`, `wasm_exec.js`, `yoga_loader.js` |
 | `yoga package -os darwin` | `Name.app` + DMG and/or PKG (see `[darwin]` in yoga.toml) |
-| `yoga package -os linux` | `tar.gz` (+ AppImage if `appimagetool` is on PATH) |
-| `yoga package -os windows` | portable `.zip` with `.exe` |
+| `yoga package -os linux` | `tar.gz` or `tar.xz` (+ AppImage if `appimagetool` is on PATH) |
+| `yoga package -os windows` | portable `.zip` with a GUI-subsystem `.exe` carrying the icon, DPI manifest and version info |
 | `yoga serve [dir]` | static server (default `dist/web`) |
 | `yoga run` | `go run` the app on the host |
 | `yoga build -os …` | compile only into `dist/<os>/` |
+
+An app can pin the CLI next to the framework with `go get -tool github.com/mirzakhany/yoga/cmd/yoga` and run it as `go tool yoga …`.
 
 Optional `yoga.toml` in the app directory:
 
 ```toml
 name = "Todos"
 id = "com.example.todo"
-version = "0.1.0"
+version = "0.1.0"                 # -version v1.2.0 overrides (a leading v is dropped)
 main = "."
-icon = "assets/icon.png"
+icon = "assets/icon.png"          # PNG; Windows embeds it, macOS converts it to .icns
+# Artifact name without extension. {name} {version} {os} {platform} (macos|linux|windows) {arch}
+artifact = "todos-{platform}-v{version}-{arch}"
+
+[build]
+ldflags = "-s -w -X main.version={version}"
+tags = []
+flags = ["-trimpath"]
 
 [window]
 title = "Todos"
 
 [darwin]
+icon = "assets/icon.icns"         # optional: a hand-made .icns instead of the PNG
 display_name = "Todos"
 copyright = "Copyright © 2026"
 category = "public.app-category.productivity"
-min_system = "13.0"
+min_system = "13.0"               # LSMinimumSystemVersion and the C deployment target
 bundle_version = "1"
 formats = ["dmg", "pkg"]          # pkg for App Store upload when signed
+notarize = false                  # or -notarize; needs a signing identity
 
 [darwin.dmg]
 background = "assets/dmg-background.png"
 volume_name = "Todos"
+volume_icon = "assets/icon.icns"
+window_pos = [100, 100]
 window_width = 660
 window_height = 400
 icon_size = 128
@@ -85,9 +98,25 @@ applications_pos = [480, 200]
 identity = "Developer ID Application: …"
 installer_identity = "3rd Party Mac Developer Installer: …"
 entitlements = "assets/entitlements.plist"
+
+[linux]
+binary = "todos"                  # executable name in the archive
+format = "tar.xz"                 # tar.gz (default) or tar.xz (needs xz)
+[linux.files]                     # archive path = source; replaces the generated .desktop/icon
+"LICENSE" = "LICENSE"
+"install.sh" = "packaging/install.sh"
+
+[windows]
+console = false                   # true keeps the console window
+company = "Example"
+description = "Todos"
+[windows.files]                   # zip path = source, next to the exe
+"LICENSE.txt" = "LICENSE"
 ```
 
-CLI overrides: `-id com.example.todo`, `-format dmg,pkg`.
+CLI overrides: `-id`, `-format dmg,pkg`, `-version`, `-ldflags` (appended), `-build-number`, `-sign`, `-installer-sign`, `-entitlements`, `-notarize`.
+
+`-arch universal` (darwin) builds amd64 and arm64 and joins them with `lipo`. Without a signing identity the `.app` is ad-hoc signed so it runs locally. `-notarize` zips the signed app, submits it with `notarytool --wait` and staples the ticket before the DMG is made; it reads `NOTARY_KEYCHAIN_PROFILE`, or `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_SPECIFIC_PASSWORD`, from the environment.
 
 **Web** requires a browser with WebGPU (`navigator.gpu`). Desktop packaging needs CGO (GLFW / wgpu-native) and generally must run on the target OS.
 

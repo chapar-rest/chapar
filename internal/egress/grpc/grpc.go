@@ -4,21 +4,17 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -26,11 +22,7 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/chapar-rest/chapar/internal/domain"
-	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/safemap"
-	"github.com/chapar-rest/chapar/internal/state"
-	"github.com/chapar-rest/chapar/internal/util"
-	"github.com/chapar-rest/chapar/internal/variables"
 	"github.com/chapar-rest/chapar/version"
 )
 
@@ -39,20 +31,7 @@ var (
 )
 
 type Service struct {
-	requests     *state.Requests
-	environments *state.Environments
-	protoFiles   *state.ProtoFiles
-
 	protoFilesRegistry *safemap.Map[*protoregistry.Files]
-}
-
-func NewService(requests *state.Requests, envs *state.Environments, protoFiles *state.ProtoFiles) *Service {
-	return &Service{
-		requests:           requests,
-		environments:       envs,
-		protoFiles:         protoFiles,
-		protoFilesRegistry: safemap.New[*protoregistry.Files](),
-	}
 }
 
 func (s *Service) Dial(req *domain.GRPCRequestSpec, extraOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
@@ -109,31 +88,6 @@ func (s *Service) Dial(req *domain.GRPCRequestSpec, extraOpts ...grpc.DialOption
 
 	opts = append(opts, extraOpts...)
 	return grpc.NewClient(req.ServerInfo.Address, opts...)
-}
-
-func (s *Service) GetRequestStruct(id, environmentID string) (string, error) {
-	req := s.requests.GetRequest(id)
-	if req == nil {
-		return "", ErrRequestNotFound
-	}
-
-	method := req.Spec.GRPC.LasSelectedMethod
-	if method == "" {
-		return "", errors.New("no method selected")
-	}
-
-	// get the method descriptor
-	md, err := s.getMethodDesc(id, environmentID, method)
-	if err != nil {
-		return "", err
-	}
-
-	jsonBytes, err := json.MarshalIndent(GenerateExampleJSON(md.Input()), "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal to JSON: %w", err)
-	}
-
-	return string(jsonBytes), nil
 }
 
 func GenerateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[string]interface{} {
@@ -211,136 +165,6 @@ func GenerateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[s
 	}
 
 	return out
-}
-
-func (s *Service) SendRequest(id, activeEnvironmentID string) (*egress.Response, error) {
-	req := s.requests.GetRequest(id)
-	if req == nil {
-		return nil, ErrRequestNotFound
-	}
-
-	clonedReq := req.Clone()
-	spec := clonedReq.Spec.GRPC
-	if spec == nil {
-		return nil, nil
-	}
-
-	// Merge collection headers (as metadata) and auth if request belongs to a collection
-	if clonedReq.CollectionID != "" {
-		collection := s.requests.GetCollection(clonedReq.CollectionID)
-		if collection != nil {
-			// Merge collection headers as metadata: collection headers as base, request metadata override
-			spec.Metadata = s.mergeMetadata(collection.Spec.Headers, spec.Metadata)
-
-			// Resolve auth: if request auth is inherit, use collection auth
-			if spec.Auth.Type == domain.AuthTypeInherit {
-				spec.Auth = collection.Spec.Auth
-			}
-		}
-	}
-
-	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
-
-	vars := variables.GetVariables()
-	variables.ApplyToGRPCRequest(vars, spec)
-
-	if activeEnvironment != nil {
-		variables.ApplyToEnv(vars, &activeEnvironment.Spec)
-		activeEnvironment.ApplyToGRPCRequest(spec)
-	}
-
-	method := spec.LasSelectedMethod
-	if method == "" {
-		return nil, errors.New("no method selected")
-	}
-
-	rawJSON := []byte(spec.Body)
-
-	traceCol := egress.NewGRPCTraceCollector(spec.ServerInfo.Address, spec.Settings.Insecure)
-	conn, err := s.Dial(spec, grpc.WithStatsHandler(traceCol))
-	if err != nil {
-		return nil, err
-	}
-
-	// get the method descriptor
-	md, err := s.getMethodDesc(id, activeEnvironmentID, method)
-	if err != nil {
-		return nil, err
-	}
-
-	// create the message
-	request := dynamicpb.NewMessage(md.Input())
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(messageJSON(string(rawJSON)), request); err != nil {
-		return nil, err
-	}
-
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.New(nil))
-	for _, item := range spec.Metadata {
-		if !item.Enable {
-			continue
-		}
-		ctx = metadata.AppendToOutgoingContext(ctx, item.Key, item.Value)
-	}
-
-	if authHeaders := s.prepareAuth(spec); authHeaders != nil {
-		ctx = metadata.NewOutgoingContext(ctx, *authHeaders)
-	}
-
-	var respHeaders, respTrailers metadata.MD
-
-	// Set a timeout for the request if not specified, default to 2 hours to have a long enough timeout
-	timeOut := 2 * time.Hour
-	if spec.Settings.TimeoutMilliseconds > 0 {
-		timeOut = time.Duration(spec.Settings.TimeoutMilliseconds) * time.Millisecond
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeOut)
-	defer cancel()
-
-	outgoingMetadata, _ := metadata.FromOutgoingContext(ctx)
-
-	callOpts := []grpc.CallOption{
-		grpc.Header(&respHeaders),
-		grpc.Trailer(&respTrailers),
-	}
-
-	var (
-		respErr error
-		respStr string
-	)
-
-	start := time.Now()
-	if md.IsStreamingServer() {
-		respStr, respErr = s.invokeServerStream(ctx, conn, method, request, md, callOpts...)
-	} else {
-		respStr, respErr = s.invokeUnary(ctx, conn, method, request, md, callOpts...)
-	}
-	elapsed := time.Since(start)
-
-	out := &egress.Response{
-		TimePassed:       elapsed,
-		ResponseMetadata: domain.MetadataToKeyValue(respHeaders),
-		RequestMetadata:  domain.MetadataToKeyValue(outgoingMetadata),
-		Trailers:         domain.MetadataToKeyValue(respTrailers),
-		Error:            respErr,
-		StatueCode:       int(status.Code(respErr)),
-		Status:           status.Code(respErr).String(),
-		Size:             len(respStr),
-		Body:             []byte(respStr),
-		Timeline:         traceCol.Steps(),
-	}
-
-	kind, pretty, jsonStr, isJSON := util.ApplyBodyFormat("application/json", out.Body)
-	out.BodyKind = kind
-	out.Pretty = pretty
-	out.IsJSON = isJSON
-	out.JSON = jsonStr
-
-	if respErr != nil {
-		return out, respErr
-	}
-
-	return out, nil
 }
 
 func (s *Service) invokeServerStream(ctx context.Context, conn *grpc.ClientConn, method string, req proto.Message, md protoreflect.MethodDescriptor, opts ...grpc.CallOption) (string, error) {
@@ -476,115 +300,6 @@ func (s *Service) prepareAuth(req *domain.GRPCRequestSpec) *metadata.MD {
 	}
 
 	return nil
-}
-
-func (s *Service) getMethodDesc(id, envID, fullName string) (protoreflect.MethodDescriptor, error) {
-	registryFiles, exist := s.protoFilesRegistry.Get(id)
-	if !exist {
-		// reload the proto files we don't have them in registry
-		if _, err := s.GetServices(id, envID); err != nil {
-			return nil, err
-		}
-
-		// get the proto files from the registry
-		registryFiles, _ = s.protoFilesRegistry.Get(id)
-	}
-
-	name := strings.Replace(fullName[1:], "/", ".", 1)
-	desc, err := registryFiles.FindDescriptorByName(protoreflect.FullName(name))
-	if err != nil {
-		return nil, fmt.Errorf("app: failed to find descriptor: %v", err)
-	}
-
-	methodDesc, ok := desc.(protoreflect.MethodDescriptor)
-	if !ok {
-		return nil, fmt.Errorf("app: descriptor was not a method: %T", desc)
-	}
-
-	return methodDesc, nil
-}
-
-func (s *Service) GetServices(id, activeEnvironmentID string) ([]domain.GRPCService, error) {
-	req := s.requests.GetRequest(id)
-	if req == nil {
-		return nil, ErrRequestNotFound
-	}
-
-	req = req.Clone()
-
-	var activeEnvironment = s.getActiveEnvironment(activeEnvironmentID)
-	vars := variables.GetVariables()
-	variables.ApplyToGRPCRequest(vars, req.Spec.GRPC)
-
-	if activeEnvironment != nil {
-		variables.ApplyToEnv(vars, &activeEnvironment.Spec)
-		activeEnvironment.ApplyToGRPCRequest(req.Spec.GRPC)
-	}
-
-	conn, err := s.Dial(req.Spec.GRPC)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.Spec.GRPC.ServerInfo.ServerReflection {
-		protoRegistryFiles, err := ProtoFilesFromReflectionAPI(context.Background(), conn)
-		if err != nil {
-			return nil, err
-		}
-
-		s.protoFilesRegistry.Set(id, protoRegistryFiles)
-
-		return s.parseRegistryFiles(protoRegistryFiles)
-	} else if len(req.Spec.GRPC.ServerInfo.ProtoFiles) > 0 {
-		protoFiles, err := s.protoFiles.LoadProtoFiles()
-		if err != nil {
-			return nil, err
-		}
-
-		protoRegistryFiles, err := ProtoFilesFromDisk(GetImportPaths(protoFiles, req.Spec.GRPC.ServerInfo.ProtoFiles))
-		if err != nil {
-			return nil, err
-		}
-
-		s.protoFilesRegistry.Set(id, protoRegistryFiles)
-		return s.parseRegistryFiles(protoRegistryFiles)
-	}
-
-	return nil, fmt.Errorf("no server reflection or proto files found")
-}
-
-func (s *Service) getActiveEnvironment(id string) *domain.Environment {
-	if id == "" {
-		return nil
-	}
-
-	activeEnvironment := s.environments.GetEnvironment(id)
-	if activeEnvironment == nil {
-		return nil
-	}
-
-	return activeEnvironment
-}
-
-func GetImportPaths(protoFiles []*domain.ProtoFile, files []string) ([]string, []string) {
-	importPaths := make([]string, 0, len(protoFiles)+len(files))
-	fileNames := make([]string, 0, len(protoFiles)+len(files))
-	for _, file := range files {
-		// extract the directory path from the file path
-		importPaths = append(importPaths, filepath.Dir(file))
-		fileNames = append(fileNames, filepath.Base(file))
-	}
-
-	for _, protoFile := range protoFiles {
-		if protoFile.Spec.IsImportPath {
-			importPaths = append(importPaths, protoFile.Spec.Path)
-		} else {
-			importPaths = append(importPaths, filepath.Dir(protoFile.Spec.Path))
-			fileNames = append(fileNames, filepath.Base(protoFile.Spec.Path))
-		}
-	}
-
-	return importPaths, fileNames
 }
 
 // isReflectionService returns true for the built-in gRPC reflection service(s),

@@ -1,25 +1,81 @@
 name: Linters and Tests
 
-on: [pull_request]
+on:
+  pull_request:
+  push:
+    branches: [main]
 
 permissions:
-  contents: 'read'
-  pull-requests: 'read'
-  packages: 'read'
+  contents: read
 
 jobs:
   lint:
     name: Linters
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - name: Lint
-        run: make lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          args: -c .golangci-lint.yaml --build-tags nogpu
+          # The tree predates the linter config; hold new code to it first.
+          only-new-issues: true
 
   tests:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # nogpu swaps Yoga's GLFW/WebGPU window for a headless stub, so the
+      # UI tests run without X11 or GL headers.
       - name: Tests
-        run: make test
+        run: go test -tags nogpu ./...
+
+  vendor:
+    name: Vendor is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Re-vendor and compare
+        run: |
+          ./build/vendor.sh
+          git add -A vendor
+          git diff --cached --exit-code --stat vendor || {
+            echo "::error::vendor/ is stale; run make vendor and commit it"
+            exit 1
+          }
+
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev libgl1-mesa-dev
+      - name: Install yoga CLI
+        shell: bash
+        # The same yoga version go.mod builds the app with.
+        run: go install github.com/mirzakhany/yoga/cmd/yoga@$(go list -m -f '{{.Version}}' github.com/mirzakhany/yoga)
+      - name: Build
+        shell: bash
+        run: yoga build

@@ -72,42 +72,6 @@ func NewGraphQLRequest(name string) *Request {
 	}
 }
 
-func CompareGraphQLRequestSpecs(a, b *GraphQLRequestSpec) bool {
-	if a == nil && b == nil {
-		return true
-	}
-
-	if a == nil || b == nil {
-		return false
-	}
-
-	if a.URL != b.URL || a.Query != b.Query || a.Variables != b.Variables {
-		return false
-	}
-
-	if !CompareKeyValues(a.Headers, b.Headers) {
-		return false
-	}
-
-	if !CompareAuth(a.Auth, b.Auth) {
-		return false
-	}
-
-	if !ComparePreRequest(a.PreRequest, b.PreRequest) {
-		return false
-	}
-
-	if !ComparePostRequest(a.PostRequest, b.PostRequest) {
-		return false
-	}
-
-	if !CompareVariables(a.VariablesList, b.VariablesList) {
-		return false
-	}
-
-	return true
-}
-
 func (r *Request) SetDefaultValuesForGraphQL() {
 	if r.Spec.GraphQL.URL == "" {
 		r.Spec.GraphQL.URL = "https://example.com/graphql"

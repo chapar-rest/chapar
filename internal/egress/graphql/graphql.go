@@ -17,69 +17,19 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
-	"github.com/chapar-rest/chapar/internal/state"
 	"github.com/chapar-rest/chapar/internal/util"
 	"github.com/chapar-rest/chapar/internal/variables"
 	"github.com/chapar-rest/chapar/version"
 )
 
 type Service struct {
-	requests     *state.Requests
-	environments *state.Environments
-	cookies      *cookies.Store
+	cookies *cookies.Store
 }
 
 // SetCookieStore makes requests send and store cookies in the jar of the
 // environment they are sent with. A nil store disables cookie handling.
 func (s *Service) SetCookieStore(store *cookies.Store) {
 	s.cookies = store
-}
-
-func New(requests *state.Requests, environments *state.Environments) *Service {
-	return &Service{
-		requests:     requests,
-		environments: environments,
-	}
-}
-
-func (s *Service) SendRequest(requestID, activeEnvironmentID string) (*egress.Response, error) {
-	req := s.requests.GetRequest(requestID)
-	if req == nil {
-		return nil, fmt.Errorf("request with id %s not found", requestID)
-	}
-
-	// clone the request to make sure we do not modify the original request
-	r := req.Clone()
-
-	// Merge collection headers and auth if request belongs to a collection
-	if r.CollectionID != "" && r.Spec.GraphQL != nil {
-		collection := s.requests.GetCollection(r.CollectionID)
-		if collection != nil {
-			// Merge headers: collection headers as base, request headers override
-			r.Spec.GraphQL.Headers = domain.MergeHeaders(collection.Spec.Headers, r.Spec.GraphQL.Headers)
-
-			// Resolve auth: if request auth is inherit, use collection auth
-			if r.Spec.GraphQL.Auth.Type == domain.AuthTypeInherit {
-				r.Spec.GraphQL.Auth = collection.Spec.Auth
-			}
-		}
-	}
-
-	var activeEnvironment *domain.Environment
-	// Get environment if provided
-	if activeEnvironmentID != "" {
-		activeEnvironment = s.environments.GetEnvironment(activeEnvironmentID)
-		if activeEnvironment == nil {
-			return nil, fmt.Errorf("environment with id %s not found", activeEnvironmentID)
-		}
-	}
-
-	response, err := s.sendRequest(r.Spec.GraphQL, activeEnvironment)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
 }
 
 // nolint: gocyclo

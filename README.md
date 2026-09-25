@@ -121,12 +121,23 @@ cd chapar
 go build -o chapar .
 ```
 
-## Dependencies
-If you want to build the project from source, you need to install the following dependencies:
-Chapar is built using [Gio](https://gioui.org) library so you need to install the following dependencies to build the project:
+To build the same packages the releases ship (DMG, tar.xz, zip), install the [Yoga](https://github.com/mirzakhany/yoga) CLI with `make install_deps` (the version `go.mod` uses); `yoga.toml` holds the packaging config:
+```bash
+yoga package -os darwin -arch arm64 -version v0.7.0   # dist/darwin/*.dmg
+yoga package -os linux -version v0.7.0                # dist/linux/*.tar.xz
+yoga package -os windows -version v0.7.0              # dist/windows/*.zip
+```
 
-for linux follow instructions in [gio linux](https://gioui.org/doc/install/linux)
-for macOS follow instructions in [gio macos](https://gioui.org/doc/install/macos)
+Dependencies are vendored. Update them with `make vendor`, not `go mod vendor`: the script also copies the tree-sitter C sources that `go mod vendor` leaves out.
+
+## Dependencies
+Chapar is built with [Yoga](https://github.com/mirzakhany/yoga), which renders through GLFW and WebGPU, so building needs CGO and a C compiler:
+
+- macOS: Xcode Command Line Tools (`xcode-select --install`).
+- Linux (Debian/Ubuntu): `sudo apt install gcc libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev libgl1-mesa-dev`.
+- Windows: a MinGW-w64 GCC on `PATH` (for example from [MSYS2](https://www.msys2.org/)).
+
+Tests run headless with `go test -tags nogpu ./...`, which needs no window system.
 
 
 ### Contributing

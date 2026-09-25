@@ -2,11 +2,11 @@
 
 package theme
 
-import "golang.org/x/sys/windows/registry"
+import winreg "golang.org/x/sys/windows/registry"
 
 func osPrefersDark() bool {
-	k, err := registry.OpenKey(registry.CURRENT_USER,
-		`Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`, registry.QUERY_VALUE)
+	k, err := winreg.OpenKey(winreg.CURRENT_USER,
+		`Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`, winreg.QUERY_VALUE)
 	if err != nil {
 		return false
 	}

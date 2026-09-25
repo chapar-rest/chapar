@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/jhump/protoreflect/desc"
-	"github.com/jhump/protoreflect/desc/protoparse"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
@@ -36,36 +35,6 @@ func ProtoFilesFromReflectionAPI(ctx context.Context, conn *grpc.ClientConn) (*p
 		if err != nil {
 			return nil, err
 		}
-		fdset.File = append(fdset.File, walkFileDescriptors(seen, fd)...)
-	}
-
-	return protodesc.NewFiles(fdset)
-}
-
-func ProtoFilesFromDisk(importPaths, filenames []string) (*protoregistry.Files, error) {
-	if len(filenames) == 0 {
-		return nil, errors.New("app: no *.proto files found")
-	}
-
-	f, err := protoparse.ResolveFilenames(importPaths, filenames...)
-	if err != nil {
-		return nil, err
-	}
-
-	parser := protoparse.Parser{
-		ImportPaths:      importPaths,
-		InferImportPaths: len(importPaths) == 0,
-	}
-
-	fds, err := parser.ParseFiles(f...)
-	if err != nil {
-		return nil, err
-	}
-
-	fdset := &descriptorpb.FileDescriptorSet{}
-	seen := make(map[string]struct{})
-
-	for _, fd := range fds {
 		fdset.File = append(fdset.File, walkFileDescriptors(seen, fd)...)
 	}
 
