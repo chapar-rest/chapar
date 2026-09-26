@@ -248,7 +248,7 @@ The editor shows these inline; the CLI refuses to run a case that has any.
 
 ## Changes outside the runner
 
-Done in phase 2 except the last two.
+Done in phases 2 and 3.
 
 - Move `ui/sender` to `internal/sender`; it only imports `internal/*` and
   the CLI should not depend on `ui/`.
@@ -258,8 +258,8 @@ Done in phase 2 except the last two.
   request's post-request actions don't persist the env.
 - Give runs their own cookie store (`cookies.NewMemoryStore`), or
   `saveCookies` writes into the user's jar.
-- `scriptingOn()` reads `prefs.GetGlobalConfig()`; the CLI loads prefs or
-  takes `--scripts`.
+- `scriptingOn()` reads `prefs.GetGlobalConfig()`; `SetScriptingEnabled`
+  lets the CLI's `--scripts` override it.
 - Add `Load/Create/Update/DeleteTestCase` to `RepositoryV2` and
   `FilesystemV2`. An import without an id, or with one that already
   exists, gets a new id.
@@ -267,12 +267,40 @@ Done in phase 2 except the last two.
 ## CLI
 
 ```
-chapar test [--workspace W] [--env E] [--tag T] [--bail]
-            [--report junit=out.xml,json=out.json] [case|dir ...]
-exit: 0 pass, 1 test failures, 2 invalid config or runtime error
+chapar test [--workspace W] [--env E] [--tag T] [--bail] [--scripts]
+            [--report junit=out.xml] [--report json=out.json] [--no-color]
+            [case|file|folder ...]
 ```
 
-A subcommand in `main.go`, dispatched before the GUI starts.
+Package `internal/testcli`, dispatched from `main.go` before the GUI
+starts. Flags may come before or after the arguments.
+
+- `--workspace` is a workspace folder (for a workspace committed to a
+  repo), or the name of one in the app's data folder. Default: the app's
+  active workspace.
+- Arguments are case names or IDs in the workspace, test case files, or
+  folders of them. None runs every case in the workspace, sorted by name.
+  `--tag` keeps cases with any of the given tags.
+- Every selected case is validated before anything is sent; any problem
+  stops the command.
+- `--env` picks an environment by name or ID; default none. Secret values
+  are decrypted only when the env has some, since reading the macOS
+  Keychain can prompt. A passphrase key is unlocked from
+  `CHAPAR_SECRETS_PASSPHRASE`. Values that stay locked are left out with a
+  warning, and put back untouched if `persistEnv` saves the env.
+- Request scripts run when scripting is on in the app's settings, or with
+  `--scripts`. The executor starts on the first script, so runs without
+  scripts never start it. A Docker container it starts is left running, as
+  the app leaves it.
+- Console output streams one line per step, with failed assertions under
+  it; colors only on a terminal without `NO_COLOR`.
+
+Exit codes: 0 every case passed; 1 a case failed or errored; 2 bad flags,
+workspace, environment or test case files, or a report could not be
+written; 130 interrupted (teardown still runs and reports are written).
+
+Test case files in the format of PR #164 fail to load and are skipped with
+a YAML warning.
 
 ## Phases
 

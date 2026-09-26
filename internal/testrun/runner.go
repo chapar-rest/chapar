@@ -22,11 +22,16 @@ type Sender interface {
 
 // NewSender returns a factory of senders for test runs. Each one keeps
 // cookies in memory for its run and never saves the environment.
-func NewSender(requests sender.RequestLookup, colls sender.CollectionLookup, scripts sender.Scripts) func() Sender {
+// scriptingOn decides whether request scripts run; nil follows the
+// scripting setting, as the app does.
+func NewSender(requests sender.RequestLookup, colls sender.CollectionLookup, scripts sender.Scripts, scriptingOn func() bool) func() Sender {
 	return func() Sender {
 		s := sender.New(nil, requests, colls, nil)
 		s.SetExecutor(scripts)
 		s.SetCookieStore(cookies.NewMemoryStore())
+		if scriptingOn != nil {
+			s.SetScriptingEnabled(scriptingOn)
+		}
 		return s
 	}
 }

@@ -139,7 +139,7 @@ func statusIs(code int) domain.TestAssertion {
 
 func newRunner(src RequestSource, save func(*domain.Environment) error) *Runner {
 	return New(Config{
-		NewSender: NewSender(src.RequestByID, nil, nil),
+		NewSender: NewSender(src.RequestByID, nil, nil, nil),
 		Requests:  src,
 		SaveEnv:   save,
 		Getenv:    func(k string) string { return "os-" + k },

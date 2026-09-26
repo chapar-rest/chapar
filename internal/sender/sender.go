@@ -65,6 +65,12 @@ func (s *Service) SetExecutor(exec Scripts) {
 	s.script = exec
 }
 
+// SetScriptingEnabled replaces the check of the scripting setting, for
+// callers that decide themselves, such as the test CLI.
+func (s *Service) SetScriptingEnabled(on func() bool) {
+	s.scriptingOn = on
+}
+
 // New builds a sender that never reads internal/state.
 func New(repo repository.RepositoryV2, lookup RequestLookup, colls CollectionLookup, onEnv func(*domain.Environment)) *Service {
 	return &Service{
