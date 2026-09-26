@@ -9,8 +9,8 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/secret"
+	"github.com/chapar-rest/chapar/internal/sender"
 	"github.com/chapar-rest/chapar/ui/langsrv"
-	"github.com/chapar-rest/chapar/ui/sender"
 )
 
 type Kind string

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,6 +106,31 @@ func TestPreScriptChangesOnlyTheSentCopy(t *testing.T) {
 	}
 	if !strings.Contains(last.Detail, "✗ status: nope") || last.Err != "1 test failed" {
 		t.Errorf("post step = %+v", last)
+	}
+}
+
+func TestScriptTestsOnResponse(t *testing.T) {
+	srv, _ := echoServer(t)
+	scripts := &fakeScripts{results: map[scripting.Phase]*scripting.ExecResult{
+		scripting.PhasePre:  {Tests: []scripting.TestResult{{Name: "has token", Passed: true}}},
+		scripting.PhasePost: {Tests: []scripting.TestResult{{Name: "status", Error: "nope"}}},
+	}}
+	s := newTestSender(scripts, nil)
+
+	res, err := s.Send(scriptedRequest(srv.URL), domain.NewEnvironment("dev"))
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	want := []scripting.TestResult{{Name: "has token", Passed: true}, {Name: "status", Error: "nope"}}
+	if !reflect.DeepEqual(res.ScriptTests, want) {
+		t.Errorf("ScriptTests = %+v, want %+v", res.ScriptTests, want)
+	}
+
+	// A pre-request script that raises still reports the tests it ran.
+	scripts.results[scripting.PhasePre].Error = &scripting.ScriptError{Type: "KeyError"}
+	res, _ = s.Send(scriptedRequest(srv.URL), nil)
+	if len(res.ScriptTests) != 1 || res.ScriptTests[0].Name != "has token" {
+		t.Errorf("ScriptTests after a pre error = %+v", res.ScriptTests)
 	}
 }
 

@@ -45,6 +45,8 @@ func File(workspaceDir, envID string) string {
 type Store struct {
 	workspaceDir func() (string, error)
 	codec        Codec
+	// memory keeps jars only in memory: nothing is read or written.
+	memory bool
 
 	mu   sync.Mutex
 	jars map[string]*Jar // keyed by jar file path
@@ -57,6 +59,12 @@ func NewStore(workspaceDir func() (string, error), codec Codec) *Store {
 		codec = plainCodec{}
 	}
 	return &Store{workspaceDir: workspaceDir, codec: codec, jars: map[string]*Jar{}}
+}
+
+// NewMemoryStore creates a store whose jars start empty and are never
+// saved, for sends that must not touch the user's cookies.
+func NewMemoryStore() *Store {
+	return &Store{codec: plainCodec{}, memory: true, jars: map[string]*Jar{}}
 }
 
 // For returns the jar of an environment, loading it from disk the first time.
@@ -74,17 +82,19 @@ func (s *Store) For(envID string) (*Jar, error) {
 	}
 
 	var list []*domain.Cookie
-	b, err := os.ReadFile(file)
-	switch {
-	case os.IsNotExist(err):
-	case err != nil:
-		return nil, err
-	default:
-		if b, err = s.codec.Decode(b); err != nil {
-			return nil, fmt.Errorf("decode cookie jar %s: %w", file, err)
-		}
-		if err := json.Unmarshal(b, &list); err != nil {
-			return nil, fmt.Errorf("parse cookie jar %s: %w", file, err)
+	if !s.memory {
+		b, err := os.ReadFile(file)
+		switch {
+		case os.IsNotExist(err):
+		case err != nil:
+			return nil, err
+		default:
+			if b, err = s.codec.Decode(b); err != nil {
+				return nil, fmt.Errorf("decode cookie jar %s: %w", file, err)
+			}
+			if err := json.Unmarshal(b, &list); err != nil {
+				return nil, fmt.Errorf("parse cookie jar %s: %w", file, err)
+			}
 		}
 	}
 
@@ -95,6 +105,9 @@ func (s *Store) For(envID string) (*Jar, error) {
 
 // Save writes the jar of an environment if it changed since the last save.
 func (s *Store) Save(envID string) error {
+	if s.memory {
+		return nil
+	}
 	j, err := s.For(envID)
 	if err != nil {
 		return err
@@ -152,6 +165,9 @@ func (s *Store) Delete(envID string) error {
 	s.mu.Lock()
 	delete(s.jars, file)
 	s.mu.Unlock()
+	if s.memory {
+		return nil
+	}
 	if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -159,6 +175,9 @@ func (s *Store) Delete(envID string) error {
 }
 
 func (s *Store) file(envID string) (string, error) {
+	if s.memory {
+		return envID, nil
+	}
 	wsDir, err := s.workspaceDir()
 	if err != nil {
 		return "", err

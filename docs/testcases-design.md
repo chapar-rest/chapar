@@ -102,8 +102,12 @@ Rules:
   compare those with `text` + `matches` for now.
 - Wildcard and deep paths (`$..id`, `$.items[*]`) return a list, which may
   be empty. Use `length` rather than `exists` on them.
+- String values, and strings inside an `in` list, expand `{{variables}}`:
+  `{ target: body, path: $.data.id, op: eq, value: "{{todoId}}" }`.
 - `chapar.test()` results from the request's own scripts are reported as
   assertions with source `script`.
+- A step with no assertions passes on any response; only a failed send
+  makes it an error.
 
 ### Captures
 
@@ -116,16 +120,24 @@ are stored as JSON, the same way `scripting.EnvText` stores script values.
 Highest wins:
 
 1. `step.with.variables` (this step only, never leaks)
-2. captures from earlier steps
-3. `spec.variables`
-4. run env: a copy of the selected env made at run start
-5. built-ins
+2. run variables: `spec.variables`, overwritten as the run goes by
+   captures and by env changes the requests' own scripts and extract rules
+   make
+3. run env: a copy of the selected env made at run start, keeping its ID
+4. built-ins
 
-Each step gets `stepEnv = runEnv` copy with 1-3 layered on as env values.
-Substitution then goes through the existing path for HTTP, GraphQL and
-gRPC. After the step, changes the request's own post-script or
-set-env/extract rules made to `stepEnv` are merged back into `runEnv`, so
-chains that rely on post-request extraction behave as they do in the app.
+Each send gets a copy of the run env with 1 and 2 layered on as env
+values, so substitution goes through the existing path for HTTP, GraphQL
+and gRPC. Variable values are expanded against the layers below them
+first (`title: "milk for {{env}}"`), because the send substitutes env
+values only one level deep; unknown names such as built-ins are left for
+the send.
+
+After each send, the env changes the request's pre/post script or
+set-env/extract rules made are merged into the run variables, so chains
+that rely on post-request extraction behave as they do in the app. Those
+changes, and only those, are what `persistEnv` writes back: captures and
+case variables stay in the run.
 
 ## Runner
 
@@ -136,20 +148,31 @@ type Sender interface {
     Send(req *domain.Request, env *domain.Environment) (*egress.Response, error)
 }
 
-type Runner struct {
-    send  Sender
-    byID  func(id string) *domain.Request
-    byRef func(ref string) (*domain.Request, error) // errors on ambiguity
+type Config struct {
+    NewSender func() Sender           // one per run; see testrun.NewSender
+    Requests  RequestSource           // RequestByID, AllRequests
+    SaveEnv   func(*domain.Environment) error // for persistEnv
+    Getenv    func(string) string     // default os.Getenv
 }
 
 type Options struct {
-    Env     *domain.Environment // copied, never mutated
+    Env     *domain.Environment // secrets resolved; copied, never mutated
     Only    []string            // step ids: run one step, re-run failed
     OnEvent func(Event)         // StepStarted, StepFinished, RunFinished
 }
 
+func New(cfg Config) *Runner
 func (r *Runner) Run(ctx context.Context, tc *domain.TestCase, o Options) *Run
 ```
+
+`testrun.NewSender(lookup, colls, scripts)` builds a `sender.Service` per
+run with no repository (post-request actions don't save the env) and an
+in-memory cookie store, so every run starts with an empty jar and never
+touches the user's.
+
+Requests resolve by `id`, then by `ref`, where a ref is
+`Collection/Request` or a standalone request's name. More than one match
+is an error asking for `request.id`.
 
 Per step:
 
@@ -158,10 +181,20 @@ Per step:
 3. Build `stepEnv`.
 4. Send with a per-step timeout. On failure, retry after `delay` until
    attempts run out; cancelling the run stops the wait.
-5. Evaluate assertions and script tests: `passed`, `failed` or `error`.
-6. Apply captures to run variables; merge `stepEnv` changes into `runEnv`.
+5. Merge the send's env changes; evaluate assertions and script tests:
+   `passed`, `failed` or `error`.
+6. Apply captures to run variables. A capture that finds nothing fails
+   the step.
 7. On failure without `continueOnFailure`: mark the rest `skipped`, run
    teardown.
+
+A failing setup step skips the steps. Teardown always runs, with a
+context that outlives a cancel.
+
+Send takes no context, so a timeout or cancel stops waiting for the send
+but can't abort it; the abandoned send finishes on its own against its
+own copies of the request and env. Plumbing a context through egress
+would make cancel immediate.
 
 At the end, with `persistEnv`, diff `runEnv` against the original env and
 write it once. Otherwise the copy is dropped.
@@ -178,15 +211,16 @@ type Run struct {
 }
 
 type StepResult struct {
+    Section      string // setup | steps | teardown
     StepID, Name string
-    Status       Status // passed | failed | error | skipped
+    Status       Status // passed | failed | error | skipped | cancelled
     Attempts     int
     Duration     time.Duration
     Request      RequestSummary   // protocol, method, final URL
     Response     *ResponseSummary // status, size, time, body capped at 64 KB
     Assertions   []AssertionResult
     Captures     []CaptureResult
-    Error        string
+    Message      string // why it failed, errored or was skipped
 }
 
 type AssertionResult struct {
@@ -198,8 +232,10 @@ type AssertionResult struct {
 }
 ```
 
-`failed` means an assertion was false. `error` means the step could not run
-(request not found, transport error). Pass rate counts only steps that ran.
+`failed` means an assertion or capture failed. `error` means the step
+could not run: request not found, transport error, timeout, or a
+post-request action that raised. A run is `error` if any step is, else
+`failed` if any step is. Pass rate counts only steps that ran.
 No history in v1; later runs go to `<workspace>/testruns/<caseID>/<ts>.json`,
 keeping the last 20.
 
@@ -212,14 +248,16 @@ The editor shows these inline; the CLI refuses to run a case that has any.
 
 ## Changes outside the runner
 
+Done in phase 2 except the last two.
+
 - Move `ui/sender` to `internal/sender`; it only imports `internal/*` and
   the CLI should not depend on `ui/`.
 - Add `ScriptTests []scripting.TestResult` to `egress.Response`. Send
   collapses failed script tests into a timeline string today.
 - Build a separate sender for runs with `repo=nil, onEnv=nil`, so the
   request's post-request actions don't persist the env.
-- Give runs their own cookie store (in-memory `cookies.Store` or a no-op
-  `Save`), or `saveCookies` writes into the user's jar.
+- Give runs their own cookie store (`cookies.NewMemoryStore`), or
+  `saveCookies` writes into the user's jar.
 - `scriptingOn()` reads `prefs.GetGlobalConfig()`; the CLI loads prefs or
   takes `--scripts`.
 - Add `Load/Create/Update/DeleteTestCase` to `RepositoryV2` and
