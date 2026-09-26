@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
@@ -43,12 +44,13 @@ type Requests struct {
 	cat      RequestsCatalog
 	ws       workspace
 	files    func() *ui.FileDialog
+	dialogs  func() *ui.DialogHost
 	err      func(error)
 	SideOpen bool
 }
 
-func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, errFn func(error)) *Requests {
-	p := &Requests{repo: repo, cat: cat, ws: ws, files: files, err: errFn}
+func NewRequestsPage(repo repository.RepositoryV2, cat RequestsCatalog, ws workspace, files func() *ui.FileDialog, dialogs func() *ui.DialogHost, errFn func(error)) *Requests {
+	p := &Requests{repo: repo, cat: cat, ws: ws, files: files, dialogs: dialogs, err: errFn}
 	p.tree = ui.NewTree(&ui.TreeNode{Label: "root", Data: "root"})
 	p.tree.IconFor = p.iconFor
 	p.tree.OnActivate = p.activate
@@ -321,6 +323,7 @@ func (p *Requests) menu(n *ui.TreeNode) []ui.MenuItem {
 		{Label: "New GraphQL request", OnSelect: func() { p.createRequest(domain.RequestTypeGraphQL, ref) }},
 		{Label: "New collection", OnSelect: p.createCollection},
 		{Label: "Import", OnSelect: p.importFile},
+		{Label: "Import curl", OnSelect: func() { p.importCurl(ref) }},
 	}
 	if ref.Kind == domain.KindCollection {
 		items = append([]ui.MenuItem{{Label: "Open", OnSelect: func() { p.activate(n) }}}, items...)
@@ -505,6 +508,90 @@ func (p *Requests) importFile() {
 	})
 }
 
+func (p *Requests) importMenuItems() []ui.MenuItem {
+	return []ui.MenuItem{
+		{Label: "From file…", OnSelect: p.importFile},
+		{Label: "From curl command…", OnSelect: func() { p.importCurl(NodeRef{}) }},
+	}
+}
+
+// importCurl asks for a curl command and saves it as a new request, inside the
+// collection ref names or its parent collection, if any. A curl command on
+// the clipboard is filled in to start with.
+func (p *Requests) importCurl(ref NodeRef) {
+	if p.dialogs == nil {
+		return
+	}
+	host := p.dialogs()
+	if host == nil {
+		return
+	}
+	ed := ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
+	var clipChecked bool
+	host.Show(ui.DialogOpts{
+		Title:  "Import curl command",
+		Width:  640,
+		Height: 400,
+		Body: func(c *ui.Ctx) ui.View {
+			if !clipChecked {
+				clipChecked = true
+				if clip := c.Clipboard(); clip != nil && importer.IsCurlCommand(clip.Get()) {
+					ed.SetText(strings.TrimSpace(clip.Get()))
+				}
+				ed.Focus()
+			}
+			th := c.Theme()
+			return ui.Column(
+				ui.Muted("Paste a curl command, such as one copied from API docs or a browser's Copy as cURL."),
+				ui.ViewOf(ed).Grow(1),
+			).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+		},
+		OnDismiss: ed.Close,
+		Actions: []ui.DialogAction{
+			{Label: "Cancel", OnClick: ed.Close},
+			{Label: "Import", Primary: true, OnClick: func() {
+				cmd := string(ed.Bytes())
+				ed.Close()
+				p.saveCurl(cmd, ref)
+			}},
+		},
+	})
+}
+
+func (p *Requests) saveCurl(cmd string, ref NodeRef) {
+	req, err := importer.ParseCurl(cmd)
+	if err != nil {
+		p.err(err)
+		return
+	}
+	col := p.collectionFor(ref)
+	if col != nil {
+		req.CollectionID = col.MetaData.ID
+		req.CollectionName = col.MetaData.Name
+	}
+	if err := p.repo.CreateRequest(req, col); err != nil {
+		p.err(err)
+		return
+	}
+	_ = p.cat.Load()
+	p.Rebuild()
+	p.ws.OpenRequest(req)
+}
+
+// collectionFor is the collection ref names, or the one holding the request it
+// names; nil for standalone requests and the empty ref.
+func (p *Requests) collectionFor(ref NodeRef) *domain.Collection {
+	switch ref.Kind {
+	case domain.KindCollection:
+		return p.cat.CollectionByID(ref.ID)
+	case domain.KindRequest:
+		if req := p.cat.RequestByID(ref.ID); req != nil && req.CollectionID != "" {
+			return p.cat.CollectionByID(req.CollectionID)
+		}
+	}
+	return nil
+}
+
 func (p *Requests) Layout(c *ui.Ctx) ui.View {
 	workspace := p.ws.Layout(c)
 	if !p.SideOpen {
@@ -524,7 +611,7 @@ func (p *Requests) side(c *ui.Ctx) ui.View {
 		ui.Strong("Requests").Margin(th.Spacing.S),
 		ui.Row(
 			ui.Spacer(),
-			ui.Button("req-import", ui.Text("Import")).OnClick(p.importFile),
+			ui.MenuButton("req-import", "Import", p.importMenuItems()).OnClick(p.importFile),
 			ui.MenuButton("req-new", "New", p.newMenuItems()).Primary().IconStart(icons.Plus).
 				OnClick(func() { p.createRequest(domain.RequestTypeHTTP, NodeRef{}) }),
 		).Gap(th.Spacing.S).MarginRight(th.Spacing.S),

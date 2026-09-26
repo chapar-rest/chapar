@@ -128,7 +128,7 @@ func BuildApp() *App {
 	}
 
 	files := a.files
-	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.showError)
+	a.requests = pages.NewRequestsPage(repo, a.catalog, a.ws, files, a.dialogs, a.showError)
 	a.envs = pages.NewEnvironmentsPage(repo,
 		func() []*domain.Environment { return a.catalog.Environments },
 		a.catalog.EnvironmentByID,

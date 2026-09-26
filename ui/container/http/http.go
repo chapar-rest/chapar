@@ -69,6 +69,9 @@ type Container struct {
 	cookies  container.CookiesState
 
 	authState container.AuthState
+
+	// rejectedCurl is the last pasted curl command that failed to parse.
+	rejectedCurl string
 }
 
 func Open(req *domain.Request, deps container.Deps) *Container {
@@ -233,8 +236,11 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				Selected(optionIndex(http.Method, methods)).
 				OnChange(func(v string) { http.Method = v; c.markDirty() }),
 			container.AssistURLField(ui.TextField("http-url-"+id, http.URL), c.varSrc).
-				Placeholder("https://…").
+				Placeholder("https://… or paste a curl command").
 				OnChange(func(s string) {
+					if cmd, ok := pastedCurl(ctx.Clipboard(), s); ok && c.applyCurl(cmd) {
+						return
+					}
 					http.URL = s
 					q, p := container.SyncParamsFromURL(s, container.DumpKV(c.pathParams))
 					container.LoadKV(c.queryParams, q)
