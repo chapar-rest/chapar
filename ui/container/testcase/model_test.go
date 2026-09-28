@@ -70,6 +70,7 @@ func TestStepRoundTrip(t *testing.T) {
 		Timeout:           10 * time.Second,
 		Retry:             &domain.TestRetry{Count: 3, Delay: 500 * time.Millisecond},
 		ContinueOnFailure: true,
+		Disabled:          true,
 		Assert: []domain.TestAssertion{
 			{Target: "status", Op: "in", Value: []any{200, 201}},
 			{Target: "header", Key: "content-type", Op: "contains", Value: "json"},
@@ -98,12 +99,19 @@ func TestStepRoundTrip(t *testing.T) {
 func TestStepDumpReportsBadText(t *testing.T) {
 	m := loadStep(domain.TestStep{ID: "a"}, func() {})
 	defer m.close()
-	m.timeout, m.retryCount = "soon", "three"
+	m.timeout, m.retries, m.retryDelay = "soon", 2, "later"
 
 	var problems []testrun.Problem
 	m.dump("steps[0]", &problems)
 	if len(problems) != 2 || problems[0].Where != "steps[0].timeout" || problems[1].Where != "steps[0].retry" {
 		t.Fatalf("problems = %v", problems)
+	}
+
+	// Without retries the interval is ignored, even when it does not parse.
+	m.timeout, m.retries = "", 0
+	problems = nil
+	if s := m.dump("steps[0]", &problems); s.Retry != nil || len(problems) != 0 {
+		t.Fatalf("retry = %+v, problems = %v", s.Retry, problems)
 	}
 }
 

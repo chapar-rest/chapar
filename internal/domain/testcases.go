@@ -83,11 +83,13 @@ type TestStep struct {
 	Request TestRequestRef     `yaml:"request"`
 	With    *TestStepOverrides `yaml:"with,omitempty"`
 	// Timeout overrides the case's default when set.
-	Timeout           time.Duration   `yaml:"timeout,omitempty"`
-	Retry             *TestRetry      `yaml:"retry,omitempty"`
-	ContinueOnFailure bool            `yaml:"continueOnFailure,omitempty"`
-	Assert            []TestAssertion `yaml:"assert,omitempty"`
-	Capture           []TestCapture   `yaml:"capture,omitempty"`
+	Timeout           time.Duration `yaml:"timeout,omitempty"`
+	Retry             *TestRetry    `yaml:"retry,omitempty"`
+	ContinueOnFailure bool          `yaml:"continueOnFailure,omitempty"`
+	// Disabled steps are skipped, without failing the run.
+	Disabled bool            `yaml:"disabled,omitempty"`
+	Assert   []TestAssertion `yaml:"assert,omitempty"`
+	Capture  []TestCapture   `yaml:"capture,omitempty"`
 }
 
 // TestRequestRef points at the request a step sends. ID is looked up

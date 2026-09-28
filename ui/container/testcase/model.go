@@ -26,9 +26,13 @@ type stepModel struct {
 	id, name          string
 	request           domain.TestRequestRef
 	timeout           string
-	retryCount        string
+	retries           int
 	retryDelay        string
 	continueOnFailure bool
+	disabled          bool
+
+	// execOpen shows the Execution settings.
+	execOpen bool
 
 	asserts  []*assertModel
 	captures []*captureModel
@@ -66,9 +70,10 @@ func loadStep(s domain.TestStep, markDirty func()) *stepModel {
 		request:           s.Request,
 		timeout:           durationText(s.Timeout),
 		continueOnFailure: s.ContinueOnFailure,
+		disabled:          s.Disabled,
 	}
 	if s.Retry != nil {
-		m.retryCount = strconv.Itoa(s.Retry.Count)
+		m.retries = s.Retry.Count
 		m.retryDelay = durationText(s.Retry.Delay)
 	}
 	for _, a := range s.Assert {
@@ -122,15 +127,12 @@ func (m *stepModel) dump(where string, problems *[]testrun.Problem) domain.TestS
 		Name:              strings.TrimSpace(m.name),
 		Request:           m.request,
 		ContinueOnFailure: m.continueOnFailure,
+		Disabled:          m.disabled,
 	}
 	s.Timeout = parseDuration(m.timeout, where+".timeout", problems)
-	count, delay := strings.TrimSpace(m.retryCount), strings.TrimSpace(m.retryDelay)
-	if count != "" || delay != "" {
-		n, err := strconv.Atoi(count)
-		if count != "" && err != nil {
-			*problems = append(*problems, testrun.Problem{Where: where + ".retry", Message: fmt.Sprintf("retries %q is not a whole number", count)})
-		}
-		s.Retry = &domain.TestRetry{Count: n, Delay: parseDuration(delay, where+".retry", problems)}
+	// The interval is hidden, and means nothing, without retries.
+	if m.retries > 0 {
+		s.Retry = &domain.TestRetry{Count: m.retries, Delay: parseDuration(m.retryDelay, where+".retry", problems)}
 	}
 
 	for _, a := range m.asserts {

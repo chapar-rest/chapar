@@ -339,10 +339,22 @@ they open in the shared tab strip like requests. The editor has four tabs:
 - Settings: description, default timeout, continue on failure, save
   environment changes, tags.
 
-A step card narrower than 700px folds its move, duplicate and delete
-buttons into a ⋯ menu, and stacks each assertion and capture on two lines.
-The card learns its width after layout, so the switch shows a frame later.
-`type is` picks the JSON type from a list.
+A step card (at most 760px wide) has a header with the collapse toggle,
+the last run's status, an editable name, the request, Run (this step, with
+setup and teardown) and a ⋯ menu: move up and down, duplicate,
+disable/enable, delete. Its body has Assertions and Captures, each with a
+count, Add, and an empty-state note, then two folded sections with a
+summary badge: Execution (step ID, timeout, retries, retry interval shown
+only with retries, continue on failure) and Request overrides.
+
+Below 620px, Run becomes an icon, long names end in "…", and each
+assertion and capture takes two lines. The card learns its width after
+layout, so the switch shows a frame later. `type is` picks the JSON type
+from a list. Assertion values complete and color {{variables}}: the
+environment's, the case's and what the steps capture.
+
+A disabled step (`disabled: true`) is reported as skipped and does not
+stop the run.
 - YAML: the whole case as text. Leaving the tab parses it; an error keeps
   the tab open and shows it.
 

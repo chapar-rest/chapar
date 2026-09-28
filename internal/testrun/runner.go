@@ -108,7 +108,7 @@ func (r *Runner) Run(ctx context.Context, tc *domain.TestCase, o Options) *Run {
 	stop := ""
 	for _, s := range tc.Spec.Setup {
 		stop = x.step(ctx, SectionSetup, s, stop)
-		if stop == "" && x.last().Status != StatusPassed {
+		if stop == "" && failed(x.last()) {
 			stop = "setup step " + s.ID + " did not pass"
 		}
 	}
@@ -118,7 +118,7 @@ func (r *Runner) Run(ctx context.Context, tc *domain.TestCase, o Options) *Run {
 			continue
 		}
 		stop = x.step(ctx, SectionSteps, s, stop)
-		if stop == "" && x.last().Status != StatusPassed &&
+		if stop == "" && failed(x.last()) &&
 			!s.ContinueOnFailure && !tc.Spec.Options.ContinueOnFailure {
 			stop = "step " + s.ID + " did not pass"
 		}
@@ -143,6 +143,12 @@ func (r *Runner) Run(ctx context.Context, tc *domain.TestCase, o Options) *Run {
 		o.OnEvent(Event{Kind: EventRunFinished, Run: run})
 	}
 	return run
+}
+
+// failed reports whether a step that ran stops the run: anything but a
+// pass, or a skip of a disabled step.
+func failed(s *StepResult) bool {
+	return s.Status != StatusPassed && s.Status != StatusSkipped
 }
 
 func runStatus(ctx context.Context, run *Run) Status {
@@ -197,6 +203,10 @@ func (x *execution) step(ctx context.Context, section string, s domain.TestStep,
 	if stop != "" {
 		x.skip(section, s, stop)
 		return stop
+	}
+	if s.Disabled {
+		x.skip(section, s, "disabled")
+		return ""
 	}
 	if ctx.Err() != nil {
 		x.skip(section, s, "run cancelled")

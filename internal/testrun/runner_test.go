@@ -487,3 +487,20 @@ func TestRunCaptureFailure(t *testing.T) {
 		t.Fatalf("step = %s %q", got.Status, got.Message)
 	}
 }
+
+func TestRunSkipsDisabledSteps(t *testing.T) {
+	srv := newTodoServer(t)
+	tc := domain.NewTestCase("disabled")
+	tc.Spec.Setup = []domain.TestStep{{ID: "off-setup", Request: domain.TestRequestRef{ID: "missing"}, Disabled: true}}
+	off := step("flaky", "flaky", statusIs(200))
+	off.Disabled = true
+	tc.Spec.Steps = []domain.TestStep{off, step("create", "create", statusIs(201))}
+
+	run := newRunner(todoRequests(), nil).Run(context.Background(), tc, Options{Env: testEnv(srv.URL)})
+	if got := statuses(run); got != "off-setup:skipped flaky:skipped create:passed" || run.Status != StatusPassed {
+		t.Fatalf("statuses = %s, run %s", got, run.Status)
+	}
+	if run.Steps[1].Message != "disabled" {
+		t.Errorf("message = %q", run.Steps[1].Message)
+	}
+}
