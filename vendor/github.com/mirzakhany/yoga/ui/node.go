@@ -78,6 +78,9 @@ type Node struct {
 	text         string
 	spec         Spec
 	onClick      func()
+	// menuItems, when hasMenu is set, make an IconButton open a menu.
+	menuItems []MenuItem
+	hasMenu   bool
 	onChange     func(string)
 	onSubmit     func(string)
 	onToggle     func(bool)
