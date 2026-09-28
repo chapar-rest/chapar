@@ -264,13 +264,36 @@ Done in phases 2 and 3.
   `FilesystemV2`. An import without an id, or with one that already
   exists, gets a new id.
 
+## Bundles
+
+Export (in the editor's title row, or the sidebar menu) writes a
+`kind: TestBundle` file: the test case, the requests its steps send and
+the ones their pre-request actions trigger, the collections those belong
+to (headers and auth only, with just those requests), and optionally an
+environment. Secret values are left out unless the user opts in; the keys
+left out are listed in `secretsLeftOut`, and the CLI warns about any not
+given at run time. A file with secrets is written 0600.
+
+Proto files are not bundled: a gRPC step needs server reflection.
+
 ## CLI
 
 ```
 chapar test [--workspace W] [--env E] [--tag T] [--bail] [--scripts]
+            [--env-file F] [--os-env PREFIX] [--var k=v ...]
             [--report junit=out.xml] [--report json=out.json] [--no-color]
-            [case|file|folder ...]
+            [case|file|folder ... | bundle.yaml ...]
 ```
+
+Bundle files run without a workspace and cannot be mixed with workspace
+cases. The bundle's environment is used unless --env picks another.
+
+Environment values can be set over the chosen environment, in order:
+`--env-file` (a chapar environment file or KEY=VALUE lines), `--os-env
+PREFIX` (OS variables with the prefix, prefix removed), then `--var`. With
+no environment chosen they form one of their own. persistEnv writes back
+only what the requests changed, never these values; it needs a workspace
+environment.
 
 Package `internal/testcli`, dispatched from `main.go` before the GUI
 starts. Flags may come before or after the arguments.
@@ -315,6 +338,11 @@ they open in the shared tab strip like requests. The editor has four tabs:
 - Variables: name, value, or an OS variable to read.
 - Settings: description, default timeout, continue on failure, save
   environment changes, tags.
+
+A step card narrower than 700px folds its move, duplicate and delete
+buttons into a ⋯ menu, and stacks each assertion and capture on two lines.
+The card learns its width after layout, so the switch shows a frame later.
+`type is` picks the JSON type from a list.
 - YAML: the whole case as text. Leaving the tab parses it; an error keeps
   the tab open and shows it.
 
@@ -326,7 +354,9 @@ Problems from validation, and text that does not parse (a timeout of
 
 Run (⌘Enter) uses the active environment. Results stream into the lower
 pane: a summary with Re-run failed, one row per step, and the selected
-step's assertions, captures and pretty-printed response body. Step cards
+step in three tabs: Checks (assertions and captures), Body (the
+pretty-printed response, in its own editor, not inside a scroll view) and
+Headers. Step cards
 show the last run's status.
 
 ## Phases

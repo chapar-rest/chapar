@@ -76,7 +76,12 @@ func loadStep(s domain.TestStep, markDirty func()) *stepModel {
 		if usesPath(a.Target) {
 			sel = a.Path
 		}
-		m.asserts = append(m.asserts, &assertModel{key: newKey(), target: a.Target, sel: sel, op: a.Op, value: valueText(a.Value)})
+		value := valueText(a.Value)
+		if a.Op == domain.TestOpType {
+			// A type name is plain text: "null" is the name, not null.
+			value = fmt.Sprint(a.Value)
+		}
+		m.asserts = append(m.asserts, &assertModel{key: newKey(), target: a.Target, sel: sel, op: a.Op, value: value})
 	}
 	for _, c := range s.Capture {
 		sel := c.Key
@@ -135,8 +140,11 @@ func (m *stepModel) dump(where string, problems *[]testrun.Problem) domain.TestS
 		} else if usesKey(a.target) {
 			ta.Key = strings.TrimSpace(a.sel)
 		}
-		if a.op == domain.TestOpExists || a.op == domain.TestOpNotExists {
+		switch a.op {
+		case domain.TestOpExists, domain.TestOpNotExists:
 			ta.Value = nil
+		case domain.TestOpType:
+			ta.Value = strings.TrimSpace(a.value)
 		}
 		s.Assert = append(s.Assert, ta)
 	}

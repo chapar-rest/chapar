@@ -49,6 +49,7 @@ type Container struct {
 
 	tab      int
 	editTabs []ui.TabModel
+	cardW    float32 // width of the step cards in the last layout
 	yamlEd   *ui.Editor
 	yamlBase string
 	yamlErr  string
@@ -68,6 +69,10 @@ type Container struct {
 	selected int                            // index into run.Steps
 	respEd   *ui.Editor
 	respFor  string // the step result respEd shows
+	runSeq   int    // counts runs, so a new run's bodies replace the old
+	// detailTab is the Checks, Body or Headers tab of the selected step.
+	detailTab  int
+	detailTabs []ui.TabModel
 }
 
 func Open(tc *domain.TestCase, deps container.Deps) *Container {
@@ -77,8 +82,9 @@ func Open(tc *domain.TestCase, deps container.Deps) *Container {
 		editTabs: []ui.TabModel{
 			{Title: "Steps"}, {Title: "Variables"}, {Title: "Settings"}, {Title: "YAML"},
 		},
-		results:  map[string]*testrun.StepResult{},
-		selected: -1,
+		results:    map[string]*testrun.StepResult{},
+		selected:   -1,
+		detailTabs: []ui.TabModel{{Title: "Checks"}, {Title: "Body"}, {Title: "Headers"}},
 	}
 	c.vars = c.newVarsTable()
 	c.load(copyCase(tc))
@@ -316,6 +322,7 @@ func (c *Container) start(only []string) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c.running, c.cancel = true, cancel
+	c.runSeq++
 	c.run = &testrun.Run{CaseName: tc.GetName(), Status: testrun.StatusRunning, Started: time.Now()}
 	if env != nil {
 		c.run.EnvName = env.GetName()
@@ -500,6 +507,7 @@ func (c *Container) titleRow(th *theme.Theme) ui.View {
 			Grow(1),
 		ui.Row(
 			ui.Caption("Env: "+envName),
+			ui.IconButton("tc-export-"+id, icons.FileDown).Tooltip("Export to run with chapar test").OnClick(c.Export),
 			ui.Button("tc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Hint("⌘S").
 				Disabled(!c.Dirty()).
 				OnClick(func() {

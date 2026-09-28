@@ -75,6 +75,7 @@ func TestStepRoundTrip(t *testing.T) {
 			{Target: "header", Key: "content-type", Op: "contains", Value: "json"},
 			{Target: "body", Path: "$.data.id", Op: "exists"},
 			{Target: "body", Path: "$.data.done", Op: "eq", Value: false},
+			{Target: "body", Path: "$.data.note", Op: "type", Value: "null"},
 		},
 		Capture: []domain.TestCapture{
 			{Var: "id", From: "body", Path: "$.data.id"},

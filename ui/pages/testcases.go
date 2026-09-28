@@ -28,6 +28,8 @@ type TestsDeps struct {
 	Error func(error)
 	// Run runs a test case from the sidebar; nil hides Run.
 	Run func(*domain.TestCase)
+	// Export exports a test case from the sidebar; nil hides Export.
+	Export func(*domain.TestCase)
 }
 
 type TestCases struct {
@@ -88,6 +90,14 @@ func (p *TestCases) menu(n *ui.TreeNode) []ui.MenuItem {
 				p.d.Run(tc)
 			}
 		}}, ui.MenuSeparator}, items...)
+	}
+	if p.d.Export != nil {
+		items = append(items, ui.MenuItem{Label: "Export", OnSelect: func() {
+			if tc := p.d.Get(ref.ID); tc != nil {
+				p.d.WS.OpenTestCase(tc)
+				p.d.Export(tc)
+			}
+		}})
 	}
 	return append(items,
 		ui.MenuItem{Label: "Duplicate", OnSelect: func() { p.duplicate(ref.ID) }},
@@ -182,7 +192,12 @@ func (p *TestCases) side(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	var list ui.View = ui.ViewOf(p.tree).Grow(1)
 	if len(p.d.List()) == 0 {
-		list = ui.EmptyState("No test cases", "A test case sends your requests in order and checks their responses.").Grow(1)
+		// EmptyState does not wrap, and the sidebar is narrow.
+		list = ui.Column(
+			ui.Strong("No test cases"),
+			ui.Paragraph("A test case sends your requests in order and checks their responses.").
+				Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+		).Gap(th.Spacing.XS).Padding(th.Spacing.M).Grow(1)
 	}
 	return ui.Column(
 		ui.Strong("Test cases").Margin(th.Spacing.S),

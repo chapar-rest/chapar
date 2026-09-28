@@ -159,6 +159,11 @@ func BuildApp() *App {
 		Files: files,
 		Error: a.showError,
 		Run:   func(*domain.TestCase) { a.ws.SendActive() },
+		Export: func(*domain.TestCase) {
+			if ex, ok := a.ws.Active().(interface{ Export() }); ok {
+				ex.Export()
+			}
+		},
 	})
 	a.spaces = pages.NewWorkspacesPage(pages.WorkspacesDeps{
 		Repo:     repo,

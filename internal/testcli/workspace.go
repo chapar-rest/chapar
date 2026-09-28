@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
@@ -29,6 +31,72 @@ type workspace struct {
 	// locked holds the secret values environment left out, by env ID, so
 	// saving the env writes them back untouched.
 	locked map[string][]domain.KeyValue
+
+	// bundle is set when the cases come from bundle files, not a
+	// workspace; there is then no repository to save to.
+	bundle         bool
+	secretsLeftOut []string
+}
+
+// readBundle reads path when it is a test bundle file; ok is false for
+// any other file.
+func readBundle(path string) (b *domain.TestBundle, ok bool, err error) {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return nil, false, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false, err
+	}
+	var head struct {
+		Kind string `yaml:"kind"`
+	}
+	if yaml.Unmarshal(data, &head) != nil || head.Kind != domain.KindTestBundle {
+		return nil, false, nil
+	}
+	b = &domain.TestBundle{}
+	if err := yaml.Unmarshal(data, b); err != nil {
+		return nil, false, fmt.Errorf("%s: %w", path, err)
+	}
+	return b, true, nil
+}
+
+// loadBundles returns the bundles args name. A bundle runs on its own, so
+// args are either all bundles or none.
+func loadBundles(args []string) ([]*domain.TestBundle, error) {
+	var bundles []*domain.TestBundle
+	for _, arg := range args {
+		b, ok, err := readBundle(arg)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			bundles = append(bundles, b)
+		}
+	}
+	if len(bundles) > 0 && len(bundles) < len(args) {
+		return nil, errors.New("bundle files run on their own; give them without workspace test cases")
+	}
+	return bundles, nil
+}
+
+// openBundles builds a workspace from bundle files.
+func openBundles(bundles []*domain.TestBundle, warn func(format string, args ...any)) *workspace {
+	ws := &workspace{warn: warn, bundle: true, locked: map[string][]domain.KeyValue{}}
+	var reqs []*domain.Request
+	var colls []*domain.Collection
+	for _, b := range bundles {
+		reqs = append(reqs, b.Spec.Requests...)
+		colls = append(colls, b.Spec.Collections...)
+		ws.cases = append(ws.cases, b.Spec.TestCases...)
+		if b.Spec.Environment != nil {
+			ws.envs = append(ws.envs, b.Spec.Environment)
+		}
+		ws.secretsLeftOut = append(ws.secretsLeftOut, b.Spec.SecretsLeftOut...)
+	}
+	ws.index = newIndex(reqs, colls)
+	return ws
 }
 
 // locate finds the workspace folder: arg can be a directory, or the name
@@ -110,7 +178,7 @@ func (ws *workspace) skipped(err error) error {
 // in the warning.
 func (ws *workspace) environment(arg string) (env *domain.Environment, warning string, err error) {
 	env, err = findEnv(ws.envs, arg)
-	if err != nil || !hasLocked(env) {
+	if err != nil || !hasLocked(env) || ws.repo == nil {
 		return env, "", err
 	}
 

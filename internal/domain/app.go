@@ -11,6 +11,7 @@ const (
 	KindPreferences = "Preferences"
 	KindCollection  = "Collection"
 	KindTestCase    = "TestCase"
+	KindTestBundle  = "TestBundle"
 )
 
 type MetaData struct {

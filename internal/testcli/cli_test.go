@@ -12,9 +12,12 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/secret"
+	"github.com/chapar-rest/chapar/internal/testrun"
 )
 
 func TestMain(m *testing.M) {
@@ -303,5 +306,106 @@ func TestPersistEnvKeepsLockedSecrets(t *testing.T) {
 	}
 	if strings.Contains(env, "todoId") {
 		t.Errorf("a capture was saved to the env:\n%s", env)
+	}
+}
+
+// exportBundle writes the workspace's smoke case as a bundle, with the dev
+// environment, and returns its path.
+func exportBundle(t *testing.T, ws string) string {
+	t.Helper()
+	w, err := openWorkspace(ws, func(string, ...any) {})
+	must(t, err)
+	cases, err := w.selectCases([]string{"smoke"}, nil)
+	must(t, err)
+	env, err := findEnv(w.envs, "dev")
+	must(t, err)
+	b, err := testrun.Bundle("smoke", cases, w.index, w.index.CollectionByID, testrun.BundleOptions{Env: env})
+	must(t, err)
+	out, err := yaml.Marshal(b)
+	must(t, err)
+	path := filepath.Join(t.TempDir(), "smoke.chapar-test.yaml")
+	must(t, os.WriteFile(path, out, 0o644))
+	return path
+}
+
+func TestBundleRunsWithoutWorkspace(t *testing.T) {
+	bundle := exportBundle(t, newWorkspace(t))
+	code, out, errOut := runCLI(bundle)
+	if code != ExitPassed || !strings.Contains(out, "smoke · env dev") {
+		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
+	}
+	// apiKey was a secret, so the bundle left it out and says so.
+	if !strings.Contains(errOut, "secret value apiKey was left out of the bundle") {
+		t.Errorf("stderr lacks the secret warning:\n%s", errOut)
+	}
+	if code, _, errOut := runCLI("--var", "apiKey=x", bundle); code != ExitPassed || strings.Contains(errOut, "apiKey") {
+		t.Errorf("--var did not satisfy the secret (exit %d):\n%s", code, errOut)
+	}
+}
+
+func TestBundleUsageErrors(t *testing.T) {
+	ws := newWorkspace(t)
+	bundle := exportBundle(t, ws)
+	if code, _, errOut := runCLI("--workspace", ws, bundle); code != ExitUsage || !strings.Contains(errOut, "--workspace does not apply") {
+		t.Errorf("exit %d:\n%s", code, errOut)
+	}
+	if code, _, errOut := runCLI(bundle, "smoke"); code != ExitUsage || !strings.Contains(errOut, "run on their own") {
+		t.Errorf("exit %d:\n%s", code, errOut)
+	}
+}
+
+func TestEnvOverrides(t *testing.T) {
+	ws := newWorkspace(t)
+	bundle := exportBundle(t, ws)
+	broken := filepath.Join(t.TempDir(), "broken.env")
+	must(t, os.WriteFile(broken, []byte("# point the tests nowhere\nexport base=\"http://127.0.0.1:1\"\n"), 0o644))
+
+	// Pointing base at a closed port makes the run fail: the file won.
+	if code, out, _ := runCLI("--env-file", broken, bundle); code != ExitFailed {
+		t.Fatalf("--env-file was not applied (exit %d):\n%s", code, out)
+	}
+	// --var is applied last, so it wins over the file.
+	b, err := os.ReadFile(bundle)
+	must(t, err)
+	var parsed domain.TestBundle
+	must(t, yaml.Unmarshal(b, &parsed))
+	good := ""
+	for _, kv := range parsed.Spec.Environment.Spec.Values {
+		if kv.Key == "base" {
+			good = kv.Value
+		}
+	}
+	if code, out, _ := runCLI("--env-file", broken, "--var", "base="+good, bundle); code != ExitPassed {
+		t.Fatalf("--var did not win over --env-file (exit %d):\n%s", code, out)
+	}
+	t.Setenv("CITEST_base", good)
+	if code, out, _ := runCLI("--env-file", broken, "--os-env", "CITEST_", bundle); code != ExitPassed {
+		t.Fatalf("--os-env did not win over --env-file (exit %d):\n%s", code, out)
+	}
+	if code, _, errOut := runCLI("--var", "nokey", bundle); code != ExitUsage || !strings.Contains(errOut, "want key=value") {
+		t.Errorf("bad --var: exit %d:\n%s", code, errOut)
+	}
+}
+
+func TestPersistEnvSkipsOverrides(t *testing.T) {
+	ws := newWorkspace(t)
+	repo, err := repository.NewFilesystemV2(filepath.Dir(ws), filepath.Base(ws))
+	must(t, err)
+	cases, err := repo.LoadTestCases()
+	must(t, err)
+	for _, tc := range cases {
+		if tc.GetName() == "smoke" {
+			tc.Spec.Options.PersistEnv = true
+			must(t, repo.UpdateTestCase(tc))
+		}
+	}
+
+	if code, out, errOut := runCLI("--workspace", ws, "--env", "dev", "--var", "ciOnly=from-ci", "smoke"); code != ExitPassed {
+		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
+	}
+	b, err := os.ReadFile(filepath.Join(ws, "envs", "dev.yaml"))
+	must(t, err)
+	if env := string(b); !strings.Contains(env, "tok-1") || strings.Contains(env, "from-ci") {
+		t.Errorf("saved env should hold the request's change and not the --var:\n%s", env)
 	}
 }

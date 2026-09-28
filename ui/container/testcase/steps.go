@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mirzakhany/yoga/icons"
+	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
@@ -39,6 +40,16 @@ var captureOptions = []ui.SelectOption{
 	{Label: "Body text", Value: domain.TestTargetText},
 	{Label: "gRPC metadata", Value: domain.TestTargetMetadata},
 	{Label: "gRPC trailer", Value: domain.TestTargetTrailer},
+}
+
+// typeOptions are the JSON types the "type is" operator checks.
+var typeOptions = []ui.SelectOption{
+	{Label: "string", Value: "string"},
+	{Label: "number", Value: "number"},
+	{Label: "boolean", Value: "boolean"},
+	{Label: "null", Value: "null"},
+	{Label: "array", Value: "array"},
+	{Label: "object", Value: "object"},
 }
 
 var opOptions = []ui.SelectOption{
@@ -153,7 +164,7 @@ func (c *Container) stepsTab(ctx *ui.Ctx, th *theme.Theme) ui.View {
 
 	steps := c.sections[c.section]
 	if len(steps) == 0 {
-		return ui.Column(header, ui.EmptyState(emptyTitle(c.section), emptyDetail(c.section)).Grow(1)).Grow(1)
+		return ui.Column(header, emptyView(th, emptyTitle(c.section), emptyDetail(c.section))).Grow(1)
 	}
 	cards := make([]ui.View, 0, len(steps))
 	for i, m := range steps {
@@ -165,6 +176,24 @@ func (c *Container) stepsTab(ctx *ui.Ctx, th *theme.Theme) ui.View {
 			ui.Column(cards...).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.S),
 		).Grow(1),
 	).Grow(1)
+}
+
+// emptyView is a centered title and a description that wraps, so it fits
+// a narrow pane; ui.EmptyState keeps its text on one line.
+func emptyView(th *theme.Theme, title, detail string) ui.View {
+	rows := []ui.View{}
+	if title != "" {
+		rows = append(rows, ui.Paragraph(title).TextAlign(ui.AlignCenter).Weight(600))
+	}
+	rows = append(rows, ui.Paragraph(detail).TextAlign(ui.AlignCenter).
+		Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)))
+	// The column stretches, so the paragraphs get a width to wrap at; they
+	// center their lines themselves.
+	return ui.Column(
+		ui.Spacer(),
+		ui.Column(rows...).Gap(th.Spacing.S),
+		ui.Spacer(),
+	).Padding(th.Spacing.XL).Grow(1)
 }
 
 func emptyTitle(section string) string {
@@ -284,14 +313,37 @@ func (c *Container) stepCard(ctx *ui.Ctx, th *theme.Theme, i int, m *stepModel) 
 	opts, byID := c.requestOptions()
 	opts, sel := c.selectedRequest(m, opts)
 
-	header := ui.Row(
+	compact := c.compact()
+	reqWidth := float32(260)
+	if compact {
+		reqWidth = 200
+	}
+	actions := []ui.View{
+		ui.IconButton("tc-run-step-"+k, icons.Play).Tooltip("Run this step (with setup and teardown)").
+			Disabled(c.running || c.section != testrun.SectionSteps || c.deps.Tests == nil).
+			OnClick(func() { c.start([]string{m.id}) }),
+	}
+	if compact {
+		actions = append(actions, c.stepMenu(i, n, m))
+	} else {
+		actions = append(actions,
+			ui.IconButton("tc-up-"+k, icons.ArrowUp).Tooltip("Move up").Disabled(i == 0).
+				OnClick(func() { c.moveStep(i, -1) }),
+			ui.IconButton("tc-down-"+k, icons.ArrowDown).Tooltip("Move down").Disabled(i == n-1).
+				OnClick(func() { c.moveStep(i, 1) }),
+			ui.IconButton("tc-dup-"+k, icons.Copy).Tooltip("Duplicate").OnClick(func() { c.duplicateStep(i) }),
+			ui.IconButton("tc-del-"+k, icons.Trash2).Tooltip("Delete").OnClick(func() { c.removeStep(i) }),
+		)
+	}
+
+	header := ui.Row(append([]ui.View{
 		ui.IconButton("tc-open-"+k, chevron).OnClick(func() { m.open = !m.open }),
 		c.statusIcon(th, m),
 		ui.TextField("tc-name-"+k, m.name).
 			Placeholder("Step name").
 			OnChange(func(s string) { m.name = s; c.markDirty() }).
 			Grow(1),
-		ui.Select("tc-req-"+k, opts).Width(260).Selected(sel).OnChange(func(v string) {
+		ui.Select("tc-req-"+k, opts).Width(reqWidth).Selected(sel).OnChange(func(v string) {
 			if r := byID[v]; r != nil {
 				m.request = domain.TestRequestRef{ID: r.MetaData.ID, Ref: testrun.RefOf(r)}
 				// A step still named by default takes its request's name.
@@ -303,25 +355,65 @@ func (c *Container) stepCard(ctx *ui.Ctx, th *theme.Theme, i int, m *stepModel) 
 				c.markDirty()
 			}
 		}),
-		ui.IconButton("tc-run-step-"+k, icons.Play).Tooltip("Run this step (with setup and teardown)").
-			Disabled(c.running || c.section != testrun.SectionSteps || c.deps.Tests == nil).
-			OnClick(func() { c.start([]string{m.id}) }),
-		ui.IconButton("tc-up-"+k, icons.ArrowUp).Tooltip("Move up").Disabled(i == 0).
-			OnClick(func() { c.moveStep(i, -1) }),
-		ui.IconButton("tc-down-"+k, icons.ArrowDown).Tooltip("Move down").Disabled(i == n-1).
-			OnClick(func() { c.moveStep(i, 1) }),
-		ui.IconButton("tc-dup-"+k, icons.Copy).Tooltip("Duplicate").OnClick(func() { c.duplicateStep(i) }),
-		ui.IconButton("tc-del-"+k, icons.Trash2).Tooltip("Delete").OnClick(func() { c.removeStep(i) }),
-	).Gap(th.Spacing.XS).Align(ui.AlignCenter)
+	}, actions...)...).Gap(th.Spacing.XS).Align(ui.AlignCenter)
 
 	rows := []ui.View{header}
 	if m.open {
 		rows = append(rows, c.stepBody(ctx, th, m))
 	}
-	return ui.Column(rows...).Gap(th.Spacing.S).
+	card := ui.Column(rows...).Gap(th.Spacing.S).
 		Padding(th.Spacing.S).
 		Border(ui.TokenBorder, th.Stroke.Thin).
-		Radius(th.Radius.Medium)
+		Radius(th.Radius.Medium).
+		Layout(ctx)
+	if i == 0 {
+		c.measure(card)
+	}
+	return ui.Raw(card)
+}
+
+// compactCardWidth is the card width below which the header folds its
+// move, duplicate and delete buttons into a menu.
+const compactCardWidth = 700
+
+func (c *Container) compact() bool { return c.cardW > 0 && c.cardW < compactCardWidth }
+
+// stacked lays out one assertion or capture on two lines, framed so the
+// lines read as one entry.
+func stacked(th *theme.Theme, lines ...ui.View) ui.View {
+	return ui.Column(lines...).Gap(th.Spacing.XS).
+		Padding(th.Spacing.XS).
+		Border(ui.TokenBorder, th.Stroke.Thin).
+		Radius(th.Radius.Small)
+}
+
+// measure keeps the width the step cards were laid out at. Layout only
+// knows it after the views are built, so a change shows on the next frame.
+func (c *Container) measure(el *layout.Element) {
+	prev := el.AfterLayout
+	el.AfterLayout = func(e *layout.Element) bool {
+		// Frame is filled only after this hook; the solved size is known.
+		w, _ := e.LayoutSize()
+		if (w < compactCardWidth) != (c.cardW < compactCardWidth) || c.cardW == 0 {
+			c.deps.WakeNow()
+		}
+		c.cardW = w
+		if prev != nil {
+			return prev(e)
+		}
+		return false
+	}
+}
+
+// stepMenu holds the header buttons that do not fit a narrow card.
+func (c *Container) stepMenu(i, n int, m *stepModel) ui.View {
+	return ui.IconButton("tc-more-"+m.key, icons.Ellipsis).Menu([]ui.MenuItem{
+		{Label: "Move up", Disabled: i == 0, OnSelect: func() { c.moveStep(i, -1) }},
+		{Label: "Move down", Disabled: i == n-1, OnSelect: func() { c.moveStep(i, 1) }},
+		{Label: "Duplicate", OnSelect: func() { c.duplicateStep(i) }},
+		ui.MenuSeparator,
+		{Label: "Delete", OnSelect: func() { c.removeStep(i) }},
+	})
 }
 
 // statusIcon shows how the step did in the last run.
@@ -406,20 +498,32 @@ func (c *Container) assertRow(th *theme.Theme, m *stepModel, i int, a *assertMod
 			OnChange(func(s string) { a.sel = s; c.markDirty() })
 	}
 	noValue := a.op == domain.TestOpExists || a.op == domain.TestOpNotExists
-	return ui.Row(
-		ui.Select("tc-a-target-"+k, targetOptions).Width(160).Selected(optionIndex(a.target, targetOptions)).
-			OnChange(func(v string) { a.target = v; c.markDirty() }),
-		sel,
-		ui.Select("tc-a-op-"+k, opOptions).Width(120).Selected(optionIndex(a.op, opOptions)).
-			OnChange(func(v string) { a.op = v; c.markDirty() }),
-		ui.TextField("tc-a-val-"+k, a.value).Placeholder(valueHint(a.op)).Disabled(noValue).
-			OnChange(func(s string) { a.value = s; c.markDirty() }).
-			Grow(1),
-		ui.IconButton("tc-a-del-"+k, icons.X).Tooltip("Remove").OnClick(func() {
-			m.asserts = append(m.asserts[:i:i], m.asserts[i+1:]...)
-			c.markDirty()
-		}),
-	).Gap(th.Spacing.XS).Align(ui.AlignCenter)
+	value := ui.View(ui.TextField("tc-a-val-"+k, a.value).Placeholder(valueHint(a.op)).Disabled(noValue).
+		OnChange(func(s string) { a.value = s; c.markDirty() }).
+		Grow(1))
+	if a.op == domain.TestOpType {
+		if optionIndex(a.value, typeOptions) == 0 && a.value != typeOptions[0].Value {
+			a.value = typeOptions[0].Value
+		}
+		value = ui.Select("tc-a-type-"+k, typeOptions).Selected(optionIndex(a.value, typeOptions)).
+			OnChange(func(v string) { a.value = v; c.markDirty() }).
+			Grow(1)
+	}
+	target := ui.Select("tc-a-target-"+k, targetOptions).Width(160).Selected(optionIndex(a.target, targetOptions)).
+		OnChange(func(v string) { a.target = v; c.markDirty() })
+	op := ui.Select("tc-a-op-"+k, opOptions).Width(120).Selected(optionIndex(a.op, opOptions)).
+		OnChange(func(v string) { a.op = v; c.markDirty() })
+	remove := ui.IconButton("tc-a-del-"+k, icons.X).Tooltip("Remove").OnClick(func() {
+		m.asserts = append(m.asserts[:i:i], m.asserts[i+1:]...)
+		c.markDirty()
+	})
+	if c.compact() {
+		return stacked(th,
+			ui.Row(target, ui.ViewOf(sel).Grow(1)).Gap(th.Spacing.XS).Align(ui.AlignCenter),
+			ui.Row(op, value, remove).Gap(th.Spacing.XS).Align(ui.AlignCenter),
+		)
+	}
+	return ui.Row(target, sel, op, value, remove).Gap(th.Spacing.XS).Align(ui.AlignCenter)
 }
 
 func valueHint(op string) string {
@@ -456,19 +560,23 @@ func (c *Container) captureRows(th *theme.Theme, m *stepModel) ui.View {
 			sel = ui.TextField("tc-c-sel-"+ck, cp.sel).Placeholder("Name").Width(180).
 				OnChange(func(s string) { cp.sel = s; c.markDirty() })
 		}
-		rows = append(rows, ui.Row(
-			ui.TextField("tc-c-var-"+ck, cp.v).Placeholder("variable").Width(150).
-				OnChange(func(s string) { cp.v = s; c.markDirty() }),
-			ui.Caption("from"),
-			ui.Select("tc-c-from-"+ck, captureOptions).Width(150).Selected(optionIndex(cp.from, captureOptions)).
-				OnChange(func(v string) { cp.from = v; c.markDirty() }),
-			sel,
-			ui.Spacer(),
-			ui.IconButton("tc-c-del-"+ck, icons.X).Tooltip("Remove").OnClick(func() {
-				m.captures = append(m.captures[:i:i], m.captures[i+1:]...)
-				c.markDirty()
-			}),
-		).Gap(th.Spacing.XS).Align(ui.AlignCenter))
+		name := ui.TextField("tc-c-var-"+ck, cp.v).Placeholder("variable").Width(150).
+			OnChange(func(s string) { cp.v = s; c.markDirty() })
+		from := ui.Select("tc-c-from-"+ck, captureOptions).Width(150).Selected(optionIndex(cp.from, captureOptions)).
+			OnChange(func(v string) { cp.from = v; c.markDirty() })
+		remove := ui.IconButton("tc-c-del-"+ck, icons.X).Tooltip("Remove").OnClick(func() {
+			m.captures = append(m.captures[:i:i], m.captures[i+1:]...)
+			c.markDirty()
+		})
+		if c.compact() {
+			rows = append(rows, stacked(th,
+				ui.Row(ui.ViewOf(name).Grow(1), ui.Caption("from"), from).Gap(th.Spacing.XS).Align(ui.AlignCenter),
+				ui.Row(ui.ViewOf(sel).Grow(1), remove).Gap(th.Spacing.XS).Align(ui.AlignCenter),
+			))
+			continue
+		}
+		rows = append(rows, ui.Row(name, ui.Caption("from"), from, sel, ui.Spacer(), remove).
+			Gap(th.Spacing.XS).Align(ui.AlignCenter))
 	}
 	return ui.Column(rows...).Gap(th.Spacing.XS)
 }

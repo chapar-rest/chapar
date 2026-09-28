@@ -3,6 +3,7 @@ package testcase
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ func (c *Container) resultsPane(ctx *ui.Ctx, th *theme.Theme) ui.View {
 		if c.deps.Tests == nil {
 			msg = "Running test cases is not available."
 		}
-		return ui.EmptyState("No results yet", msg).Grow(1)
+		return resultsFrame(th, emptyView(th, "No results yet", msg))
 	}
 
 	list := make([]ui.View, 0, len(c.run.Steps))
@@ -34,13 +35,26 @@ func (c *Container) resultsPane(ctx *ui.Ctx, th *theme.Theme) ui.View {
 			Gap(th.Spacing.S).Align(ui.AlignCenter).PaddingXY(th.Spacing.S, th.Spacing.XS))
 	}
 
-	return ui.Column(
+	return resultsFrame(th, ui.Column(
 		c.summary(th),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		ui.Splitter("tc-res-split-"+id, ui.Vertical,
 			ui.Scroll("tc-res-list-"+id, ui.Column(list...).Gap(th.Spacing.XXS).Padding(th.Spacing.XS)),
 			c.detail(ctx, th),
-		).Percents(40, 60).HandleOnHover().Grow(1),
+		).Percents(30, 70).HandleOnHover().Grow(1),
+	).Grow(1))
+}
+
+// resultsFrame draws the dotted frame the request containers draw around
+// their response.
+func resultsFrame(th *theme.Theme, body ui.View) ui.View {
+	return ui.Column(
+		ui.Column(body).
+			Radius(th.Radius.Medium).
+			Border(ui.TokenBorder, th.Stroke.Thick).Margin(th.Spacing.XS).
+			BorderStyle(ui.BorderDotted).
+			Padding(th.Spacing.XS).
+			Grow(1),
 	).Grow(1)
 }
 
@@ -121,21 +135,67 @@ func (c *Container) resultRow(th *theme.Theme, i int, s testrun.StepResult) ui.V
 	return b.Grow(1)
 }
 
+// Detail tabs.
+const (
+	detailChecks = iota
+	detailBody
+	detailHeaders
+)
+
 func (c *Container) detail(ctx *ui.Ctx, th *theme.Theme) ui.View {
 	if c.selected < 0 || c.selected >= len(c.run.Steps) {
-		return ui.EmptyState("", "Select a step to see what it sent, got and checked.").Grow(1)
+		return emptyView(th, "", "Select a step to see what it sent, got and checked.")
 	}
 	s := c.run.Steps[c.selected]
 	id := c.ID()
-	rows := []ui.View{}
 
 	title := ui.Row(ui.Strong(s.Name))
 	if r := s.Request; r != nil {
 		title = ui.Row(ui.Strong(s.Name), ui.Caption(strings.TrimSpace(r.Method+" "+r.URL)).Ellipsis(ui.EllipsisEnd)).
 			Gap(th.Spacing.S).Align(ui.AlignCenter)
 	}
-	rows = append(rows, title)
+	r := s.Response
+	if r == nil {
+		return ui.Column(title, ui.Scroll("tc-detail-"+id, c.checks(th, s)).Grow(1)).
+			Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+	}
 
+	info := fmt.Sprintf("%d · %s · %s", r.Status, container.FormatBytes(r.Size), formatDuration(r.Time))
+	if r.Truncated {
+		info += " · body cut at 64 kB"
+	}
+	var body ui.View
+	switch c.detailTab {
+	case detailBody:
+		// The editor scrolls itself, so it is not put in a scroll view.
+		key := fmt.Sprintf("%d/%s/%s/%d", c.runSeq, s.Section, s.StepID, s.Attempts)
+		if c.respEd == nil || c.respFor != key {
+			c.respEd = container.ReplaceEditor(c.respEd, prettyBody([]byte(r.Body)), bodyHighlighter([]byte(r.Body)))
+			c.respFor = key
+		}
+		body = ui.ViewOf(c.respEd).Grow(1)
+	case detailHeaders:
+		body = ui.Scroll("tc-detail-h-"+id, headerLines(th, r.Headers)).Grow(1)
+	default:
+		body = ui.Scroll("tc-detail-"+id, c.checks(th, s)).Grow(1)
+	}
+	return ui.Column(
+		title,
+		ui.Row(
+			ui.Tabs("tc-detail-tabs-"+id, c.detailTabs).
+				Selected(c.detailTab).
+				Closable(false).
+				OnSelectItem(func(i int, _ string) { c.detailTab = i }).
+				Grow(1),
+			ui.Caption(info),
+		).Gap(th.Spacing.S).Align(ui.AlignCenter),
+		body,
+	).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+}
+
+// checks lists why a step failed, its assertions and its captures.
+func (c *Container) checks(th *theme.Theme, s testrun.StepResult) ui.View {
+	rows := []ui.View{}
 	if s.Message != "" && s.Status != testrun.StatusPassed {
 		variant := ui.AlertError
 		if s.Status == testrun.StatusSkipped || s.Status == testrun.StatusCancelled {
@@ -143,7 +203,6 @@ func (c *Container) detail(ctx *ui.Ctx, th *theme.Theme) ui.View {
 		}
 		rows = append(rows, ui.Alert(s.Message, variant))
 	}
-
 	for _, a := range s.Assertions {
 		rows = append(rows, assertionLine(th, a))
 	}
@@ -156,21 +215,27 @@ func (c *Container) detail(ctx *ui.Ctx, th *theme.Theme) ui.View {
 		rows = append(rows, ui.Row(ui.Icon(icons.ArrowDown, 14, th.ForegroundMuted),
 			ui.Text(cp.Var+" = "+cp.Value).Ellipsis(ui.EllipsisEnd)).Gap(th.Spacing.XS).Align(ui.AlignCenter))
 	}
-
-	if r := s.Response; r != nil {
-		info := fmt.Sprintf("Response %d · %s · %s", r.Status, container.FormatBytes(r.Size), formatDuration(r.Time))
-		if r.Truncated {
-			info += " · body cut at 64 kB"
-		}
-		rows = append(rows, ui.Caption(info))
-		key := fmt.Sprintf("%s/%s/%d", s.Section, s.StepID, s.Attempts)
-		if c.respEd == nil || c.respFor != key {
-			c.respEd = container.ReplaceEditor(c.respEd, prettyBody([]byte(r.Body)), bodyHighlighter([]byte(r.Body)))
-			c.respFor = key
-		}
-		rows = append(rows, ui.ViewOf(c.respEd).Height(320).Border(ui.TokenBorder, th.Stroke.Thin))
+	if len(rows) == 0 {
+		rows = append(rows, ui.Caption("No assertions or captures."))
 	}
-	return ui.Scroll("tc-detail-"+id, ui.Column(rows...).Gap(th.Spacing.S).Padding(th.Spacing.M)).Grow(1)
+	return ui.Column(rows...).Gap(th.Spacing.S)
+}
+
+func headerLines(th *theme.Theme, headers map[string]string) ui.View {
+	keys := make([]string, 0, len(headers))
+	for k := range headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	rows := make([]ui.View, 0, len(keys))
+	for _, k := range keys {
+		rows = append(rows, ui.Row(ui.Strong(k), ui.Text(headers[k]).Ellipsis(ui.EllipsisEnd)).
+			Gap(th.Spacing.S).Align(ui.AlignCenter))
+	}
+	if len(rows) == 0 {
+		rows = append(rows, ui.Caption("No headers."))
+	}
+	return ui.Column(rows...).Gap(th.Spacing.XS)
 }
 
 func assertionLine(th *theme.Theme, a testrun.AssertionResult) ui.View {

@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/sender"
 	"github.com/chapar-rest/chapar/internal/testrun"
@@ -28,12 +29,23 @@ const (
 )
 
 const usage = `Usage: chapar test [flags] [case|file|folder ...]
+       chapar test [flags] bundle.yaml ...
 
 Runs test cases and exits 0 when all pass, 1 when any does not, 2 when
 the flags, workspace or test case files are wrong.
 
 Arguments name test cases in the workspace (by name or ID), or test case
 files and folders of them. With none, every test case in the workspace runs.
+
+A bundle, exported from the app, holds test cases with the requests they
+send and optionally an environment, and runs without a workspace.
+
+Environment values can be set over the chosen environment, in this order:
+--env-file, then --os-env, then --var. For example, in CI:
+
+  API_TOKEN=... chapar test --os-env API_ --var base=https://staging smoke.yaml
+
+sets {{TOKEN}} from API_TOKEN and {{base}} from the command line.
 
 Flags:
 `
@@ -46,6 +58,7 @@ type options struct {
 	bail      bool
 	scripts   bool
 	noColor   bool
+	overrides overrides
 }
 
 // list is a flag that can be given more than once, or as a comma list.
@@ -71,6 +84,9 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&o.env, "env", "", "environment to run with, by name or ID (default: none)")
 	fs.Var(&o.tags, "tag", "run only test cases with this tag; repeat or comma-separate for any of several")
 	fs.Var(&o.reports, "report", "write a report, as format=path; formats: junit, json")
+	fs.StringVar(&o.overrides.file, "env-file", "", "set environment values from a file: a chapar environment, or KEY=VALUE lines")
+	fs.StringVar(&o.overrides.osEnv, "os-env", "", "set environment values from OS variables with this prefix, which is removed")
+	fs.Var((*list)(&o.overrides.vars), "var", "set an environment value, as key=value; repeat for more")
 	fs.BoolVar(&o.bail, "bail", false, "stop after the first test case that does not pass")
 	fs.BoolVar(&o.scripts, "scripts", false, "run request scripts even when scripting is off in the app's settings")
 	fs.BoolVar(&o.noColor, "no-color", false, "print without colors")
@@ -127,8 +143,17 @@ func run(ctx context.Context, o options, args []string, stdout, stderr io.Writer
 		reports = append(reports, report{format, path})
 	}
 
-	ws, err := openWorkspace(o.workspace, warn)
+	bundles, err := loadBundles(args)
 	if err != nil {
+		return fail("%v", err)
+	}
+	var ws *workspace
+	if len(bundles) > 0 {
+		if o.workspace != "" {
+			return fail("--workspace does not apply to a bundle, which holds its own requests")
+		}
+		ws, args = openBundles(bundles, warn), nil
+	} else if ws, err = openWorkspace(o.workspace, warn); err != nil {
 		return fail("%v", err)
 	}
 	cases, err := ws.selectCases(args, o.tags)
@@ -147,9 +172,9 @@ func run(ctx context.Context, o options, args []string, stdout, stderr io.Writer
 		return fail("fix the test cases above and run again")
 	}
 
-	envName := ""
-	var runOpts testrun.Options
-	if o.env != "" {
+	var base *domain.Environment
+	switch {
+	case o.env != "":
 		env, warning, err := ws.environment(o.env)
 		if err != nil {
 			return fail("%v", err)
@@ -157,7 +182,48 @@ func run(ctx context.Context, o options, args []string, stdout, stderr io.Writer
 		if warning != "" {
 			warn("%s", warning)
 		}
+		base = env
+	case ws.bundle && len(ws.envs) == 1:
+		base = ws.envs[0]
+	case ws.bundle && len(ws.envs) > 1:
+		return fail("the bundles hold %d environments; pick one with --env", len(ws.envs))
+	}
+	env, set, err := o.overrides.apply(base, os.Environ())
+	if err != nil {
+		return fail("%v", err)
+	}
+	for _, k := range ws.secretsLeftOut {
+		if !set[k] {
+			warn("secret value %s was left out of the bundle; set it with --os-env, --env-file or --var", k)
+		}
+	}
+	envName := ""
+	var runOpts testrun.Options
+	if env != nil {
 		runOpts.Env, envName = env, env.GetName()
+	}
+
+	// persistEnv writes back only what the requests changed, never the
+	// values given on the command line.
+	var saveEnv func(*domain.Environment) error
+	if !ws.bundle && base != nil {
+		saveEnv = func(saved *domain.Environment) error {
+			changed, removed := requestChanges(env, saved)
+			orig := *base
+			orig.Spec.Values = append([]domain.KeyValue(nil), base.Spec.Values...)
+			for k, v := range changed {
+				orig.SetKey(k, v)
+			}
+			for _, k := range removed {
+				orig.UnsetKey(k)
+			}
+			return ws.saveEnv(&orig)
+		}
+	}
+	for _, tc := range cases {
+		if tc.Spec.Options.PersistEnv && saveEnv == nil {
+			warn("%s saves environment changes, which needs a workspace environment (--env); they are kept for the run only", tc.GetName())
+		}
 	}
 
 	cfg := prefs.GetGlobalConfig().Spec.Scripting
@@ -169,7 +235,7 @@ func run(ctx context.Context, o options, args []string, stdout, stderr io.Writer
 	runner := testrun.New(testrun.Config{
 		NewSender: testrun.NewSender(ws.index.RequestByID, ws.index.CollectionByID, scripts, func() bool { return scriptingOn }),
 		Requests:  ws.index,
-		SaveEnv:   ws.saveEnv,
+		SaveEnv:   saveEnv,
 	})
 
 	out := &console{w: stdout, color: !o.noColor && colorful(stdout)}

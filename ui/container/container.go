@@ -114,6 +114,7 @@ type Catalog interface {
 	// AllRequests returns every request, with CollectionName set on those
 	// in a collection.
 	AllRequests() []*domain.Request
+	AllEnvironments() []*domain.Environment
 }
 
 // OpenSpec is the factory input. Kind is inferred from the non-nil document.

@@ -274,3 +274,26 @@ func cloneValue(v any) any {
 	}
 	return v
 }
+
+// TestBundle is one file that holds test cases with everything they need
+// to run outside the app: the requests they send, the collections those
+// belong to, and optionally an environment. `chapar test` runs it without
+// a workspace.
+type TestBundle struct {
+	ApiVersion string         `yaml:"apiVersion"`
+	Kind       string         `yaml:"kind"`
+	MetaData   MetaData       `yaml:"metadata"`
+	Spec       TestBundleSpec `yaml:"spec"`
+}
+
+type TestBundleSpec struct {
+	TestCases []*TestCase `yaml:"testCases"`
+	// Collections hold only the requests the cases use, with the headers
+	// and auth those requests inherit.
+	Collections []*Collection `yaml:"collections,omitempty"`
+	Requests    []*Request    `yaml:"requests,omitempty"`
+	Environment *Environment  `yaml:"environment,omitempty"`
+	// SecretsLeftOut names secret environment values that were not
+	// exported; they have to be given when the bundle runs.
+	SecretsLeftOut []string `yaml:"secretsLeftOut,omitempty"`
+}

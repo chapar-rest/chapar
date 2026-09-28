@@ -168,6 +168,12 @@ func (c *Catalog) AllRequests() []*domain.Request {
 	return out
 }
 
+func (c *Catalog) AllEnvironments() []*domain.Environment {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*domain.Environment(nil), c.Environments...)
+}
+
 func (c *Catalog) TestCaseByID(id string) *domain.TestCase {
 	c.mu.Lock()
 	defer c.mu.Unlock()
