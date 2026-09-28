@@ -302,6 +302,33 @@ written; 130 interrupted (teardown still runs and reports are written).
 Test case files in the format of PR #164 fail to load and are skipped with
 a YAML warning.
 
+## UI
+
+A Tests page (nav item next to Envs) lists the workspace's test cases;
+they open in the shared tab strip like requests. The editor has four tabs:
+
+- Steps: Setup / Steps / Teardown, each a list of step cards: name,
+  request picker, run-this-step, move, duplicate, delete. Expanded, a card
+  edits assertions (target, key or path, op, value), captures, ID,
+  timeout, retries and request overrides (variables, headers, query,
+  body). A step still named `step` takes its request's name as its ID.
+- Variables: name, value, or an OS variable to read.
+- Settings: description, default timeout, continue on failure, save
+  environment changes, tags.
+- YAML: the whole case as text. Leaving the tab parses it; an error keeps
+  the tab open and shows it.
+
+Assertion values are typed as text: `true`, `false`, `null` and numbers
+keep their type, `[a, b]` is a list, quotes force a string.
+
+Problems from validation, and text that does not parse (a timeout of
+"soon"), are listed above the editor; Run refuses while there are any.
+
+Run (⌘Enter) uses the active environment. Results stream into the lower
+pane: a summary with Re-run failed, one row per step, and the selected
+step's assertions, captures and pretty-printed response body. Step cards
+show the last run's status.
+
 ## Phases
 
 1. Domain types, validation, assertion and capture engine, with tests.

@@ -394,7 +394,7 @@ func summarizeResponse(res *egress.Response) *ResponseSummary {
 	}
 	out := &ResponseSummary{
 		Status:  status,
-		Size:    res.Size,
+		Size:    responseSize(res),
 		Time:    res.TimePassed,
 		Headers: res.ResponseHeaders,
 		Body:    string(res.Body),

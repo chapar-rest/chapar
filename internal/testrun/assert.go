@@ -167,7 +167,7 @@ func (r *response) lookup(target, key, path string) (any, bool, error) {
 	case domain.TestTargetTime:
 		return float64(res.TimePassed.Milliseconds()), true, nil
 	case domain.TestTargetSize:
-		return float64(res.Size), true, nil
+		return float64(responseSize(res)), true, nil
 	}
 	return nil, false, fmt.Errorf("unknown target %q", target)
 }
@@ -189,4 +189,12 @@ func findKV(kvs []domain.KeyValue, key string) (any, bool, error) {
 		}
 	}
 	return nil, false, nil
+}
+
+// responseSize is the body size. Not every protocol fills Size.
+func responseSize(res *egress.Response) int {
+	if res.Size > 0 {
+		return res.Size
+	}
+	return len(res.Body)
 }
