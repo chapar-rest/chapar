@@ -13,6 +13,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/sender"
+	"github.com/chapar-rest/chapar/internal/variables"
 )
 
 // Sender sends one request with an environment. *sender.Service is one.
@@ -92,12 +93,16 @@ func (r *Runner) Run(ctx context.Context, tc *domain.TestCase, o Options) *Run {
 		scope:  newScope(o.Env),
 		send:   r.cfg.NewSender(),
 	}
+	// Built-ins in a case variable are filled in once, so a variable such
+	// as "user-{{randomUUID4}}" keeps one value for the whole run. Written
+	// straight into a request, a built-in still changes with every send.
+	builtins := variables.GetVariables()
 	for _, v := range tc.Spec.Variables {
 		value := v.Value
 		if v.From != nil {
 			value = r.cfg.Getenv(v.From.OsEnv)
 		}
-		x.scope.vars[v.Key] = x.scope.expand(value, nil)
+		x.scope.vars[v.Key] = x.scope.expand(x.scope.expand(value, nil), builtins)
 	}
 
 	only := map[string]bool{}

@@ -504,3 +504,23 @@ func TestRunSkipsDisabledSteps(t *testing.T) {
 		t.Errorf("message = %q", run.Steps[1].Message)
 	}
 }
+
+func TestRunVariablesKeepBuiltinsForTheRun(t *testing.T) {
+	srv := newTodoServer(t)
+	tc := domain.NewTestCase("builtins")
+	tc.Spec.Variables = []domain.TestVariable{{Key: "trace", Value: "run-{{randomUUID4}}"}}
+	first := step("first", "echo")
+	first.With = &domain.TestStepOverrides{Headers: []domain.TestKeyValue{{Key: "X-Trace", Value: "{{trace}}"}}}
+	first.Capture = []domain.TestCapture{{Var: "seen", From: "body", Path: "$.trace"}}
+	second := step("second", "echo",
+		domain.TestAssertion{Target: "body", Path: "$.trace", Op: "eq", Value: "{{seen}}"},
+		domain.TestAssertion{Target: "body", Path: "$.trace", Op: "matches", Value: "^run-[0-9a-f-]{36}$"},
+	)
+	second.With = first.With
+	tc.Spec.Steps = []domain.TestStep{first, second}
+
+	run := newRunner(todoRequests(), nil).Run(context.Background(), tc, Options{Env: testEnv(srv.URL)})
+	if run.Status != StatusPassed {
+		t.Fatalf("%s: %+v", statuses(run), run.Steps[1].Assertions)
+	}
+}
