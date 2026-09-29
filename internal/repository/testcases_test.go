@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,5 +58,49 @@ func TestFilesystemV2_TestCases(t *testing.T) {
 	}
 	if loaded, _ := fs.LoadTestCases(); len(loaded) != 1 {
 		t.Fatalf("after delete: %d", len(loaded))
+	}
+}
+
+func TestFilesystemV2_LegacyTestCase(t *testing.T) {
+	fs, cleanup := setupTest(t)
+	defer cleanup()
+
+	dir, err := fs.EntityPath(domain.KindTestCase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The format PR #164 wrote.
+	legacy := `apiVersion: v1
+kind: TestCase
+metadata:
+  id: 5f5b7aea
+  name: New Test Case
+spec:
+  steps:
+  - name: Example Step
+    runNaked: false
+    request:
+      collection: MyCollection
+      request: MyRequest
+    assert:
+      statusCode: 200
+`
+	if err := os.WriteFile(filepath.Join(dir, "old.yaml"), []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "broken.yaml"), []byte("kind: TestCase\nspec: [\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = fs.LoadTestCases()
+	files, ok := SkippedFiles(err)
+	if !ok || len(files) != 2 {
+		t.Fatalf("err = %v", err)
+	}
+	for _, f := range files {
+		legacyFile := filepath.Base(f.Path) == "old.yaml"
+		if got := errors.Is(f.Err, ErrLegacyTestCase); got != legacyFile {
+			t.Errorf("%s: legacy = %v, err = %v", filepath.Base(f.Path), got, f.Err)
+		}
 	}
 }

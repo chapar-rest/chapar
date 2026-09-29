@@ -1,10 +1,13 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
@@ -16,9 +19,56 @@ func (f *FilesystemV2) LoadTestCases() ([]*domain.TestCase, error) {
 		return nil, err
 	}
 
-	return loadList[domain.TestCase](path, func(n *domain.TestCase) {
+	cases, err := loadList[domain.TestCase](path, func(n *domain.TestCase) {
 		f.entities.Set(n.ID(), n.GetName())
 	})
+	if files, ok := SkippedFiles(err); ok {
+		for i := range files {
+			if isLegacyTestCase(files[i].Path) {
+				files[i].Err = ErrLegacyTestCase
+			}
+		}
+	}
+	return cases, err
+}
+
+// ErrLegacyTestCase explains a test case file an early preview of test cases
+// wrote, whose format the app no longer reads.
+var ErrLegacyTestCase = errors.New("this test case was made by an early preview of test cases, in a format that is no longer read; create it again in Tests")
+
+// isLegacyTestCase reports whether path holds a test case in the preview
+// format: steps with a request.collection, an assert block instead of a
+// list, or before/after hooks.
+func isLegacyTestCase(path string) bool {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var probe struct {
+		Kind string `yaml:"kind"`
+		Spec struct {
+			Steps []map[string]any `yaml:"steps"`
+		} `yaml:"spec"`
+	}
+	if yaml.Unmarshal(b, &probe) != nil || probe.Kind != domain.KindTestCase {
+		return false
+	}
+	for _, step := range probe.Spec.Steps {
+		if req, ok := step["request"].(map[any]any); ok {
+			if _, ok := req["collection"]; ok {
+				return true
+			}
+		}
+		if _, ok := step["assert"].(map[any]any); ok {
+			return true
+		}
+		for _, k := range []string{"before", "after", "runNaked"} {
+			if _, ok := step[k]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // CreateTestCase writes a new test case. One without an ID, or with the ID
