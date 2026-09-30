@@ -167,6 +167,7 @@ type Editor struct {
 	readOnly                 bool // selection and copy work; edits are ignored
 	lineRows                 [][]wrapRow
 	rowPrefix                []int   // rowPrefix[i] = visual rows before logical line i (len = LineCount+1)
+	revealCaret              bool    // scroll the caret into view once the wrap tables are rebuilt
 	wrapCols                 int     // columns per visual row used when wrapping
 	lastWrapW                float32 // last client width the wrap table was built for
 	wrapFull                 bool    // next sync must rebuild every line
@@ -519,6 +520,10 @@ func (e *Editor) Update(m *input.Mouse) {
 	if e.contentSizeDirty {
 		e.recomputeContentSize()
 	}
+	if e.revealCaret {
+		e.revealCaret = false
+		e.ensureCaretVisible()
+	}
 	if m != nil {
 		_, _, vShow, hShow := e.scrollMetrics()
 		e.syncScrollbarLayout(vShow, hShow)
@@ -772,6 +777,7 @@ func breakAfter(view []byte, p int) bool {
 
 // wrapRowAbs returns the logical line and absolute byte range of visual row r.
 func (e *Editor) wrapRowAbs(r int) (line, absStart, absEnd int) {
+	e.freshWrap()
 	line = e.rowOfVisual(r)
 	ls := e.pt.LineStart(line)
 	row := e.lineRows[line][r-e.rowPrefix[line]]
@@ -804,6 +810,7 @@ func (e *Editor) isHuge(ln int) bool {
 // rowOfByte returns the visual row index containing byte offset off. With soft
 // wrap off there is one row per line, so this is the logical line index.
 func (e *Editor) rowOfByte(off int) int {
+	e.freshWrap()
 	if !e.SoftWrap || len(e.rowPrefix) < 2 {
 		return e.lineOf(off)
 	}
@@ -1224,12 +1231,30 @@ func (e *Editor) afterMutation(edit highlight.Edit) {
 	e.contentSizeDirty = true // Undo/Redo don't set this themselves
 	e.markParsePending()
 	e.blinkStart = time.Now()
+	// Mark the wrap tables stale before anything maps the caret to a row.
+	e.markWrapDirty(edit)
 	e.ensureCaretVisible()
 	if e.search.open {
 		e.runSearch()
 	}
 	e.lspDidChange()
-	e.markWrapDirty(edit)
+}
+
+// freshWrap re-wraps lines an edit left stale. Edits run between layouts, so
+// a row lookup right after one (keeping the caret visible, Up/Down) would
+// otherwise read tables sized for the old text.
+func (e *Editor) freshWrap() {
+	if e.wrapStale() {
+		e.syncWrap()
+	}
+}
+
+// wrapStale reports whether the wrap tables exist but lag the text.
+func (e *Editor) wrapStale() bool {
+	if !e.SoftWrap || len(e.rowPrefix) < 2 {
+		return false
+	}
+	return e.wrapFull || e.wrapDirtySet || len(e.lineRows) != e.pt.LineCount()
 }
 
 // markWrapDirty records which logical lines an edit touched so the next wrap
@@ -2096,6 +2121,12 @@ func (e *Editor) lineRangeAt(off int) (int, int) {
 func (e *Editor) ensureCaretVisible() {
 	_, clientH, _, _ := e.scrollMetrics()
 	if clientH <= 0 {
+		return
+	}
+	if e.wrapStale() {
+		// An edit changed the text since the last wrap. Scroll once layout
+		// has re-wrapped, rather than re-wrapping on every edit of a batch.
+		e.revealCaret = true
 		return
 	}
 	row := e.rowOfByte(e.caret)
