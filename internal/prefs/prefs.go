@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/repository"
 )
 
@@ -203,6 +204,14 @@ func (m *Manager) loadGlobalConfig() (bool, error) {
 	}
 
 	m.globalConfig = config
+	// A config saved by an older build names the runner that build spoke to.
+	// It is upgraded in memory either way; failing to save it only means
+	// the upgrade runs again next time.
+	if config.Spec.Scripting.UpgradeExecutorImage() {
+		if err := m.saveGlobalConfig(); err != nil {
+			logger.Warn(fmt.Sprintf("Saving the upgraded script runner image: %v", err))
+		}
+	}
 	return true, nil
 }
 
