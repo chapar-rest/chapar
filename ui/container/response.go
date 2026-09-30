@@ -446,7 +446,11 @@ func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *Tim
 	return ui.Column(
 		ui.Caption("Steps"),
 		ui.ViewOf(state.List).Height(timelineListHeight(th, len(state.steps))).Grow(0),
-		ui.Scroll(id+"-detail-scroll", card).Grow(1),
+		// The detail sits at the bottom of the pane, as tall as its text;
+		// it scrolls once that is taller than the room below the steps.
+		ui.Column(ui.Scroll(id+"-detail-scroll", card).FitContent()).
+			Grow(1).
+			Justify(ui.JustifyEnd),
 	).Gap(th.Spacing.S).Grow(1)
 }
 
