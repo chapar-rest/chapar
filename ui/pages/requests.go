@@ -316,7 +316,11 @@ func (p *Requests) newMenuItems() []ui.MenuItem {
 }
 
 func (p *Requests) menu(n *ui.TreeNode) []ui.MenuItem {
-	ref, _ := n.Data.(NodeRef)
+	// n is nil for a right-click on empty space.
+	var ref NodeRef
+	if n != nil {
+		ref, _ = n.Data.(NodeRef)
+	}
 	items := []ui.MenuItem{
 		{Label: "New HTTP request", OnSelect: func() { p.createRequest(domain.RequestTypeHTTP, ref) }},
 		{Label: "New gRPC request", OnSelect: func() { p.createRequest(domain.RequestTypeGRPC, ref) }},

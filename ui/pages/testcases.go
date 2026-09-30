@@ -75,7 +75,11 @@ func (p *TestCases) activate(n *ui.TreeNode) {
 }
 
 func (p *TestCases) menu(n *ui.TreeNode) []ui.MenuItem {
-	ref, _ := n.Data.(NodeRef)
+	// n is nil for a right-click on empty space.
+	var ref NodeRef
+	if n != nil {
+		ref, _ = n.Data.(NodeRef)
+	}
 	items := []ui.MenuItem{
 		{Label: "New", OnSelect: p.Create},
 		{Label: "Import", OnSelect: p.importFile},
