@@ -1,4 +1,4 @@
-// Package testcli is the `chapar test` command: it runs a workspace's test
+// Package testcli is the `chapar-cli test` command: it runs a workspace's test
 // cases without the UI, for CI. See docs/testcases-design.md.
 package testcli
 
@@ -28,8 +28,8 @@ const (
 	ExitCancelled = 130
 )
 
-const usage = `Usage: chapar test [flags] [case|file|folder ...]
-       chapar test [flags] bundle.yaml ...
+const usage = `Usage: chapar-cli test [flags] [case|file|folder ...]
+       chapar-cli test [flags] bundle.yaml ...
 
 Runs test cases and exits 0 when all pass, 1 when any does not, 2 when
 the flags, workspace or test case files are wrong.
@@ -43,7 +43,7 @@ send and optionally an environment, and runs without a workspace.
 Environment values can be set over the chosen environment, in this order:
 --env-file, then --os-env, then --var. For example, in CI:
 
-  API_TOKEN=... chapar test --os-env API_ --var base=https://staging smoke.yaml
+  API_TOKEN=... chapar-cli test --os-env API_ --var base=https://staging smoke.yaml
 
 sets {{TOKEN}} from API_TOKEN and {{base}} from the command line.
 
@@ -78,7 +78,7 @@ func (l *list) Set(v string) error {
 // Main runs the command with args (without "test") and returns its exit code.
 func Main(args []string, stdout, stderr io.Writer) int {
 	var o options
-	fs := flag.NewFlagSet("chapar test", flag.ContinueOnError)
+	fs := flag.NewFlagSet("chapar-cli test", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.StringVar(&o.workspace, "workspace", "", "workspace folder, or name of a workspace in the app (default: the app's active one)")
 	fs.StringVar(&o.env, "env", "", "environment to run with, by name or ID (default: none)")
@@ -127,7 +127,7 @@ func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
 
 func run(ctx context.Context, o options, args []string, stdout, stderr io.Writer) int {
 	fail := func(format string, a ...any) int {
-		_, _ = fmt.Fprintf(stderr, "chapar test: "+format+"\n", a...)
+		_, _ = fmt.Fprintf(stderr, "chapar-cli test: "+format+"\n", a...)
 		return ExitUsage
 	}
 	warn := func(format string, a ...any) {
@@ -268,7 +268,7 @@ func run(ctx context.Context, o options, args []string, stdout, stderr io.Writer
 	}
 	for _, rep := range reports {
 		if err := rep.write(runs, took); err != nil {
-			_, _ = fmt.Fprintf(stderr, "chapar test: write %s report: %v\n", rep.format, err)
+			_, _ = fmt.Fprintf(stderr, "chapar-cli test: write %s report: %v\n", rep.format, err)
 			code = ExitUsage
 		}
 	}

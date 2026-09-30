@@ -507,7 +507,7 @@ func (c *Container) titleRow(th *theme.Theme) ui.View {
 			Grow(1),
 		ui.Row(
 			ui.Caption("Env: "+envName),
-			ui.IconButton("tc-export-"+id, icons.FileDown).Tooltip("Export to run with chapar test").OnClick(c.Export),
+			ui.IconButton("tc-export-"+id, icons.FileDown).Tooltip("Export to run with chapar-cli test").OnClick(c.Export),
 			ui.Button("tc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Hint("⌘S").
 				Disabled(!c.Dirty()).
 				OnClick(func() {

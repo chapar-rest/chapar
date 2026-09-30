@@ -339,7 +339,7 @@ func (c *Container) settingsTab(th *theme.Theme) ui.View {
 		),
 		ui.Column(
 			ui.Strong("Tags"),
-			ui.Caption("Run cases by tag with chapar test --tag."),
+			ui.Caption("Run cases by tag with chapar-cli test --tag."),
 			ui.TagEdit("tc-tags-"+id, c.tc.Spec.Tags).OnTags(func(tags []string) {
 				c.tc.Spec.Tags = tags
 				c.markDirty()

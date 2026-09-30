@@ -279,7 +279,7 @@ func cloneValue(v any) any {
 
 // TestBundle is one file that holds test cases with everything they need
 // to run outside the app: the requests they send, the collections those
-// belong to, and optionally an environment. `chapar test` runs it without
+// belong to, and optionally an environment. `chapar-cli test` runs it without
 // a workspace.
 type TestBundle struct {
 	ApiVersion string         `yaml:"apiVersion"`

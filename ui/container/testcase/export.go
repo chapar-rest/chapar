@@ -14,7 +14,7 @@ import (
 )
 
 // Export writes the case, the requests it sends and optionally an
-// environment to one file that `chapar test` runs without the workspace.
+// environment to one file that `chapar-cli test` runs without the workspace.
 func (c *Container) Export() {
 	if c.deps.Catalog == nil || c.deps.Dialogs == nil {
 		return
@@ -47,7 +47,7 @@ func (c *Container) Export() {
 		Body: func(ctx *ui.Ctx) ui.View {
 			th := ctx.Theme()
 			rows := []ui.View{
-				ui.Paragraph("One file with the test case and the requests it sends. Run it anywhere, such as in CI, with chapar test <file>."),
+				ui.Paragraph("One file with the test case and the requests it sends. Run it anywhere, such as in CI, with chapar-cli test <file>."),
 				ui.Form("tc-export-form",
 					ui.FormSelect("tc-export-env", "Environment", "Values to run with. The command line can set or replace them with --env-file, --os-env and --var.",
 						envOpts, optionIndex(envID, envOpts), func(v string) { envID = v }),
@@ -114,7 +114,7 @@ func (c *Container) saveBundle(tc *domain.TestCase, envID string, secrets bool) 
 				c.deps.ShowError(err)
 				return
 			}
-			msg := "Exported. Run it with: chapar test " + filepath.Base(path)
+			msg := "Exported. Run it with: chapar-cli test " + filepath.Base(path)
 			if n := len(b.Spec.SecretsLeftOut); n > 0 {
 				msg += fmt.Sprintf(" (%d secret value(s) left out)", n)
 			}

@@ -4,7 +4,7 @@ Status: draft. Replaces the approach in PR #164 (old Gio UI, `internal/state`).
 
 A test case is a YAML file that sends existing requests in order, checks
 their responses, and passes values from one step to the next. The same
-runner serves the app and a headless `chapar test` command for CI.
+runner serves the app and a headless `chapar-cli test` command for CI.
 
 ## Goals
 
@@ -279,7 +279,7 @@ Proto files are not bundled: a gRPC step needs server reflection.
 ## CLI
 
 ```
-chapar test [--workspace W] [--env E] [--tag T] [--bail] [--scripts]
+chapar-cli test [--workspace W] [--env E] [--tag T] [--bail] [--scripts]
             [--env-file F] [--os-env PREFIX] [--var k=v ...]
             [--report junit=out.xml] [--report json=out.json] [--no-color]
             [case|file|folder ... | bundle.yaml ...]
@@ -295,8 +295,20 @@ no environment chosen they form one of their own. persistEnv writes back
 only what the requests changed, never these values; it needs a workspace
 environment.
 
-Package `internal/testcli`, dispatched from `main.go` before the GUI
-starts. Flags may come before or after the arguments.
+`chapar-cli` (`cmd/chapar-cli`, the command in `internal/testcli`) is a
+binary of its own, not part of the app: it imports nothing from the UI or
+Yoga and needs no cgo, so it is one static ~18 MB binary per platform,
+where the app is ~55 MB and needs a GPU stack. Flags may come before or
+after the arguments.
+
+Each release attaches `chapar-cli-<os>-<tag>-<arch>` archives (tar.gz;
+zip on Windows) for linux, macOS and windows on amd64 and arm64, a
+checksums file, and `install-cli.sh` (`.github/workflows/build_cli.yml`,
+`build/cli-release.sh`). The installer picks the archive for the machine,
+checks it against the checksums and installs it; on GitHub Actions it
+adds the install directory to `$GITHUB_PATH`. The same workflow writes
+`Formula/chapar-cli.rb` into the Homebrew tap from
+`build/homebrew/chapar-cli.rb.tmpl`.
 
 - `--workspace` is a workspace folder (for a workspace committed to a
   repo), or the name of one in the app's data folder. Default: the app's
