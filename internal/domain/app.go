@@ -31,3 +31,9 @@ type KeyValue struct {
 	// which is written back untouched. Runtime only.
 	Locked bool `yaml:"-"`
 }
+
+// Usable reports whether the value takes part in a request: it is turned on,
+// and it is not still encrypted (substituting it would send ciphertext).
+func (kv KeyValue) Usable() bool {
+	return kv.Enable && !kv.Locked
+}

@@ -135,6 +135,12 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	id := c.env.MetaData.ID
 	return ui.Column(
 		c.titleRow(th, id),
+		ui.Paragraph("Only checked variables are used. Unchecked ones are kept but ignored in requests and scripts.").
+			Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)).
+			// Line up with the name, which the editable label insets.
+			PaddingLeft(th.Spacing.M+th.Spacing.MNudge).
+			PaddingRight(th.Spacing.M).
+			PaddingBottom(th.Spacing.S),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		c.lockedBanner(th),
 		ui.ViewOf(c.table).Grow(1),
