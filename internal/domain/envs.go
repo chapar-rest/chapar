@@ -85,10 +85,14 @@ func (e *Environment) Clone() *Environment {
 	return clone
 }
 
+// SetKey sets key to value and turns it on, adding it when it is missing: a
+// value set by a script or a post-request action should be used by the next
+// request.
 func (e *Environment) SetKey(key string, value string) {
 	for i, v := range e.Spec.Values {
 		if v.Key == key {
 			e.Spec.Values[i].Value = value
+			e.Spec.Values[i].Enable = true
 			return
 		}
 	}
@@ -118,8 +122,7 @@ func (e *Environment) ApplyToGRPCRequest(req *GRPCRequestSpec) {
 	}
 
 	for _, envKv := range e.Spec.Values {
-		if envKv.Locked {
-			// Still encrypted: substituting it would send ciphertext.
+		if !envKv.Usable() {
 			continue
 		}
 		if strings.Contains(req.ServerInfo.Address, "{{"+envKv.Key+"}}") {
@@ -168,8 +171,7 @@ func (e *Environment) ApplyToHTTPRequest(req *HTTPRequestSpec) {
 	}
 
 	for _, envKv := range e.Spec.Values {
-		if envKv.Locked {
-			// Still encrypted: substituting it would send ciphertext.
+		if !envKv.Usable() {
 			continue
 		}
 		for i, kv := range req.Request.Headers {
@@ -252,8 +254,7 @@ func (e *Environment) ApplyToGraphQLRequest(req *GraphQLRequestSpec) {
 	}
 
 	for _, envKv := range e.Spec.Values {
-		if envKv.Locked {
-			// Still encrypted: substituting it would send ciphertext.
+		if !envKv.Usable() {
 			continue
 		}
 		if strings.Contains(req.URL, "{{"+envKv.Key+"}}") {
@@ -311,7 +312,7 @@ func (e *Environment) GetKeyValues() map[string]interface{} {
 	values := make(map[string]interface{})
 
 	for _, kv := range e.Spec.Values {
-		if kv.Locked {
+		if !kv.Usable() {
 			continue
 		}
 		values[kv.Key] = kv.Value

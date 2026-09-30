@@ -100,7 +100,7 @@ func requestData(req *domain.Request) *RequestData {
 func enabledPairs(kvs []domain.KeyValue) []Pair {
 	out := make([]Pair, 0, len(kvs))
 	for _, kv := range kvs {
-		if kv.Enable && !kv.Locked {
+		if kv.Usable() {
 			out = append(out, Pair{kv.Key, kv.Value})
 		}
 	}
