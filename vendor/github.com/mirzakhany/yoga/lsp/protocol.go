@@ -211,10 +211,19 @@ type clientInfo struct {
 }
 
 type initializeParams struct {
-	ProcessID    int                `json:"processId"`
-	ClientInfo   clientInfo         `json:"clientInfo"`
-	RootURI      string             `json:"rootUri"`
-	Capabilities clientCapabilities `json:"capabilities"`
+	ProcessID  int        `json:"processId"`
+	ClientInfo clientInfo `json:"clientInfo"`
+	RootURI    string     `json:"rootUri"`
+	// WorkspaceFolders repeats the root. Some servers (pyright) ignore
+	// rootUri and, without a folder, treat each file's directory as its
+	// workspace, missing the config and stubs at the root.
+	WorkspaceFolders []workspaceFolder  `json:"workspaceFolders"`
+	Capabilities     clientCapabilities `json:"capabilities"`
+}
+
+type workspaceFolder struct {
+	URI  string `json:"uri"`
+	Name string `json:"name"`
 }
 
 type clientCapabilities struct {
