@@ -21,6 +21,7 @@ type ScrollView struct {
 	vbar     *Scrollbar
 	scrollY  float32
 	contentH float32
+	fitH     float32 // content height a FitContent scroll last sized itself to
 }
 
 // NewScrollView wraps content in a vertically scrollable viewport.
@@ -171,9 +172,45 @@ func (n *Node) layoutScroll(c *Ctx) *layout.Element {
 		content = n.child.Layout(c)
 	}
 	sv.setContent(content)
-	// Re-apply each frame; keep basis/min so Grow(1) fills leftover space only.
-	sv.host.Style = applyLayoutSpec(layout.Box().FlexGrow(1).FlexBasis(0).Min(0, 0), n.spec)
-	sv.host.AfterLayout = sv.afterLayout
+	if _, fit := n.extra.(scrollFit); fit {
+		// Fill the leftover space like any scroll, but no taller than the
+		// content (known after layout). The basis stays 0 so tall content
+		// never pushes the parent past the room it has.
+		box := layout.Box().FlexGrow(1).FlexBasis(0).Min(0, 0)
+		if sv.fitH > 0 {
+			box.MaxHeight = sv.fitH
+		}
+		sv.host.Style = applyLayoutSpec(box, n.spec)
+		sv.host.AfterLayout = func(e *layout.Element) bool {
+			changed := sv.syncScroll()
+			if h := sv.contentHeight(); h != sv.fitH {
+				sv.fitH = h
+				e.Style.MaxHeight = h
+				// One relayout per frame: ask for another in case this was it.
+				c.Invalidate()
+				return true
+			}
+			return changed
+		}
+	} else {
+		// Re-apply each frame; keep basis/min so Grow(1) fills leftover space only.
+		sv.host.Style = applyLayoutSpec(layout.Box().FlexGrow(1).FlexBasis(0).Min(0, 0), n.spec)
+		sv.host.AfterLayout = sv.afterLayout
+	}
 	sv.Update(c.Mouse())
 	return sv.host
+}
+
+// scrollFit marks a Scroll that sizes itself to its content.
+type scrollFit struct{}
+
+// FitContent makes a Scroll no taller than its content: it fills the space
+// it is given up to the content's height, and scrolls when the content needs
+// more. Unlike a fixed height it never makes its parent taller. To keep it at
+// the bottom of a column, wrap it in Column(...).Grow(1).Justify(JustifyEnd).
+func (n *Node) FitContent() *Node {
+	if n.kind == kindScroll {
+		n.extra = scrollFit{}
+	}
+	return n
 }

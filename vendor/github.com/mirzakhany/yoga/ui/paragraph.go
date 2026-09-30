@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
@@ -8,7 +9,8 @@ import (
 
 // paragraphData holds Paragraph-only options.
 type paragraphData struct {
-	align layout.Align
+	align      layout.Align
+	selectable bool
 }
 
 // paragraphState keeps the last wrap so steady frames lay out at the right
@@ -19,6 +21,9 @@ type paragraphState struct {
 	size   float32
 	weight int
 	lines  []string
+	spans  []textSpan // the wrap of a selectable paragraph
+
+	sel *paragraphSelection // nil unless selectable
 }
 
 func (st *paragraphState) wrap(eng *shape.Engine, text string, size float32, weight int, width float32) []string {
@@ -27,6 +32,14 @@ func (st *paragraphState) wrap(eng *shape.Engine, text string, size float32, wei
 	}
 	st.width, st.text, st.size, st.weight = width, text, size, weight
 	st.lines = wrapTextWeight(eng, text, size, weight, width)
+	if st.sel != nil {
+		st.spans = wrapSpans(eng, text, size, weight, width)
+		// lines is only counted when selectable; keep it in step.
+		st.lines = st.lines[:0]
+		for _, sp := range st.spans {
+			st.lines = append(st.lines, text[sp.lo:sp.hi])
+		}
+	}
 	return st.lines
 }
 
@@ -59,6 +72,10 @@ func (n *Node) layoutParagraph(c *Ctx) *layout.Element {
 	d, _ := n.extra.(*paragraphData)
 	if d == nil {
 		d = &paragraphData{align: AlignStart}
+	}
+	if d.selectable && st.sel == nil {
+		st.sel = &paragraphSelection{}
+		st.lines = nil // rewrap as spans
 	}
 
 	th := c.Theme()
@@ -114,6 +131,14 @@ func (n *Node) layoutParagraph(c *Ctx) *layout.Element {
 	}
 	el := layout.New(applyLayoutSpec(box, n.spec))
 	text := n.text
+	sel := st.sel
+	if sel != nil {
+		sel.host = el
+		sel.setText(text)
+		c.Focus().Add(sel)
+		sel.menu.layout(c)
+		el.OnMouse = func(e *layout.Element, m *input.Mouse) { sel.onMouse(e, m, c.Text()) }
+	}
 	if !n.spec.hasH {
 		el.AfterLayout = func(e *layout.Element) bool {
 			w, _ := e.LayoutSize()
@@ -137,22 +162,30 @@ func (n *Node) layoutParagraph(c *Ctx) *layout.Element {
 		x0 := fr.X + padL
 		w := f32max(0, fr.W-padL-padR)
 		lines := st.wrap(eng, text, size, weight, w)
+		lineX := func(i int) float32 {
+			x := x0
+			switch d.align {
+			case AlignCenter:
+				lw, _ := eng.MeasureAtWeight(lines[i], size, weight)
+				x += (w - lw) / 2
+			case AlignEnd:
+				lw, _ := eng.MeasureAtWeight(lines[i], size, weight)
+				x += w - lw
+			}
+			return x
+		}
 		dl.PushClip(fr)
+		if sel != nil {
+			sel.spans, sel.lineX = st.spans, lineX
+			sel.top, sel.lineH, sel.size, sel.weight = fr.Y+padT, lineH, size, weight
+			sel.paintSelection(dl, eng, fr, th.Selection)
+		}
 		y := fr.Y + padT
-		for _, line := range lines {
+		for i, line := range lines {
 			if y >= fr.Y+fr.H {
 				break
 			}
-			x := x0
-			if d.align != AlignStart {
-				lw, _ := eng.MeasureAtWeight(line, size, weight)
-				if d.align == AlignCenter {
-					x += (w - lw) / 2
-				} else if d.align == AlignEnd {
-					x += w - lw
-				}
-			}
-			eng.DrawStringTopAtWeight(dl, line, x, y, col, size, weight)
+			eng.DrawStringTopAtWeight(dl, line, lineX(i), y, col, size, weight)
 			y += lineH
 		}
 		dl.PopClip()

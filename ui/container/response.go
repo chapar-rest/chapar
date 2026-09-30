@@ -437,21 +437,31 @@ func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *Tim
 		).Gap(th.Spacing.S).Grow(1)
 	}
 
-	bodyLines := strings.Split(state.detailBody, "\n")
-	parts := make([]ui.View, 0, len(bodyLines))
-	for _, line := range bodyLines {
-		parts = append(parts, ui.Muted(line))
-	}
-	card := ui.Card(state.detailTitle, state.detailSubtitle, ui.Column(parts...).Gap(th.Spacing.XXS)).
-		Flat().
-		Grow(1)
+	// The detail wraps and can be selected and copied: a script error or
+	// traceback is often longer than the pane is wide.
+	body := ui.Paragraph(state.detailBody).Selectable(id + "-detail").
+		Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted))
+	card := ui.Card(state.detailTitle, state.detailSubtitle, body).Flat()
 
 	return ui.Column(
 		ui.Caption("Steps"),
-		ui.ViewOf(state.List).Height(160),
-		ui.Scroll(id+"-detail", card).Grow(1),
+		ui.ViewOf(state.List).Height(timelineListHeight(th, len(state.steps))).Grow(0),
+		// The detail sits at the bottom of the pane, as tall as its text;
+		// it scrolls once that is taller than the room below the steps.
+		ui.Column(ui.Scroll(id+"-detail-scroll", card).FitContent()).
+			Grow(1).
+			Justify(ui.JustifyEnd),
 	).Gap(th.Spacing.S).Grow(1)
 }
+
+// timelineListHeight fits up to timelineVisibleSteps rows, so the detail
+// below gets the rest of the pane; the list scrolls past that.
+func timelineListHeight(th *theme.Theme, n int) float32 {
+	n = min(n, timelineVisibleSteps)
+	return float32(n)*th.Metrics.ControlHeight + float32(n-1)*th.Spacing.XXS
+}
+
+const timelineVisibleSteps = 4
 
 func timelineStepsEqual(a, b []egress.TimelineStep) bool {
 	if len(a) != len(b) {
