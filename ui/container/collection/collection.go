@@ -102,7 +102,10 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 				}
 			}),
 		),
-		ui.Tabs("col-tabs-"+id, c.tabs).Selected(c.active).OnSelectItem(func(i int, _ string) { c.active = i }),
+		ui.Tabs("col-tabs-"+id, c.tabs).
+			Selected(c.active).
+			Closable(false).
+			OnSelectItem(func(i int, _ string) { c.active = i }),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		c.body(th),
 	).Grow(1)
@@ -113,9 +116,8 @@ func (c *Container) body(th *theme.Theme) ui.View {
 	switch c.active {
 	case 1:
 		return ui.Column(
-			ui.Button("col-hdr-add-"+id, ui.Text("Add")).OnClick(func() { container.AddKVRow(c.headers, c.markDirty) }),
-			ui.ViewOf(c.headers).Grow(1),
-		).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+			container.HeadersPane(th, "col-"+id, c.headers, "", nil, c.markDirty),
+		).Padding(th.Spacing.M).Grow(1)
 	case 2:
 		opts := []ui.SelectOption{
 			{Label: "None", Value: domain.AuthTypeNone},
