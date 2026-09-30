@@ -6,6 +6,7 @@ import (
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
 	"github.com/mirzakhany/yoga/theme"
+	"github.com/mirzakhany/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
@@ -98,6 +99,17 @@ func applyChaparAppearance(general domain.GeneralConfig, editor domain.EditorCon
 	applyChaparTheme(general.Theme)
 	applyChaparFonts(general, editor)
 	highlight.MaxBytes = editor.HighlightLimitBytes()
+	applyChaparEditor(editor)
+}
+
+// applyChaparEditor hands the editor preferences to yoga. Open editors pick
+// them up on their next frame.
+func applyChaparEditor(editor domain.EditorConfig) {
+	ui.EditorDefaults.LineNumbers = editor.ShowLineNumbers
+	ui.EditorDefaults.SoftWrap = editor.WrapLines
+	ui.EditorDefaults.AutoCloseBrackets = editor.AutoCloseBrackets
+	ui.EditorDefaults.AutoCloseQuotes = editor.AutoCloseQuotes
+	ui.EditorDefaults.IndentSpaces = editor.Indentation != domain.IndentationTabs
 }
 
 func applyChaparFonts(general domain.GeneralConfig, editor domain.EditorConfig) {

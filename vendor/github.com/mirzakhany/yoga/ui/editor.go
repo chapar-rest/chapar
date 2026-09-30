@@ -163,6 +163,8 @@ type Editor struct {
 	// on resize/font changes, incrementally on edits.
 	SoftWrap                 bool
 	WrapWords                bool
+	wrapSet                  bool // SoftWrap was chosen for this editor; ignore EditorDefaults.SoftWrap
+	noGutter                 bool // WithoutGutter: never show line numbers
 	shareContent             bool // construction-time: build over the caller's slice, no copy
 	readOnly                 bool // selection and copy work; edits are ignored
 	lineRows                 [][]wrapRow
@@ -210,21 +212,41 @@ func (op *editOp) size() int { return len(op.deleted) + len(op.inserted) }
 
 const editorBarSize = 14 // scrollbar thickness (vertical and horizontal)
 
-// EditorDefaults are applied to every new Editor before any options. Apps
-// embedding the editor can set these once at startup instead of configuring
-// each editor individually.
+// EditorDefaults configure every Editor. Apps embedding the editor can set
+// these once, for example from user preferences, instead of configuring each
+// editor individually.
+//
+// WrapWords and the undo limits are read when an editor is built. The others
+// are read live, so changing them updates editors that are already open.
+// SoftWrap applies to editors whose wrap was not set by WithSoftWrap or
+// SetSoftWrap, and LineNumbers to editors built without WithoutGutter.
 var EditorDefaults = struct {
-	SoftWrap  bool // wrap long lines at the viewport width
-	WrapWords bool // prefer breaking wrapped rows at word boundaries
-	UndoSteps int  // most undo steps kept; <= 0 means no limit
-	UndoBytes int  // most text bytes kept by undo; <= 0 means no limit
-}{WrapWords: true, UndoSteps: 1000, UndoBytes: 32 << 20}
+	SoftWrap          bool // wrap long lines at the viewport width
+	WrapWords         bool // prefer breaking wrapped rows at word boundaries
+	UndoSteps         int  // most undo steps kept; <= 0 means no limit
+	UndoBytes         int  // most text bytes kept by undo; <= 0 means no limit
+	LineNumbers       bool // show the line-number gutter
+	AutoCloseBrackets bool // typing ( [ { inserts the closing bracket too
+	AutoCloseQuotes   bool // typing " ' ` inserts the closing quote too
+	IndentSpaces      bool // Tab inserts spaces up to the next tab stop
+}{
+	WrapWords:         true,
+	UndoSteps:         1000,
+	UndoBytes:         32 << 20,
+	LineNumbers:       true,
+	AutoCloseBrackets: true,
+}
+
+// editorGutterW is the width of the line-number gutter.
+const editorGutterW = 52
 
 // EditorOption configures an Editor at construction time.
 type EditorOption func(*Editor)
 
 // WithSoftWrap sets the initial soft-wrap state.
-func WithSoftWrap(v bool) EditorOption { return func(e *Editor) { e.SoftWrap = v } }
+func WithSoftWrap(v bool) EditorOption {
+	return func(e *Editor) { e.SoftWrap, e.wrapSet = v, true }
+}
 
 // WithUndoLimit bounds the undo history to steps edits and bytes of text,
 // dropping the oldest steps first. A value <= 0 lifts that limit. The newest
@@ -258,7 +280,7 @@ func WithHoverInfo(fn HoverInfoFunc) EditorOption { return func(e *Editor) { e.H
 
 // WithoutGutter hides the line-number gutter, for text where line numbers
 // carry no meaning, such as a log view.
-func WithoutGutter() EditorOption { return func(e *Editor) { e.gutterW = 0 } }
+func WithoutGutter() EditorOption { return func(e *Editor) { e.noGutter = true } }
 
 // ReadOnly reports whether the editor ignores edits (see WithReadOnly).
 func (e *Editor) ReadOnly() bool { return e.readOnly }
@@ -282,7 +304,6 @@ func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...Ed
 		Path:             path,
 		selAnchor:        -1,
 		blinkStart:       time.Now(),
-		gutterW:          52,
 		lineH:            m.LineHeight,
 		textPad:          8,
 		tabW:             engine.TabWidth(),
@@ -298,6 +319,7 @@ func newEditor(path string, content []byte, hl highlight.Highlighter, opts ...Ed
 	for _, opt := range opts {
 		opt(e)
 	}
+	e.gutterW = e.wantGutterW()
 	// Options decide whether the content is copied, so build the storage after
 	// applying them.
 	if e.shareContent {
@@ -501,6 +523,7 @@ func (e *Editor) Update(m *input.Mouse) {
 		e.wrapFull = true
 		e.contentSizeDirty = true
 	}
+	e.followDefaults()
 	if e.SoftWrap {
 		// Wrapping depends on the viewport width; relayout when it changes.
 		if cw, _, _, _ := e.scrollMetrics(); cw != e.lastWrapW {
@@ -545,8 +568,34 @@ const editorLargeDocLines = 500
 // caret/hit-test geometry instead of the shaped line.
 const maxShapedLine = 8192
 
-// SetSoftWrap toggles soft wrapping of long lines at the viewport width.
+// followDefaults applies the live EditorDefaults (line numbers, soft wrap)
+// that this editor does not override.
+func (e *Editor) followDefaults() {
+	if w := e.wantGutterW(); w != e.gutterW {
+		e.gutterW = w
+		e.contentSizeDirty = true
+	}
+	if !e.wrapSet {
+		e.setSoftWrap(EditorDefaults.SoftWrap)
+	}
+}
+
+// wantGutterW is the gutter width the editor should currently have.
+func (e *Editor) wantGutterW() float32 {
+	if e.noGutter || !EditorDefaults.LineNumbers {
+		return 0
+	}
+	return editorGutterW
+}
+
+// SetSoftWrap toggles soft wrapping of long lines at the viewport width. The
+// editor then keeps v and no longer follows EditorDefaults.SoftWrap.
 func (e *Editor) SetSoftWrap(v bool) {
+	e.wrapSet = true
+	e.setSoftWrap(v)
+}
+
+func (e *Editor) setSoftWrap(v bool) {
 	if e.SoftWrap == v {
 		return
 	}
@@ -1388,8 +1437,11 @@ func (e *Editor) HandleText(runes []rune) {
 	}
 	if len(runes) == 1 {
 		r := runes[0]
+		if isQuote(r) && EditorDefaults.AutoCloseQuotes && e.typeQuote(r) {
+			return
+		}
 		// Auto-close opening brackets.
-		if closing, ok := bracketClose[r]; ok {
+		if closing, ok := bracketClose[r]; ok && EditorDefaults.AutoCloseBrackets {
 			if e.hasSelection() {
 				lo, hi := e.selRange()
 				selected := string(e.pt.Bytes()[lo:hi])
@@ -1403,7 +1455,7 @@ func (e *Editor) HandleText(runes []rune) {
 			return
 		}
 		// Skip over auto-inserted closing bracket.
-		if _, isClose := bracketOpen[r]; isClose {
+		if _, isClose := bracketOpen[r]; isClose && EditorDefaults.AutoCloseBrackets {
 			b := e.pt.Bytes()
 			if e.caret < len(b) {
 				next, sz := utf8.DecodeRune(b[e.caret:])
@@ -1472,7 +1524,7 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 		case input.KeyEnter:
 			e.replaceSelection("\n", mergeNone)
 		case input.KeyTab:
-			e.replaceSelection("\t", mergeNone)
+			e.replaceSelection(e.tabText(), mergeNone)
 		case input.KeyBackspace:
 			e.backspace()
 			// Deleting back into a placeholder should offer its names again.
@@ -1495,6 +1547,65 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 			e.moveTo(e.pt.LineStart(ln)+len(e.pt.Line(ln)), shift)
 		}
 	}
+}
+
+// isQuote reports whether r is a quote the editor can auto-close.
+func isQuote(r rune) bool { return r == '"' || r == '\'' || r == '`' }
+
+// typeQuote handles typing quote q with auto-close on and reports whether it
+// did: it wraps a selection in quotes, steps over a closing quote at the
+// caret, or inserts a pair where a string can start. Other cases (such as the
+// apostrophe in "don't") fall back to plain typing.
+func (e *Editor) typeQuote(q rune) bool {
+	qs := string(q)
+	if e.hasSelection() {
+		lo, hi := e.selRange()
+		selected := string(e.pt.Bytes()[lo:hi])
+		e.applyEdit(lo, hi-lo, qs+selected+qs, mergeNone)
+		return true
+	}
+	b := e.pt.Bytes()
+	pos := e.caret
+	var next rune
+	if pos < len(b) {
+		next, _ = utf8.DecodeRune(b[pos:])
+	}
+	if next == q {
+		e.moveTo(pos+len(qs), false)
+		return true
+	}
+	if pos > 0 {
+		if prev, _ := utf8.DecodeLastRune(b[:pos]); prev == '_' || unicode.IsLetter(prev) || unicode.IsDigit(prev) || isQuote(prev) {
+			return false
+		}
+	}
+	if next != 0 && !unicode.IsSpace(next) && bracketOpen[next] == 0 && next != ',' && next != ';' && next != ':' {
+		return false
+	}
+	e.applyEdit(pos, 0, qs+qs, mergeNone)
+	e.caret = pos + len(qs)
+	e.ensureCaretVisible()
+	return true
+}
+
+// tabText is what the Tab key inserts: a tab, or with
+// EditorDefaults.IndentSpaces the spaces that reach the next tab stop.
+func (e *Editor) tabText() string {
+	if !EditorDefaults.IndentSpaces {
+		return "\t"
+	}
+	lo, _ := e.selRange()
+	ls := e.pt.LineStart(e.lineOf(lo))
+	tabW := max(e.tabW, 1)
+	col := 0
+	for _, ch := range string(e.pt.Bytes()[ls:lo]) {
+		if ch == '\t' {
+			col = (col/tabW + 1) * tabW
+		} else {
+			col++
+		}
+	}
+	return strings.Repeat(" ", tabW-col%tabW)
 }
 
 func (e *Editor) backspace() {

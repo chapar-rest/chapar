@@ -125,11 +125,6 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 				p.mark()
 				p.previewAppearance()
 			}),
-			ui.FormNumber("editorFontSize", "Editor font size", "Code editor text size", float64(g.Editor.FontSize), 8, 32, 1, func(v float64) {
-				g.Editor.FontSize = int(v)
-				p.mark()
-				p.previewAppearance()
-			}),
 			ui.FormSwitch("horizontalSplit", "Horizontal request/response split", "Stack request above response", g.General.UseHorizontalSplit, func(v bool) {
 				g.General.UseHorizontalSplit = v
 				p.mark()
@@ -165,6 +160,7 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			ui.FormSelect("indentation", "Indentation", "Spaces or tabs", indentOpts, selectIndex(g.Editor.Indentation, indentOpts), func(v string) {
 				g.Editor.Indentation = v
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormNumber("tabWidth", "Tab width", "Width of a tab stop", float64(g.Editor.TabWidth), 1, 16, 1, func(v float64) {
 				g.Editor.TabWidth = int(v)
@@ -174,18 +170,22 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			ui.FormSwitch("autoCloseBrackets", "Auto close brackets", "Insert matching brackets", g.Editor.AutoCloseBrackets, func(v bool) {
 				g.Editor.AutoCloseBrackets = v
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormSwitch("autoCloseQuotes", "Auto close quotes", "Insert matching quotes", g.Editor.AutoCloseQuotes, func(v bool) {
 				g.Editor.AutoCloseQuotes = v
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormSwitch("showLineNumbers", "Show line numbers", "Display gutter numbers", g.Editor.ShowLineNumbers, func(v bool) {
 				g.Editor.ShowLineNumbers = v
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormSwitch("wrapLines", "Wrap lines", "Soft-wrap long lines", g.Editor.WrapLines, func(v bool) {
 				g.Editor.WrapLines = v
 				p.mark()
+				p.previewAppearance()
 			}),
 			ui.FormNumber("highlightLimit", "Syntax highlighting limit (KB)",
 				"Larger bodies and files are shown without colors; a highlighted document takes many times its size in memory. Applies to documents opened from now on.",
