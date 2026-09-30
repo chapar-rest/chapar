@@ -63,13 +63,14 @@ func RequestInfoNameValue(r *Request) string {
 	return r.MetaData.Name
 }
 
-// SetRequestInfoName updates metadata.name from the Info tab field.
+// SetRequestInfoName updates metadata.name from the Info tab field. The value
+// is kept as typed: the field is controlled, so trimming here would drop a
+// space the moment it is typed. RequestDisplayName trims for display.
 func SetRequestInfoName(r *Request, value string) {
 	if r == nil {
 		return
 	}
-	value = strings.TrimSpace(value)
-	if value == "" {
+	if strings.TrimSpace(value) == "" {
 		r.MetaData.Name = DefaultRequestName
 		return
 	}

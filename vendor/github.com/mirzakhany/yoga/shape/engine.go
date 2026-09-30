@@ -171,6 +171,9 @@ func (e *Engine) drawLineGlyphsTint(dl *render.DrawList, ln Line, x, topY float3
 	s := max(e.Atlas.Scale(), 1)
 	snap := func(v float32) float32 { return float32(math.Round(float64(v*s))) / s }
 	for _, g := range ln.Glyphs {
+		if g.Blank {
+			continue
+		}
 		face := e.Fonts.Face(g.FaceID)
 		ox := (x + g.X + g.OffsetX) * s
 		px := math.Floor(float64(ox))

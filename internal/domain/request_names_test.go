@@ -68,7 +68,13 @@ func TestSetRequestInfoName(t *testing.T) {
 		t.Fatalf("got %q want %q", req.MetaData.Name, DefaultRequestName)
 	}
 	SetRequestInfoName(req, "  Renamed  ")
-	if req.MetaData.Name != "Renamed" {
-		t.Fatalf("got %q want Renamed", req.MetaData.Name)
+	if got := RequestDisplayName(req); got != "Renamed" {
+		t.Fatalf("display got %q want Renamed", got)
+	}
+	// Typing a space between words must survive the round trip through the
+	// controlled field.
+	SetRequestInfoName(req, "My ")
+	if got := RequestInfoNameValue(req); got != "My " {
+		t.Fatalf("field value got %q want %q", got, "My ")
 	}
 }

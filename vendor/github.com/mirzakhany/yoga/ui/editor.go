@@ -167,6 +167,7 @@ type Editor struct {
 	readOnly                 bool // selection and copy work; edits are ignored
 	lineRows                 [][]wrapRow
 	rowPrefix                []int   // rowPrefix[i] = visual rows before logical line i (len = LineCount+1)
+	revealCaret              bool    // scroll the caret into view once the wrap tables are rebuilt
 	wrapCols                 int     // columns per visual row used when wrapping
 	lastWrapW                float32 // last client width the wrap table was built for
 	wrapFull                 bool    // next sync must rebuild every line
@@ -519,6 +520,10 @@ func (e *Editor) Update(m *input.Mouse) {
 	if e.contentSizeDirty {
 		e.recomputeContentSize()
 	}
+	if e.revealCaret {
+		e.revealCaret = false
+		e.ensureCaretVisible()
+	}
 	if m != nil {
 		_, _, vShow, hShow := e.scrollMetrics()
 		e.syncScrollbarLayout(vShow, hShow)
@@ -772,6 +777,7 @@ func breakAfter(view []byte, p int) bool {
 
 // wrapRowAbs returns the logical line and absolute byte range of visual row r.
 func (e *Editor) wrapRowAbs(r int) (line, absStart, absEnd int) {
+	e.freshWrap()
 	line = e.rowOfVisual(r)
 	ls := e.pt.LineStart(line)
 	row := e.lineRows[line][r-e.rowPrefix[line]]
@@ -804,6 +810,7 @@ func (e *Editor) isHuge(ln int) bool {
 // rowOfByte returns the visual row index containing byte offset off. With soft
 // wrap off there is one row per line, so this is the logical line index.
 func (e *Editor) rowOfByte(off int) int {
+	e.freshWrap()
 	if !e.SoftWrap || len(e.rowPrefix) < 2 {
 		return e.lineOf(off)
 	}
@@ -1224,12 +1231,30 @@ func (e *Editor) afterMutation(edit highlight.Edit) {
 	e.contentSizeDirty = true // Undo/Redo don't set this themselves
 	e.markParsePending()
 	e.blinkStart = time.Now()
+	// Mark the wrap tables stale before anything maps the caret to a row.
+	e.markWrapDirty(edit)
 	e.ensureCaretVisible()
 	if e.search.open {
 		e.runSearch()
 	}
 	e.lspDidChange()
-	e.markWrapDirty(edit)
+}
+
+// freshWrap re-wraps lines an edit left stale. Edits run between layouts, so
+// a row lookup right after one (keeping the caret visible, Up/Down) would
+// otherwise read tables sized for the old text.
+func (e *Editor) freshWrap() {
+	if e.wrapStale() {
+		e.syncWrap()
+	}
+}
+
+// wrapStale reports whether the wrap tables exist but lag the text.
+func (e *Editor) wrapStale() bool {
+	if !e.SoftWrap || len(e.rowPrefix) < 2 {
+		return false
+	}
+	return e.wrapFull || e.wrapDirtySet || len(e.lineRows) != e.pt.LineCount()
 }
 
 // markWrapDirty records which logical lines an edit touched so the next wrap
@@ -1568,6 +1593,16 @@ func (e *Editor) paste(clip input.Clipboard) {
 	if s == "" {
 		return
 	}
+	if e.search.open && e.search.focused {
+		// The find and replace fields are single-line: keep the first line.
+		if i := strings.IndexAny(s, "\r\n"); i >= 0 {
+			s = s[:i]
+		}
+		if s != "" {
+			e.searchHandleText([]rune(s))
+		}
+		return
+	}
 	e.replaceSelection(s, mergeNone)
 }
 
@@ -1769,6 +1804,81 @@ func (e *Editor) offsetOf(line, col int) int {
 // Mouse: click to place caret, drag to select
 // ---------------------------------------------------------------------------
 
+// Find bar geometry, shared by painting and hit-testing.
+const (
+	searchLabelW   = float32(44) // "Find:" / "Repl:" labels
+	searchCloseW   = float32(20) // the × close button
+	searchCountW   = float32(60) // match count / replace buttons
+	searchTextPadX = float32(4)  // text inset inside an input
+)
+
+// searchInputRect returns the input box of row 0 (find) or row 1 (replace).
+func (e *Editor) searchInputRect(row int) render.Rect {
+	bar := e.searchBarRect()
+	return render.Rect{
+		X: bar.X + searchLabelW,
+		Y: bar.Y + float32(row)*searchRowH,
+		W: searchBarW - searchLabelW - searchCloseW - searchCountW,
+		H: searchRowH,
+	}
+}
+
+// replaceButtonRects returns the hit boxes of the replace-one and
+// replace-all buttons on the replace row.
+func (e *Editor) replaceButtonRects() (one, all render.Rect) {
+	in := e.searchInputRect(1)
+	x := in.X + in.W + 4
+	bw := float32(24)
+	if eng := frameText(); eng != nil {
+		bw, _ = eng.MeasureMono("->1")
+	}
+	one = render.Rect{X: x, Y: in.Y, W: bw, H: in.H}
+	all = render.Rect{X: x + bw + 4, Y: in.Y, W: bw, H: in.H}
+	return one, all
+}
+
+// searchClick handles a press inside the find bar: the close button, the
+// replace buttons, or an input, where it focuses that field and puts the
+// caret under the pointer.
+func (e *Editor) searchClick(x, y float32) {
+	bar := e.searchBarRect()
+	if x >= bar.X+bar.W-searchCloseW && y <= bar.Y+searchRowH {
+		e.closeSearch()
+		return
+	}
+	e.search.focused = true
+	if e.search.replaceMode && !e.readOnly {
+		one, all := e.replaceButtonRects()
+		switch {
+		case one.Contains(x, y):
+			e.doReplace()
+			return
+		case all.Contains(x, y):
+			e.doReplaceAll()
+			return
+		}
+	}
+	row := 0
+	if e.search.replaceMode && y >= bar.Y+searchRowH {
+		row = 1
+	}
+	e.search.focusField = row
+	field, caret := e.searchField()
+	in := e.searchInputRect(row)
+	if eng := frameText(); eng != nil {
+		*caret = eng.LineMono(*field).ByteForX(x - in.X - searchTextPadX)
+	} else if x < in.X {
+		*caret = 0
+	}
+	if *caret < 0 {
+		*caret = 0
+	}
+	if *caret > len(*field) {
+		*caret = len(*field)
+	}
+	e.blinkStart = time.Now()
+}
+
 // searchBarRect returns the bounding box of the search overlay panel.
 func (e *Editor) searchBarRect() render.Rect {
 	f := e.viewport.Frame
@@ -1803,12 +1913,7 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 	if e.search.open && m.Pressed {
 		bar := e.searchBarRect()
 		if bar.Contains(m.X, m.Y) {
-			// Close button occupies the rightmost 20 px of the first row.
-			if m.X >= bar.X+bar.W-20 && m.Y <= bar.Y+searchRowH {
-				e.closeSearch()
-			} else {
-				e.search.focused = true
-			}
+			e.searchClick(m.X, m.Y)
 			m.Consumed = true
 			return
 		}
@@ -2016,6 +2121,12 @@ func (e *Editor) lineRangeAt(off int) (int, int) {
 func (e *Editor) ensureCaretVisible() {
 	_, clientH, _, _ := e.scrollMetrics()
 	if clientH <= 0 {
+		return
+	}
+	if e.wrapStale() {
+		// An edit changed the text since the last wrap. Scroll once layout
+		// has re-wrapped, rather than re-wrapping on every edit of a batch.
+		e.revealCaret = true
 		return
 	}
 	row := e.rowOfByte(e.caret)
@@ -2600,6 +2711,8 @@ func (e *Editor) searchHandleKey(ev input.KeyEvent) {
 			e.search.replaceMode = !e.search.replaceMode
 		case input.KeyF:
 			e.search.focusField = 0
+		case input.KeyV:
+			e.paste(frameClipboard())
 		}
 	}
 }
@@ -2658,10 +2771,8 @@ func (e *Editor) paintSearchBar(dl *render.DrawList, engine *shape.Engine) {
 		return barY + float32(row)*searchRowH + (searchRowH-m.LineHeight)/2
 	}
 
-	const labelW = float32(44)
-	const rightPad = float32(20) // space for the × close button
-	inputX := barX + labelW
-	inputW := searchBarW - labelW - rightPad - 60 // 60 = count area
+	findField := e.searchInputRect(0)
+	inputX, inputW := findField.X, findField.W
 
 	noMatch := e.search.query != "" && len(e.search.matches) == 0
 	searchFieldBg := th.Background
@@ -2681,10 +2792,10 @@ func (e *Editor) paintSearchBar(dl *render.DrawList, engine *shape.Engine) {
 	if noMatch {
 		textColor = th.ErrorForeground
 	}
-	engine.DrawStringTopMono(dl, e.search.query, inputX+4, textTopY(0), textColor)
+	engine.DrawStringTopMono(dl, e.search.query, inputX+searchTextPadX, textTopY(0), textColor)
 	if e.search.focused && e.search.focusField == 0 {
 		qw, _ := engine.MeasureMono(e.search.query[:e.search.queryCaret])
-		cx := inputX + 4 + qw
+		cx := inputX + searchTextPadX + qw
 		dl.AddRect(render.Rect{X: cx, Y: barY + 5, W: 1.5, H: searchRowH - 10}, th.Caret)
 	}
 	dl.PopClip()
@@ -2711,18 +2822,17 @@ func (e *Editor) paintSearchBar(dl *render.DrawList, engine *shape.Engine) {
 		dl.AddRoundedRect(render.Rect{X: inputX, Y: replFieldY + 4, W: inputW, H: searchRowH - 8}, 2, th.Background)
 
 		dl.PushClip(render.Rect{X: inputX, Y: replFieldY, W: inputW, H: searchRowH})
-		engine.DrawStringTopMono(dl, e.search.replace, inputX+4, textTopY(1), th.Foreground)
+		engine.DrawStringTopMono(dl, e.search.replace, inputX+searchTextPadX, textTopY(1), th.Foreground)
 		if e.search.focused && e.search.focusField == 1 {
 			rw, _ := engine.MeasureMono(e.search.replace[:e.search.replaceCaret])
-			cx := inputX + 4 + rw
+			cx := inputX + searchTextPadX + rw
 			dl.AddRect(render.Rect{X: cx, Y: replFieldY + 5, W: 1.5, H: searchRowH - 10}, th.Accent)
 		}
 		dl.PopClip()
 
 		// Replace-one and replace-all buttons.
-		btnX := countX
-		engine.DrawStringTopMono(dl, "->1", btnX, textTopY(1), th.Accent)
-		bw, _ := engine.MeasureMono("->1")
-		engine.DrawStringTopMono(dl, "->*", btnX+bw+4, textTopY(1), th.Accent)
+		one, all := e.replaceButtonRects()
+		engine.DrawStringTopMono(dl, "->1", one.X, textTopY(1), th.Accent)
+		engine.DrawStringTopMono(dl, "->*", all.X, textTopY(1), th.Accent)
 	}
 }

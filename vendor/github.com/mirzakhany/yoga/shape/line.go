@@ -39,6 +39,9 @@ type Glyph struct {
 	Advance     float32
 	ClusterByte int // byte offset in line of cluster start
 	ClusterLen  int // byte length of cluster in line
+	// Blank marks a glyph with no ink, such as a tab. It still carries a
+	// cluster and an advance, so caret, hit-testing and selection see it.
+	Blank bool
 }
 
 // Line is a fully shaped, visually ordered text line.
@@ -117,7 +120,13 @@ func (s *Shaper) shapeLineFaceAt(text string, mono bool, logicalSize render.Px, 
 			tabCols := s.fs.TabCols()
 			col := int(x / cw)
 			nextCol := (col/tabCols + 1) * tabCols
-			x = float32(nextCol) * cw
+			next := float32(nextCol) * cw
+			out.Glyphs = append(out.Glyphs, Glyph{
+				X: x, W: next - x, Advance: next - x,
+				ClusterByte: len(string(runes[:end])), ClusterLen: 1,
+				Blank: true,
+			})
+			x = next
 		}
 		segStart = end
 	}

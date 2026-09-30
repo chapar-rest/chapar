@@ -100,8 +100,8 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	}
 	c.bodyEd = container.NewBodyEditor(deps, "body-"+r.MetaData.ID, http.Request.Body.Type, []byte(body))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
-	c.respEd = ui.NewEditor(nil, highlight.NewJSON(), ui.WithSoftWrap(true))
-	c.respHdrEd = ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
+	c.respEd = container.NewResponseEditor(nil, highlight.NewJSON())
+	c.respHdrEd = container.NewResponseEditor(nil, highlight.Noop{})
 
 	id := r.MetaData.ID
 	c.queryParams = container.NewKVTable("query-"+id, c.markDirty)
