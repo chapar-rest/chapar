@@ -89,7 +89,8 @@ type Tree struct {
 	// IconFor optionally overrides the icon (and its color) for a node.
 	IconFor func(n *TreeNode, expanded bool) (icon icons.Icon, color render.Color)
 
-	// ContextMenu builds the right-click menu items for a node.
+	// ContextMenu builds the right-click menu items for a node. n is nil for
+	// a right-click on the empty space below the rows.
 	ContextMenu func(n *TreeNode) []MenuItem
 
 	// OnActivate fires when a leaf is clicked. OnToggle fires after a branch expands/collapses.
@@ -654,6 +655,9 @@ func (t *Tree) onMouse(el *layout.Element, m *input.Mouse) {
 	}
 	idx := int((m.Y - el.Frame.Y + t.scrollY) / t.rowH)
 	if idx < 0 || idx >= len(t.visible) {
+		if m.RightPressed && t.openMenu(nil, m) {
+			return
+		}
 		if prevHover != -1 && t.markPaint != nil {
 			t.markPaint()
 		}
@@ -666,16 +670,8 @@ func (t *Tree) onMouse(el *layout.Element, m *input.Mouse) {
 	t.selected = idx
 	n := t.visible[idx]
 
-	if m.RightPressed && t.ContextMenu != nil {
-		if items := t.ContextMenu(n); len(items) > 0 {
-			t.menu.SetItems(items)
-			t.menu.OpenAt(m.X, m.Y)
-			m.Consumed = true
-			if t.markPaint != nil {
-				t.markPaint()
-			}
-			return
-		}
+	if m.RightPressed && t.openMenu(n, m) {
+		return
 	}
 
 	if m.Pressed {
@@ -705,6 +701,25 @@ func (t *Tree) onMouse(el *layout.Element, m *input.Mouse) {
 			t.OnActivate(n)
 		}
 	}
+}
+
+// openMenu opens the context menu for n (nil for empty space) at the cursor
+// and reports whether it opened.
+func (t *Tree) openMenu(n *TreeNode, m *input.Mouse) bool {
+	if t.ContextMenu == nil {
+		return false
+	}
+	items := t.ContextMenu(n)
+	if len(items) == 0 {
+		return false
+	}
+	t.menu.SetItems(items)
+	t.menu.OpenAt(m.X, m.Y)
+	m.Consumed = true
+	if t.markPaint != nil {
+		t.markPaint()
+	}
+	return true
 }
 
 func (t *Tree) updateDragTarget(el *layout.Element, m *input.Mouse) {

@@ -182,6 +182,9 @@ func (ft *FileTree) FocusEl() *layout.Element { return ft.tree.FocusEl() }
 // SetContextMenu installs a builder for the per-file right-click menu.
 func (ft *FileTree) SetContextMenu(fn func(path string) []MenuItem) {
 	ft.tree.ContextMenu = func(n *TreeNode) []MenuItem {
+		if n == nil {
+			return nil
+		}
 		p, _ := n.Data.(string)
 		return fn(p)
 	}

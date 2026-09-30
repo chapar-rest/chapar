@@ -1568,6 +1568,16 @@ func (e *Editor) paste(clip input.Clipboard) {
 	if s == "" {
 		return
 	}
+	if e.search.open && e.search.focused {
+		// The find and replace fields are single-line: keep the first line.
+		if i := strings.IndexAny(s, "\r\n"); i >= 0 {
+			s = s[:i]
+		}
+		if s != "" {
+			e.searchHandleText([]rune(s))
+		}
+		return
+	}
 	e.replaceSelection(s, mergeNone)
 }
 
@@ -2600,6 +2610,8 @@ func (e *Editor) searchHandleKey(ev input.KeyEvent) {
 			e.search.replaceMode = !e.search.replaceMode
 		case input.KeyF:
 			e.search.focusField = 0
+		case input.KeyV:
+			e.paste(frameClipboard())
 		}
 	}
 }
