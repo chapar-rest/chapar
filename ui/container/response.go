@@ -278,6 +278,10 @@ type TimelineState struct {
 	detailTitle    string
 	detailSubtitle string
 	detailBody     string
+	// detail shows detailBody read-only and soft-wrapped, so a long line
+	// (a script error, a traceback) can be read in full, selected and copied.
+	detail      *ui.Editor
+	detailShown string // the body detail was built with
 }
 
 // Ensure constructs the list once.
@@ -297,6 +301,10 @@ func (t *TimelineState) Close() {
 	if t.List != nil {
 		t.List.Clear()
 		t.List = nil
+	}
+	if t.detail != nil {
+		t.detail.Close()
+		t.detail = nil
 	}
 	t.steps = nil
 	t.hover = -1
@@ -347,6 +355,19 @@ func (t *TimelineState) showDetail(step egress.TimelineStep) {
 		b.WriteString("No additional detail.")
 	}
 	t.detailBody = strings.TrimRight(b.String(), "\n")
+}
+
+// detailEditor returns the editor showing detailBody, rebuilding it when the
+// body changed: a read-only editor ignores SetText.
+func (t *TimelineState) detailEditor() *ui.Editor {
+	if t.detail == nil || t.detailShown != t.detailBody {
+		if t.detail != nil {
+			t.detail.Close()
+		}
+		t.detail = NewResponseEditor([]byte(t.detailBody), highlight.Noop{}, ui.WithoutGutter())
+		t.detailShown = t.detailBody
+	}
+	return t.detail
 }
 
 func (t *TimelineState) rebuildList() {
@@ -437,21 +458,25 @@ func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *Tim
 		).Gap(th.Spacing.S).Grow(1)
 	}
 
-	bodyLines := strings.Split(state.detailBody, "\n")
-	parts := make([]ui.View, 0, len(bodyLines))
-	for _, line := range bodyLines {
-		parts = append(parts, ui.Muted(line))
-	}
-	card := ui.Card(state.detailTitle, state.detailSubtitle, ui.Column(parts...).Gap(th.Spacing.XXS)).
+	card := ui.Card(state.detailTitle, state.detailSubtitle, ui.ViewOf(state.detailEditor()).Grow(1)).
 		Flat().
 		Grow(1)
 
 	return ui.Column(
 		ui.Caption("Steps"),
-		ui.ViewOf(state.List).Height(160),
-		ui.Scroll(id+"-detail", card).Grow(1),
+		ui.ViewOf(state.List).Height(timelineListHeight(th, len(state.steps))).Grow(0),
+		card,
 	).Gap(th.Spacing.S).Grow(1)
 }
+
+// timelineListHeight fits up to timelineVisibleSteps rows, so the detail
+// below gets the rest of the pane; the list scrolls past that.
+func timelineListHeight(th *theme.Theme, n int) float32 {
+	n = min(n, timelineVisibleSteps)
+	return float32(n)*th.Metrics.ControlHeight + float32(n-1)*th.Spacing.XXS
+}
+
+const timelineVisibleSteps = 4
 
 func timelineStepsEqual(a, b []egress.TimelineStep) bool {
 	if len(a) != len(b) {
