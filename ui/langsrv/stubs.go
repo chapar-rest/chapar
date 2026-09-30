@@ -5,9 +5,10 @@ package langsrv
 // (github.com/chapar-rest/python-executor, chapar_api.py). Pyright knows none
 // of that, so without these stubs every script is covered in "undefined
 // variable" errors. They live in the virtual workspace pyright is started in:
-// __builtins__.pyi adds names to every file in it, and chapar.pyi types the
-// module (scripts may also `import chapar`). Keep them in step with
-// chapar_api.py.
+// chapar.pyi types the module (scripts may also `import chapar`), and each
+// phase's directory has a __builtins__.pyi that adds the globals to every
+// script in it. They differ in `response`, which a pre-request script does not
+// have yet. Keep them in step with chapar_api.py.
 
 const chaparStub = `"""Chapar scripting API, available as the global ` + "`chapar`" + `."""
 from typing import Any, Callable, Iterator, Literal, Optional, TypeVar, overload
@@ -172,26 +173,50 @@ on_response: Optional[Callable[[Response], None]]
 """Set to a function to run it with the response once the script finishes."""
 `
 
-const builtinsStub = `import chapar as chapar
+const preBuiltinsStub = `import chapar as chapar
+from chapar import Request
+
+request: Request
+"""The request about to be sent."""
+
+response: None
+"""There is no response yet: the request has not been sent. Read it in a
+post-request script."""
+`
+
+const postBuiltinsStub = `import chapar as chapar
 from chapar import Request, Response
 
 request: Request
-"""The request being sent."""
+"""The request that was sent."""
 
 response: Response
-"""The response (post-request scripts; None before the request is sent)."""
+"""The response."""
 `
 
+// pyrightConfig makes each phase directory an execution environment, so
+// pyright reads that directory's __builtins__.pyi; extraPaths keeps chapar.pyi
+// importable from both.
 const pyrightConfig = `{
   "typeCheckingMode": "basic",
   "reportMissingImports": "warning",
-  "reportMissingModuleSource": "none"
+  "reportMissingModuleSource": "none",
+  "executionEnvironments": [
+    {"root": "pre", "extraPaths": ["."]},
+    {"root": "post", "extraPaths": ["."]}
+  ]
 }
 `
 
 // workspaceFiles are written into the virtual workspace directory.
 var workspaceFiles = map[string]string{
-	"chapar.pyi":         chaparStub,
-	"__builtins__.pyi":   builtinsStub,
-	"pyrightconfig.json": pyrightConfig,
+	"chapar.pyi":            chaparStub,
+	"pre/__builtins__.pyi":  preBuiltinsStub,
+	"post/__builtins__.pyi": postBuiltinsStub,
+	"pyrightconfig.json":    pyrightConfig,
 }
+
+// obsoleteFiles are removed from workspaces written by older versions. A
+// __builtins__.pyi at the root would give the script globals to every
+// document, generated code included.
+var obsoleteFiles = []string{"__builtins__.pyi"}
