@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path"
 	"sync"
 	"time"
 )
@@ -73,9 +74,10 @@ func newClient(rwc io.ReadWriteCloser, rootURI string, hooks clientHooks) (*clie
 	c.rpc = newRPC(rwc, c.onNotify)
 
 	params := initializeParams{
-		ProcessID:  os.Getpid(),
-		ClientInfo: clientInfo{Name: "yoga"},
-		RootURI:    rootURI,
+		ProcessID:        os.Getpid(),
+		ClientInfo:       clientInfo{Name: "yoga"},
+		RootURI:          rootURI,
+		WorkspaceFolders: []workspaceFolder{{URI: rootURI, Name: path.Base(rootURI)}},
 		Capabilities: clientCapabilities{
 			General: generalCapabilities{
 				// Prefer utf-8 so an LSP character offset equals the byte column

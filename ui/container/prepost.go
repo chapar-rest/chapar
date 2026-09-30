@@ -10,6 +10,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/jsonpath"
+	"github.com/chapar-rest/chapar/internal/scripting"
 )
 
 // PrePostOpts configures pre/post request UI options.
@@ -50,7 +51,7 @@ func PreRequestPane(th *theme.Theme, deps Deps, pre *domain.PreRequest, opts Pre
 		rows = append(rows, TriggerRequestPicker(th, deps, opts.ID, pre.TriggerRequest, markDirty))
 	case domain.PrePostTypePython:
 		if *scriptEd == nil {
-			*scriptEd = NewScriptEditor(deps, opts.ID, pre.Script)
+			*scriptEd = NewScriptEditor(deps, scripting.PhasePre, opts.ID, pre.Script)
 		}
 		rows = append(rows, ui.ViewOf(*scriptEd).Grow(1))
 	}
@@ -87,7 +88,7 @@ func PostRequestPane(th *theme.Theme, deps Deps, post *domain.PostRequest, opts 
 		}
 	case domain.PrePostTypePython:
 		if *scriptEd == nil {
-			*scriptEd = NewScriptEditor(deps, opts.ID, post.Script)
+			*scriptEd = NewScriptEditor(deps, scripting.PhasePost, opts.ID, post.Script)
 		}
 		rows = append(rows, ui.ViewOf(*scriptEd).Grow(1))
 	}

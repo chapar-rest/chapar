@@ -8,6 +8,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/internal/secret"
 	"github.com/chapar-rest/chapar/internal/sender"
 	"github.com/chapar-rest/chapar/internal/testrun"
@@ -79,11 +80,11 @@ type Deps struct {
 // NewScriptEditor returns an editor for a Python pre/post-request script.
 // Scripts run against the active environment, so the editor completes and
 // explains the same {{variable}} placeholders the request's fields do.
-func NewScriptEditor(deps Deps, name, script string) *ui.Editor {
+func NewScriptEditor(deps Deps, phase scripting.Phase, name, script string) *ui.Editor {
 	if deps.Lang == nil {
 		return AssistEditor(ui.NewEditor([]byte(script), highlight.NewPython()), VarSource(deps, nil))
 	}
-	return AssistEditor(deps.Lang.NewScriptEditor(name, script), VarSource(deps, nil))
+	return AssistEditor(deps.Lang.NewScriptEditor(phase, name, script), VarSource(deps, nil))
 }
 
 // NewBodyEditor returns an editor for a request body of the given

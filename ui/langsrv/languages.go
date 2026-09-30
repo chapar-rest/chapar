@@ -28,9 +28,12 @@ type Language struct {
 	Ext     string // extension of the editors' virtual documents
 	Command string // default server executable
 	Args    []string
-	Enabled bool   // on by default
-	Install string // how to get the default server
-	Note    string // shown under the language in settings
+	Enabled bool // on by default
+	// RootMarkers find the workspace root from a document; without them it is
+	// the document's own directory.
+	RootMarkers []string
+	Install     string // how to get the default server
+	Note        string // shown under the language in settings
 	// Installers are the commands that can install the default server, in
 	// order of preference; the first whose tool is on PATH is offered.
 	Installers []Installer
@@ -42,8 +45,10 @@ var Languages = []Language{
 	{
 		ID: "python", LSPID: "python", Name: "Python", Ext: ".py",
 		Command: "pyright-langserver", Args: []string{"--stdio"}, Enabled: true,
-		Install: "npm install -g pyright  (or: pip install pyright)",
-		Note:    "Pre/post-request scripts",
+		// Scripts live in per-phase subdirectories of the workspace.
+		RootMarkers: []string{"pyrightconfig.json"},
+		Install:     "npm install -g pyright  (or: pip install pyright)",
+		Note:        "Pre/post-request scripts",
 		Installers: []Installer{
 			{"npm", []string{"install", "-g", "pyright"}},
 			{"brew", []string{"install", "pyright"}},

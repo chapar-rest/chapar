@@ -17,6 +17,7 @@ import (
 	"github.com/mirzakhany/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/scripting"
 )
 
 // toastInterval limits how often one kind of problem from one server pops a
@@ -132,9 +133,10 @@ func (s *Service) Apply(cfg domain.LanguageServersConfig) {
 		l := Languages[i]
 		if c.Enabled && c.Command != "" {
 			lsp.Register(l.Ext, lsp.ServerConfig{
-				LanguageID: l.LSPID,
-				Command:    expandHome(c.Command),
-				Args:       c.Args,
+				LanguageID:  l.LSPID,
+				Command:     expandHome(c.Command),
+				Args:        c.Args,
+				RootMarkers: l.RootMarkers,
 			})
 		} else {
 			lsp.Unregister(l.Ext)
@@ -303,15 +305,17 @@ func (s *Service) lookPath(cmd string) (string, error) {
 
 // ---- editors ----
 
-// docPath returns a unique virtual document path in the workspace. The files
-// are never written: the server gets the text from the editor.
-func (s *Service) docPath(name, ext string) string {
-	return filepath.Join(s.dir, fmt.Sprintf("%s-%d%s", sanitize(name), s.seq.Add(1), ext))
+// docPath returns a unique virtual document path in the workspace directory
+// sub ("" for the root). The files are never written: the server gets the
+// text from the editor.
+func (s *Service) docPath(sub, name, ext string) string {
+	return filepath.Join(s.dir, sub, fmt.Sprintf("%s-%d%s", sanitize(name), s.seq.Add(1), ext))
 }
 
-// NewScriptEditor returns an editor for a Python pre/post-request script.
-func (s *Service) NewScriptEditor(name, script string) *ui.Editor {
-	return ui.NewEditorFor(s.docPath(name, ".py"), []byte(script))
+// NewScriptEditor returns an editor for a Python pre/post-request script. The
+// document goes in phase's directory, whose stubs say what the script sees.
+func (s *Service) NewScriptEditor(phase scripting.Phase, name, script string) *ui.Editor {
+	return ui.NewEditorFor(s.docPath(string(phase), name, ".py"), []byte(script))
 }
 
 // NewBodyEditor returns an editor for a request body of the given
@@ -320,9 +324,9 @@ func (s *Service) NewScriptEditor(name, script string) *ui.Editor {
 func (s *Service) NewBodyEditor(name, bodyType string, body []byte, opts ...ui.EditorOption) *ui.Editor {
 	switch bodyType {
 	case domain.RequestBodyTypeJSON:
-		return ui.NewEditorFor(s.docPath(name, ".json"), body, opts...)
+		return ui.NewEditorFor(s.docPath("", name, ".json"), body, opts...)
 	case domain.RequestBodyTypeXML:
-		return ui.NewEditorFor(s.docPath(name, ".xml"), body, opts...)
+		return ui.NewEditorFor(s.docPath("", name, ".xml"), body, opts...)
 	default:
 		return ui.NewEditor(body, highlight.Noop{}, opts...)
 	}
@@ -347,7 +351,7 @@ func (s *Service) NewCodeViewer(gen, code string) *ui.Editor {
 	if !ok {
 		return ui.NewEditor([]byte(code), highlight.Noop{})
 	}
-	return ui.NewEditorFor(s.docPath("codegen", l.Ext), []byte(code))
+	return ui.NewEditorFor(s.docPath("", "codegen", l.Ext), []byte(code))
 }
 
 // ---- helpers ----
@@ -371,7 +375,16 @@ func writeWorkspace(dir string) error {
 		if old, err := os.ReadFile(p); err == nil && string(old) == content {
 			continue
 		}
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			errs = append(errs, err)
+			continue
+		}
 		errs = append(errs, os.WriteFile(p, []byte(content), 0o644))
+	}
+	for _, name := range obsoleteFiles {
+		if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, err)
+		}
 	}
 	return errors.Join(errs...)
 }

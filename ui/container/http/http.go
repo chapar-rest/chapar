@@ -14,6 +14,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
 	"github.com/chapar-rest/chapar/internal/prefs"
+	"github.com/chapar-rest/chapar/internal/scripting"
 	"github.com/chapar-rest/chapar/ui/container"
 	reqicons "github.com/chapar-rest/chapar/ui/icons"
 	"github.com/chapar-rest/chapar/ui/vars"
@@ -128,10 +129,10 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.authState.CollectionID = r.CollectionID
 
 	if http.Request.PreRequest.Type == domain.PrePostTypePython && http.Request.PreRequest.Script != "" {
-		c.preScript = container.NewScriptEditor(deps, optsID(r.MetaData.ID, "pre"), http.Request.PreRequest.Script)
+		c.preScript = container.NewScriptEditor(deps, scripting.PhasePre, optsID(r.MetaData.ID, "pre"), http.Request.PreRequest.Script)
 	}
 	if http.Request.PostRequest.Type == domain.PrePostTypePython && http.Request.PostRequest.Script != "" {
-		c.postScript = container.NewScriptEditor(deps, optsID(r.MetaData.ID, "post"), http.Request.PostRequest.Script)
+		c.postScript = container.NewScriptEditor(deps, scripting.PhasePost, optsID(r.MetaData.ID, "post"), http.Request.PostRequest.Script)
 	}
 	return c
 }
