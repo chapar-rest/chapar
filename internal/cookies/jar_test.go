@@ -315,3 +315,32 @@ func TestStoreRoundTrip(t *testing.T) {
 		t.Fatalf("jar file still exists: %v", err)
 	}
 }
+
+func TestMemoryStore(t *testing.T) {
+	s := NewMemoryStore()
+	j, err := s.For("env1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.SetCookies(mustURL(t, "https://example.com/"), []*http.Cookie{{Name: "a", Value: "1", MaxAge: 3600}})
+	if err := s.Save("env1"); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := s.For("env1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again.All()) != 1 {
+		t.Fatal("memory store lost the jar between sends")
+	}
+	if other, _ := s.For("env2"); len(other.All()) != 0 {
+		t.Fatal("jars are not separate per environment")
+	}
+	if err := s.Delete("env1"); err != nil {
+		t.Fatal(err)
+	}
+	if fresh, _ := s.For("env1"); len(fresh.All()) != 0 {
+		t.Fatal("Delete kept the jar")
+	}
+}

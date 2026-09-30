@@ -36,6 +36,10 @@ func (w *Workspace) OpenEnv(env *domain.Environment) {
 	w.open(container.OpenSpec{Env: env, Deps: w.containerDeps(env.MetaData.ID)})
 }
 
+func (w *Workspace) OpenTestCase(tc *domain.TestCase) {
+	w.open(container.OpenSpec{TestCase: tc, Deps: w.containerDeps(tc.MetaData.ID)})
+}
+
 func (w *Workspace) containerDeps(id string) container.Deps {
 	d := w.deps()
 	d.OpenCollection = w.OpenCollection

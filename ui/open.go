@@ -10,12 +10,15 @@ import (
 	gqlc "github.com/chapar-rest/chapar/ui/container/graphql"
 	grpcc "github.com/chapar-rest/chapar/ui/container/grpc"
 	httpc "github.com/chapar-rest/chapar/ui/container/http"
+	tcc "github.com/chapar-rest/chapar/ui/container/testcase"
 )
 
 func openContainer(spec container.OpenSpec) (container.Container, error) {
 	switch {
 	case spec.Env != nil:
 		return envc.Open(spec.Env, spec.Deps), nil
+	case spec.TestCase != nil:
+		return tcc.Open(spec.TestCase, spec.Deps), nil
 	case spec.Collection != nil:
 		return colc.Open(spec.Collection, spec.Deps), nil
 	case spec.Request != nil:

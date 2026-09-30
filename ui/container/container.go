@@ -9,8 +9,9 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/secret"
+	"github.com/chapar-rest/chapar/internal/sender"
+	"github.com/chapar-rest/chapar/internal/testrun"
 	"github.com/chapar-rest/chapar/ui/langsrv"
-	"github.com/chapar-rest/chapar/ui/sender"
 )
 
 type Kind string
@@ -21,6 +22,7 @@ const (
 	KindGraphQL    Kind = "request-graphql"
 	KindCollection Kind = "collection"
 	KindEnv        Kind = "environment"
+	KindTestCase   Kind = "testcase"
 )
 
 // Container is the only editor contract. Protocol-specific UI stays inside each implementation.
@@ -70,6 +72,8 @@ type Deps struct {
 	// OpenCollection opens a collection in its own tab, for a container that
 	// creates one.
 	OpenCollection func(*domain.Collection)
+	// Tests runs test cases. Nil hides Run.
+	Tests *testrun.Runner
 }
 
 // NewScriptEditor returns an editor for a Python pre/post-request script.
@@ -107,6 +111,10 @@ type Catalog interface {
 	Load() error
 	AllCollections() []*domain.Collection
 	StandaloneRequests() []*domain.Request
+	// AllRequests returns every request, with CollectionName set on those
+	// in a collection.
+	AllRequests() []*domain.Request
+	AllEnvironments() []*domain.Environment
 }
 
 // OpenSpec is the factory input. Kind is inferred from the non-nil document.
@@ -114,6 +122,7 @@ type OpenSpec struct {
 	Request    *domain.Request
 	Collection *domain.Collection
 	Env        *domain.Environment
+	TestCase   *domain.TestCase
 	Deps       Deps
 }
 

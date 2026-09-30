@@ -65,6 +65,12 @@ func (s *Service) SetExecutor(exec Scripts) {
 	s.script = exec
 }
 
+// SetScriptingEnabled replaces the check of the scripting setting, for
+// callers that decide themselves, such as the test CLI.
+func (s *Service) SetScriptingEnabled(on func() bool) {
+	s.scriptingOn = on
+}
+
 // New builds a sender that never reads internal/state.
 func New(repo repository.RepositoryV2, lookup RequestLookup, colls CollectionLookup, onEnv func(*domain.Environment)) *Service {
 	return &Service{
@@ -101,15 +107,16 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 	if preStep != nil {
 		timeline = append(timeline, *preStep)
 	}
+	tests := scriptTests(preResult)
 	if err != nil {
-		return &egress.Response{Timeline: timeline, Error: err}, err
+		return &egress.Response{Timeline: timeline, Error: err, ScriptTests: tests}, err
 	}
 	if preResult != nil && preResult.Skip {
 		err := errors.New("the pre-request script skipped this request")
 		if preResult.SkipReason != "" {
 			err = fmt.Errorf("the pre-request script skipped this request: %s", preResult.SkipReason)
 		}
-		return &egress.Response{Timeline: timeline, Error: err}, err
+		return &egress.Response{Timeline: timeline, Error: err, ScriptTests: tests}, err
 	}
 
 	sendReq := req
@@ -144,16 +151,18 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 			res = &egress.Response{Error: err}
 		}
 		res.Timeline = append(timeline, res.Timeline...)
+		res.ScriptTests = tests
 		return res, err
 	}
 
 	timeline = append(timeline, res.Timeline...)
 
-	postStep, postErr := s.postRequestTimed(sendReq, res, env, collection)
+	postStep, postResult, postErr := s.postRequestTimed(sendReq, res, env, collection)
 	if postStep != nil {
 		timeline = append(timeline, *postStep)
 	}
 	res.Timeline = timeline
+	res.ScriptTests = append(tests, scriptTests(postResult)...)
 	// The response arrived; a failing post-request action must not hide it.
 	res.PostRequestError = postErr
 	return res, nil
@@ -219,14 +228,14 @@ func (s *Service) preRequestTimed(req *domain.Request, env *domain.Environment, 
 	return step, result, err
 }
 
-func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, env *domain.Environment, collection *domain.Collection) (*egress.TimelineStep, error) {
+func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, env *domain.Environment, collection *domain.Collection) (*egress.TimelineStep, *scripting.ExecResult, error) {
 	if res == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	postReq := req.Spec.GetPostRequest()
 	hasVars := len(req.Spec.GetVariables()) > 0
 	if !domain.DoablePostRequest(postReq) && !hasVars {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	start := time.Now()
@@ -255,7 +264,14 @@ func (s *Service) postRequestTimed(req *domain.Request, res *egress.Response, en
 	} else if n := result.FailedTests(); n > 0 {
 		step.Err = testsFailed(n)
 	}
-	return step, err
+	return step, result, err
+}
+
+func scriptTests(result *scripting.ExecResult) []scripting.TestResult {
+	if result == nil {
+		return nil
+	}
+	return result.Tests
 }
 
 func scriptDetail(title string, result *scripting.ExecResult) string {

@@ -10,6 +10,8 @@ const (
 	KindRequest     = "Request"
 	KindPreferences = "Preferences"
 	KindCollection  = "Collection"
+	KindTestCase    = "TestCase"
+	KindTestBundle  = "TestBundle"
 )
 
 type MetaData struct {

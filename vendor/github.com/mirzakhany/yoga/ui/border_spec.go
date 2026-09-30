@@ -30,18 +30,6 @@ const (
 	radiusCornerAll = radiusCornerTL | radiusCornerTR | radiusCornerBR | radiusCornerBL
 )
 
-func (s *Spec) ensureBorder() {
-	if s.borderSet == 0 {
-		s.borderSet = borderSideAll
-	}
-}
-
-func (s *Spec) ensureRadius() {
-	if s.radiusSet == 0 {
-		s.radiusSet = radiusCornerAll
-	}
-}
-
 // Border sets a uniform token stroke on all sides.
 func (s Spec) Border(t Token, width float32) Spec {
 	s.border = colorRef{on: true, token: t}
@@ -60,7 +48,6 @@ func (s Spec) BorderColor(c render.Color, width float32) Spec {
 
 // BorderTop sets the top border width (token color from Border/BorderColor).
 func (s Spec) BorderTop(t Token, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, token: t}
 	s.borderW.Top = width
 	s.borderSet |= borderSideTop
@@ -69,7 +56,6 @@ func (s Spec) BorderTop(t Token, width float32) Spec {
 
 // BorderRight sets the right border width.
 func (s Spec) BorderRight(t Token, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, token: t}
 	s.borderW.Right = width
 	s.borderSet |= borderSideRight
@@ -78,7 +64,6 @@ func (s Spec) BorderRight(t Token, width float32) Spec {
 
 // BorderBottom sets the bottom border width.
 func (s Spec) BorderBottom(t Token, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, token: t}
 	s.borderW.Bottom = width
 	s.borderSet |= borderSideBottom
@@ -87,7 +72,6 @@ func (s Spec) BorderBottom(t Token, width float32) Spec {
 
 // BorderLeft sets the left border width.
 func (s Spec) BorderLeft(t Token, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, token: t}
 	s.borderW.Left = width
 	s.borderSet |= borderSideLeft
@@ -96,7 +80,6 @@ func (s Spec) BorderLeft(t Token, width float32) Spec {
 
 // BorderTopColor sets the top border with a literal color.
 func (s Spec) BorderTopColor(c render.Color, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, useLit: true, lit: c}
 	s.borderW.Top = width
 	s.borderSet |= borderSideTop
@@ -105,7 +88,6 @@ func (s Spec) BorderTopColor(c render.Color, width float32) Spec {
 
 // BorderRightColor sets the right border with a literal color.
 func (s Spec) BorderRightColor(c render.Color, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, useLit: true, lit: c}
 	s.borderW.Right = width
 	s.borderSet |= borderSideRight
@@ -114,7 +96,6 @@ func (s Spec) BorderRightColor(c render.Color, width float32) Spec {
 
 // BorderBottomColor sets the bottom border with a literal color.
 func (s Spec) BorderBottomColor(c render.Color, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, useLit: true, lit: c}
 	s.borderW.Bottom = width
 	s.borderSet |= borderSideBottom
@@ -123,7 +104,6 @@ func (s Spec) BorderBottomColor(c render.Color, width float32) Spec {
 
 // BorderLeftColor sets the left border with a literal color.
 func (s Spec) BorderLeftColor(c render.Color, width float32) Spec {
-	s.ensureBorder()
 	s.border = colorRef{on: true, useLit: true, lit: c}
 	s.borderW.Left = width
 	s.borderSet |= borderSideLeft
@@ -146,7 +126,6 @@ func (s Spec) Radius(r float32) Spec {
 
 // RadiusTopLeft sets the top-left corner radius.
 func (s Spec) RadiusTopLeft(r float32) Spec {
-	s.ensureRadius()
 	s.radii.TopLeft = r
 	s.radiusSet |= radiusCornerTL
 	return s
@@ -154,7 +133,6 @@ func (s Spec) RadiusTopLeft(r float32) Spec {
 
 // RadiusTopRight sets the top-right corner radius.
 func (s Spec) RadiusTopRight(r float32) Spec {
-	s.ensureRadius()
 	s.radii.TopRight = r
 	s.radiusSet |= radiusCornerTR
 	return s
@@ -162,7 +140,6 @@ func (s Spec) RadiusTopRight(r float32) Spec {
 
 // RadiusBottomRight sets the bottom-right corner radius.
 func (s Spec) RadiusBottomRight(r float32) Spec {
-	s.ensureRadius()
 	s.radii.BottomRight = r
 	s.radiusSet |= radiusCornerBR
 	return s
@@ -170,7 +147,6 @@ func (s Spec) RadiusBottomRight(r float32) Spec {
 
 // RadiusBottomLeft sets the bottom-left corner radius.
 func (s Spec) RadiusBottomLeft(r float32) Spec {
-	s.ensureRadius()
 	s.radii.BottomLeft = r
 	s.radiusSet |= radiusCornerBL
 	return s

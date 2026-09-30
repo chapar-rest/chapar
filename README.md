@@ -57,6 +57,7 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
 * **Cookie jar** per environment: cookies from responses are stored and sent back automatically, and you can view, edit, add or clear them.
 * **Auth**: Basic, Bearer token and API key, set per request or inherited from the collection.
 * **Pre and post-request actions**: run another request first, extract values from the response body, headers or cookies into the environment, or write Python scripts with tests and logs.
+* **Test cases** send your requests in order, check their responses (status, headers, JSON paths, timing and more) and pass values from one step to the next, with setup, teardown and retries. Run them in the app, or in CI with [`chapar-cli`](#command-line-runner-chapar-cli).
 * **Timeline** of every request: DNS, connect, TLS, time to first byte, scripts.
 * **Code generation** for cURL, Python, Go, JavaScript (fetch, axios), Java and Kotlin (OkHttp), Ruby and .NET.
 * **Import** Postman collections, OpenAPI specs and proto files.
@@ -114,12 +115,43 @@ yay -S chapar-bin
 ```
 Please note that AUR package is maintained by a community contributor. (@Monirzadeh ) may not be up to date with the latest release.
 
+#### Command-line runner (chapar-cli)
+`chapar-cli` runs test cases without the app, for CI or any machine without a screen. It is a single static binary for Linux, macOS and Windows.
+
+```bash
+# Linux and macOS
+curl -fsSL https://github.com/chapar-rest/chapar/releases/latest/download/install-cli.sh | sh
+
+# or with Homebrew
+brew install chapar-rest/chapar/chapar-cli
+```
+
+On Windows, download `chapar-cli-windows-*.zip` from the [releases page](https://github.com/chapar-rest/chapar/releases). Pin a version with `sh -s -- -v v0.8.0`, or pick the install directory with `-b DIR`.
+
+Run a workspace committed to your repo, or a test case exported from the app (Export, in the test case's title row):
+```bash
+chapar-cli test --workspace path/to/workspace --env staging --report junit=results.xml
+chapar-cli test smoke.chapar-test.yaml --os-env API_ --var base=https://staging.example.com
+```
+
+In GitHub Actions:
+```yaml
+- name: Install chapar-cli
+  run: curl -fsSL https://github.com/chapar-rest/chapar/releases/latest/download/install-cli.sh | sh -s -- -b "$HOME/.local/bin"
+- name: Run API tests
+  run: chapar-cli test --workspace api-tests --env ci --report junit=results.xml
+  env:
+    API_TOKEN: ${{ secrets.API_TOKEN }}
+```
+`chapar-cli test -h` lists every flag. It exits with 0 when all cases pass, 1 when one does not, and 2 for bad flags or files.
+
 #### Install From Source
 To install Chapar from source, clone the repository install the dependencies, and run the application using the following commands:
 ```bash
 git clone https://github.com/chapar-rest/chapar.git
 cd chapar
 go build -o chapar .
+go build -o chapar-cli ./cmd/chapar-cli   # the command-line runner
 ```
 
 To build the same packages the releases ship (DMG, tar.xz, zip), install the [Yoga](https://github.com/mirzakhany/yoga) CLI with `make install_deps` (the version `go.mod` uses); `yoga.toml` holds the packaging config:

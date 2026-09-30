@@ -32,6 +32,15 @@ lint:
 fmt:
 	golangci-lint fmt
 
+.PHONY: cli
+cli:
+	CGO_ENABLED=0 go build -trimpath -o dist/chapar-cli ./cmd/chapar-cli
+
+# The chapar-cli archives a release ships, for every platform, in dist/cli.
+.PHONY: cli_release
+cli_release:
+	./build/cli-release.sh $(TAG_NAME) dist/cli
+
 .PHONY: clean
 clean:
 	rm -rf ./dist

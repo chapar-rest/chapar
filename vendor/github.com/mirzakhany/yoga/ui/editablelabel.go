@@ -180,8 +180,19 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 	}
 	tw, _ := measureEditableLabel(c, display, style.Size)
 	minW := tw + 2*padX
+	// With an ellipsis the label may be narrower than its text, which is
+	// then cut to fit; without one it is at least as wide as the text.
+	ellipsis := n.ellipsis
+	if ellipsis != EllipsisNone {
+		ew, _ := measureEditableLabel(c, ellipsisRune, style.Size)
+		minW = ew + 2*padX
+	}
 
 	box := layout.Box().H(h).Min(minW, h).FlexShrink(0)
+	if ellipsis != EllipsisNone {
+		// Full width as the basis, so it only shortens when it must.
+		box = layout.Box().W(tw+2*padX).H(h).Min(minW, h).FlexShrink(1)
+	}
 	el := layout.New(applyLayoutSpec(box, n.spec))
 	st.el = el
 
@@ -238,6 +249,10 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 				show = placeholder
 				col = th.ForegroundMuted
 			}
+			if show == "" {
+				return
+			}
+			show = truncateToWidth(eng, show, style.Size, shape.WeightRegular, f.W-2*padX, ellipsis)
 			if show == "" {
 				return
 			}

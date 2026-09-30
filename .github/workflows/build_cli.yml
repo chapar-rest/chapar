@@ -1,0 +1,66 @@
+name: Build CLI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # chapar-cli has no cgo and no UI, so one runner builds every platform.
+      - name: Build and package
+        run: |
+          ./build/cli-release.sh "$TAG" dist/cli
+          # The installer ships with each release, so
+          # releases/latest/download/install-cli.sh is always the current one.
+          cp build/install-cli.sh dist/cli/
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" dist/cli/*
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: chapar-rest/homebrew-chapar
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-chapar
+
+      - name: Update formula
+        run: |
+          mkdir -p homebrew-chapar/Formula
+          ./build/homebrew/render-formula.sh "$TAG" "dist/cli/chapar-cli-$TAG-checksums.txt" \
+            > homebrew-chapar/Formula/chapar-cli.rb
+
+      # The cask is bumped by another workflow at about the same time, so a
+      # push can race it; rebase and try again.
+      - name: Commit and push
+        working-directory: homebrew-chapar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/chapar-cli.rb
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: bump chapar-cli to ${TAG}"
+          for attempt in 1 2 3 4 5; do
+            git push && exit 0
+            sleep $((attempt * 5))
+            git pull --rebase
+          done
+          exit 1

@@ -6,6 +6,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/scripting"
 )
 
 // Timeline step phase constants.
@@ -58,6 +59,10 @@ type Response struct {
 	// PostRequestError is why the post-request actions (script, set env,
 	// extract variables) failed. The response itself arrived and is valid.
 	PostRequestError error
+
+	// ScriptTests are the chapar.test() calls of the pre- and post-request
+	// scripts, in the order they ran.
+	ScriptTests []scripting.TestResult
 
 	Timeline []TimelineStep
 }

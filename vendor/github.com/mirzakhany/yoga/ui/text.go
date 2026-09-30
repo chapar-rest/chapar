@@ -30,12 +30,13 @@ func Text(s string) *Node {
 	return &Node{kind: kindText, text: s}
 }
 
-// Ellipsis lets Text shrink below its measured width and paint a shortened
-// string ending in "…" instead of overflowing its parent. The node keeps its
+// Ellipsis lets Text, or an EditableLabel while it is not being edited,
+// shrink below its measured width and paint a shortened string ending in "…"
+// instead of overflowing its parent. The node keeps its
 // full width as the flex basis, so it only shortens when the parent is too
 // narrow; give it Grow or a MaxWidth to control how much room it claims.
 func (n *Node) Ellipsis(m EllipsisMode) *Node {
-	if n.kind == kindText {
+	if n.kind == kindText || n.kind == kindEditableLabel {
 		n.ellipsis = m
 	}
 	return n

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -18,6 +20,7 @@ type Catalog struct {
 	Requests     []*domain.Request
 	Environments []*domain.Environment
 	Workspaces   []*domain.Workspace
+	TestCases    []*domain.TestCase
 
 	ActiveEnvID       string
 	ActiveWorkspaceID string
@@ -58,6 +61,13 @@ func (c *Catalog) Load() error {
 	if !c.noteSkipped(err) {
 		return err
 	}
+	cases, err := c.repo.LoadTestCases()
+	if !c.noteSkipped(err) {
+		return err
+	}
+	sort.Slice(cases, func(i, j int) bool {
+		return strings.ToLower(cases[i].GetName()) < strings.ToLower(cases[j].GetName())
+	})
 
 	migrateProtoImportPaths(c.repo, cols, reqs, protos)
 
@@ -65,6 +75,7 @@ func (c *Catalog) Load() error {
 	c.Requests = reqs
 	c.Environments = envs
 	c.Workspaces = workspaces
+	c.TestCases = cases
 
 	state := prefs.GetAppState()
 	if aw := state.Spec.ActiveWorkspace; aw != nil {
@@ -139,6 +150,45 @@ func (c *Catalog) RequestByID(id string) *domain.Request {
 		}
 	}
 	return nil
+}
+
+// AllRequests returns standalone requests and those in collections, with
+// the collection set on the latter. Test runs look requests up here.
+func (c *Catalog) AllRequests() []*domain.Request {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := append([]*domain.Request(nil), c.Requests...)
+	for _, col := range c.Collections {
+		for _, r := range col.Spec.Requests {
+			r.CollectionID = col.MetaData.ID
+			r.CollectionName = col.MetaData.Name
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func (c *Catalog) AllEnvironments() []*domain.Environment {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*domain.Environment(nil), c.Environments...)
+}
+
+func (c *Catalog) TestCaseByID(id string) *domain.TestCase {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, tc := range c.TestCases {
+		if tc.MetaData.ID == id {
+			return tc
+		}
+	}
+	return nil
+}
+
+func (c *Catalog) AllTestCases() []*domain.TestCase {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*domain.TestCase(nil), c.TestCases...)
 }
 
 func (c *Catalog) CollectionByID(id string) *domain.Collection {

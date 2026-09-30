@@ -736,6 +736,8 @@ func (f *FilesystemV2) EntityPath(kind string) (string, error) {
 		path = filepath.Join(f.dataDir, f.workspaceName, "envs")
 	case domain.KindRequest:
 		path = filepath.Join(f.dataDir, f.workspaceName, "requests")
+	case domain.KindTestCase:
+		path = filepath.Join(f.dataDir, f.workspaceName, "testcases")
 	default:
 		// workspace and old config files are living in the dataDir directly
 		path = f.dataDir

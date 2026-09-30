@@ -375,6 +375,7 @@ ui.Nav("nav", ui.NavVertical, ui.NavIconTop, items...).
 ui.Dropdown("file", "File", []ui.MenuItem{{Label: "Save", OnSelect: save}})
 ui.MenuButton("export", "Export", items).Primary().IconStart(icons.Save) // click opens menu
 ui.MenuButton("save", "Save", items).Primary().OnClick(save)        // split: label=action, chevron=menu
+ui.IconButton("more", icons.Ellipsis).Menu(items)                   // icon only, menu under its right edge
 ```
 
 ### Dialogs and toasts

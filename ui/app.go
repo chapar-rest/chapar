@@ -17,13 +17,14 @@ import (
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/secret"
+	"github.com/chapar-rest/chapar/internal/sender"
+	"github.com/chapar-rest/chapar/internal/testrun"
 	"github.com/chapar-rest/chapar/ui/container"
 	"github.com/chapar-rest/chapar/ui/cookieui"
 	"github.com/chapar-rest/chapar/ui/langsrv"
 	"github.com/chapar-rest/chapar/ui/pages"
 	"github.com/chapar-rest/chapar/ui/scriptsrv"
 	"github.com/chapar-rest/chapar/ui/secretui"
-	"github.com/chapar-rest/chapar/ui/sender"
 	"github.com/chapar-rest/chapar/ui/settings"
 	"github.com/chapar-rest/chapar/version"
 )
@@ -31,6 +32,7 @@ import (
 const (
 	navRequests = iota
 	navEnvs
+	navTests
 	navWorkspaces
 )
 
@@ -44,7 +46,9 @@ type App struct {
 
 	requests *pages.Requests
 	envs     *pages.Environments
+	tests    *pages.TestCases
 	spaces   *pages.Workspaces
+	runner   *testrun.Runner
 
 	navIndex int
 	initErr  error
@@ -119,6 +123,18 @@ func BuildApp() *App {
 		Toast:     a.toast,
 	})
 
+	a.runner = testrun.New(testrun.Config{
+		NewSender: testrun.NewSender(a.catalog.RequestByID, a.catalog.CollectionByID, a.scripts, nil),
+		Requests:  a.catalog,
+		SaveEnv: func(env *domain.Environment) error {
+			if err := repo.UpdateEnvironment(env); err != nil {
+				return err
+			}
+			a.catalog.ReplaceEnvironment(env)
+			return nil
+		},
+	})
+
 	a.ws = newWorkspace(a.deps, a.confirmClose)
 	a.ws.onTrees = a.rebuildTrees
 	a.ws.onSettings = func() {
@@ -134,6 +150,21 @@ func BuildApp() *App {
 		a.catalog.EnvironmentByID,
 		a.catalog.Load,
 		a.ws, files, a.showError)
+	a.tests = pages.NewTestCasesPage(pages.TestsDeps{
+		Repo:  repo,
+		List:  a.catalog.AllTestCases,
+		Get:   a.catalog.TestCaseByID,
+		Load:  a.catalog.Load,
+		WS:    a.ws,
+		Files: files,
+		Error: a.showError,
+		Run:   func(*domain.TestCase) { a.ws.SendActive() },
+		Export: func(*domain.TestCase) {
+			if ex, ok := a.ws.Active().(interface{ Export() }); ok {
+				ex.Export()
+			}
+		},
+	})
 	a.spaces = pages.NewWorkspacesPage(pages.WorkspacesDeps{
 		Repo:     repo,
 		List:     func() []*domain.Workspace { return a.catalog.Workspaces },
@@ -209,6 +240,7 @@ func (a *App) deps() container.Deps {
 		ManageCookies: a.openCookies,
 		Secrets:       a.secrets,
 		Clipboard:     a.copyToClipboard,
+		Tests:         a.runner,
 	}
 }
 
@@ -224,6 +256,9 @@ func (a *App) rebuildTrees() {
 	}
 	if a.envs != nil {
 		a.envs.Rebuild()
+	}
+	if a.tests != nil {
+		a.tests.Rebuild()
 	}
 }
 
@@ -388,6 +423,11 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		ui.Section("Navigation"),
 		ui.Cmd("nav.requests").Title("Go to Requests").Icon(icons.Send).Run(func() { a.navIndex = navRequests }),
 		ui.Cmd("nav.envs").Title("Go to Environments").Icon(icons.FolderPlus).Run(func() { a.navIndex = navEnvs }),
+		ui.Cmd("nav.tests").Title("Go to Test cases").Icon(icons.FlaskConical).Run(func() { a.navIndex = navTests }),
+		ui.Cmd("tests.new").Title("New test case").Icon(icons.FlaskConical).Run(func() {
+			a.navIndex = navTests
+			a.tests.Create()
+		}),
 		ui.Cmd("nav.spaces").Title("Go to Workspaces").Icon(icons.Boxes).Run(func() { a.navIndex = navWorkspaces }),
 		ui.Cmd("app.settings").Title("Open Settings").Shortcut("⌘,").Icon(icons.Settings).Run(func() { a.openSettings(c) }),
 		ui.Cmd("file.save").Title("Save").Shortcut("⌘S").Icon(icons.Save).Run(func() { a.ws.SaveActive() }),
@@ -421,6 +461,16 @@ func (a *App) registerCommands(c *ui.Ctx) {
 			Run(func() {
 				a.navIndex = navEnvs
 				a.ws.OpenEnv(e)
+			}))
+	}
+	for _, tc := range a.catalog.TestCases {
+		cmds = append(cmds, ui.Item("open.test."+tc.MetaData.ID).
+			Title(tc.MetaData.Name).
+			Detail("Test case").
+			Icon(icons.FlaskConical).
+			Run(func() {
+				a.navIndex = navTests
+				a.ws.OpenTestCase(tc)
 			}))
 	}
 	for _, col := range a.catalog.Collections {
@@ -460,7 +510,7 @@ func (a *App) registerCommands(c *ui.Ctx) {
 
 // workspaceVisible reports whether the current page shows the tab strip.
 func (a *App) workspaceVisible() bool {
-	return a.navIndex == navRequests || a.navIndex == navEnvs
+	return a.navIndex == navRequests || a.navIndex == navEnvs || a.navIndex == navTests
 }
 
 // showWorkspace switches to a page with the tab strip when none is shown.
@@ -473,9 +523,12 @@ func (a *App) showWorkspace() {
 func (a *App) pageView(c *ui.Ctx) ui.View {
 	a.requests.SideOpen = a.sideOpen
 	a.envs.SideOpen = a.sideOpen
+	a.tests.SideOpen = a.sideOpen
 	switch a.navIndex {
 	case navEnvs:
 		return a.envs.Layout(c)
+	case navTests:
+		return a.tests.Layout(c)
 	case navWorkspaces:
 		return a.spaces.Layout(c)
 	default:
@@ -577,6 +630,7 @@ func (a *App) nav(c *ui.Ctx) ui.View {
 	return ui.Nav("main-nav", ui.NavVertical, ui.NavIconTop,
 		ui.NavItem{ID: "requests", Label: "Requests", Icon: icons.Send},
 		ui.NavItem{ID: "environments", Label: "Envs", Icon: icons.FolderPlus},
+		ui.NavItem{ID: "tests", Label: "Tests", Icon: icons.FlaskConical},
 		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: icons.Boxes},
 	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).
 		Width(75).NavBackground(&th.ChromeMuted)
