@@ -224,7 +224,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 			Scripting: ScriptingConfig{
 				Enabled:     false,
 				UseDocker:   true,
-				DockerImage: "chapar/python-executor:0.3.1", // pinned to the scripting API this build speaks
+				DockerImage: PythonExecutorImage,
 				Language:    "python",
 				Port:        2397,
 			},
