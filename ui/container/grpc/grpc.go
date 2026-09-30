@@ -94,9 +94,9 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	}
 	c.bodyEd = container.NewBodyEditor(deps, "grpc-body-"+r.MetaData.ID, domain.RequestBodyTypeJSON, []byte(r.Spec.GRPC.Body))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
-	c.respEd = ui.NewEditor(nil, highlight.Noop{})
-	c.respMetaEd = ui.NewEditor(nil, highlight.Noop{})
-	c.respTrailEd = ui.NewEditor(nil, highlight.Noop{})
+	c.respEd = container.NewResponseEditor(nil, highlight.Noop{})
+	c.respMetaEd = container.NewResponseEditor(nil, highlight.Noop{})
+	c.respTrailEd = container.NewResponseEditor(nil, highlight.Noop{})
 	c.meta = container.NewKVTable("grpc-md-"+r.MetaData.ID, c.markDirty)
 	c.vars = container.NewVariablesTable("grpc-vars-"+r.MetaData.ID, nil, c.markDirty)
 	container.LoadKV(c.meta, r.Spec.GRPC.Metadata)

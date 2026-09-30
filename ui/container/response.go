@@ -71,13 +71,21 @@ func BodyHighlighter(kind string) highlight.Highlighter {
 	}
 }
 
-// ReplaceEditor closes the previous editor and returns a new one with data.
-// data is copied, so the caller may keep using it.
+// NewResponseEditor returns a read-only, soft-wrapped editor for something a
+// server sent back: a body, headers, metadata or cookies. It can be searched,
+// selected and copied, but not typed into. data is copied.
+func NewResponseEditor(data []byte, hl highlight.Highlighter, opts ...ui.EditorOption) *ui.Editor {
+	opts = append([]ui.EditorOption{ui.WithReadOnly(), ui.WithSoftWrap(true)}, opts...)
+	return ui.NewEditor(data, hl, opts...)
+}
+
+// ReplaceEditor closes the previous editor and returns a new read-only one
+// with data. data is copied, so the caller may keep using it.
 func ReplaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
 	if old != nil {
 		old.Close()
 	}
-	return ui.NewEditor(data, hl, ui.WithSoftWrap(true))
+	return NewResponseEditor(data, hl)
 }
 
 // ReplaceResponseEditor rebuilds the response body editor for res.
@@ -94,8 +102,7 @@ func ReplaceResponseEditor(old *ui.Editor, res *egress.Response, raw bool) *ui.E
 	if res != nil {
 		kind = res.BodyKind
 	}
-	return ui.NewEditor(DisplayBody(res, raw), BodyHighlighter(kind),
-		ui.WithSoftWrap(true), ui.WithSharedContent())
+	return NewResponseEditor(DisplayBody(res, raw), BodyHighlighter(kind), ui.WithSharedContent())
 }
 
 // FailedStatus is the status line text for a request that failed; the error

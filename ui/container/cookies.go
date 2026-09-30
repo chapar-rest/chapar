@@ -69,7 +69,7 @@ func (s *CookiesState) ensure(deps Deps) {
 	s.sent.CollapseEmpty = true
 	s.sent.MinHeight = 80
 
-	s.raw = ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
+	s.raw = NewResponseEditor(nil, highlight.Noop{})
 }
 
 // Set fills the tab from a response. A nil response clears it.
