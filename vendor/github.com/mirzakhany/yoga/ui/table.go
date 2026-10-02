@@ -36,7 +36,10 @@ type TableColumn struct {
 	ID    string
 	Label string
 	Kind  TableColumnKind
-	Width float32 // fixed px; 0 = flex remainder shared equally among flex columns
+	// Width is a fixed width in px; 0 shares the remaining width equally with
+	// the other flex columns. When the fixed columns leave a flex column less
+	// than tableMinFlexW, unlocked text columns shrink, down to tableMinColW.
+	Width float32
 	// Sortable enables click-to-sort on the header label (text/editable columns).
 	Sortable bool
 	// Locked fixes the column: no header sort and no resize handle on its right edge.
@@ -179,6 +182,7 @@ type Table struct {
 
 const (
 	tableMinColW       float32 = 48
+	tableMinFlexW      float32 = 96
 	tableResizeHandleW float32 = 6
 	tableDoubleClick           = 400 * time.Millisecond
 )
@@ -548,6 +552,15 @@ func (t *Table) colResizable(colIdx int) bool {
 	return col.Kind == TableColText || col.Kind == TableColEditable
 }
 
+// colShrinkable reports whether columnLayout may narrow a fixed column to
+// make room for flex columns: unlocked text columns still at their declared
+// width. A width the user picked, by dragging or SetColumnWidth, stays.
+func (t *Table) colShrinkable(colIdx int) bool {
+	col := t.Columns[colIdx]
+	return !col.Locked && (col.Kind == TableColText || col.Kind == TableColEditable) &&
+		t.colWidths[colIdx] == col.Width
+}
+
 func (t *Table) columnLayout(viewportW float32) (widths, offsets []float32) {
 	widths = make([]float32, len(t.Columns))
 	flexN := 0
@@ -558,6 +571,28 @@ func (t *Table) columnLayout(viewportW float32) (widths, offsets []float32) {
 			fixed += t.colWidths[i]
 		} else {
 			flexN++
+		}
+	}
+	// Too narrow for the fixed columns plus a usable flex share: take the
+	// shortfall from the resizable fixed columns, in proportion to how far each
+	// is above tableMinColW, so a flex column such as a value never drops to
+	// zero. Locked, checkbox and icon columns keep their width.
+	if short := fixed + float32(flexN)*tableMinFlexW - viewportW; flexN > 0 && short > 0 {
+		var slack float32
+		for i := range t.Columns {
+			if t.colWidths[i] > tableMinColW && t.colShrinkable(i) {
+				slack += t.colWidths[i] - tableMinColW
+			}
+		}
+		if slack > 0 {
+			k := f32min(1, short/slack)
+			for i := range t.Columns {
+				if t.colWidths[i] > tableMinColW && t.colShrinkable(i) {
+					cut := (t.colWidths[i] - tableMinColW) * k
+					widths[i] -= cut
+					fixed -= cut
+				}
+			}
 		}
 	}
 	flexW := float32(0)
@@ -646,8 +681,12 @@ func (t *Table) paintHeader(dl *render.DrawList, text *shape.Engine, widths, off
 		default:
 			tx := cr.X + t.padX()
 			if col.Label != "" {
+				// Clip to the cell, like body text, so a label wider than a
+				// narrow column does not run into the next one.
+				dl.PushClip(render.Rect{X: tx, Y: cr.Y, W: f32max(0, cr.X+cr.W-tx-t.padX()), H: cr.H})
 				lw, lh := text.MeasureAtWeight(col.Label, style.Size, style.Weight)
 				text.DrawStringTopAtWeight(dl, col.Label, tx, cr.Y+(t.headerH-lh)/2, th.Foreground, style.Size, style.Weight)
+				dl.PopClip()
 				tx += lw + th.Spacing.XS
 			}
 			if t.colSortable(col) && t.sortColID == col.ID {
