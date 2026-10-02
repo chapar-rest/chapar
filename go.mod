@@ -11,7 +11,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
-	github.com/mirzakhany/yoga v0.25.0
+	github.com/mirzakhany/yoga v0.25.1
 	github.com/stretchr/testify v1.12.1
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/net v0.59.0
