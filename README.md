@@ -36,6 +36,8 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
   <img src="./screenshots/graphql_request.png" alt="GraphQL request" width="400"/>
   <img src="./screenshots/scripting.png" alt="Python post-request script" width="400"/>
   <img src="./screenshots/timeline.png" alt="Request timeline" width="400"/>
+  <img src="./screenshots/test_case.png" alt="A test case run" width="400"/>
+  <img src="./screenshots/test_failed.png" alt="A failed test case step" width="400"/>
   <img src="./screenshots/environments.png" alt="Environments" width="400"/>
   <img src="./screenshots/cookies.png" alt="Cookie jar" width="400"/>
   <img src="./screenshots/workspaces.png" alt="Workspaces" width="400"/>
