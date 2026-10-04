@@ -310,6 +310,7 @@ func (p *Requests) newMenuItems() []ui.MenuItem {
 		{Label: "HTTP request", OnSelect: func() { p.createRequest(domain.RequestTypeHTTP, NodeRef{}) }},
 		{Label: "gRPC request", OnSelect: func() { p.createRequest(domain.RequestTypeGRPC, NodeRef{}) }},
 		{Label: "GraphQL request", OnSelect: func() { p.createRequest(domain.RequestTypeGraphQL, NodeRef{}) }},
+		{Label: "WebSocket request", OnSelect: func() { p.createRequest(domain.RequestTypeWebSocket, NodeRef{}) }},
 		ui.MenuSeparator,
 		{Label: "Collection", OnSelect: p.createCollection},
 	}
@@ -325,6 +326,7 @@ func (p *Requests) menu(n *ui.TreeNode) []ui.MenuItem {
 		{Label: "New HTTP request", OnSelect: func() { p.createRequest(domain.RequestTypeHTTP, ref) }},
 		{Label: "New gRPC request", OnSelect: func() { p.createRequest(domain.RequestTypeGRPC, ref) }},
 		{Label: "New GraphQL request", OnSelect: func() { p.createRequest(domain.RequestTypeGraphQL, ref) }},
+		{Label: "New WebSocket request", OnSelect: func() { p.createRequest(domain.RequestTypeWebSocket, ref) }},
 		{Label: "New collection", OnSelect: p.createCollection},
 		{Label: "Import", OnSelect: p.importFile},
 		{Label: "Import curl", OnSelect: func() { p.importCurl(ref) }},
@@ -390,6 +392,8 @@ func (p *Requests) createRequest(kind domain.RequestType, ref NodeRef) {
 		req = domain.NewGRPCRequest("New Request")
 	case domain.RequestTypeGraphQL:
 		req = domain.NewGraphQLRequest("New Request")
+	case domain.RequestTypeWebSocket:
+		req = domain.NewWebSocketRequest("New Request")
 	default:
 		req = domain.NewHTTPRequest("New Request")
 	}
@@ -418,6 +422,9 @@ func (p *Requests) CreateGRPC() { p.createRequest(domain.RequestTypeGRPC, NodeRe
 
 // CreateGraphQL creates a new GraphQL request.
 func (p *Requests) CreateGraphQL() { p.createRequest(domain.RequestTypeGraphQL, NodeRef{}) }
+
+// CreateWebSocket creates a new WebSocket request.
+func (p *Requests) CreateWebSocket() { p.createRequest(domain.RequestTypeWebSocket, NodeRef{}) }
 
 // CreateCollection creates a new collection.
 func (p *Requests) CreateCollection() { p.createCollection() }

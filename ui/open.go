@@ -11,6 +11,7 @@ import (
 	grpcc "github.com/chapar-rest/chapar/ui/container/grpc"
 	httpc "github.com/chapar-rest/chapar/ui/container/http"
 	tcc "github.com/chapar-rest/chapar/ui/container/testcase"
+	wsc "github.com/chapar-rest/chapar/ui/container/websocket"
 )
 
 func openContainer(spec container.OpenSpec) (container.Container, error) {
@@ -27,6 +28,8 @@ func openContainer(spec container.OpenSpec) (container.Container, error) {
 			return grpcc.Open(spec.Request, spec.Deps), nil
 		case domain.RequestTypeGraphQL:
 			return gqlc.Open(spec.Request, spec.Deps), nil
+		case domain.RequestTypeWebSocket:
+			return wsc.Open(spec.Request, spec.Deps), nil
 		default:
 			return httpc.Open(spec.Request, spec.Deps), nil
 		}

@@ -396,6 +396,8 @@ func summarizeRequest(req *domain.Request) *RequestSummary {
 		out.Method, out.URL = req.Spec.HTTP.Method, req.Spec.HTTP.URL
 	case req.Spec.GraphQL != nil:
 		out.URL = req.Spec.GraphQL.URL
+	case req.Spec.WebSocket != nil:
+		out.URL = req.Spec.WebSocket.URL
 	case req.Spec.GRPC != nil:
 		out.Method, out.URL = req.Spec.GRPC.LasSelectedMethod, req.Spec.GRPC.ServerInfo.Address
 	}

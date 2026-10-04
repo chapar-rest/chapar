@@ -239,3 +239,42 @@ func ApplyToAuth(variables map[string]string, auth *domain.Auth) {
 		}
 	}
 }
+
+// ApplyToWebSocketRequest fills the dynamic variables into the handshake and
+// the draft message.
+func ApplyToWebSocketRequest(variables map[string]string, req *domain.WebSocketRequestSpec) {
+	if variables == nil {
+		variables = GetVariables()
+	}
+
+	if req == nil {
+		return
+	}
+
+	req.URL = ApplyToString(variables, req.URL)
+	req.Message = ApplyToString(variables, req.Message)
+	for i, kv := range req.Headers {
+		req.Headers[i].Value = ApplyToString(variables, kv.Value)
+	}
+	for i, p := range req.Subprotocols {
+		req.Subprotocols[i] = ApplyToString(variables, p)
+	}
+	if req.Auth != (domain.Auth{}) {
+		ApplyToAuth(variables, &req.Auth)
+	}
+}
+
+// ApplyToString replaces the {{name}} placeholders of the dynamic variables
+// in s.
+func ApplyToString(variables map[string]string, s string) string {
+	if !strings.Contains(s, "{{") {
+		return s
+	}
+	if variables == nil {
+		variables = GetVariables()
+	}
+	for k, v := range variables {
+		s = strings.ReplaceAll(s, "{{"+k+"}}", v)
+	}
+	return s
+}

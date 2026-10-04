@@ -14,6 +14,8 @@ const (
 	RequestTypeGRPC    RequestType = "grpc"
 	RequestTypeGraphQL RequestType = "graphql"
 
+	RequestTypeWebSocket RequestType = "websocket"
+
 	RequestMethodGET     = "GET"
 	RequestMethodPOST    = "POST"
 	RequestMethodPUT     = "PUT"
@@ -100,6 +102,8 @@ type RequestSpec struct {
 	GRPC    *GRPCRequestSpec    `yaml:"grpc,omitempty"`
 	HTTP    *HTTPRequestSpec    `yaml:"http,omitempty"`
 	GraphQL *GraphQLRequestSpec `yaml:"graphql,omitempty"`
+
+	WebSocket *WebSocketRequestSpec `yaml:"websocket,omitempty"`
 }
 
 func (r *RequestSpec) GetGRPC() *GRPCRequestSpec {
@@ -125,6 +129,9 @@ func (r *RequestSpec) GetPreRequest() PreRequest {
 	}
 	if r.GraphQL != nil {
 		return r.GraphQL.GetPreRequest()
+	}
+	if r.WebSocket != nil {
+		return r.WebSocket.GetPreRequest()
 	}
 	return PreRequest{}
 }
@@ -481,5 +488,10 @@ func (r *Request) SetDefaultValues() {
 
 	if r.MetaData.Type == RequestTypeGraphQL {
 		r.SetDefaultValuesForGraphQL()
+		return
+	}
+
+	if r.MetaData.Type == RequestTypeWebSocket {
+		r.SetDefaultValuesForWebSocket()
 	}
 }

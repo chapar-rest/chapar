@@ -33,6 +33,8 @@ func withCollection(req *domain.Request, collection *domain.Collection) *domain.
 		r.Spec.GRPC.Metadata = domain.MergeHeaders(collection.Spec.Headers, r.Spec.GRPC.Metadata)
 	case r.Spec.GraphQL != nil:
 		r.Spec.GraphQL.Headers = domain.MergeHeaders(collection.Spec.Headers, r.Spec.GraphQL.Headers)
+	case r.Spec.WebSocket != nil:
+		r.Spec.WebSocket.Headers = domain.MergeHeaders(collection.Spec.Headers, r.Spec.WebSocket.Headers)
 	}
 	return r
 }
@@ -56,6 +58,9 @@ func resolve(req *domain.Request, env *domain.Environment) *domain.Request {
 	case r.Spec.GraphQL != nil:
 		variables.ApplyToGraphQLRequest(vars, r.Spec.GraphQL)
 		e.ApplyToGraphQLRequest(r.Spec.GraphQL)
+	case r.Spec.WebSocket != nil:
+		variables.ApplyToWebSocketRequest(vars, r.Spec.WebSocket)
+		e.ApplyToWebSocketRequest(r.Spec.WebSocket)
 	}
 	return r
 }
@@ -90,6 +95,15 @@ func requestData(req *domain.Request) *RequestData {
 		out.Method = "POST"
 		out.Headers = enabledPairs(g.Headers)
 		out.GraphQL = &GraphQLData{Query: g.Query, Variables: g.Variables}
+	case req.Spec.WebSocket != nil:
+		// Scripts see the handshake, which is an HTTP GET, and the draft
+		// message as its body.
+		w := req.Spec.WebSocket
+		out.URL = w.URL
+		out.Method = "GET"
+		out.Query = ParseQuery(w.URL)
+		out.Headers = enabledPairs(w.Headers)
+		out.Body = w.Message
 	}
 	if out.Headers == nil {
 		out.Headers = []Pair{}
@@ -210,6 +224,20 @@ func ApplyChanges(req *domain.Request, ch *RequestChanges) {
 			if ch.GraphQL.Variables != nil {
 				g.Variables = *ch.GraphQL.Variables
 			}
+		}
+	case req.Spec.WebSocket != nil:
+		w := req.Spec.WebSocket
+		if ch.URL != nil {
+			w.URL = *ch.URL
+		}
+		if ch.Query != nil {
+			w.URL = WithQuery(w.URL, *ch.Query)
+		}
+		if ch.Headers != nil {
+			w.Headers = keyValues(*ch.Headers)
+		}
+		if ch.Body != nil {
+			w.Message = *ch.Body
 		}
 	}
 }

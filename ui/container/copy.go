@@ -20,6 +20,9 @@ func CopyRequest(r *domain.Request) *domain.Request {
 	if r.Spec.GraphQL != nil {
 		spec.GraphQL = r.Spec.GraphQL.Clone()
 	}
+	if r.Spec.WebSocket != nil {
+		spec.WebSocket = r.Spec.WebSocket.Clone()
+	}
 	out.Spec = spec
 	return &out
 }

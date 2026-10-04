@@ -33,6 +33,13 @@ func RequestAutoName(r *Request) string {
 			}
 		}
 		return DefaultRequestName
+	case RequestTypeWebSocket:
+		if r.Spec.WebSocket != nil {
+			if s := urlDisplayFromString(r.Spec.WebSocket.URL); s != "" {
+				return s
+			}
+		}
+		return DefaultRequestName
 	default:
 		if r.Spec.HTTP != nil {
 			if s := urlDisplayFromString(r.Spec.HTTP.URL); s != "" {
