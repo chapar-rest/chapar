@@ -320,3 +320,47 @@ func (e *Environment) GetKeyValues() map[string]interface{} {
 
 	return values
 }
+
+// ApplyToWebSocketRequest fills the environment's values into the handshake
+// and the draft message. Saved messages are filled in when they are sent,
+// with ApplyToString.
+func (e *Environment) ApplyToWebSocketRequest(req *WebSocketRequestSpec) {
+	if e == nil || req == nil {
+		return
+	}
+
+	req.URL = e.ApplyToString(req.URL)
+	req.Message = e.ApplyToString(req.Message)
+	for i, kv := range req.Headers {
+		req.Headers[i].Value = e.ApplyToString(kv.Value)
+	}
+	for i, p := range req.Subprotocols {
+		req.Subprotocols[i] = e.ApplyToString(p)
+	}
+	if req.Auth.TokenAuth != nil {
+		req.Auth.TokenAuth.Token = e.ApplyToString(req.Auth.TokenAuth.Token)
+	}
+	if req.Auth.BasicAuth != nil {
+		req.Auth.BasicAuth.Username = e.ApplyToString(req.Auth.BasicAuth.Username)
+		req.Auth.BasicAuth.Password = e.ApplyToString(req.Auth.BasicAuth.Password)
+	}
+	if req.Auth.APIKeyAuth != nil {
+		req.Auth.APIKeyAuth.Key = e.ApplyToString(req.Auth.APIKeyAuth.Key)
+		req.Auth.APIKeyAuth.Value = e.ApplyToString(req.Auth.APIKeyAuth.Value)
+	}
+}
+
+// ApplyToString replaces the {{key}} placeholders of the environment's
+// usable values in s.
+func (e *Environment) ApplyToString(s string) string {
+	if e == nil || !strings.Contains(s, "{{") {
+		return s
+	}
+	for _, kv := range e.Spec.Values {
+		if !kv.Usable() {
+			continue
+		}
+		s = strings.ReplaceAll(s, "{{"+kv.Key+"}}", kv.Value)
+	}
+	return s
+}

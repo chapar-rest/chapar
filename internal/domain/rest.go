@@ -143,6 +143,12 @@ func (r *RequestSpec) Clone() *RequestSpec {
 	if r.HTTP != nil {
 		clone.HTTP = r.HTTP.Clone()
 	}
+	if r.GraphQL != nil {
+		clone.GraphQL = r.GraphQL.Clone()
+	}
+	if r.WebSocket != nil {
+		clone.WebSocket = r.WebSocket.Clone()
+	}
 	return &clone
 }
 

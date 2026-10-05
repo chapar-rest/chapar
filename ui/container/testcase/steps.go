@@ -11,6 +11,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/testrun"
+	"github.com/chapar-rest/chapar/ui/container"
 )
 
 // autoStepID matches the IDs Add step gives.
@@ -112,7 +113,7 @@ func (c *Container) problemsView(th *theme.Theme) ui.View {
 		}
 		lines = append(lines, ui.Row(
 			ui.Icon(icons.TriangleAlert, 14, th.Warning),
-			ui.Caption(c.describeProblem(p)),
+			container.MutedParagraph(c.describeProblem(p)).Size(th.Typography.Caption.Size).Grow(1),
 		).Gap(th.Spacing.XS).Align(ui.AlignCenter))
 	}
 	return ui.Column(lines...).Gap(th.Spacing.XXS).
@@ -304,8 +305,7 @@ func (c *Container) variablesTab(th *theme.Theme) ui.View {
 	id := c.ID()
 	return ui.Column(
 		ui.Row(
-			ui.Caption("Variables of the case. They override the environment and can be used as {{name}}."),
-			ui.Spacer(),
+			container.MutedParagraph("Variables of the case. They override the environment and can be used as {{name}}.").Size(th.Typography.Caption.Size).Grow(1),
 			ui.Button("tc-var-add-"+id, ui.Text("Add")).IconStart(icons.Plus).OnClick(func() {
 				c.vars.AddRow(ui.TableRow{ID: newKey(), Cells: map[string]string{}})
 				c.markDirty()
@@ -339,7 +339,7 @@ func (c *Container) settingsTab(th *theme.Theme) ui.View {
 		),
 		ui.Column(
 			ui.Strong("Tags"),
-			ui.Caption("Run cases by tag with chapar-cli test --tag."),
+			container.MutedParagraph("Run cases by tag with chapar-cli test --tag.").Size(th.Typography.Caption.Size),
 			ui.TagEdit("tc-tags-"+id, c.tc.Spec.Tags).OnTags(func(tags []string) {
 				c.tc.Spec.Tags = tags
 				c.markDirty()

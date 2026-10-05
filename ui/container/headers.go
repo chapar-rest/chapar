@@ -43,7 +43,7 @@ func kvPane(th *theme.Theme, addID, title, priorityNote string, table *ui.Table,
 		if col := catalog.CollectionByID(collectionID); col != nil && len(col.Spec.Headers) > 0 {
 			inherited := ui.Column(
 				ui.Text("Inherited from collection").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
-				ui.Caption(priorityNote),
+				MutedParagraph(priorityNote).Size(th.Typography.Caption.Size),
 			).Gap(th.Spacing.XS).MarginTop(th.Spacing.M)
 			for _, h := range col.Spec.Headers {
 				if !h.Enable {

@@ -372,7 +372,7 @@ func (c *Container) serverTab(th *theme.Theme, id string, spec *domain.GRPCReque
 		createLabel = "Creating…"
 	}
 	actions := ui.Row(
-		ui.Muted(summary).Grow(1),
+		container.MutedParagraph(summary).Grow(1),
 		ui.Button("grpc-load-"+id, ui.Text("Reload methods")).
 			IconStart(icons.RefreshCw).
 			Disabled(c.loading).
@@ -481,7 +481,7 @@ func (c *Container) showMissingImports(missing []grpcsvc.MissingImport) {
 		Body: func(ctx *ui.Ctx) ui.View {
 			th := ctx.Theme()
 			kids := []ui.View{
-				ui.Muted("These imports were not found. Point Chapar at the folder each one lives in."),
+				container.MutedParagraph("These imports were not found. Point Chapar at the folder each one lives in."),
 			}
 			for _, m := range missing {
 				name := m.Name

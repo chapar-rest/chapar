@@ -335,7 +335,7 @@ func (c *Container) paramsTab(th *theme.Theme, id string) []ui.View {
 				container.AddKVRow(c.pathParams, c.markDirty)
 			}),
 		).PaddingXY(0, th.Spacing.XS),
-		ui.Caption("path params inside bracket, for example: {id}"),
+		container.MutedParagraph("path params inside bracket, for example: {id}").Size(th.Typography.Caption.Size),
 		ui.ViewOf(c.pathParams).Grow(1),
 	}
 }

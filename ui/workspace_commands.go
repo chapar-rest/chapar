@@ -100,6 +100,8 @@ func kindLabel(k container.Kind) string {
 		return "gRPC request"
 	case container.KindGraphQL:
 		return "GraphQL request"
+	case container.KindWebSocket:
+		return "WebSocket request"
 	case container.KindCollection:
 		return "Collection"
 	case container.KindEnv:

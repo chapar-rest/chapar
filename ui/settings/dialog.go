@@ -11,6 +11,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/secret"
+	"github.com/chapar-rest/chapar/ui/container"
 	"github.com/chapar-rest/chapar/ui/langsrv"
 	"github.com/chapar-rest/chapar/ui/scriptsrv"
 	"github.com/chapar-rest/chapar/ui/secretui"
@@ -359,7 +360,7 @@ func (p *Panel) languageServersForm(th *theme.Theme, g *domain.GlobalConfigSpec)
 			ui.HLine(th.Stroke.Thin, th.Border),
 			ui.Row(
 				ui.Strong(l.Name),
-				ui.Caption(l.Note),
+				container.MutedParagraph(l.Note).Size(th.Typography.Caption.Size).Grow(1),
 			).Gap(th.Spacing.S),
 			ui.Form("settings-lsp-"+id,
 				ui.FormSwitch("lsp-enabled-"+id, "Enabled", "Run this server for "+l.Name+" editors", s.Enabled, func(v bool) {
@@ -404,7 +405,7 @@ func selectIndex(v string, opts []ui.SelectOption) int {
 func wrapped(th *theme.Theme, s string) ui.View {
 	_ = th
 	return ui.Row(
-		ui.Paragraph(s).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)).Grow(1),
+		container.MutedParagraph(s).Grow(1),
 	).Grow(0)
 }
 

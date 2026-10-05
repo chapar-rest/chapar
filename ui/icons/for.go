@@ -20,12 +20,14 @@ const (
 	nameTRC  = "req-trc"
 	nameGRPC = "req-grpc"
 	nameGQL  = "req-gql"
+	nameWS   = "req-ws"
 	nameUnk  = "req-unk"
 )
 
 var (
 	patchColor   = render.RGBA8(0x9c, 0x27, 0xb0, 0xff)
 	optionsColor = render.RGBA8(0x00, 0x80, 0x80, 0xff)
+	wsColor      = render.RGBA8(0x0e, 0x8a, 0xc7, 0xff)
 )
 
 func icon(name string) yogaicons.Icon {
@@ -42,6 +44,8 @@ func Badge(req *domain.Request) yogaicons.Icon {
 		return icon(nameGRPC)
 	case domain.RequestTypeGraphQL:
 		return icon(nameGQL)
+	case domain.RequestTypeWebSocket:
+		return icon(nameWS)
 	case domain.RequestTypeHTTP:
 		if req.Spec.HTTP == nil {
 			return icon(nameGET)
@@ -83,6 +87,8 @@ func Color(req *domain.Request, th *theme.Theme) render.Color {
 		return th.Success
 	case domain.RequestTypeGraphQL:
 		return th.Accent
+	case domain.RequestTypeWebSocket:
+		return wsColor
 	case domain.RequestTypeHTTP:
 		if req.Spec.HTTP == nil {
 			return th.Success

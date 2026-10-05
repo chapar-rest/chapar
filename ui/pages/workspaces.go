@@ -10,6 +10,7 @@ import (
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/ui/container"
 )
 
 // workspacesMaxWidth caps the page's header and card column on wide windows.
@@ -126,7 +127,7 @@ func (p *Workspaces) Layout(c *ui.Ctx) ui.View {
 				dialogs.ShowInput("New space", "Space name", p.create, nil)
 			}),
 		).Gap(th.Spacing.S).Align(ui.AlignCenter),
-		ui.Muted("Each space keeps its own collections, requests and environments."),
+		container.MutedParagraph("Each space keeps its own collections, requests and environments."),
 	).Gap(th.Spacing.XS).Grow(1).MaxWidth(workspacesMaxWidth)
 
 	items := p.visible()
@@ -220,7 +221,7 @@ func (p *Workspaces) card(c *ui.Ctx, ws *domain.Workspace) ui.View {
 		ui.Icon(icons.Boxes, th.Metrics.IconSizeMD, iconColor),
 		ui.Column(
 			ui.Row(title...).Gap(th.Spacing.S).Align(ui.AlignCenter),
-			ui.Muted(detail),
+			container.MutedParagraph(detail),
 		).Gap(th.Spacing.XS).Grow(1).Shrink(1),
 		ui.Row(actions...).Gap(th.Spacing.XS).Align(ui.AlignCenter),
 	).Gap(th.Spacing.M).Align(ui.AlignCenter))

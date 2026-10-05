@@ -96,6 +96,11 @@ func (s *Service) Send(req *domain.Request, env *domain.Environment) (*egress.Re
 		return nil, fmt.Errorf("request is nil")
 	}
 
+	if req.MetaData.Type == domain.RequestTypeWebSocket {
+		// A connection stays open; ConnectWebSocket opens one.
+		return nil, ErrWebSocketNotSendable
+	}
+
 	var timeline []egress.TimelineStep
 
 	var collection *domain.Collection
@@ -417,6 +422,10 @@ func (s *Service) extractVariables(spec domain.RequestSpec, res *egress.Response
 	}
 	return errors.Join(errs...)
 }
+
+// ErrWebSocketNotSendable is returned by Send for a WebSocket request, which
+// is a connection rather than one exchange.
+var ErrWebSocketNotSendable = errors.New("a WebSocket request opens a connection and cannot be sent as a single request")
 
 // ErrScriptingDisabled is reported when a request has a script but
 // scripting is turned off in settings.

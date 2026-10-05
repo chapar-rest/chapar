@@ -21,6 +21,7 @@ const (
 	KindHTTP       Kind = "request-http"
 	KindGRPC       Kind = "request-grpc"
 	KindGraphQL    Kind = "request-graphql"
+	KindWebSocket  Kind = "request-websocket"
 	KindCollection Kind = "collection"
 	KindEnv        Kind = "environment"
 	KindTestCase   Kind = "testcase"

@@ -425,7 +425,7 @@ func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *Tim
 	}
 	if len(steps) == 0 && len(state.steps) == 0 {
 		return ui.Column(
-			ui.Muted("No timeline yet. Send a request to see steps."),
+			MutedParagraph("No timeline yet. Send a request to see steps."),
 		).Gap(th.Spacing.S).Grow(1)
 	}
 	if !timelineStepsEqual(steps, state.steps) {
@@ -433,7 +433,7 @@ func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *Tim
 	}
 	if len(state.steps) == 0 {
 		return ui.Column(
-			ui.Muted("No timeline yet. Send a request to see steps."),
+			MutedParagraph("No timeline yet. Send a request to see steps."),
 		).Gap(th.Spacing.S).Grow(1)
 	}
 
