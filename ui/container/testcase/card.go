@@ -488,7 +488,7 @@ func (c *Container) overrides(ctx *ui.Ctx, th *theme.Theme, m *stepModel) ui.Vie
 	return ui.Column(
 		head,
 		ui.Column(
-			ui.Caption("Uses the request as saved in "+req+". Override its variables, headers, query or body here."),
+			container.MutedParagraph("Uses the request as saved in "+req+". Override its variables, headers, query or body here.").Size(th.Typography.Caption.Size),
 			table("Variables", "for this step only", m.vars),
 			table("Headers", "set or replace", m.headers),
 			table("Query", "set or replace", m.query),

@@ -13,6 +13,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/repository"
+	"github.com/chapar-rest/chapar/ui/container"
 	reqicons "github.com/chapar-rest/chapar/ui/icons"
 )
 
@@ -553,7 +554,7 @@ func (p *Requests) importCurl(ref NodeRef) {
 			}
 			th := c.Theme()
 			return ui.Column(
-				ui.Muted("Paste a curl command, such as one copied from API docs or a browser's Copy as cURL."),
+				container.MutedParagraph("Paste a curl command, such as one copied from API docs or a browser's Copy as cURL."),
 				ui.ViewOf(ed).Grow(1),
 			).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
 		},

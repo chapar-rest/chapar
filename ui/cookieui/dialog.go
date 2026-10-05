@@ -349,7 +349,7 @@ func (d *Dialog) Layout(c *ui.Ctx) ui.View {
 	}
 	rows = append(rows,
 		ui.Row(main...).Gap(th.Spacing.M).Align(ui.AlignStretch).Grow(1),
-		ui.Caption("Cookies are saved in the workspace's .state folder, which git ignores.").Shrink(0),
+		container.MutedParagraph("Cookies are saved in the workspace's .state folder, which git ignores.").Size(th.Typography.Caption.Size).Shrink(0),
 	)
 	return ui.Column(rows...).Gap(th.Spacing.S).PaddingXY(th.Spacing.M, th.Spacing.XS).Grow(1)
 }
@@ -494,7 +494,7 @@ func (d *Dialog) editor(th *theme.Theme) ui.View {
 		).MarginTop(th.Spacing.XS),
 	}
 	if !e.isNew {
-		rows = append(rows, ui.Caption(fmt.Sprintf("Source: %s · created %s", c.Source, c.Created.Local().Format(expiryDisplay))))
+		rows = append(rows, container.MutedParagraph(fmt.Sprintf("Source: %s · created %s", c.Source, c.Created.Local().Format(expiryDisplay))).Size(th.Typography.Caption.Size))
 	}
 	if e.err != "" {
 		rows = append(rows, ui.Paragraph(e.err).Style(ui.Spec{}.TextColor(ui.TokenError)))

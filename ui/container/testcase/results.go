@@ -249,7 +249,7 @@ func assertionLine(th *theme.Theme, a testrun.AssertionResult) ui.View {
 	if a.Passed || a.Message == "" {
 		return line
 	}
-	return ui.Column(line, ui.Caption(a.Message).PaddingLeft(th.Spacing.L)).Gap(th.Spacing.XXS)
+	return ui.Column(line, container.MutedParagraph(a.Message).Size(th.Typography.Caption.Size).PaddingLeft(th.Spacing.L)).Gap(th.Spacing.XXS)
 }
 
 // describe says what an assertion checked.

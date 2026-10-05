@@ -11,6 +11,7 @@ import (
 	"github.com/mirzakhany/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/secret"
+	"github.com/chapar-rest/chapar/ui/container"
 )
 
 // Dialog widths. Bodies are laid out at the width minus the body padding, so
@@ -114,8 +115,8 @@ func setup(d Deps, done func(ok bool)) {
 			th := c.Theme()
 			return ui.Column(
 				ui.Paragraph("Secret values are encrypted with one key for this installation."),
-				ui.Paragraph(where).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
-				ui.Paragraph("Environment files sync as plain files, so keep a copy of the key to read them on another machine.").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+				container.MutedParagraph(where),
+				container.MutedParagraph("Environment files sync as plain files, so keep a copy of the key to read them on another machine."),
 			).Gap(th.Spacing.S).Padding(th.Spacing.L).Grow(1).Width(bodyWidth(setupDialogW, th.Spacing.L))
 		},
 		Actions: []ui.DialogAction{
@@ -185,7 +186,7 @@ func ShowKeyOnce(d Deps, key, title, note string, done func()) {
 			th := c.Theme()
 			return ui.Column(
 				ui.TextField("secret-key-once", key).Disabled(true).Grow(1),
-				ui.Paragraph(note).Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+				container.MutedParagraph(note),
 			).Gap(th.Spacing.S).Padding(th.Spacing.L).Grow(1).Width(bodyWidth(keyDialogW, th.Spacing.L))
 		},
 		Actions:   actions,
@@ -265,7 +266,7 @@ func Unlock(d Deps, done func(ok bool)) {
 			th := c.Theme()
 			return ui.Column(
 				ui.Paragraph(fmt.Sprintf("Chapar could not read the secret key from your %s.", m.StoreName())),
-				ui.Paragraph("Paste the key you saved when it was created to read your secret values again.").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+				container.MutedParagraph("Paste the key you saved when it was created to read your secret values again."),
 			).Gap(th.Spacing.S).Padding(th.Spacing.L).Grow(1).Width(bodyWidth(setupDialogW, th.Spacing.L))
 		},
 		Actions: []ui.DialogAction{

@@ -188,8 +188,7 @@ func (c *Container) lockedBanner(th *theme.Theme) ui.View {
 		return ui.Row()
 	}
 	return ui.Row(
-		ui.Muted("Some values are still encrypted: the secret key is not available."),
-		ui.Spacer(),
+		container.MutedParagraph("Some values are still encrypted: the secret key is not available.").Grow(1),
 		ui.Button("env-unlock-"+c.env.MetaData.ID, ui.Text("Unlock")).IconStart(icons.Key).
 			OnClick(func() {
 				secretui.EnsureKey(c.secretDeps(), func(ok bool) {

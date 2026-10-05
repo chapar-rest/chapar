@@ -9,6 +9,7 @@ import (
 	"github.com/mirzakhany/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/ui/container"
 )
 
 // The Saved tab keeps messages with the request, to send again later.
@@ -115,11 +116,11 @@ func (c *Container) deleteSaved(id string) {
 func (c *Container) savedPane(th *theme.Theme) ui.View {
 	if len(c.req.Spec.WebSocket.SavedMessages) == 0 {
 		return ui.Column(
-			ui.Muted("No saved messages. Write one in the Message tab and choose Save message."),
+			container.MutedParagraph("No saved messages. Write one in the Message tab and choose Save message."),
 		).Grow(1)
 	}
 	return ui.Column(
-		ui.Muted("Double-click a row to load it into the editor."),
+		container.MutedParagraph("Double-click a row to load it into the editor."),
 		ui.ViewOf(c.saved).Grow(1),
 	).Gap(th.Spacing.S).Grow(1)
 }

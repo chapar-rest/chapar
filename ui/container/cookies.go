@@ -204,7 +204,7 @@ func CookiesView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, s *CookiesS
 
 	received := ui.View(ui.ViewOf(s.received).Grow(1))
 	if len(s.received.Rows) == 0 {
-		received = ui.Caption("The server did not set any cookies.")
+		received = MutedParagraph("The server did not set any cookies.").Size(th.Typography.Caption.Size)
 	}
 
 	rows := []ui.View{
@@ -215,7 +215,7 @@ func CookiesView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, s *CookiesS
 	if s.hasJar {
 		sent := ui.View(ui.ViewOf(s.sent))
 		if len(s.sent.Rows) == 0 {
-			sent = ui.Caption("No cookies from the jar matched this request.")
+			sent = MutedParagraph("No cookies from the jar matched this request.").Size(th.Typography.Caption.Size)
 		}
 		rows = append(rows,
 			ui.Strong(fmt.Sprintf("Sent from jar (%d)", len(s.sent.Rows))).MarginTop(th.Spacing.S),

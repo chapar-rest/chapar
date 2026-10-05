@@ -144,7 +144,7 @@ func (l *messageLog) showDetail() {
 func (l *messageLog) view(th *theme.Theme, ctx *ui.Ctx, deps container.Deps) ui.View {
 	if len(l.entries) == 0 {
 		return ui.Column(
-			ui.Muted("No messages yet. Connect, then send a message from the Message tab."),
+			container.MutedParagraph("No messages yet. Connect, then send a message from the Message tab."),
 		).Grow(1)
 	}
 	toolbar := ui.Row(
@@ -161,7 +161,7 @@ func (l *messageLog) view(th *theme.Theme, ctx *ui.Ctx, deps container.Deps) ui.
 			OnClick(l.clear),
 	).Gap(th.Spacing.S).Align(ui.AlignCenter)
 
-	var detail ui.View = ui.Muted("Select a message to see it in full.")
+	var detail ui.View = container.MutedParagraph("Select a message to see it in full.")
 	if _, ok := l.entry(l.selected); ok {
 		detail = container.ResponseEditorMenu(l.detail, ctx, deps, "message.txt")
 	}

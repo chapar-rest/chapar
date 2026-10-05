@@ -399,7 +399,7 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 		rows = append(rows, c.settingsPane(th, id, w)...)
 	case tabActions:
 		rows = append(rows,
-			ui.Muted("Runs before every connect. A Python script sees the handshake as a GET request, and the message being written as its body."),
+			container.MutedParagraph("Runs before every connect. A Python script sees the handshake as a GET request, and the message being written as its body."),
 			container.PreRequestPane(th, c.deps, &w.PreRequest, container.PrePostOpts{ID: id + "-pre", AllowPython: true}, &c.preScript, c.markDirty),
 		)
 	case tabInfo:
@@ -494,7 +494,7 @@ func (c *Container) settingsPane(th *theme.Theme, id string, w *domain.WebSocket
 	return []ui.View{
 		ui.Scroll("ws-settings-scroll-"+id, ui.Column(
 			ui.Form("ws-settings-"+id, items...),
-			ui.Muted("Changes apply the next time you connect."),
+			container.MutedParagraph("Changes apply the next time you connect."),
 		).Gap(th.Spacing.S)).Grow(1),
 	}
 }
@@ -506,7 +506,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	switch c.respActive {
 	case respHeaders:
 		if c.handshake == nil {
-			content = ui.Muted("Connect to see the handshake headers.")
+			content = container.MutedParagraph("Connect to see the handshake headers.")
 		} else {
 			content = container.ResponseEditorMenu(c.respHdrEd, ctx, c.deps, "handshake.txt")
 		}
