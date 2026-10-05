@@ -41,7 +41,7 @@ func (c *Container) resultsPane(ctx *ui.Ctx, th *theme.Theme) ui.View {
 		ui.Splitter("tc-res-split-"+id, ui.Vertical,
 			ui.Scroll("tc-res-list-"+id, ui.Column(list...).Gap(th.Spacing.XXS).Padding(th.Spacing.XS)),
 			c.detail(ctx, th),
-		).Percents(30, 70).HandleOnHover().Grow(1),
+		).Percents(30, 70).Grow(1),
 	).Grow(1))
 }
 
@@ -190,7 +190,7 @@ func (c *Container) detail(ctx *ui.Ctx, th *theme.Theme) ui.View {
 			ui.Caption(info),
 		).Gap(th.Spacing.S).Align(ui.AlignCenter),
 		body,
-	).Gap(th.Spacing.S).Padding(th.Spacing.M).Grow(1)
+	).Gap(th.Spacing.S).Padding(th.Spacing.S).Grow(1)
 }
 
 // checks lists why a step failed, its assertions and its captures.
