@@ -54,7 +54,7 @@ func (c *Container) stepCard(ctx *ui.Ctx, th *theme.Theme, i int, m *stepModel) 
 		MaxWidth(maxCardWidth).
 		Layout(ctx)
 	if i == 0 {
-		c.measure(card)
+		c.measure(ctx, card)
 	}
 	return ui.Raw(card)
 }
@@ -147,13 +147,15 @@ func (c *Container) stepMenu(i, n int, m *stepModel) ui.View {
 
 // measure keeps the width the step cards were laid out at. Layout only
 // knows it after the views are built, so a change shows on the next frame.
-func (c *Container) measure(el *layout.Element) {
+func (c *Container) measure(ctx *ui.Ctx, el *layout.Element) {
 	prev := el.AfterLayout
 	el.AfterLayout = func(e *layout.Element) bool {
 		// Frame is filled only after this hook; the solved size is known.
 		w, _ := e.LayoutSize()
 		if (w < compactCardWidth) != (c.cardW < compactCardWidth) || c.cardW == 0 {
-			c.deps.WakeNow()
+			// Not WakeNow: a repaint asked for during layout is dropped once
+			// this frame presents. Animate wakes the next frame.
+			ctx.Animate(0)
 		}
 		c.cardW = w
 		if prev != nil {
