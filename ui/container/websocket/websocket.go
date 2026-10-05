@@ -97,6 +97,8 @@ type Container struct {
 	timeline  container.TimelineState
 	cookies   container.CookiesState
 	errText   string
+
+	bar msgBar // the Message tab toolbar's collapse step
 }
 
 func Open(req *domain.Request, deps container.Deps) *Container {
@@ -360,7 +362,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 			c.connectButton(id),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
-		ui.Splitter("ws-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).
+		ui.Splitter("ws-split-"+id, splitDir, c.reqPane(th, ctx), c.respPane(th, ctx)).
 			Percents(50, 50).
 			HandleOnHover().
 			Grow(1),
@@ -380,7 +382,7 @@ func (c *Container) connectButton(id string) ui.View {
 		OnClick(c.connect)
 }
 
-func (c *Container) reqPane(th *theme.Theme) ui.View {
+func (c *Container) reqPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	id := c.req.MetaData.ID
 	w := c.req.Spec.WebSocket
 	rows := []ui.View{
@@ -408,7 +410,7 @@ func (c *Container) reqPane(th *theme.Theme) ui.View {
 			c.deps.ReportTitle(domain.RequestDisplayName(c.req))
 		}))
 	default:
-		rows = append(rows, c.messagePane(th)...)
+		rows = append(rows, c.messagePane(ctx, th)...)
 	}
 	return ui.Column(
 		ui.Column(rows...).
@@ -421,30 +423,6 @@ var formatOptions = []ui.SelectOption{
 	{Label: "Text", Value: domain.WebSocketFormatText},
 	{Label: "JSON", Value: domain.WebSocketFormatJSON},
 	{Label: "Binary (base64)", Value: domain.WebSocketFormatBinary},
-}
-
-func (c *Container) messagePane(th *theme.Theme) []ui.View {
-	id := c.req.MetaData.ID
-	w := c.req.Spec.WebSocket
-	editor := ui.View(ui.ViewOf(c.msgEd).Grow(1))
-	if w.MessageFormat == domain.WebSocketFormatJSON {
-		editor = container.JSONBodyEditor("ws-msg-"+id, c.msgEd, c.deps, nil)
-	}
-	return []ui.View{
-		ui.Row(
-			ui.Select("ws-format-"+id, formatOptions).Width(170).
-				Selected(optionIndex(w.MessageFormat, formatOptions)).
-				OnChange(func(v string) { c.setFormat(v) }),
-			ui.Spacer(),
-			ui.Button("ws-keep-"+id, ui.Text("Save message")).IconStart(icons.BookmarkPlus).
-				Tooltip("Keep this message in the Saved tab").
-				OnClick(c.saveDraft),
-			ui.Button("ws-send-"+id, ui.Text("Send")).Primary().IconStart(icons.SendHorizontal).Hint("⌘↵").
-				Disabled(c.state != stateConnected).
-				OnClick(c.sendDraft),
-		).Gap(th.Spacing.S).Align(ui.AlignCenter),
-		editor,
-	}
 }
 
 func (c *Container) setFormat(format string) {
