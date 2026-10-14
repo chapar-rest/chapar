@@ -105,7 +105,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 	c.respHdrEd = container.NewResponseEditor(nil, highlight.Noop{})
 
 	id := r.MetaData.ID
-	c.queryParams = container.NewKVTable("query-"+id, c.markDirty)
+	c.queryParams = container.NewKVTable("query-"+id, c.queryParamsChanged)
 	c.pathParams = container.NewKVTable("path-"+id, c.markDirty)
 	c.headers = container.NewKVTable("hdr-"+id, c.markDirty)
 	c.urlEncoded = container.NewKVTable("urlenc-"+id, c.markDirty)
@@ -162,6 +162,14 @@ func (c *Container) Close() {
 func (c *Container) markDirty() {
 	c.dirty = true
 	c.deps.ReportDirty(true)
+}
+
+// queryParamsChanged rebuilds the URL's query string from the Query table,
+// since the URL is what gets sent.
+func (c *Container) queryParamsChanged() {
+	http := c.req.Spec.HTTP
+	http.URL = container.SyncURLFromParams(http.URL, container.DumpKV(c.queryParams))
+	c.markDirty()
 }
 
 func (c *Container) flush() {
@@ -322,11 +330,7 @@ func (c *Container) paramsTab(th *theme.Theme, id string) []ui.View {
 	return []ui.View{
 		ui.Row(ui.Text("Query"), ui.Spacer(),
 			ui.IconButton("http-query-add-"+id, icons.Plus).OnClick(func() {
-				container.AddKVRow(c.queryParams, func() {
-					http := c.req.Spec.HTTP
-					http.URL = container.SyncURLFromParams(http.URL, container.DumpKV(c.queryParams))
-					c.markDirty()
-				})
+				container.AddKVRow(c.queryParams, c.queryParamsChanged)
 			}),
 		).PaddingXY(0, th.Spacing.XS),
 		ui.ViewOf(c.queryParams).Height(60),
