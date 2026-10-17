@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -21,6 +23,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/mitm"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui/container"
+	"github.com/chapar-rest/chapar/version"
 )
 
 // proxyRebuildEvery throttles rebuilding the table while traffic streams in.
@@ -211,6 +214,47 @@ func (p *Proxy) Clear() {
 	p.svc().Store().Clear()
 	p.selID = 0
 	p.dirty = true
+}
+
+// ExportHAR saves the requests the table shows, in the order they were
+// sent, as a HAR file.
+func (p *Proxy) ExportHAR() {
+	data, err := mitm.HAR(p.shown, version.GetAppVersion())
+	if err != nil {
+		p.deps.Error(err)
+		return
+	}
+	files := p.deps.Container().Files
+	if files == nil {
+		return
+	}
+	fd := files()
+	if fd == nil {
+		return
+	}
+	fd.Show(ui.FileDialogOpts{
+		Title: "Export HAR",
+		Mode:  ui.FileDialogSaveFile,
+		Filters: []ui.FileFilter{
+			{Label: "HAR files", Exts: []string{".har"}},
+			{Label: "All files", Exts: nil},
+		},
+		ShowSaveFilter: true,
+		OnConfirm: func(paths []string) {
+			if len(paths) == 0 {
+				return
+			}
+			path := paths[0]
+			if filepath.Ext(path) == "" {
+				path += ".har"
+			}
+			if err := os.WriteFile(path, data, 0o644); err != nil {
+				p.deps.Error(err)
+				return
+			}
+			p.deps.Toast("Exported " + filepath.Base(path))
+		},
+	})
 }
 
 // ShowSetup opens the readiness checklist.
@@ -711,6 +755,10 @@ func (p *Proxy) header(c *ui.Ctx) ui.View {
 		ui.Button("proxy-pause", ui.Text(pauseLabel)).IconStart(pauseIcon).Ghost().HoverFill().
 			Tooltip("Stop recording new requests; traffic keeps flowing").
 			OnClick(func() { svc.SetPaused(!svc.Paused()) }),
+		ui.Button("proxy-export", ui.Text("Export HAR")).IconStart(icons.Download).Ghost().HoverFill().
+			Disabled(len(p.shown) == 0).
+			Tooltip("Save the requests shown as a HAR file").
+			OnClick(p.ExportHAR),
 		ui.Button("proxy-clear", ui.Text("Clear")).IconStart(icons.Eraser).Ghost().HoverFill().OnClick(p.Clear),
 		startBtn,
 	).Gap(th.Spacing.S).Align(ui.AlignCenter).PaddingXY(th.Spacing.M, th.Spacing.S)
