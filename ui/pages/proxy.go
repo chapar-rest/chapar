@@ -105,9 +105,10 @@ type Proxy struct {
 	treeSig string
 	table   *ui.Table
 
-	scope proxyScope
-	chips map[string]bool
-	query string
+	scope     proxyScope
+	chips     map[string]bool
+	query     string
+	treeQuery string
 
 	seenVersion uint64
 	lastRebuild time.Time
@@ -434,6 +435,7 @@ func (p *Proxy) rebuildTree(flows []*mitm.Flow) {
 			p.tree.SetExpanded(n, true)
 		}
 	}
+	p.tree.SetFilter(p.treeQuery)
 }
 
 func sortedKeys(m map[string]bool) []string {
@@ -722,8 +724,12 @@ func displayAddr(addr string) string {
 func (p *Proxy) side(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	return ui.Column(
+		ui.TextField("proxy-tree-search", p.treeQuery).Placeholder("Filter apps and domains").
+			IconStart(icons.Search).
+			OnChange(func(s string) { p.treeQuery = s; p.tree.SetFilter(s) }).
+			Margin(th.Spacing.S),
 		ui.ViewOf(p.tree).Grow(1),
-	).Gap(th.Spacing.S).PaddingTop(th.Spacing.S).Grow(1).Background(ui.TokenChrome)
+	).Gap(th.Spacing.XS).Grow(1).Background(ui.TokenChrome)
 }
 
 func (p *Proxy) mainPane(c *ui.Ctx) ui.View {
@@ -745,24 +751,13 @@ func (p *Proxy) mainPane(c *ui.Ctx) ui.View {
 func (p *Proxy) filterBar(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	chip := func(ch filterChip) ui.View {
-		b := ui.Button("proxy-chip-"+ch.id, ui.Text(ch.label))
-		if p.chips[ch.id] {
-			b = b.Secondary()
-		} else {
-			b = b.Ghost().HoverFill()
-		}
 		id := ch.id
-		return b.OnClick(func() {
+		return chipButton("proxy-chip-"+id, ch.label, p.chips[id]).OnClick(func() {
 			p.chips[id] = !p.chips[id]
 			p.dirty = true
 		})
 	}
-	all := ui.Button("proxy-chip-all", ui.Text("All"))
-	if len(p.activeChips()) == 0 {
-		all = all.Secondary()
-	} else {
-		all = all.Ghost().HoverFill()
-	}
+	all := chipButton("proxy-chip-all", "All", len(p.activeChips()) == 0)
 	views := []ui.View{all.OnClick(func() {
 		p.chips = map[string]bool{}
 		p.dirty = true
@@ -774,13 +769,23 @@ func (p *Proxy) filterBar(c *ui.Ctx) ui.View {
 	for _, ch := range contentChips {
 		views = append(views, chip(ch))
 	}
-	views = append(views, ui.VLine(th.Stroke.Thin, th.Border).Height(18), chip(errorChip), ui.Spacer(),
+	views = append(views, ui.VLine(th.Stroke.Thin, th.Border).Height(18), chip(errorChip),
 		ui.TextField("proxy-search", p.query).Placeholder("Filter URL, method, status, app").
-			IconStart(icons.Search).Width(260).
+			IconStart(icons.Search).Grow(1).
 			OnChange(func(s string) { p.query = s; p.dirty = true }),
 	)
 	return ui.Row(views...).Gap(th.Spacing.XXS).Align(ui.AlignCenter).Wrap().
 		PaddingXY(th.Spacing.S, th.Spacing.XS)
+}
+
+// chipButton is a filter button. On and off differ only in color: button
+// variants have different padding, so switching variant would resize it.
+func chipButton(id, label string, on bool) *ui.Node {
+	b := ui.Button(id, ui.Text(label)).Ghost().HoverFill()
+	if on {
+		b = b.Style(ui.Background(ui.TokenListActive).TextColor(ui.TokenForeground))
+	}
+	return b
 }
 
 func (p *Proxy) activeChips() []string {
