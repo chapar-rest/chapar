@@ -446,6 +446,9 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		}),
 		ui.Cmd("proxy.stop").Title("Proxy: Stop").Icon(icons.Square).Run(func() { a.proxy.Stop() }),
 		ui.Cmd("proxy.clear").Title("Proxy: Clear captured requests").Icon(icons.Eraser).Run(func() { a.proxy.Clear() }),
+		ui.Cmd("proxy.curl").Title("Proxy: Copy selected request as cURL").Icon(icons.SquareTerminal).Run(func() {
+			a.proxy.CopyCurl(c)
+		}),
 		ui.Cmd("proxy.setup").Title("Proxy: Setup guide").Icon(icons.ShieldCheck).Run(func() {
 			a.navIndex = navProxy
 			a.proxy.ShowSetup(c)

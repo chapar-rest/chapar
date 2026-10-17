@@ -257,6 +257,19 @@ func (p *Proxy) ExportHAR() {
 	})
 }
 
+// CopyCurl puts the selected request on the clipboard as a curl command.
+func (p *Proxy) CopyCurl(c *ui.Ctx) {
+	f := p.selected()
+	if f == nil || f.Tunnel {
+		p.deps.Toast("Select a request first")
+		return
+	}
+	if clip := c.Clipboard(); clip != nil {
+		clip.Set(mitm.Curl(f))
+		p.deps.Toast("Copied as cURL")
+	}
+}
+
 // ShowSetup opens the readiness checklist.
 func (p *Proxy) ShowSetup(c *ui.Ctx) { p.setup.show(c) }
 
@@ -910,8 +923,16 @@ func (p *Proxy) reqPane(c *ui.Ctx) ui.View {
 		return paneCard(th, container.MutedParagraph("Select a request to see it here."))
 	}
 	title := f.Method + " " + f.URL
+	var copyCurl ui.View
+	if !f.Tunnel {
+		copyCurl = ui.Button("proxy-copy-curl", ui.Text("Copy as cURL")).IconStart(icons.SquareTerminal).
+			Ghost().HoverFill().OnClick(func() { p.CopyCurl(c) })
+	}
 	return paneCard(th,
-		ui.Paragraph(title).Style(ui.Spec{}.TextColor(ui.TokenForeground)),
+		ui.Row(
+			ui.Paragraph(title).Style(ui.Spec{}.TextColor(ui.TokenForeground)).Grow(1),
+			copyCurl,
+		).Gap(th.Spacing.S).Align(ui.AlignStart),
 		ui.Tabs("proxy-req-tabs", reqTabs).
 			Selected(p.reqTab).Closable(false).
 			OnSelectItem(func(i int, _ string) { p.reqTab = i }).
