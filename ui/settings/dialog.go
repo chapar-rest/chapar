@@ -25,6 +25,7 @@ const (
 	catLanguageServers
 	catSecurity
 	catData
+	catProxy
 )
 
 // Panel is the settings dialog body. Open it with c.Dialogs().Show(DialogOpts{Body: panel.Layout, ...}).
@@ -54,6 +55,10 @@ func (p *Panel) Prepare() {
 	if p.draft.Spec.Editor.FontSize <= 0 {
 		p.draft.Spec.Editor.FontSize = 12
 	}
+	px := &p.draft.Spec.Proxy
+	px.Port = px.ListenPort()
+	px.MaxFlows = px.FlowLimit()
+	px.MaxBodyMb = int(px.BodyLimitBytes() >> 20)
 	p.fillLanguageServers()
 	p.dirty = false
 	p.pathWarn = false
@@ -95,6 +100,7 @@ func (p *Panel) Layout(c *ui.Ctx) ui.View {
 			ui.NavItem{ID: "language-servers", Label: "Language servers", Icon: icons.Code},
 			ui.NavItem{ID: "security", Label: "Security", Icon: icons.Lock},
 			ui.NavItem{ID: "data", Label: "Data", Icon: icons.Folder},
+			ui.NavItem{ID: "proxy", Label: "Proxy", Icon: icons.Radar},
 		).Selected(p.category).OnSelectItem(func(i int, _ string) { p.category = i }).Width(200),
 		ui.VLine(th.Stroke.Thin, th.Border),
 		ui.Scroll("settings-form", p.form(c)).Grow(1),
@@ -113,6 +119,8 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	g := &p.draft.Spec
 	switch p.category {
+	case catProxy:
+		return p.proxyForm(g)
 	case catAppearance:
 		themeOpts := yogaThemeOptions()
 		return ui.Form("settings-appearance",
@@ -497,4 +505,40 @@ func (p *Panel) forgetKey() {
 				p.secrets.Error(err)
 			}
 		}, nil)
+}
+
+func (p *Panel) proxyForm(g *domain.GlobalConfigSpec) ui.View {
+	px := &g.Proxy
+	return ui.Form("settings-proxy",
+		ui.FormNumber("proxyPort", "Port", "Port the proxy listens on", float64(px.Port), 1, 65535, 1, func(v float64) {
+			px.Port = int(v)
+			p.mark()
+		}),
+		ui.FormSwitch("proxyLAN", "Allow devices on local network",
+			"Let phones and other computers use the proxy. Anyone on the network can then send traffic through it.",
+			px.AllowLAN, func(v bool) {
+				px.AllowLAN = v
+				p.mark()
+			}),
+		ui.FormNumber("proxyMaxFlows", "Requests kept", "Oldest requests are dropped past this", float64(px.MaxFlows), 100, 100000, 100, func(v float64) {
+			px.MaxFlows = int(v)
+			p.mark()
+		}),
+		ui.FormNumber("proxyMaxBody", "Body capture limit (MB)", "Larger bodies pass through without being kept", float64(px.MaxBodyMb), 1, 512, 1, func(v float64) {
+			px.MaxBodyMb = int(v)
+			p.mark()
+		}),
+		ui.FormText("proxyIgnore", "Don't decrypt",
+			"Comma-separated domains passed through untouched, such as apps that pin their certificates. A domain covers its subdomains.",
+			strings.Join(px.IgnoreHosts, ", "), func(v string) {
+				var hosts []string
+				for _, h := range strings.Split(v, ",") {
+					if h = strings.TrimSpace(h); h != "" {
+						hosts = append(hosts, h)
+					}
+				}
+				px.IgnoreHosts = hosts
+				p.mark()
+			}),
+	)
 }
