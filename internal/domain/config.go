@@ -25,6 +25,7 @@ type GlobalConfigSpec struct {
 	Scripting       ScriptingConfig       `yaml:"scripting"`
 	LanguageServers LanguageServersConfig `yaml:"languageServers"`
 	Data            DataConfig            `yaml:"data"`
+	Proxy           ProxyConfig           `yaml:"proxy"`
 }
 
 func (g *GlobalConfig) Changed(other *GlobalConfig) bool {
@@ -32,7 +33,64 @@ func (g *GlobalConfig) Changed(other *GlobalConfig) bool {
 		g.Spec.Editor.Changed(other.Spec.Editor) ||
 		g.Spec.Scripting.Changed(other.Spec.Scripting) ||
 		g.Spec.LanguageServers.Changed(other.Spec.LanguageServers) ||
-		g.Spec.Data.Changed(other.Spec.Data)
+		g.Spec.Data.Changed(other.Spec.Data) ||
+		g.Spec.Proxy.Changed(other.Spec.Proxy)
+}
+
+// ProxyConfig configures the traffic capture proxy. Zero values mean the
+// defaults, so configs written before the proxy existed keep working.
+type ProxyConfig struct {
+	Port int `yaml:"port"`
+	// AllowLAN listens on every interface so phones and other devices can
+	// use the proxy; otherwise it only accepts connections from this machine.
+	AllowLAN  bool `yaml:"allowLan"`
+	MaxFlows  int  `yaml:"maxFlows"`
+	MaxBodyMb int  `yaml:"maxBodyMb"`
+	// IgnoreHosts pass through without being decrypted.
+	IgnoreHosts []string `yaml:"ignoreHosts"`
+}
+
+const (
+	DefaultProxyPort      = 9090
+	DefaultProxyMaxFlows  = 5000
+	DefaultProxyMaxBodyMb = 10
+)
+
+// DefaultProxyIgnoreHosts pin their certificates, so decrypting them only
+// breaks the apps that use them.
+var DefaultProxyIgnoreHosts = []string{"apple.com", "icloud.com", "mzstatic.com", "push.apple.com"}
+
+// ListenPort is the configured port or the default.
+func (p ProxyConfig) ListenPort() int {
+	if p.Port <= 0 || p.Port > 65535 {
+		return DefaultProxyPort
+	}
+	return p.Port
+}
+
+// FlowLimit is the configured flow limit or the default.
+func (p ProxyConfig) FlowLimit() int {
+	if p.MaxFlows <= 0 {
+		return DefaultProxyMaxFlows
+	}
+	return p.MaxFlows
+}
+
+// BodyLimitBytes is the configured body capture limit in bytes.
+func (p ProxyConfig) BodyLimitBytes() int64 {
+	mb := p.MaxBodyMb
+	if mb <= 0 {
+		mb = DefaultProxyMaxBodyMb
+	}
+	return int64(mb) << 20
+}
+
+func (p ProxyConfig) Changed(other ProxyConfig) bool {
+	return p.Port != other.Port ||
+		p.AllowLAN != other.AllowLAN ||
+		p.MaxFlows != other.MaxFlows ||
+		p.MaxBodyMb != other.MaxBodyMb ||
+		!slices.Equal(p.IgnoreHosts, other.IgnoreHosts)
 }
 
 type GeneralConfig struct {
@@ -186,6 +244,13 @@ type AppStateSpec struct {
 	ActiveWorkspace     *ActiveWorkspace     `yaml:"activeWorkspace"`
 	SelectedEnvironment *SelectedEnvironment `yaml:"selectedEnvironment"`
 	DarkMode            *bool                `yaml:"darkMode"`
+	Proxy               *ProxyState          `yaml:"proxy,omitempty"`
+}
+
+// ProxyState is the proxy page's remembered UI state.
+type ProxyState struct {
+	PinnedHosts []string `yaml:"pinnedHosts,omitempty"`
+	PinnedApps  []string `yaml:"pinnedApps,omitempty"`
 }
 
 // GetDefaultGlobalConfig returns a default global config
@@ -230,6 +295,12 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 			},
 			Data: DataConfig{
 				WorkspacePath: dataDir,
+			},
+			Proxy: ProxyConfig{
+				Port:        DefaultProxyPort,
+				MaxFlows:    DefaultProxyMaxFlows,
+				MaxBodyMb:   DefaultProxyMaxBodyMb,
+				IgnoreHosts: slices.Clone(DefaultProxyIgnoreHosts),
 			},
 		},
 	}

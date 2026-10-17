@@ -14,6 +14,7 @@ import (
 	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/logger"
+	"github.com/chapar-rest/chapar/internal/mitm"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/repository"
 	"github.com/chapar-rest/chapar/internal/secret"
@@ -33,6 +34,7 @@ const (
 	navRequests = iota
 	navEnvs
 	navTests
+	navProxy
 	navWorkspaces
 )
 
@@ -48,6 +50,8 @@ type App struct {
 	envs     *pages.Environments
 	tests    *pages.TestCases
 	spaces   *pages.Workspaces
+	proxy    *pages.Proxy
+	mitm     *mitm.Service
 	runner   *testrun.Runner
 
 	navIndex int
@@ -181,6 +185,8 @@ func BuildApp() *App {
 			}
 		},
 	})
+
+	a.buildProxy()
 
 	cfg := prefs.GetGlobalConfig()
 	a.hideNavbar = cfg.Spec.General.HideNavbar
@@ -391,6 +397,9 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 		a.lang.SetWake(c.Invalidate)
 		a.scripts.SetWake(c.Invalidate)
 	}
+	if a.uiCtx == nil && a.mitm != nil {
+		a.mitm.SetWake(c.Invalidate)
+	}
 	a.uiCtx = c
 	a.wake = c.Invalidate
 	th := c.Theme()
@@ -427,6 +436,22 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		ui.Cmd("tests.new").Title("New test case").Icon(icons.FlaskConical).Run(func() {
 			a.navIndex = navTests
 			a.tests.Create()
+		}),
+		ui.Cmd("nav.proxy").Title("Go to Proxy").Icon(icons.Radar).Run(func() { a.navIndex = navProxy }),
+		ui.Cmd("proxy.start").Title("Proxy: Start").Icon(icons.Play).Run(func() {
+			a.navIndex = navProxy
+			if !a.mitm.Running() {
+				a.proxy.Start()
+			}
+		}),
+		ui.Cmd("proxy.stop").Title("Proxy: Stop").Icon(icons.Square).Run(func() { a.proxy.Stop() }),
+		ui.Cmd("proxy.clear").Title("Proxy: Clear captured requests").Icon(icons.Eraser).Run(func() { a.proxy.Clear() }),
+		ui.Cmd("proxy.curl").Title("Proxy: Copy selected request as cURL").Icon(icons.SquareTerminal).Run(func() {
+			a.proxy.CopyCurl(c)
+		}),
+		ui.Cmd("proxy.setup").Title("Proxy: Setup guide").Icon(icons.ShieldCheck).Run(func() {
+			a.navIndex = navProxy
+			a.proxy.ShowSetup(c)
 		}),
 		ui.Cmd("nav.spaces").Title("Go to Workspaces").Icon(icons.Boxes).Run(func() { a.navIndex = navWorkspaces }),
 		ui.Cmd("app.settings").Title("Open Settings").Shortcut("⌘,").Icon(icons.Settings).Run(func() { a.openSettings(c) }),
@@ -524,6 +549,7 @@ func (a *App) pageView(c *ui.Ctx) ui.View {
 	a.requests.SideOpen = a.sideOpen
 	a.envs.SideOpen = a.sideOpen
 	a.tests.SideOpen = a.sideOpen
+	a.proxy.SideOpen = a.sideOpen
 	switch a.navIndex {
 	case navEnvs:
 		return a.envs.Layout(c)
@@ -531,6 +557,8 @@ func (a *App) pageView(c *ui.Ctx) ui.View {
 		return a.tests.Layout(c)
 	case navWorkspaces:
 		return a.spaces.Layout(c)
+	case navProxy:
+		return a.proxy.Layout(c)
 	default:
 		return a.requests.Layout(c)
 	}
@@ -631,6 +659,7 @@ func (a *App) nav(c *ui.Ctx) ui.View {
 		ui.NavItem{ID: "requests", Label: "Requests", Icon: icons.Send},
 		ui.NavItem{ID: "environments", Label: "Envs", Icon: icons.FolderPlus},
 		ui.NavItem{ID: "tests", Label: "Tests", Icon: icons.FlaskConical},
+		ui.NavItem{ID: "proxy", Label: "Proxy", Icon: icons.Radar},
 		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: icons.Boxes},
 	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).
 		Width(75).NavBackground(&th.ChromeMuted)
@@ -675,6 +704,45 @@ func (a *App) Close() {
 		a.ws.CloseAll()
 	}
 	a.scripts.Shutdown()
+	if a.mitm != nil {
+		_ = a.mitm.Stop()
+	}
+	if a.proxy != nil {
+		a.proxy.Close()
+	}
+}
+
+// buildProxy sets up the traffic capture proxy. It stays stopped until
+// the user starts it.
+func (a *App) buildProxy() {
+	configDir, err := prefs.GetConfigDir()
+	if err != nil {
+		configDir = "."
+	}
+	a.mitm = mitm.NewService(filepath.Join(configDir, "proxy"))
+	a.proxy = pages.NewProxyPage(pages.ProxyDeps{
+		Service:   a.mitm,
+		Container: a.deps,
+		Error:     a.showError,
+		Toast:     a.toast,
+		Wake:      a.invalidate,
+		OpenSettings: func() {
+			if a.uiCtx != nil {
+				a.openSettings(a.uiCtx)
+			}
+		},
+	})
+	prefs.AddGlobalConfigChangeListener(func(old, updated domain.GlobalConfig) {
+		if !old.Spec.Proxy.Changed(updated.Spec.Proxy) {
+			return
+		}
+		a.mitm.SetIgnoreHosts(updated.Spec.Proxy.IgnoreHosts)
+		o, n := old.Spec.Proxy, updated.Spec.Proxy
+		if a.mitm.Running() && (o.ListenPort() != n.ListenPort() || o.AllowLAN != n.AllowLAN ||
+			o.FlowLimit() != n.FlowLimit() || o.BodyLimitBytes() != n.BodyLimitBytes()) {
+			a.toast("Restart the proxy to apply its new settings")
+		}
+	})
 }
 
 func (a *App) OnKey(_ *ui.Ctx, k input.KeyEvent) bool {
