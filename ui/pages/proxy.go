@@ -826,7 +826,7 @@ func (p *Proxy) listPane(c *ui.Ctx) ui.View {
 		OnClick(func() { p.ShowSetup(c) }))
 	return ui.Column(
 		empty,
-		ui.Row(actions...).Gap(th.Spacing.S).Justify(ui.JustifyCenter),
+		ui.Row(actions...).Gap(th.Spacing.S).Justify(ui.JustifyCenter).PaddingBottom(th.Spacing.M),
 	).Gap(th.Spacing.M).Justify(ui.JustifyCenter).Grow(1)
 }
 
