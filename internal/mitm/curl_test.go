@@ -83,3 +83,26 @@ func TestCurlReplays(t *testing.T) {
 		}
 	}
 }
+
+// shellPath must name the same file once a shell expands it.
+func TestShellPathExpands(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, p := range []string{
+		home + "/Library/Application Support/chapar/proxy/ca-cert.pem",
+		home + `/odd "dir" $x/a.pem`,
+		"/etc/ssl/ca.pem",
+	} {
+		out, err := exec.Command(sh, "-c", "printf %s "+shellPath(p)).Output()
+		if err != nil || string(out) != p {
+			t.Fatalf("%s -> %s -> %q (%v)", p, shellPath(p), out, err)
+		}
+	}
+	if got := shellPath(home + "/a b.pem"); got != `"$HOME/a b.pem"` {
+		t.Fatalf("got %s", got)
+	}
+}

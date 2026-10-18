@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -162,7 +163,7 @@ func (s *proxySetup) certStep(c *ui.Ctx, ca *mitm.CA, caErr error) ui.View {
 		kv(th, "Name", ca.Name()),
 		kv(th, "SHA-256", ca.Fingerprint()),
 		kv(th, "Expires", ca.NotAfter().Format("2 Jan 2006")),
-		kv(th, "File", ca.CertPath()),
+		kv(th, "File", homeRelative(ca.CertPath())),
 	).Gap(th.Spacing.XXS)
 	return stepCard(th, stepOK, "1. Chapar's certificate", "", details,
 		ui.Row(
@@ -378,6 +379,19 @@ func stepCard(th *theme.Theme, status stepStatus, title, detail string, children
 		Padding(th.Spacing.M).
 		Radius(th.Radius.Medium).
 		Border(ui.TokenBorder, th.Stroke.Thin)
+}
+
+// homeRelative shows a path under the home folder as ~/…, which is
+// shorter and doesn't spell out the user's name.
+func homeRelative(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if rel, err := filepath.Rel(home, path); err == nil && !strings.HasPrefix(rel, "..") {
+		return filepath.Join("~", rel)
+	}
+	return path
 }
 
 func kv(th *theme.Theme, k, v string) ui.View {

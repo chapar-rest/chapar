@@ -66,11 +66,12 @@ type TrustStep struct {
 // TrustSteps lists how to trust the CA by hand on this OS.
 func TrustSteps(ca *CA) []TrustStep {
 	pem := ca.CertPath()
+	sh := shellPath(pem)
 	switch runtime.GOOS {
 	case "darwin":
 		return []TrustStep{
 			{Text: "Add the certificate to your login keychain as a trusted root (macOS asks for your password):",
-				Command: fmt.Sprintf("security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db %q", pem)},
+				Command: fmt.Sprintf("security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db %s", sh)},
 			{Text: "Or open it in Keychain Access, double-click \"" + ca.Name() + "\" and set \"When using this certificate\" to \"Always Trust\"."},
 		}
 	case "windows":
@@ -81,9 +82,9 @@ func TrustSteps(ca *CA) []TrustStep {
 	default:
 		return []TrustStep{
 			{Text: "Debian / Ubuntu:",
-				Command: fmt.Sprintf("sudo cp %q /usr/local/share/ca-certificates/chapar-ca.crt && sudo update-ca-certificates", pem)},
+				Command: fmt.Sprintf("sudo cp %s /usr/local/share/ca-certificates/chapar-ca.crt && sudo update-ca-certificates", sh)},
 			{Text: "Fedora / RHEL / Arch:",
-				Command: fmt.Sprintf("sudo trust anchor --store %q", pem)},
+				Command: fmt.Sprintf("sudo trust anchor --store %s", sh)},
 			{Text: "Firefox and Chromium on Linux keep their own store: import the certificate under Settings › Certificates › Authorities."},
 		}
 	}
@@ -105,8 +106,22 @@ func ClientEnv(addr string, ca *CA) string {
 	}
 	return strings.Join([]string{
 		"export HTTP_PROXY=" + u + " HTTPS_PROXY=" + u,
-		fmt.Sprintf("export SSL_CERT_FILE=%q NODE_EXTRA_CA_CERTS=%q REQUESTS_CA_BUNDLE=%q", pem, pem, pem),
+		fmt.Sprintf("export SSL_CERT_FILE=%[1]s NODE_EXTRA_CA_CERTS=%[1]s REQUESTS_CA_BUNDLE=%[1]s", shellPath(pem)),
 	}, "\n")
+}
+
+// shellPath double-quotes path for a POSIX shell, writing a path under
+// the home folder as "$HOME/…": shorter to read, and the same command
+// works for anyone who copies it.
+func shellPath(path string) string {
+	prefix := ""
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if rel, err := filepath.Rel(home, path); err == nil && !strings.HasPrefix(rel, "..") {
+			prefix, path = "$HOME/", filepath.ToSlash(rel)
+		}
+	}
+	esc := strings.NewReplacer(`\`, `\\`, `"`, `\"`, `$`, `\$`, "`", "\\`").Replace(path)
+	return `"` + prefix + esc + `"`
 }
 
 func loginKeychain() (string, error) {

@@ -11,9 +11,9 @@
 
 # Chapar - Native API Testing Tool
 
-Chapar is a fast, native API client for REST, gRPC and GraphQL. It is written in Go and draws its UI with [Yoga](https://github.com/mirzakhany/yoga), a GPU-rendered (WebGPU) UI toolkit, so it starts quickly, stays light, and runs the same on macOS, Linux and Windows without a browser engine. Your requests, environments and cookies are plain files on your machine: no account, no cloud sync, nothing sent anywhere you did not ask for.
+Chapar is a fast, native API client for REST, gRPC, GraphQL and WebSocket, with a built-in proxy for inspecting the traffic of other apps. It is written in Go and draws its UI with [Yoga](https://github.com/mirzakhany/yoga), a GPU-rendered (WebGPU) UI toolkit, so it starts quickly, stays light, and runs the same on macOS, Linux and Windows without a browser engine. Your requests, environments and cookies are plain files on your machine: no account, no cloud sync, nothing sent anywhere you did not ask for.
 
-WebSocket and MQTT are next on the list.
+MQTT is next on the list.
 
 ## What Chapar means?
 Chapar was the institution of the royal mounted couriers in ancient Persia.
@@ -34,6 +34,9 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
   <img src="./screenshots/create_todo.png" alt="JSON request body" width="400"/>
   <img src="./screenshots/grpc_request.png" alt="gRPC request" width="400"/>
   <img src="./screenshots/graphql_request.png" alt="GraphQL request" width="400"/>
+  <img src="./screenshots/websocket_request.png" alt="WebSocket request and message log" width="400"/>
+  <img src="./screenshots/proxy.png" alt="Proxy capturing HTTPS traffic" width="400"/>
+  <img src="./screenshots/proxy_setup.png" alt="Proxy certificate setup" width="400"/>
   <img src="./screenshots/scripting.png" alt="Python post-request script" width="400"/>
   <img src="./screenshots/timeline.png" alt="Request timeline" width="400"/>
   <img src="./screenshots/test_case.png" alt="A test case run" width="400"/>
@@ -51,6 +54,14 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
 * **REST / HTTP**: every method, query and path params, JSON, XML, text, form-data, URL-encoded and binary bodies, with syntax highlighting and formatting.
 * **gRPC**: server reflection or proto files, unary and server-streaming methods, metadata and trailers, TLS and client certificates, and a sample message for any method.
 * **GraphQL**: queries and variables, with the response data and errors split out.
+* **WebSocket**: connect, send text, JSON or binary messages and save them to resend, and watch everything that arrives in a filterable log. Subprotocols, pings, compression, headers and auth like HTTP requests.
+
+### Proxy
+* **Capture traffic** from apps, browsers and phones through a built-in HTTP(S) proxy, and see each request and response side by side.
+* **Filter** by app or domain, by protocol and content type, or search; pin what you care about and skip domains you don't want decrypted.
+* **Open in Chapar** turns a captured request into a request you can edit and send. **Copy as cURL** and **Export HAR** take traffic elsewhere.
+* **Easy certificate setup**: Chapar makes its own certificate authority, trusts it in one click on macOS, and checks every step. Phones get the certificate and instructions from `http://chapar.mitm`.
+* Chapar never changes your system's proxy settings, and the proxy only runs while you have it started.
 
 ### Workflow
 * **Workspaces** keep separate collections, requests and environments; switch between them from the title bar.
@@ -72,7 +83,7 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
 * Everything is stored as YAML files, so a workspace can live in git.
 
 ### Roadmap
-* WebSocket and MQTT support.
+* MQTT support.
 * Tunneling to servers and Kubernetes clusters as pre-request actions.
 
 ### Getting Started
