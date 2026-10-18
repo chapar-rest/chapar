@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mirzakhany/yoga/icons"
@@ -39,7 +40,9 @@ func AuthForm(th *theme.Theme, id string, auth *domain.Auth, st *AuthState, cata
 	if st.AllowInherit {
 		opts = append([]ui.SelectOption{{Label: "Inherit", Value: domain.AuthTypeInherit}}, opts...)
 	}
-	if auth.Type == "" {
+	// Older requests were saved with "None"; without this the selector
+	// matches no option and shows its first one, Inherit.
+	if auth.Type == "" || strings.EqualFold(auth.Type, domain.AuthTypeNone) {
 		auth.Type = domain.AuthTypeNone
 	}
 	st.Type = auth.Type

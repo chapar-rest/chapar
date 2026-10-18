@@ -83,19 +83,19 @@ func (r *Request) SetDefaultValuesForGraphQL() {
 
 	if r.Spec.GraphQL.Auth == (Auth{}) {
 		r.Spec.GraphQL.Auth = Auth{
-			Type: "None",
+			Type: AuthTypeNone,
 		}
 	}
 
 	if r.Spec.GraphQL.PostRequest == (PostRequest{}) {
 		r.Spec.GraphQL.PostRequest = PostRequest{
-			Type: "None",
+			Type: PrePostTypeNone,
 		}
 	}
 
 	if r.Spec.GraphQL.PreRequest == (PreRequest{}) {
 		r.Spec.GraphQL.PreRequest = PreRequest{
-			Type: "None",
+			Type: PrePostTypeNone,
 		}
 	}
 }
