@@ -186,19 +186,19 @@ func (r *Request) SetDefaultValuesForHTTP() {
 
 	if r.Spec.HTTP.Request.Auth == (Auth{}) {
 		r.Spec.HTTP.Request.Auth = Auth{
-			Type: "None",
+			Type: AuthTypeNone,
 		}
 	}
 
 	if r.Spec.HTTP.Request.PostRequest == (PostRequest{}) {
 		r.Spec.HTTP.Request.PostRequest = PostRequest{
-			Type: "None",
+			Type: PrePostTypeNone,
 		}
 	}
 
 	if r.Spec.HTTP.Request.PreRequest == (PreRequest{}) {
 		r.Spec.HTTP.Request.PreRequest = PreRequest{
-			Type: "None",
+			Type: PrePostTypeNone,
 		}
 	}
 }

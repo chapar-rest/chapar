@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chapar Proxy certificate</title>
+<style>
+:root { --bg:#f7f7f8; --card:#fff; --fg:#1d1d1f; --muted:#6b6b73; --line:#e3e3e8; --accent:#2f6fed; --code:#f0f0f3; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#141416; --card:#1d1d20; --fg:#ececf0; --muted:#9a9aa3; --line:#2c2c31; --accent:#5b8ff9; --code:#26262b; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width:640px; margin:0 auto; padding:24px 16px 48px; }
+h1 { font-size:22px; margin:0 0 4px; }
+p.sub { color:var(--muted); margin:0 0 20px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+.dl { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.btn { display:inline-block; padding:10px 14px; border-radius:8px; border:1px solid var(--line); color:var(--fg); text-decoration:none; font-weight:600; }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+dl { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; margin:0; font-size:13px; }
+dt { color:var(--muted); }
+dd { margin:0; word-break:break-all; font-family:ui-monospace, Menlo, monospace; }
+details { border-top:1px solid var(--line); padding:10px 0; }
+details:first-of-type { border-top:0; }
+summary { cursor:pointer; font-weight:600; }
+details[open] summary { margin-bottom:6px; }
+ol { margin:0; padding-left:20px; }
+li { margin:4px 0; }
+code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:13px; }
+.badge { font-size:12px; color:var(--accent); margin-left:6px; font-weight:600; }
+.note { font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chapar Proxy certificate</h1>
+  <p class="sub">Install and trust this certificate so Chapar can show HTTPS traffic from this device.</p>
+
+  <div class="card">
+    <dl>
+      <dt>Name</dt><dd>{{.Name}}</dd>
+      <dt>SHA-256</dt><dd>{{.Fingerprint}}</dd>
+      <dt>Expires</dt><dd>{{.Expires}}</dd>
+      {{if .ProxyAddr}}<dt>Proxy</dt><dd>{{.ProxyAddr}}</dd>{{end}}
+    </dl>
+    <p class="note">Check the SHA-256 matches the one Chapar shows before trusting it.</p>
+    <div class="dl">
+      {{if or (eq .Platform "ios") (eq .Platform "android")}}
+      <a class="btn primary" href="/ca.crt">Download certificate</a>
+      <a class="btn" href="/ca.pem">PEM</a>
+      {{else if eq .Platform "windows"}}
+      <a class="btn primary" href="/ca.cer">Download certificate</a>
+      <a class="btn" href="/ca.pem">PEM</a>
+      {{else}}
+      <a class="btn primary" href="/ca.pem">Download certificate</a>
+      <a class="btn" href="/ca.crt">DER (.crt)</a>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="card">
+    <details {{if eq .Platform "ios"}}open{{end}}>
+      <summary>iPhone / iPad{{if eq .Platform "ios"}}<span class="badge">this device</span>{{end}}</summary>
+      <ol>
+        <li>Open this page in Safari and tap <b>Download certificate</b>, then <b>Allow</b>.</li>
+        <li>Open <b>Settings › General › VPN &amp; Device Management</b>, tap the Chapar profile and <b>Install</b>.</li>
+        <li>Open <b>Settings › General › About › Certificate Trust Settings</b> and turn on full trust for <b>{{.Name}}</b>.</li>
+      </ol>
+    </details>
+    <details {{if eq .Platform "android"}}open{{end}}>
+      <summary>Android{{if eq .Platform "android"}}<span class="badge">this device</span>{{end}}</summary>
+      <ol>
+        <li>Tap <b>Download certificate</b>.</li>
+        <li>Open <b>Settings › Security › More security settings › Encryption &amp; credentials › Install a certificate › CA certificate</b> and pick the file.</li>
+      </ol>
+      <p class="note">Apps targeting Android 7+ ignore user certificates unless they opt in, so most app traffic stays hidden. Browsers like Chrome do accept them.</p>
+    </details>
+    <details {{if eq .Platform "macos"}}open{{end}}>
+      <summary>macOS{{if eq .Platform "macos"}}<span class="badge">this device</span>{{end}}</summary>
+      <ol>
+        <li>On the Mac running Chapar, use <b>Trust</b> in Chapar’s proxy setup instead: it does all of this for you.</li>
+        <li>On another Mac: download the certificate, open it in Keychain Access, double-click <b>{{.Name}}</b> and set <b>When using this certificate</b> to <b>Always Trust</b>.</li>
+      </ol>
+      <p class="note">Or in Terminal: <code>security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db chapar-ca.pem</code></p>
+    </details>
+    <details {{if eq .Platform "windows"}}open{{end}}>
+      <summary>Windows{{if eq .Platform "windows"}}<span class="badge">this device</span>{{end}}</summary>
+      <ol>
+        <li>Download the certificate and open it.</li>
+        <li>Choose <b>Install Certificate › Current User › Place all certificates in the following store › Trusted Root Certification Authorities</b>.</li>
+      </ol>
+      <p class="note">Or in a terminal: <code>certutil -user -addstore Root chapar-ca.cer</code></p>
+    </details>
+    <details {{if eq .Platform "linux"}}open{{end}}>
+      <summary>Linux{{if eq .Platform "linux"}}<span class="badge">this device</span>{{end}}</summary>
+      <p>Debian / Ubuntu:</p>
+      <p><code>sudo cp chapar-ca.pem /usr/local/share/ca-certificates/chapar-ca.crt &amp;&amp; sudo update-ca-certificates</code></p>
+      <p>Fedora / RHEL / Arch:</p>
+      <p><code>sudo trust anchor --store chapar-ca.pem</code></p>
+    </details>
+    <details>
+      <summary>Firefox</summary>
+      <p>Firefox keeps its own trust store. Open <b>Settings › Privacy &amp; Security › Certificates › View Certificates › Authorities › Import</b>, pick the file and tick <b>Trust this CA to identify websites</b>.</p>
+    </details>
+  </div>
+</main>
+</body>
+</html>

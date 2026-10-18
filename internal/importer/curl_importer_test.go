@@ -150,7 +150,7 @@ func TestParseCurl_BasicAuthAndBearer(t *testing.T) {
 func TestParseCurl_NoAuthDefaults(t *testing.T) {
 	req, err := ParseCurl(`curl https://example.com`)
 	require.NoError(t, err)
-	assert.Equal(t, "None", req.Spec.HTTP.Request.Auth.Type)
+	assert.Equal(t, domain.AuthTypeNone, req.Spec.HTTP.Request.Auth.Type)
 }
 
 func TestParseCurl_Form(t *testing.T) {
