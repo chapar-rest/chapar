@@ -777,9 +777,14 @@ func (p *Proxy) header(c *ui.Ctx) ui.View {
 
 	var status ui.View
 	if running {
+		addrs := svc.ClientAddrs()
+		addr := ui.Caption(firstAddr(addrs))
+		if len(addrs) > 1 {
+			addr = addr.Tooltip("Also reachable at " + strings.Join(addrs[1:], ", "))
+		}
 		status = ui.Row(
 			ui.Badge("Listening").Tone(ui.BadgeSuccess),
-			ui.Caption(displayAddr(svc.Addr())),
+			addr,
 		).Gap(th.Spacing.S).Align(ui.AlignCenter)
 	} else {
 		status = ui.Badge("Stopped")
@@ -812,9 +817,26 @@ func (p *Proxy) header(c *ui.Ctx) ui.View {
 	).Gap(th.Spacing.S).Align(ui.AlignCenter).PaddingXY(th.Spacing.M, th.Spacing.S)
 }
 
-// displayAddr shows a wildcard listen address as the loopback one.
-func displayAddr(addr string) string {
-	return strings.Replace(addr, "0.0.0.0", "127.0.0.1", 1)
+// emptyMessage is ui.EmptyState with a detail that wraps: EmptyState
+// keeps it on one line, which a long address pushes past the pane. The
+// paragraph stretches to the pane's width so it has a width to wrap at.
+func emptyMessage(th *theme.Theme, icon icons.Icon, title, detail string) ui.View {
+	return ui.Column(
+		ui.Row(ui.Icon(icon, th.Metrics.IconSizeMD*2, th.ForegroundMuted)).Justify(ui.JustifyCenter),
+		ui.Row(ui.Subtitle(title)).Justify(ui.JustifyCenter),
+		ui.Paragraph(detail).TextAlign(ui.AlignCenter).
+			Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
+	).Gap(th.Spacing.M).PaddingXY(th.Spacing.XXL, th.Spacing.L).
+		Justify(ui.JustifyCenter).Grow(1)
+}
+
+// firstAddr is the address to show first, or "" when the proxy stopped
+// in the meantime.
+func firstAddr(addrs []string) string {
+	if len(addrs) == 0 {
+		return ""
+	}
+	return addrs[0]
 }
 
 func (p *Proxy) side(c *ui.Ctx) ui.View {
@@ -900,19 +922,17 @@ func (p *Proxy) listPane(c *ui.Ctx) ui.View {
 		return ui.ViewOf(p.table).Grow(1)
 	}
 	svc := p.svc()
-	var empty *ui.Node
+	var empty ui.View
 	switch {
 	case !svc.Running():
-		empty = ui.EmptyState("The proxy is off",
-			"Start it, then point an app, browser or phone at "+p.listenAddr()+" to see its traffic here.").
-			EmptyIcon(icons.Radar)
+		empty = emptyMessage(th, icons.Radar, "The proxy is off",
+			"Start it, then point an app, browser or phone at "+p.listenAddr()+" to see its traffic here.")
 	case svc.Store().Len() > 0:
-		empty = ui.EmptyState("No matches", "No request matches the selection and filters.").EmptyIcon(icons.Search)
+		empty = emptyMessage(th, icons.Search, "No matches", "No request matches the selection and filters.")
 	default:
-		empty = ui.EmptyState("Waiting for traffic",
-			"Point an app at "+displayAddr(svc.Addr())+". To trust Chapar's certificate on a phone or another "+
-				"computer, open http://"+mitm.CertSiteHost+" through the proxy.").
-			EmptyIcon(icons.Radar)
+		empty = emptyMessage(th, icons.Radar, "Waiting for traffic",
+			"Point an app at "+firstAddr(svc.ClientAddrs())+". To trust Chapar's certificate on a phone or another "+
+				"computer, open http://"+mitm.CertSiteHost+" through the proxy.")
 	}
 	actions := []ui.View{}
 	if !svc.Running() {

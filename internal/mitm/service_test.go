@@ -307,3 +307,24 @@ func TestPendingFlowHasRequestBody(t *testing.T) {
 	}
 	t.Fatal("pending flow never showed its request body")
 }
+
+func TestClientAddrsResolvesWildcard(t *testing.T) {
+	s := NewService(t.TempDir())
+	if err := s.Start(Config{ListenAddr: ":0"}); err != nil {
+		t.Fatal(err)
+	}
+	defer s.Stop()
+	addrs := s.ClientAddrs()
+	if len(addrs) == 0 {
+		t.Fatal("no addresses")
+	}
+	for _, a := range addrs {
+		if strings.HasPrefix(a, "[::]") || strings.HasPrefix(a, "0.0.0.0") || strings.HasPrefix(a, ":") {
+			t.Fatalf("wildcard address listed: %v", addrs)
+		}
+	}
+	if last := addrs[len(addrs)-1]; !strings.HasPrefix(last, "127.0.0.1:") {
+		t.Fatalf("loopback should come last: %v", addrs)
+	}
+	t.Logf("%v", addrs)
+}

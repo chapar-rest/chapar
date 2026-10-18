@@ -158,6 +158,29 @@ func (s *Service) Addr() string {
 	return s.addr
 }
 
+// ClientAddrs lists the host:port addresses clients can reach the proxy
+// at, or nil when it is stopped. Listening on every interface, that is
+// this machine's network addresses first, then loopback; a wildcard
+// address like [::]:9090 is no use to someone setting up a phone.
+func (s *Service) ClientAddrs() []string {
+	addr := s.Addr()
+	if addr == "" {
+		return nil
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return []string{addr}
+	}
+	if ip := net.ParseIP(host); ip == nil || !ip.IsUnspecified() {
+		return []string{addr}
+	}
+	var out []string
+	for _, a := range LANAddrs() {
+		out = append(out, net.JoinHostPort(a, port))
+	}
+	return append(out, net.JoinHostPort("127.0.0.1", port))
+}
+
 // LastError is why the proxy last stopped on its own, if it did.
 func (s *Service) LastError() error {
 	s.mu.Lock()

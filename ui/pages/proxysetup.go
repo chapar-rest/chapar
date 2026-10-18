@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/mirzakhany/yoga/icons"
@@ -257,7 +258,7 @@ func (s *proxySetup) runStep(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	svc := s.p.svc()
 	if svc.Running() {
-		return stepCard(th, stepOK, "3. Start the proxy", "Listening on "+displayAddr(svc.Addr())+".")
+		return stepCard(th, stepOK, "3. Start the proxy", "Listening on "+strings.Join(svc.ClientAddrs(), ", ")+".")
 	}
 	detail := "The proxy is off."
 	if err := svc.LastError(); err != nil {

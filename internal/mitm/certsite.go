@@ -46,7 +46,7 @@ func (s *Service) ServeCertSite(w http.ResponseWriter, r *http.Request) {
 			Fingerprint: ca.Fingerprint(),
 			Expires:     ca.NotAfter().Format("2 Jan 2006"),
 			Platform:    platformFromUA(r.UserAgent()),
-			ProxyAddr:   s.Addr(),
+			ProxyAddr:   firstOr(s.ClientAddrs(), ""),
 		})
 	case "/ca.pem":
 		w.Header().Set("Content-Type", "application/x-pem-file")
@@ -74,6 +74,13 @@ func (s *Service) certSiteResponse(r *http.Request) *proxy.Response {
 		Header:     rec.Header(),
 		Body:       rec.Body.Bytes(),
 	}
+}
+
+func firstOr(list []string, def string) string {
+	if len(list) == 0 {
+		return def
+	}
+	return list[0]
 }
 
 func platformFromUA(ua string) string {
