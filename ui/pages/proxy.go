@@ -20,6 +20,7 @@ import (
 	"github.com/mirzakhany/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
+	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/internal/mitm"
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/ui/container"
@@ -38,6 +39,8 @@ type ProxyDeps struct {
 	Toast     func(string)
 	// OpenSettings opens the settings dialog.
 	OpenSettings func()
+	// OpenRequest saves req as a standalone request and opens it in a tab.
+	OpenRequest func(req *domain.Request) error
 	// Wake asks for a frame from any goroutine.
 	Wake func()
 }
@@ -255,6 +258,38 @@ func (p *Proxy) ExportHAR() {
 			p.deps.Toast("Exported " + filepath.Base(path))
 		},
 	})
+}
+
+// OpenInChapar saves the selected request as a standalone HTTP request
+// and opens it in a tab. It goes through the curl importer, so it maps
+// headers, body type and auth the way pasting a curl command does.
+func (p *Proxy) OpenInChapar() {
+	f := p.selected()
+	if f == nil || f.Tunnel {
+		p.deps.Toast("Select a request first")
+		return
+	}
+	cp := *f
+	dropped := len(cp.ReqBody) > 0 && !utf8.Valid(cp.ReqBody)
+	if dropped {
+		// A binary body has no text form a Chapar request can hold.
+		cp.ReqBody = nil
+	}
+	req, err := importer.ParseCurl(mitm.Curl(&cp))
+	if err != nil {
+		p.deps.Error(fmt.Errorf("couldn't turn the request into a Chapar request: %w", err))
+		return
+	}
+	if p.deps.OpenRequest == nil {
+		return
+	}
+	if err := p.deps.OpenRequest(req); err != nil {
+		p.deps.Error(err)
+		return
+	}
+	if dropped {
+		p.deps.Toast("Opened without its binary body")
+	}
 }
 
 // CopyCurl puts the selected request on the clipboard as a curl command.
@@ -923,15 +958,17 @@ func (p *Proxy) reqPane(c *ui.Ctx) ui.View {
 		return paneCard(th, container.MutedParagraph("Select a request to see it here."))
 	}
 	title := f.Method + " " + f.URL
-	var copyCurl ui.View
+	var actions ui.View
 	if !f.Tunnel {
-		copyCurl = ui.Button("proxy-copy-curl", ui.Text("Copy as cURL")).IconStart(icons.SquareTerminal).
-			Ghost().HoverFill().OnClick(func() { p.CopyCurl(c) })
+		actions = ui.IconButton("proxy-req-menu", icons.Ellipsis).Tooltip("Request actions").Menu([]ui.MenuItem{
+			{Label: "Open in Chapar", OnSelect: p.OpenInChapar},
+			{Label: "Copy as cURL", OnSelect: func() { p.CopyCurl(c) }},
+		})
 	}
 	return paneCard(th,
 		ui.Row(
 			ui.Paragraph(title).Style(ui.Spec{}.TextColor(ui.TokenForeground)).Grow(1),
-			copyCurl,
+			actions,
 		).Gap(th.Spacing.S).Align(ui.AlignStart),
 		ui.Tabs("proxy-req-tabs", reqTabs).
 			Selected(p.reqTab).Closable(false).

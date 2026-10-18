@@ -446,6 +446,9 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		}),
 		ui.Cmd("proxy.stop").Title("Proxy: Stop").Icon(icons.Square).Run(func() { a.proxy.Stop() }),
 		ui.Cmd("proxy.clear").Title("Proxy: Clear captured requests").Icon(icons.Eraser).Run(func() { a.proxy.Clear() }),
+		ui.Cmd("proxy.open").Title("Proxy: Open selected request in Chapar").Icon(icons.Send).Run(func() {
+			a.proxy.OpenInChapar()
+		}),
 		ui.Cmd("proxy.curl").Title("Proxy: Copy selected request as cURL").Icon(icons.SquareTerminal).Run(func() {
 			a.proxy.CopyCurl(c)
 		}),
@@ -726,6 +729,18 @@ func (a *App) buildProxy() {
 		Error:     a.showError,
 		Toast:     a.toast,
 		Wake:      a.invalidate,
+		OpenRequest: func(req *domain.Request) error {
+			if err := a.repo.CreateRequest(req, nil); err != nil {
+				return fmt.Errorf("couldn't save the request: %w", err)
+			}
+			if err := a.catalog.Load(); err != nil {
+				return err
+			}
+			a.rebuildTrees()
+			a.navIndex = navRequests
+			a.ws.OpenRequest(req)
+			return nil
+		},
 		OpenSettings: func() {
 			if a.uiCtx != nil {
 				a.openSettings(a.uiCtx)
