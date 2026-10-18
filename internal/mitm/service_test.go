@@ -283,3 +283,27 @@ func TestCapturesPlainHTTP(t *testing.T) {
 		t.Fatalf("%+v", f)
 	}
 }
+
+// A request's body is visible while its response is still on the way.
+func TestPendingFlowHasRequestBody(t *testing.T) {
+	release := make(chan struct{})
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.ReadAll(r.Body)
+		<-release
+	}))
+	defer up.Close()
+	defer close(release)
+	s := startProxy(t, Config{})
+	go client(t, s).Post(up.URL+"/slow", "application/json", strings.NewReader(`{"a":1}`))
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, f := range s.Store().Snapshot() {
+			if f.Path == "/slow" && f.State == StatePending && string(f.ReqBody) == `{"a":1}` {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("pending flow never showed its request body")
+}

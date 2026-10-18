@@ -19,6 +19,19 @@ type captureAddon struct {
 
 	// errs holds the error a flow failed with, until the flow finishes.
 	errs sync.Map // *proxy.Flow -> error
+	// ids maps a tracked go-mitmproxy flow to its store ID until it finishes.
+	ids sync.Map // *proxy.Flow -> uint64
+}
+
+// Request records the body as soon as it is read, so a request still
+// waiting for its response can be inspected, copied and opened in full.
+func (a *captureAddon) Request(f *proxy.Flow) {
+	v, ok := a.ids.Load(f)
+	if !ok || f.Request.Body == nil {
+		return
+	}
+	body := capBody(decodeReq(f.Request), a.svc.maxBody())
+	a.store.Update(v.(uint64), func(fl *Flow) { fl.ReqBody = body })
 }
 
 func (a *captureAddon) Requestheaders(f *proxy.Flow) {
@@ -93,9 +106,11 @@ func (a *captureAddon) track(f *proxy.Flow, fl *Flow) {
 		return
 	}
 	id := a.store.Add(fl)
+	a.ids.Store(f, id)
 	a.svc.resolveApp(id, f)
 	go func() {
 		<-f.Done()
+		a.ids.Delete(f)
 		a.finish(id, f)
 	}()
 }
