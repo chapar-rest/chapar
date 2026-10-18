@@ -59,6 +59,7 @@ func (p *Panel) Prepare() {
 	px.Port = px.ListenPort()
 	px.MaxFlows = px.FlowLimit()
 	px.MaxBodyMb = int(px.BodyLimitBytes() >> 20)
+	px.MaxMemoryMb = int(px.MemoryLimitBytes() >> 20)
 	p.fillLanguageServers()
 	p.dirty = false
 	p.pathWarn = false
@@ -524,6 +525,11 @@ func (p *Panel) proxyForm(g *domain.GlobalConfigSpec) ui.View {
 			px.MaxFlows = int(v)
 			p.mark()
 		}),
+		ui.FormNumber("proxyMaxMemory", "Memory limit (MB)",
+			"Most memory captured bodies may use; past it the oldest requests are dropped", float64(px.MaxMemoryMb), 16, 16384, 16, func(v float64) {
+				px.MaxMemoryMb = int(v)
+				p.mark()
+			}),
 		ui.FormNumber("proxyMaxBody", "Body capture limit (MB)", "Larger bodies pass through without being kept", float64(px.MaxBodyMb), 1, 512, 1, func(v float64) {
 			px.MaxBodyMb = int(v)
 			p.mark()

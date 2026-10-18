@@ -46,14 +46,18 @@ type ProxyConfig struct {
 	AllowLAN  bool `yaml:"allowLan"`
 	MaxFlows  int  `yaml:"maxFlows"`
 	MaxBodyMb int  `yaml:"maxBodyMb"`
+	// MaxMemoryMb caps the request and response bodies kept in memory;
+	// past it the oldest requests are dropped.
+	MaxMemoryMb int `yaml:"maxMemoryMb"`
 	// IgnoreHosts pass through without being decrypted.
 	IgnoreHosts []string `yaml:"ignoreHosts"`
 }
 
 const (
-	DefaultProxyPort      = 9090
-	DefaultProxyMaxFlows  = 5000
-	DefaultProxyMaxBodyMb = 10
+	DefaultProxyPort        = 9090
+	DefaultProxyMaxFlows    = 5000
+	DefaultProxyMaxBodyMb   = 10
+	DefaultProxyMaxMemoryMb = 256
 )
 
 // DefaultProxyIgnoreHosts pin their certificates, so decrypting them only
@@ -76,6 +80,15 @@ func (p ProxyConfig) FlowLimit() int {
 	return p.MaxFlows
 }
 
+// MemoryLimitBytes is the configured memory limit in bytes.
+func (p ProxyConfig) MemoryLimitBytes() int64 {
+	mb := p.MaxMemoryMb
+	if mb <= 0 {
+		mb = DefaultProxyMaxMemoryMb
+	}
+	return int64(mb) << 20
+}
+
 // BodyLimitBytes is the configured body capture limit in bytes.
 func (p ProxyConfig) BodyLimitBytes() int64 {
 	mb := p.MaxBodyMb
@@ -90,6 +103,7 @@ func (p ProxyConfig) Changed(other ProxyConfig) bool {
 		p.AllowLAN != other.AllowLAN ||
 		p.MaxFlows != other.MaxFlows ||
 		p.MaxBodyMb != other.MaxBodyMb ||
+		p.MaxMemoryMb != other.MaxMemoryMb ||
 		!slices.Equal(p.IgnoreHosts, other.IgnoreHosts)
 }
 
@@ -300,6 +314,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				Port:        DefaultProxyPort,
 				MaxFlows:    DefaultProxyMaxFlows,
 				MaxBodyMb:   DefaultProxyMaxBodyMb,
+				MaxMemoryMb: DefaultProxyMaxMemoryMb,
 				IgnoreHosts: slices.Clone(DefaultProxyIgnoreHosts),
 			},
 		},

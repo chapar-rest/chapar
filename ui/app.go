@@ -751,10 +751,11 @@ func (a *App) buildProxy() {
 		if !old.Spec.Proxy.Changed(updated.Spec.Proxy) {
 			return
 		}
-		a.mitm.SetIgnoreHosts(updated.Spec.Proxy.IgnoreHosts)
 		o, n := old.Spec.Proxy, updated.Spec.Proxy
+		a.mitm.SetIgnoreHosts(n.IgnoreHosts)
+		a.mitm.Store().SetLimits(n.FlowLimit(), n.MemoryLimitBytes())
 		if a.mitm.Running() && (o.ListenPort() != n.ListenPort() || o.AllowLAN != n.AllowLAN ||
-			o.FlowLimit() != n.FlowLimit() || o.BodyLimitBytes() != n.BodyLimitBytes()) {
+			o.BodyLimitBytes() != n.BodyLimitBytes()) {
 			a.toast("Restart the proxy to apply its new settings")
 		}
 	})

@@ -31,9 +31,11 @@ const (
 
 // Config is how the proxy runs.
 type Config struct {
-	ListenAddr   string
-	MaxFlows     int
-	MaxBodyBytes int64
+	ListenAddr string
+	MaxFlows   int
+	// MaxMemoryBytes caps the bodies kept across all flows.
+	MaxMemoryBytes int64
+	MaxBodyBytes   int64
 	// IgnoreHosts are passed through without decrypting. "example.com"
 	// also covers its subdomains; "*" patterns use path.Match.
 	IgnoreHosts []string
@@ -247,7 +249,7 @@ func (s *Service) Start(cfg Config) error {
 		return !s.ignored(hostOnly(req.Host))
 	})
 
-	s.store.SetMax(cfg.MaxFlows)
+	s.store.SetLimits(cfg.MaxFlows, cfg.MaxMemoryBytes)
 	s.mu.Lock()
 	s.p = p
 	s.addr = addr

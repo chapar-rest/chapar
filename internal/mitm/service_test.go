@@ -333,3 +333,48 @@ func TestClientAddrsResolvesWildcard(t *testing.T) {
 	}
 	t.Logf("%v", addrs)
 }
+
+func TestStoreMemoryLimit(t *testing.T) {
+	st := NewStore(100)
+	st.SetLimits(100, 1000)
+	body := func(n int) []byte { return make([]byte, n) }
+
+	a := st.Add(&Flow{RespBody: body(400)})
+	b := st.Add(&Flow{RespBody: body(400)})
+	if st.Bytes() != 800 || st.Len() != 2 {
+		t.Fatalf("bytes %d len %d", st.Bytes(), st.Len())
+	}
+	// A third body tips it over: the oldest goes.
+	st.Add(&Flow{RespBody: body(400)})
+	if _, ok := st.Get(a); ok || st.Bytes() != 800 {
+		t.Fatalf("oldest kept; bytes %d", st.Bytes())
+	}
+	// A pending flow growing when it finishes counts too.
+	d := st.Add(&Flow{})
+	st.Update(d, func(f *Flow) { f.ReqBody = body(300) })
+	if _, ok := st.Get(b); ok || st.Bytes() != 700 {
+		t.Fatalf("update did not trim; bytes %d", st.Bytes())
+	}
+	// The newest flow stays even when it alone is over the limit.
+	e := st.Add(&Flow{RespBody: body(5000)})
+	if _, ok := st.Get(e); !ok || st.Len() != 1 || st.Bytes() != 5000 {
+		t.Fatalf("len %d bytes %d", st.Len(), st.Bytes())
+	}
+	st.Remove(map[uint64]bool{e: true})
+	if st.Bytes() != 0 {
+		t.Fatalf("remove left %d bytes", st.Bytes())
+	}
+	st.Add(&Flow{RespBody: body(10)})
+	st.Clear()
+	if st.Bytes() != 0 || st.Len() != 0 {
+		t.Fatal("clear left data")
+	}
+	// Lowering the limit trims right away.
+	for i := 0; i < 5; i++ {
+		st.Add(&Flow{RespBody: body(100)})
+	}
+	st.SetLimits(100, 250)
+	if st.Len() != 2 || st.Bytes() != 200 {
+		t.Fatalf("after SetLimits len %d bytes %d", st.Len(), st.Bytes())
+	}
+}

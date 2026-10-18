@@ -193,10 +193,11 @@ func (p *Proxy) Start() {
 		host = "0.0.0.0"
 	}
 	err := p.svc().Start(mitm.Config{
-		ListenAddr:   fmt.Sprintf("%s:%d", host, cfg.ListenPort()),
-		MaxFlows:     cfg.FlowLimit(),
-		MaxBodyBytes: cfg.BodyLimitBytes(),
-		IgnoreHosts:  cfg.IgnoreHosts,
+		ListenAddr:     fmt.Sprintf("%s:%d", host, cfg.ListenPort()),
+		MaxFlows:       cfg.FlowLimit(),
+		MaxBodyBytes:   cfg.BodyLimitBytes(),
+		MaxMemoryBytes: cfg.MemoryLimitBytes(),
+		IgnoreHosts:    cfg.IgnoreHosts,
 	})
 	if err != nil {
 		p.deps.Error(err)
