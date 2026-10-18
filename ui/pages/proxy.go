@@ -755,7 +755,7 @@ func (p *Proxy) cellColor(_, colID, value string) []ui.TextSpan {
 func (p *Proxy) Layout(c *ui.Ctx) ui.View {
 	p.refresh(c)
 	main := p.mainPane(c)
-	var body ui.View = main
+	body := main
 	if p.SideOpen {
 		body = ui.Splitter("proxy-side-split", ui.Horizontal, p.side(c), main).
 			Sizes(240, 0).

@@ -22,7 +22,7 @@ func startProxy(t *testing.T, cfg Config) *Service {
 	if err := s.Start(cfg); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { s.Stop() })
+	t.Cleanup(func() { _ = s.Stop() })
 	return s
 }
 
@@ -67,8 +67,8 @@ func TestCapturesHTTPSAndDecodesBody(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Encoding", "gzip")
 		gz := gzip.NewWriter(w)
-		gz.Write([]byte(`{"echo":` + string(body) + `}`))
-		gz.Close()
+		_, _ = gz.Write([]byte(`{"echo":` + string(body) + `}`))
+		_ = gz.Close()
 	}))
 	defer up.Close()
 
@@ -85,8 +85,8 @@ func TestCapturesHTTPSAndDecodesBody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
 
 	f := waitFlow(t, s, func(f *Flow) bool { return f.Method == http.MethodPost })
 	if f.State != StateDone || f.Status != 200 {
@@ -115,7 +115,7 @@ func TestCertSiteThroughProxyAndDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 	page, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != 200 || !strings.Contains(string(page), ca.Fingerprint()) {
 		t.Fatalf("status %d, page lacks fingerprint", resp.StatusCode)
 	}
@@ -125,7 +125,7 @@ func TestCertSiteThroughProxyAndDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 	der, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if !bytes.Equal(der, ca.CertDER()) {
 		t.Fatal("ca.crt is not the CA in DER")
 	}
@@ -136,7 +136,7 @@ func TestCertSiteThroughProxyAndDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 	pemBody, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if !bytes.Equal(pemBody, ca.CertPEM()) {
 		t.Fatal("direct ca.pem mismatch")
 	}
@@ -150,7 +150,7 @@ func TestCertSiteThroughProxyAndDirect(t *testing.T) {
 
 func TestIgnoredHostIsTunneled(t *testing.T) {
 	up := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "ok")
+		_, _ = io.WriteString(w, "ok")
 	}))
 	defer up.Close()
 
@@ -167,7 +167,7 @@ func TestIgnoredHostIsTunneled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	c.CloseIdleConnections()
 
 	f := waitFlow(t, s, func(f *Flow) bool { return f.Tunnel })
@@ -268,7 +268,7 @@ func TestParseScutilProxy(t *testing.T) {
 func TestCapturesPlainHTTP(t *testing.T) {
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		io.WriteString(w, "<p>hi</p>")
+		_, _ = io.WriteString(w, "<p>hi</p>")
 	}))
 	defer up.Close()
 	s := startProxy(t, Config{})
@@ -276,8 +276,8 @@ func TestCapturesPlainHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
 	f := waitFlow(t, s, func(f *Flow) bool { return f.Path == "/page" })
 	if f.Scheme != "http" || f.Status != 200 || f.Kind != KindHTML || string(f.RespBody) != "<p>hi</p>" {
 		t.Fatalf("%+v", f)
@@ -288,13 +288,18 @@ func TestCapturesPlainHTTP(t *testing.T) {
 func TestPendingFlowHasRequestBody(t *testing.T) {
 	release := make(chan struct{})
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.ReadAll(r.Body)
+		_, _ = io.ReadAll(r.Body)
 		<-release
 	}))
 	defer up.Close()
 	defer close(release)
 	s := startProxy(t, Config{})
-	go client(t, s).Post(up.URL+"/slow", "application/json", strings.NewReader(`{"a":1}`))
+	c := client(t, s)
+	go func() {
+		if resp, err := c.Post(up.URL+"/slow", "application/json", strings.NewReader(`{"a":1}`)); err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
 
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -313,7 +318,7 @@ func TestClientAddrsResolvesWildcard(t *testing.T) {
 	if err := s.Start(Config{ListenAddr: ":0"}); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Stop()
+	defer func() { _ = s.Stop() }()
 	addrs := s.ClientAddrs()
 	if len(addrs) == 0 {
 		t.Fatal("no addresses")

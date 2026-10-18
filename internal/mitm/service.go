@@ -231,7 +231,7 @@ func (s *Service) Start(cfg Config) error {
 		return portError(cfg.ListenAddr, err)
 	}
 	addr := ln.Addr().String()
-	ln.Close()
+	_ = ln.Close()
 
 	p, err := proxy.NewProxy(&proxy.Options{
 		Addr:              addr,
@@ -304,7 +304,7 @@ func (s *Service) Stop() error {
 		err = p.Close()
 	}
 	for c := range conns {
-		c.Close()
+		_ = c.Close()
 	}
 	s.notify()
 	return err

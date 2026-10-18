@@ -85,10 +85,14 @@ func Curl(f *Flow) string {
 // shellQuote wraps s in single quotes, closing and reopening them around
 // each single quote inside.
 func shellQuote(s string) string {
-	if s != "" && strings.IndexFunc(s, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("-_./:=@%+,", r))
-	}) < 0 {
+	if s != "" && strings.IndexFunc(s, func(r rune) bool { return !shellSafe(r) }) < 0 {
 		return s
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// shellSafe reports whether r needs no quoting in a POSIX shell word.
+func shellSafe(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' ||
+		strings.ContainsRune("-_./:=@%+,", r)
 }
