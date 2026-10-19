@@ -51,10 +51,17 @@ func (e *EnvSpec) Clone() EnvSpec {
 			Enable: v.Enable,
 			Secret: v.Secret,
 			Locked: v.Locked,
+			Unset:  v.Unset,
 		}
 	}
 
 	return clone
+}
+
+// Copy returns a deep copy that keeps the value IDs, for editing an
+// environment in place: saving it then rewrites only what changed.
+func (e *EnvSpec) Copy() EnvSpec {
+	return EnvSpec{Values: append(make([]KeyValue, 0, len(e.Values)), e.Values...)}
 }
 
 func NewEnvironment(name string) *Environment {

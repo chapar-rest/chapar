@@ -35,7 +35,7 @@ func CopyEnv(e *domain.Environment) *domain.Environment {
 		ApiVersion: e.ApiVersion,
 		Kind:       e.Kind,
 		MetaData:   e.MetaData,
-		Spec:       e.Spec.Clone(),
+		Spec:       e.Spec.Copy(),
 	}
 }
 

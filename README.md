@@ -55,7 +55,7 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
 ### Workflow
 * **Workspaces** keep separate collections, requests and environments; switch between them from the title bar.
 * **Collections** share headers, auth and notes with every request inside them.
-* **Environments** hold variables you use as `{{name}}` anywhere in a request. Values you mark secret are encrypted with a key kept in the OS keychain.
+* **Environments** hold variables you use as `{{name}}` anywhere in a request. Values you mark secret are encrypted with a key kept in the OS keychain, and stored on your machine only: the environment file names a secret but leaves its value out, so a workspace can be shared (in git, say) without its secrets.
 * **Cookie jar** per environment: cookies from responses are stored and sent back automatically, and you can view, edit, add or clear them.
 * **Auth**: Basic, Bearer token and API key, set per request or inherited from the collection.
 * **Pre and post-request actions**: run another request first, extract values from the response body, headers or cookies into the environment, or write Python scripts with tests and logs.

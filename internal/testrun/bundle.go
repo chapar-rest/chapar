@@ -86,11 +86,11 @@ func Bundle(name string, cases []*domain.TestCase, src RequestSource, collection
 		env := &domain.Environment{ApiVersion: o.Env.ApiVersion, Kind: o.Env.Kind, MetaData: o.Env.MetaData}
 		for _, kv := range o.Env.Spec.Values {
 			secretValue := kv.Secret || kv.Locked || secret.IsEncrypted(kv.Value)
-			if secretValue && (!o.IncludeSecrets || kv.Locked) {
+			if secretValue && (!o.IncludeSecrets || !kv.Available()) {
 				b.Spec.SecretsLeftOut = append(b.Spec.SecretsLeftOut, kv.Key)
 				continue
 			}
-			kv.Secret, kv.Locked = false, false
+			kv.Secret, kv.Locked, kv.Unset = false, false, false
 			env.Spec.Values = append(env.Spec.Values, kv)
 		}
 		b.Spec.Environment = env

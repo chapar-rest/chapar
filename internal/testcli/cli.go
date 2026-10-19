@@ -175,12 +175,12 @@ func run(ctx context.Context, o options, args []string, stdout, stderr io.Writer
 	var base *domain.Environment
 	switch {
 	case o.env != "":
-		env, warning, err := ws.environment(o.env)
+		env, warnings, err := ws.environment(o.env)
 		if err != nil {
 			return fail("%v", err)
 		}
-		if warning != "" {
-			warn("%s", warning)
+		for _, w := range warnings {
+			warn("%s", w)
 		}
 		base = env
 	case ws.bundle && len(ws.envs) == 1:

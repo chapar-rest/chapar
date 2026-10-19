@@ -116,7 +116,7 @@ func setup(d Deps, done func(ok bool)) {
 			return ui.Column(
 				ui.Paragraph("Secret values are encrypted with one key for this installation."),
 				container.MutedParagraph(where),
-				container.MutedParagraph("Environment files sync as plain files, so keep a copy of the key to read them on another machine."),
+				container.MutedParagraph("Secret values stay on this machine: environment files name them but leave the values out, so the files are safe to share."),
 			).Gap(th.Spacing.S).Padding(th.Spacing.L).Grow(1).Width(bodyWidth(setupDialogW, th.Spacing.L))
 		},
 		Actions: []ui.DialogAction{
@@ -150,7 +150,7 @@ func generate(d Deps, done func(ok bool)) {
 	}
 	d.changed()
 	ShowKeyOnce(d, key, "Your secret key",
-		"Store this somewhere safe. You need it to read your secret values on another machine, and Chapar cannot show it again if the keyring entry is lost.",
+		"Store this somewhere safe. Chapar cannot show it again, and you need it to read your secret values if the keyring entry is lost or the workspace folder is copied to another machine.",
 		func() { report(done, true) })
 }
 

@@ -28,8 +28,13 @@ func (c *Collection) GetName() string {
 	return c.MetaData.Name
 }
 
+// MarshalYaml writes the collection's own file. Its requests are kept in
+// files of their own next to it, so they are left out here: a copy in this
+// file would go stale and show up in every diff.
 func (c *Collection) MarshalYaml() ([]byte, error) {
-	return yaml.Marshal(c)
+	out := *c
+	out.Spec.Requests = []*Request{}
+	return yaml.Marshal(&out)
 }
 
 type ColSpec struct {

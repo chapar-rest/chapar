@@ -452,9 +452,13 @@ func (f *FilesystemV2) DeleteEnvironment(environment *domain.Environment) error 
 	// Remove the environment from the entities map
 	f.entities.Delete(environment.ID())
 
-	jar := cookies.File(filepath.Join(f.dataDir, f.workspaceName), environment.ID())
+	wsDir := filepath.Join(f.dataDir, f.workspaceName)
+	jar := cookies.File(wsDir, environment.ID())
 	if err := os.Remove(jar); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete cookie jar: %w", err)
+	}
+	if err := removeLocalSecrets(wsDir, environment.ID()); err != nil {
+		return fmt.Errorf("failed to delete secret values: %w", err)
 	}
 	return nil
 }
