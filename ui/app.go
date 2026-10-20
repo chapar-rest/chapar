@@ -35,6 +35,7 @@ const (
 	navEnvs
 	navTests
 	navProxy
+	navGit
 	navWorkspaces
 )
 
@@ -51,10 +52,13 @@ type App struct {
 	tests    *pages.TestCases
 	spaces   *pages.Workspaces
 	proxy    *pages.Proxy
+	git      *pages.Git
 	mitm     *mitm.Service
 	runner   *testrun.Runner
 
 	navIndex int
+	// shownNav is the page the last frame showed.
+	shownNav int
 	initErr  error
 	wake     func()
 	uiCtx    *ui.Ctx
@@ -177,6 +181,7 @@ func BuildApp() *App {
 		Load:     a.catalog.Load,
 		Error:    a.showError,
 		Use:      a.switchWorkspace,
+		Clone:    func() { a.git.ShowClone() },
 		Renamed: func(ws *domain.Workspace) {
 			// The repository finds the open workspace by its folder name,
 			// which the rename just changed.
@@ -187,6 +192,28 @@ func BuildApp() *App {
 	})
 
 	a.buildProxy()
+	a.git = pages.NewGitPage(pages.GitDeps{
+		Dir:       repo.WorkspaceDir,
+		Open:      a.openItem,
+		Container: a.deps,
+		Dialogs:   a.dialogs,
+		Error:     a.showError,
+		Toast:     a.toast,
+		Wake:      a.invalidate,
+		HasDirty:  a.ws.HasDirty,
+		Reload:    a.reloadFromDisk,
+		DataDir:   prefs.GetWorkspacePath,
+		Workspaces: func() []*domain.Workspace {
+			return a.catalog.Workspaces
+		},
+		Cloned: func(ws *domain.Workspace) {
+			if err := a.catalog.Load(); err != nil {
+				a.showError(err)
+			}
+			a.switchWorkspace(ws)
+			a.navIndex = navGit
+		},
+	})
 
 	cfg := prefs.GetGlobalConfig()
 	a.hideNavbar = cfg.Spec.General.HideNavbar
@@ -369,6 +396,9 @@ func (a *App) doSwitchWorkspace(ws *domain.Workspace) {
 		return
 	}
 	a.rebuildTrees()
+	if a.navIndex == navGit {
+		a.git.Refresh()
+	}
 }
 
 // workspaceSummary counts what the open workspace holds, for its card on the
@@ -414,6 +444,7 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 	}
 
 	a.registerCommands(c)
+	a.git.Poll(c)
 
 	main := ui.Column(
 		a.topBar(c),
@@ -455,6 +486,11 @@ func (a *App) registerCommands(c *ui.Ctx) {
 		ui.Cmd("proxy.setup").Title("Proxy: Setup guide").Icon(icons.ShieldCheck).Run(func() {
 			a.navIndex = navProxy
 			a.proxy.ShowSetup(c)
+		}),
+		ui.Cmd("nav.git").Title("Go to Git").Icon(icons.GitBranch).Run(func() { a.navIndex = navGit }),
+		ui.Cmd("git.refresh").Title("Git: Refresh").Icon(icons.RefreshCw).Run(func() {
+			a.navIndex = navGit
+			a.git.Refresh()
 		}),
 		ui.Cmd("nav.spaces").Title("Go to Workspaces").Icon(icons.Boxes).Run(func() { a.navIndex = navWorkspaces }),
 		ui.Cmd("app.settings").Title("Open Settings").Shortcut("⌘,").Icon(icons.Settings).Run(func() { a.openSettings(c) }),
@@ -553,6 +589,12 @@ func (a *App) pageView(c *ui.Ctx) ui.View {
 	a.envs.SideOpen = a.sideOpen
 	a.tests.SideOpen = a.sideOpen
 	a.proxy.SideOpen = a.sideOpen
+	if a.navIndex == navGit && a.shownNav != navGit {
+		// The work tree changes outside Chapar, so read it each time the
+		// page opens.
+		a.git.Refresh()
+	}
+	a.shownNav = a.navIndex
 	switch a.navIndex {
 	case navEnvs:
 		return a.envs.Layout(c)
@@ -562,6 +604,8 @@ func (a *App) pageView(c *ui.Ctx) ui.View {
 		return a.spaces.Layout(c)
 	case navProxy:
 		return a.proxy.Layout(c)
+	case navGit:
+		return a.git.Layout(c)
 	default:
 		return a.requests.Layout(c)
 	}
@@ -663,6 +707,7 @@ func (a *App) nav(c *ui.Ctx) ui.View {
 		ui.NavItem{ID: "environments", Label: "Envs", Icon: icons.FolderPlus},
 		ui.NavItem{ID: "tests", Label: "Tests", Icon: icons.FlaskConical},
 		ui.NavItem{ID: "proxy", Label: "Proxy", Icon: icons.Radar},
+		ui.NavItem{ID: "git", Label: "Git", Icon: icons.GitBranch},
 		ui.NavItem{ID: "workspaces", Label: "Spaces", Icon: icons.Boxes},
 	).Selected(a.navIndex).OnSelectItem(func(i int, _ string) { a.navIndex = i }).
 		Width(75).NavBackground(&th.ChromeMuted)
@@ -713,6 +758,72 @@ func (a *App) Close() {
 	if a.proxy != nil {
 		a.proxy.Close()
 	}
+	if a.git != nil {
+		a.git.Close()
+	}
+}
+
+// reloadFromDisk reads the workspace again after something outside the
+// editors, such as a git pull, changed its files. Open tabs hold copies
+// of the old files, so they are closed and the items that still exist
+// reopened, keeping the active one. Callers make sure no tab is dirty.
+func (a *App) reloadFromDisk() {
+	nav := a.navIndex
+	ids, active := a.ws.OpenIDs()
+	a.ws.CloseAll()
+	if err := a.catalog.Load(); err != nil {
+		a.showError(err)
+	}
+	a.rebuildTrees()
+	for _, id := range ids {
+		a.openByID(id)
+	}
+	if active != "" {
+		// Opening an open item only makes it the active tab.
+		a.openByID(active)
+	}
+	a.navIndex = nav
+}
+
+// openByID opens the item with id, whatever its kind.
+func (a *App) openByID(id string) bool {
+	for _, kind := range []string{domain.KindRequest, domain.KindCollection, domain.KindEnv, domain.KindTestCase} {
+		if a.openItem(kind, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// openItem opens the workspace item with id in a tab, on its page.
+func (a *App) openItem(kind, id string) bool {
+	switch kind {
+	case domain.KindRequest:
+		if r := a.catalog.RequestByID(id); r != nil {
+			a.navIndex = navRequests
+			a.ws.OpenRequest(r)
+			return true
+		}
+	case domain.KindCollection:
+		if col := a.catalog.CollectionByID(id); col != nil {
+			a.navIndex = navRequests
+			a.ws.OpenCollection(col)
+			return true
+		}
+	case domain.KindEnv:
+		if env := a.catalog.EnvironmentByID(id); env != nil {
+			a.navIndex = navEnvs
+			a.ws.OpenEnv(env)
+			return true
+		}
+	case domain.KindTestCase:
+		if tc := a.catalog.TestCaseByID(id); tc != nil {
+			a.navIndex = navTests
+			a.ws.OpenTestCase(tc)
+			return true
+		}
+	}
+	return false
 }
 
 // buildProxy sets up the traffic capture proxy. It stays stopped until

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -476,8 +477,9 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 	workspaces := make([]*domain.Workspace, 0, len(dirs))
 	var skipped skippedFiles
 	for _, dir := range dirs {
-		if !dir.IsDir() {
-			continue // Skip non-directory entries
+		if !dir.IsDir() || strings.HasPrefix(dir.Name(), ".") {
+			// Skip files, and hidden folders such as a clone in progress.
+			continue
 		}
 
 		// Each workspace directory should have a "workspace.yaml" file

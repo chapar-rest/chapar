@@ -220,6 +220,18 @@ func (w *Workspace) drop(i int) {
 	}
 }
 
+// OpenIDs lists the IDs of the items open in tabs, in tab order, and the
+// active one's.
+func (w *Workspace) OpenIDs() (ids []string, active string) {
+	for _, d := range w.docs {
+		ids = append(ids, d.ID())
+	}
+	if a := w.Active(); a != nil {
+		active = a.ID()
+	}
+	return ids, active
+}
+
 func (w *Workspace) HasDirty() bool {
 	for _, d := range w.docs {
 		if d.Dirty() {
