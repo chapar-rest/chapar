@@ -158,17 +158,22 @@ func TestIgnoredHostIsTunneled(t *testing.T) {
 	pu, _ := url.Parse("http://" + s.Addr())
 	pool := x509.NewCertPool()
 	pool.AddCert(up.Certificate())
+	// The tunnel's flow finishes when the connection closes. With
+	// keep-alives the transport may pool the connection after the
+	// response, sometimes only after a CloseIdleConnections call has
+	// already run, and the tunnel would stay open.
 	c := &http.Client{Transport: &http.Transport{
-		Proxy:           http.ProxyURL(pu),
-		TLSClientConfig: &tls.Config{RootCAs: pool},
+		Proxy:             http.ProxyURL(pu),
+		TLSClientConfig:   &tls.Config{RootCAs: pool},
+		DisableKeepAlives: true,
 	}}
 	// Trusting only the upstream's own cert proves nothing decrypted it.
 	resp, err := c.Get(up.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
-	c.CloseIdleConnections()
 
 	f := waitFlow(t, s, func(f *Flow) bool { return f.Tunnel })
 	if f.Kind != KindTunnel || f.Method != http.MethodConnect {
