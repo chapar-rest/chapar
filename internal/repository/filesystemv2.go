@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/chapar-rest/chapar/internal/cookies"
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -452,9 +453,13 @@ func (f *FilesystemV2) DeleteEnvironment(environment *domain.Environment) error 
 	// Remove the environment from the entities map
 	f.entities.Delete(environment.ID())
 
-	jar := cookies.File(filepath.Join(f.dataDir, f.workspaceName), environment.ID())
+	wsDir := filepath.Join(f.dataDir, f.workspaceName)
+	jar := cookies.File(wsDir, environment.ID())
 	if err := os.Remove(jar); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete cookie jar: %w", err)
+	}
+	if err := removeLocalSecrets(wsDir, environment.ID()); err != nil {
+		return fmt.Errorf("failed to delete secret values: %w", err)
 	}
 	return nil
 }
@@ -472,8 +477,9 @@ func (f *FilesystemV2) LoadWorkspaces() ([]*domain.Workspace, error) {
 	workspaces := make([]*domain.Workspace, 0, len(dirs))
 	var skipped skippedFiles
 	for _, dir := range dirs {
-		if !dir.IsDir() {
-			continue // Skip non-directory entries
+		if !dir.IsDir() || strings.HasPrefix(dir.Name(), ".") {
+			// Skip files, and hidden folders such as a clone in progress.
+			continue
 		}
 
 		// Each workspace directory should have a "workspace.yaml" file

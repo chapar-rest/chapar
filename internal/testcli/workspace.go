@@ -174,51 +174,66 @@ func (ws *workspace) skipped(err error) error {
 }
 
 // environment returns the environment named or with the ID arg, with its
-// secret values opened. Values that stay locked are left out, and named
-// in the warning.
-func (ws *workspace) environment(arg string) (env *domain.Environment, warning string, err error) {
+// secret values opened. Values that stay locked, or that are not set on this
+// machine, are left out, and named in the warnings.
+func (ws *workspace) environment(arg string) (env *domain.Environment, warnings []string, err error) {
 	env, err = findEnv(ws.envs, arg)
-	if err != nil || !hasLocked(env) || ws.repo == nil {
-		return env, "", err
+	if err != nil {
+		return nil, nil, err
+	}
+	if hasLocked(env) && ws.repo != nil {
+		if env, err = ws.unlock(env); err != nil {
+			return nil, nil, err
+		}
 	}
 
+	var locked, unset []string
+	values := env.Spec.Values[:0:0]
+	for _, kv := range env.Spec.Values {
+		if kv.Available() {
+			values = append(values, kv)
+			continue
+		}
+		if kv.Locked {
+			locked = append(locked, kv.Key)
+		} else {
+			unset = append(unset, kv.Key)
+		}
+		ws.locked[env.ID()] = append(ws.locked[env.ID()], kv)
+	}
+	env.Spec.Values = values
+
+	if len(locked) > 0 {
+		warnings = append(warnings, fmt.Sprintf("environment %s: secret values %s are locked and left out; unlock them in the app or set %s",
+			env.GetName(), strings.Join(locked, ", "), PassphraseEnv))
+	}
+	if len(unset) > 0 {
+		warnings = append(warnings, fmt.Sprintf("environment %s: secret values %s are not set on this machine and left out; set them in the app",
+			env.GetName(), strings.Join(unset, ", ")))
+	}
+	return env, warnings, nil
+}
+
+// unlock reloads env with the secret key, so its locked values are decrypted.
+func (ws *workspace) unlock(env *domain.Environment) (*domain.Environment, error) {
 	// Only now touch the key store: on macOS reading the Keychain can ask
 	// the user for permission.
 	configDir, err := prefs.GetConfigDir()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	m := secret.New(secret.NewOSStore(), filepath.Join(configDir, secret.MetaFileName))
 	if pass := os.Getenv(PassphraseEnv); pass != "" && !m.Unlocked() {
 		if err := m.UnlockWithPassphrase(pass); err != nil {
-			return nil, "", fmt.Errorf("unlock secrets with %s: %w", PassphraseEnv, err)
+			return nil, fmt.Errorf("unlock secrets with %s: %w", PassphraseEnv, err)
 		}
 	}
 	ws.repo.SetSecrets(m)
 	envs, err := ws.repo.LoadEnvironments()
 	if err := ws.skipped(err); err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	if env, err = findEnv(envs, env.ID()); err != nil {
-		return nil, "", err
-	}
-
-	var locked []string
-	values := env.Spec.Values[:0:0]
-	for _, kv := range env.Spec.Values {
-		if kv.Locked {
-			locked = append(locked, kv.Key)
-			ws.locked[env.ID()] = append(ws.locked[env.ID()], kv)
-			continue
-		}
-		values = append(values, kv)
-	}
-	env.Spec.Values = values
-	if len(locked) > 0 {
-		warning = fmt.Sprintf("environment %s: secret values %s are locked and left out; unlock them in the app or set %s",
-			env.GetName(), strings.Join(locked, ", "), PassphraseEnv)
-	}
-	return env, warning, nil
+	return findEnv(envs, env.ID())
 }
 
 // saveEnv writes env back, with the locked values environment left out.

@@ -279,6 +279,21 @@ func runCLIErr(ws, file string) (int, string) {
 	return code, errOut
 }
 
+// A workspace cloned from git has no secret values: the run leaves them out
+// and says so, rather than send an empty value.
+func TestUnsetSecretIsLeftOut(t *testing.T) {
+	ws := newWorkspace(t)
+	must(t, os.RemoveAll(filepath.Join(ws, ".state")))
+
+	code, out, errOut := runCLI("--workspace", ws, "smoke", "--env", "dev")
+	if code != ExitPassed {
+		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errOut)
+	}
+	if !strings.Contains(errOut, "secret values apiKey are not set on this machine") {
+		t.Errorf("stderr lacks the unset-secret warning:\n%s", errOut)
+	}
+}
+
 func TestPersistEnvKeepsLockedSecrets(t *testing.T) {
 	ws := newWorkspace(t)
 	repo, err := repository.NewFilesystemV2(filepath.Dir(ws), filepath.Base(ws))
@@ -301,8 +316,14 @@ func TestPersistEnvKeepsLockedSecrets(t *testing.T) {
 	if !strings.Contains(env, "tok-1") {
 		t.Errorf("the extract rule's value was not saved:\n%s", env)
 	}
-	if !strings.Contains(env, lockedToken) {
-		t.Errorf("the locked secret was lost:\n%s", env)
+	// The locked value moves out of the shared file into the local state.
+	local, err := os.ReadFile(filepath.Join(ws, ".state", "secrets", "dev-id.yaml"))
+	must(t, err)
+	if !strings.Contains(string(local), lockedToken) {
+		t.Errorf("the locked secret was lost:\n%s", local)
+	}
+	if strings.Contains(env, lockedToken) {
+		t.Errorf("the locked secret stayed in the shared file:\n%s", env)
 	}
 	if strings.Contains(env, "todoId") {
 		t.Errorf("a capture was saved to the env:\n%s", env)

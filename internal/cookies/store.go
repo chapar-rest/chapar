@@ -128,7 +128,10 @@ func (s *Store) write(envID string, list []*domain.Cookie) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureStateDir(wsDir); err != nil {
+	if err := EnsureStateDir(wsDir); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(Dir(wsDir), 0o700); err != nil {
 		return err
 	}
 
@@ -185,11 +188,11 @@ func (s *Store) file(envID string) (string, error) {
 	return File(wsDir, envID), nil
 }
 
-// ensureStateDir creates the state directory with a .gitignore that keeps all
+// EnsureStateDir creates the state directory with a .gitignore that keeps all
 // of it out of version control. An existing .gitignore is left alone so users
 // can opt in to tracking.
-func ensureStateDir(workspaceDir string) error {
-	if err := os.MkdirAll(Dir(workspaceDir), 0o700); err != nil {
+func EnsureStateDir(workspaceDir string) error {
+	if err := os.MkdirAll(filepath.Join(workspaceDir, StateDir), 0o700); err != nil {
 		return err
 	}
 	ignore := filepath.Join(workspaceDir, StateDir, ".gitignore")

@@ -1,6 +1,8 @@
 package env
 
 import (
+	"strings"
+
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/theme"
@@ -24,6 +26,9 @@ type Container struct {
 	// locked holds the rows that arrived still encrypted, because the secret
 	// key is missing.
 	locked map[string]bool
+	// unset holds the secret rows with no value stored on this machine, as
+	// in a workspace cloned from git.
+	unset  map[string]bool
 	dirty  bool
 	closed bool
 }
@@ -34,12 +39,9 @@ func Open(env *domain.Environment, deps container.Deps) *Container {
 		deps:     deps,
 		revealed: map[string]bool{},
 		locked:   map[string]bool{},
+		unset:    map[string]bool{},
 	}
-	for _, kv := range c.env.Spec.Values {
-		if kv.Locked {
-			c.locked[kv.ID] = true
-		}
-	}
+	c.trackUnavailable()
 	c.table = container.NewSecretKVTable("env-"+c.env.MetaData.ID, c.markDirty, container.SecretsUI{
 		Revealed:     func(rowID string) bool { return c.revealed[rowID] },
 		ToggleReveal: c.toggleReveal,
@@ -113,11 +115,30 @@ func (c *Container) Save() error {
 		if c.locked[values[i].ID] {
 			values[i].Locked = true
 		}
+		// A secret still waiting for its value stays unset until one is
+		// typed in.
+		if c.unset[values[i].ID] && values[i].Secret && values[i].Value == "" {
+			values[i].Unset = true
+		}
+	}
+	// A secret value is encrypted on save. Without a key, as on a machine
+	// that just cloned the workspace, set one up first and save after.
+	if needsKey(values) && c.deps.Secrets != nil && !c.deps.Secrets.Unlocked() {
+		secretui.EnsureKey(c.secretDeps(), func(ok bool) {
+			if !ok {
+				return
+			}
+			if err := c.Save(); err != nil {
+				c.deps.ShowError(err)
+			}
+		})
+		return nil
 	}
 	c.env.Spec.Values = values
 	if err := c.deps.Repo.UpdateEnvironment(c.env); err != nil {
 		return err
 	}
+	c.trackUnavailable()
 	if c.deps.Catalog != nil {
 		c.deps.Catalog.ReplaceEnvironment(c.env)
 	}
@@ -143,6 +164,7 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 			PaddingBottom(th.Spacing.S),
 		ui.HLine(th.Stroke.Thin, th.Border),
 		c.lockedBanner(th),
+		c.unsetBanner(th),
 		ui.ViewOf(c.table).Grow(1),
 	).Grow(1)
 }
@@ -203,6 +225,50 @@ func (c *Container) lockedBanner(th *theme.Theme) ui.View {
 		PaddingTop(th.Spacing.S)
 }
 
+// needsKey reports whether saving values has to encrypt one.
+func needsKey(values []domain.KeyValue) bool {
+	for _, kv := range values {
+		if kv.Secret && kv.Available() {
+			return true
+		}
+	}
+	return false
+}
+
+// unsetBanner names the secrets that have no value on this machine, as after
+// cloning a workspace whose shared files leave secret values out.
+func (c *Container) unsetBanner(th *theme.Theme) ui.View {
+	var keys []string
+	for _, kv := range c.env.Spec.Values {
+		if c.unset[kv.ID] {
+			keys = append(keys, kv.Key)
+		}
+	}
+	if len(keys) == 0 {
+		return ui.Row()
+	}
+	return ui.Row(
+		container.MutedParagraph("Not set on this machine: " + strings.Join(keys, ", ") +
+			". Secret values are not shared with the workspace; enter them to use them.").Grow(1),
+	).PaddingLeft(th.Spacing.M + th.Spacing.MNudge).
+		PaddingRight(th.Spacing.M).
+		PaddingTop(th.Spacing.S)
+}
+
+// trackUnavailable records the rows whose secret value is locked or unset.
+func (c *Container) trackUnavailable() {
+	clear(c.locked)
+	clear(c.unset)
+	for _, kv := range c.env.Spec.Values {
+		if kv.Locked {
+			c.locked[kv.ID] = true
+		}
+		if kv.Unset {
+			c.unset[kv.ID] = true
+		}
+	}
+}
+
 // reloadValues re-reads the environment now that the key is available, so the
 // values that were locked show up decrypted.
 func (c *Container) reloadValues() {
@@ -218,12 +284,7 @@ func (c *Container) reloadValues() {
 		return
 	}
 	c.env = container.CopyEnv(fresh)
-	clear(c.locked)
-	for _, kv := range c.env.Spec.Values {
-		if kv.Locked {
-			c.locked[kv.ID] = true
-		}
-	}
+	c.trackUnavailable()
 	container.LoadKV(c.table, c.env.Spec.Values)
 	c.table.SetFilter(c.query)
 }

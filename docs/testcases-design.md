@@ -321,7 +321,8 @@ adds the install directory to `$GITHUB_PATH`. The same workflow writes
 - `--env` picks an environment by name or ID; default none. Secret values
   are decrypted only when the env has some, since reading the macOS
   Keychain can prompt. A passphrase key is unlocked from
-  `CHAPAR_SECRETS_PASSPHRASE`. Values that stay locked are left out with a
+  `CHAPAR_SECRETS_PASSPHRASE`. Values that stay locked, or that are not
+  set on this machine (a cloned workspace has none), are left out with a
   warning, and put back untouched if `persistEnv` saves the env.
 - Request scripts run when scripting is on in the app's settings, or with
   `--scripts`. The executor starts on the first script, so runs without

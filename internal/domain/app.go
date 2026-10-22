@@ -30,10 +30,21 @@ type KeyValue struct {
 	// secret key is missing or locked. Value then still holds the ciphertext,
 	// which is written back untouched. Runtime only.
 	Locked bool `yaml:"-"`
+	// Unset marks a secret whose value is not stored on this machine, as in a
+	// workspace freshly cloned from git: the shared file names the secret but
+	// leaves its value out. Runtime only.
+	Unset bool `yaml:"-"`
 }
 
 // Usable reports whether the value takes part in a request: it is turned on,
-// and it is not still encrypted (substituting it would send ciphertext).
+// and it is available (substituting a locked value would send ciphertext, an
+// unset one an empty string).
 func (kv KeyValue) Usable() bool {
-	return kv.Enable && !kv.Locked
+	return kv.Enable && kv.Available()
+}
+
+// Available reports whether the value can be read on this machine: it is not
+// a secret that is still encrypted or missing.
+func (kv KeyValue) Available() bool {
+	return !kv.Locked && !kv.Unset
 }

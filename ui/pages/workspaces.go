@@ -32,6 +32,8 @@ type WorkspacesDeps struct {
 	Use func(*domain.Workspace)
 	// Renamed runs after the open workspace was renamed on disk.
 	Renamed func(*domain.Workspace)
+	// Clone asks for a git repository and clones it as a new space.
+	Clone func()
 }
 
 // Workspaces lists workspaces as cards with search, create, switch, rename
@@ -123,6 +125,13 @@ func (p *Workspaces) Layout(c *ui.Ctx) ui.View {
 			ui.Spacer(),
 			ui.TextField("ws-search", p.query).Placeholder("Search spaces").IconStart(icons.Search).Width(220).
 				OnChange(func(s string) { p.query = s }),
+			ui.Button("ws-clone", ui.Text("Clone")).IconStart(icons.GitBranch).
+				Tooltip("Clone a space from a Git repository").
+				OnClick(func() {
+					if p.deps.Clone != nil {
+						p.deps.Clone()
+					}
+				}),
 			ui.Button("ws-new", ui.Text("New Space")).Primary().IconStart(icons.Plus).OnClick(func() {
 				dialogs.ShowInput("New space", "Space name", p.create, nil)
 			}),
