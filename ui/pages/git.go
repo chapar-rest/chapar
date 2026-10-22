@@ -81,6 +81,11 @@ type gitSnapshot struct {
 	commits []gitx.Commit
 	// remote and remoteURL name the repository's remote, or are "".
 	remote, remoteURL string
+	branches          []gitx.Branch
+	// op is what git stopped in the middle of, such as a merge with
+	// conflicts, and opMsg its commit message.
+	op    gitx.Op
+	opMsg string
 }
 
 // gitDiffView is a list of changed files and the selected file's diff:
@@ -121,6 +126,8 @@ type Git struct {
 	// busy names the action running, such as "Pushing…", or is "".
 	busy string
 	form gitForm
+	// resolve is the conflicted file being resolved.
+	resolve gitResolve
 
 	commits    *ui.Table
 	selCommit  string
@@ -283,6 +290,11 @@ func readGit(ctx context.Context, dir string, dirErr error) *gitSnapshot {
 		return snap
 	}
 	if snap.status, err = repo.Status(ctx); err != nil {
+		snap.err = err
+		return snap
+	}
+	snap.op, snap.opMsg = repo.InProgress(ctx)
+	if snap.branches, err = repo.Branches(ctx); err != nil {
 		snap.err = err
 		return snap
 	}
@@ -468,6 +480,10 @@ func (g *Git) selectChange(path string) {
 		return
 	}
 	g.changes.sel = path
+	if e.change.Kind == gitx.Conflicted {
+		g.loadResolve(e.change.Path)
+		return
+	}
 	repo, c := g.snap.repo, e.change
 	g.load(&g.changes, fmt.Sprintf("%d:%s", g.refreshSeq, path), func(ctx context.Context) ([]byte, error) {
 		return repo.Diff(ctx, c)
@@ -591,18 +607,12 @@ func (g *Git) header(c *ui.Ctx) ui.View {
 }
 
 func (g *Git) branchInfo(c *ui.Ctx, s *gitSnapshot) []ui.View {
-	th := c.Theme()
 	st := s.status
 	branch := st.Branch
 	if branch == "" {
 		branch = "Detached at " + short(st.Head)
 	}
-	views := []ui.View{
-		ui.Row(
-			ui.Icon(icons.GitBranch, th.Metrics.IconSizeSM, th.ForegroundMuted),
-			ui.Strong(branch),
-		).Gap(th.Spacing.XS).Align(ui.AlignCenter),
-	}
+	views := []ui.View{g.branchPicker(c, s, branch), g.branchMenu(s)}
 	var track string
 	switch {
 	case st.Head == "":
@@ -725,8 +735,12 @@ func (g *Git) changesPane(c *ui.Ctx) ui.View {
 		return emptyMessage(th, icons.CircleCheck, "No changes", detail)
 	}
 	e := findEntry(g.changes.entries, g.changes.sel)
+	top := g.commitBar(c)
+	if g.snap.op != gitx.OpNone {
+		top = g.opBanner(c)
+	}
 	list := ui.Column(
-		g.commitBar(c),
+		top,
 		ui.ViewOf(g.changes.table).Grow(1),
 	).Gap(th.Spacing.XS).Grow(1)
 	return g.splitPane(c, "git-changes", list, g.diffPane(c, &g.changes, e, "Select a change to see its diff."))
@@ -749,7 +763,11 @@ func (g *Git) historyPane(c *ui.Ctx) ui.View {
 		detail = paneCard(th, container.MutedParagraph("This commit changed no files in this workspace."))
 	default:
 		e := findEntry(g.history.entries, g.history.sel)
-		detail = g.splitPane(c, "git-commit", ui.ViewOf(g.history.table).Grow(1), g.diffPane(c, &g.history, e, "Select a file to see its diff."))
+		list := ui.Column(
+			g.commitHeader(c),
+			ui.ViewOf(g.history.table).Grow(1),
+		).Gap(th.Spacing.XS).Grow(1)
+		detail = g.splitPane(c, "git-commit", list, g.diffPane(c, &g.history, e, "Select a file to see its diff."))
 	}
 	return ui.Splitter("git-history-split", ui.Vertical, ui.ViewOf(g.commits).Grow(1), detail).
 		Percents(35, 65).
@@ -771,6 +789,9 @@ func (g *Git) diffPane(c *ui.Ctx, v *gitDiffView, e *gitEntry, empty string) ui.
 	th := c.Theme()
 	if e == nil {
 		return paneCard(th, container.MutedParagraph(empty))
+	}
+	if v == &g.changes && e.change.Kind == gitx.Conflicted {
+		return g.resolvePane(c, e)
 	}
 	title := e.item.label()
 	if e.item.Type != "File" {

@@ -387,6 +387,10 @@ func (g *Git) network(label string, op func(ctx context.Context, auth gitx.Auth)
 				g.askToken(remote, auth.Username, func() { g.network(label, op, done) })
 				return
 			}
+			if errors.Is(err, gitx.ErrDiverged) {
+				g.offerMerge()
+				return
+			}
 			if err != nil {
 				g.fail(err)
 				return

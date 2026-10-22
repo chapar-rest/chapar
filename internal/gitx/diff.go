@@ -105,8 +105,15 @@ func (r *Repo) Log(ctx context.Context, n int) ([]Commit, error) {
 	if !r.HasCommits(ctx) {
 		return nil, nil
 	}
-	out, err := r.run(ctx, "log", "-z", "--no-color", fmt.Sprintf("-n%d", n),
-		"--format=%H%x1f%h%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s", "--", r.spec(""))
+	args := []string{"log", "-z", "--no-color", fmt.Sprintf("-n%d", n),
+		"--format=%H%x1f%h%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s"}
+	if !r.Contained() {
+		// Limiting the log to a path simplifies history: a merge whose
+		// result matches one parent would be left out, and the commits it
+		// merged with it.
+		args = append(args, "--full-history", "--", r.spec(""))
+	}
+	out, err := r.run(ctx, args...)
 	if err != nil {
 		return nil, err
 	}
