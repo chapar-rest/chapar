@@ -67,14 +67,15 @@ func AssistURLField(n *ui.Node, src vars.Source) *ui.Node {
 // AssistEditor gives a code editor the same variable completion and hover as
 // the single-line fields. A body or a script may hold {{name}} placeholders
 // wherever text is allowed, and a language server, when one is attached, keeps
-// answering for everything else.
+// answering for everything else. It also lays the editor out with
+// StyleCodeEditor.
 func AssistEditor(ed *ui.Editor, src vars.Source) *ui.Editor {
 	if ed == nil {
 		return nil
 	}
 	ed.Suggest = src.Suggest
 	ed.HoverInfo = src.HoverAt
-	return ed
+	return StyleCodeEditor(ed)
 }
 
 // ParamEntries lists a table's keys as path-parameter entries.

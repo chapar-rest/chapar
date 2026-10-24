@@ -76,7 +76,16 @@ func BodyHighlighter(kind string) highlight.Highlighter {
 // selected and copied, but not typed into. data is copied.
 func NewResponseEditor(data []byte, hl highlight.Highlighter, opts ...ui.EditorOption) *ui.Editor {
 	opts = append([]ui.EditorOption{ui.WithReadOnly(), ui.WithSoftWrap(true)}, opts...)
-	return ui.NewEditor(data, hl, opts...)
+	return StyleCodeEditor(ui.NewEditor(data, hl, opts...))
+}
+
+// StyleCodeEditor sets up how a code editor lays out its text: wrapped rows
+// hang one tab stop past their line's indent, so nested JSON keeps its shape,
+// and the line-number gutter is only as wide as its digits.
+func StyleCodeEditor(ed *ui.Editor) *ui.Editor {
+	ed.SetWrapIndent(ui.WrapHanging)
+	ed.SetGutter(ui.GutterSpec{MinDigits: 2, Fill: ui.TokenChromeMuted, Separator: true})
+	return ed
 }
 
 // ReplaceEditor closes the previous editor and returns a new read-only one
