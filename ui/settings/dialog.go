@@ -124,6 +124,11 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 		return p.proxyForm(g)
 	case catAppearance:
 		themeOpts := yogaThemeOptions()
+		densityOpts := []ui.SelectOption{
+			{Label: "Compact", Value: domain.DensityCompact},
+			{Label: "Default", Value: domain.DensityDefault},
+			{Label: "Comfortable", Value: domain.DensityComfortable},
+		}
 		return ui.Form("settings-appearance",
 			ui.FormSelect("theme", "Theme", "Application color scheme", themeOpts, selectIndex(g.General.Theme, themeOpts), func(v string) {
 				g.General.Theme = v
@@ -132,6 +137,16 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 			}),
 			ui.FormNumber("uiFontSize", "UI font size", "Application text size", float64(g.General.UIFontSize), 10, 22, 1, func(v float64) {
 				g.General.UIFontSize = int(v)
+				p.mark()
+				p.previewAppearance()
+			}),
+			ui.FormSelect("density", "Density", "How tightly controls and spacing are packed", densityOpts, selectIndex(g.General.Density, densityOpts), func(v string) {
+				g.General.Density = v
+				p.mark()
+				p.previewAppearance()
+			}),
+			ui.FormSwitch("overlayScrollbars", "Overlay scrollbars", "Thin scrollbars that show only while scrolling", g.General.OverlayScrollbars, func(v bool) {
+				g.General.OverlayScrollbars = v
 				p.mark()
 				p.previewAppearance()
 			}),

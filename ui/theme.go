@@ -97,9 +97,28 @@ func applyChaparTheme(name string) {
 
 func applyChaparAppearance(general domain.GeneralConfig, editor domain.EditorConfig) {
 	applyChaparTheme(general.Theme)
+	applyChaparLayout(general)
 	applyChaparFonts(general, editor)
 	highlight.MaxBytes = editor.HighlightLimitBytes()
 	applyChaparEditor(editor)
+}
+
+// applyChaparLayout hands the density and scrollbar preferences to yoga.
+// Both outlive theme switches, so they are set once per change.
+func applyChaparLayout(general domain.GeneralConfig) {
+	density := theme.DensityDefault
+	switch general.Density {
+	case domain.DensityCompact:
+		density = theme.DensityCompact
+	case domain.DensityComfortable:
+		density = theme.DensityComfortable
+	}
+	theme.UseDensity(density)
+	mode := theme.ScrollAlways
+	if general.OverlayScrollbars {
+		mode = theme.ScrollOverlay
+	}
+	theme.UseScrollbarMode(mode)
 }
 
 // applyChaparEditor hands the editor preferences to yoga. Open editors pick
