@@ -75,7 +75,7 @@ func (n *Node) layoutLink(c *Ctx) *layout.Element {
 		}
 		// The ring fills its rect, so it goes under the label. The frame hugs
 		// the text, so the ring sits a little outside it to clear the glyphs.
-		if st.focused {
+		if focusVisible(st.focused) {
 			const pad = 3.0
 			ring := render.Rect{X: f.X - pad, Y: f.Y - pad/2, W: f.W + 2*pad, H: f.H + pad}
 			paintFocusRing(dl, ring, th.Surface, th)

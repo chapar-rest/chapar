@@ -116,6 +116,19 @@ func DefaultElevationLight() Elevation {
 	}
 }
 
+// ScrollbarMode selects how scrolling widgets draw their scrollbars.
+type ScrollbarMode int
+
+const (
+	// ScrollAlways paints a track and thumb in a gutter the content makes
+	// room for, whenever the content overflows. This is the default.
+	ScrollAlways ScrollbarMode = iota
+	// ScrollOverlay paints a thin thumb over the content, with no track and
+	// no reserved space. It shows while scrolling or while the pointer moves
+	// over the scroll area, and fades out when idle.
+	ScrollOverlay
+)
+
 // ComponentMetrics holds shared control sizing for Yoga widgets, all in logical pixels.
 type ComponentMetrics struct {
 	ControlHeight         render.Px // compact chrome: inputs, buttons, selects, tabs
@@ -125,11 +138,20 @@ type ComponentMetrics struct {
 	ScrollbarSize         render.Px
 	ScrollbarMinThumb     render.Px
 	ScrollbarThumbInset   render.Px
-	IconSizeSM            render.Px
-	IconSizeMD            render.Px
-	TreeIndent            render.Px
-	TreeIconSize          render.Px
-	TreeChevronSize       render.Px
+	// ScrollbarMode picks how scrolling widgets show their bars. The zero
+	// value, ScrollAlways, keeps the classic gutter.
+	ScrollbarMode ScrollbarMode
+	// ScrollbarOverlaySize is the thumb thickness in ScrollOverlay mode
+	// (0 means 6). The thumb widens by 4 px while hovered or dragged.
+	ScrollbarOverlaySize render.Px
+	IconSizeSM           render.Px
+	IconSizeMD           render.Px
+	TreeIndent           render.Px
+	TreeIconSize         render.Px
+	TreeChevronSize      render.Px
+	// TreeRowHeight is a tree row's height; 0 means the body line height
+	// plus Spacing.S.
+	TreeRowHeight render.Px
 }
 
 // DefaultComponentMetrics returns Yoga control metrics.

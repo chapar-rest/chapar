@@ -23,7 +23,22 @@ import (
 // line's start (end excludes the newline).
 type wrapRow struct {
 	start, end int32
+	indent     int32 // cells a continuation row is shifted right (WrapIndent)
 }
+
+// WrapIndent picks where a soft-wrapped line's continuation rows start.
+type WrapIndent int
+
+const (
+	// WrapIndentNone starts continuation rows at column 0 (the default).
+	WrapIndentNone WrapIndent = iota
+	// WrapIndentSame lines continuation rows up with the line's leading
+	// whitespace.
+	WrapIndentSame
+	// WrapHanging indents continuation rows one tab stop past the line's
+	// leading whitespace.
+	WrapHanging
+)
 
 // paintRow is one visual row to paint: either a whole logical line (wrap
 // off, or a huge line's visible window) or one wrapped segment of a line.
@@ -163,13 +178,18 @@ type Editor struct {
 	// on resize/font changes, incrementally on edits.
 	SoftWrap                 bool
 	WrapWords                bool
+	WrapIndent               WrapIndent
 	wrapSet                  bool // SoftWrap was chosen for this editor; ignore EditorDefaults.SoftWrap
 	noGutter                 bool // WithoutGutter: never show line numbers
+	gutter                   *GutterSpec
 	shareContent             bool // construction-time: build over the caller's slice, no copy
 	readOnly                 bool // selection and copy work; edits are ignored
 	lineRows                 [][]wrapRow
 	rowPrefix                []int   // rowPrefix[i] = visual rows before logical line i (len = LineCount+1)
 	revealCaret              bool    // scroll the caret into view once the wrap tables are rebuilt
+	anchorSet                bool    // restore anchorOff to anchorY once rows reflow
+	anchorOff                int     // byte whose row keeps its place across a wrap change
+	anchorY                  float32 // that row's y relative to the top of the view
 	wrapCols                 int     // columns per visual row used when wrapping
 	lastWrapW                float32 // last client width the wrap table was built for
 	wrapFull                 bool    // next sync must rebuild every line
@@ -254,6 +274,9 @@ func WithSoftWrap(v bool) EditorOption {
 func WithUndoLimit(steps, bytes int) EditorOption {
 	return func(e *Editor) { e.undoMaxSteps, e.undoMaxBytes = steps, bytes }
 }
+
+// WithWrapIndent sets where continuation rows of a wrapped line start.
+func WithWrapIndent(m WrapIndent) EditorOption { return func(e *Editor) { e.WrapIndent = m } }
 
 // WithWrapWords toggles word-boundary wrapping of wrapped rows.
 func WithWrapWords(v bool) EditorOption { return func(e *Editor) { e.WrapWords = v } }
@@ -543,6 +566,7 @@ func (e *Editor) Update(m *input.Mouse) {
 	if e.contentSizeDirty {
 		e.recomputeContentSize()
 	}
+	e.restoreScrollAnchor()
 	if e.revealCaret {
 		e.revealCaret = false
 		e.ensureCaretVisible()
@@ -585,7 +609,52 @@ func (e *Editor) wantGutterW() float32 {
 	if e.noGutter || !EditorDefaults.LineNumbers {
 		return 0
 	}
+	if g := e.gutter; g != nil {
+		digits := g.MinDigits
+		if digits <= 0 {
+			digits = 2
+		}
+		if e.pt != nil {
+			digits = max(digits, len(strconv.Itoa(e.pt.LineCount())))
+		}
+		return 2*e.gutterPad() + float32(digits)*e.cellW
+	}
 	return editorGutterW
+}
+
+// GutterSpec styles an editor's line-number gutter (see SetGutter).
+type GutterSpec struct {
+	// MinDigits is how many digits the gutter always has room for; it
+	// grows past that as the document does. 0 means 2.
+	MinDigits int
+	// Padding is the space on each side of the numbers; 0 means Spacing.S.
+	Padding float32
+	// Fill is the gutter background. TokenUnset leaves it transparent, the
+	// same as the text area.
+	Fill Token
+	// Separator draws a 1 px border line between the gutter and the text.
+	Separator bool
+}
+
+// WithGutter styles the line-number gutter; see SetGutter.
+func WithGutter(g GutterSpec) EditorOption { return func(e *Editor) { e.gutter = &g } }
+
+// SetGutter sizes the line-number gutter to the document's digit count
+// instead of a fixed width, and sets its padding, fill and separator.
+// Editors without it keep the default 52 px filled gutter with a border.
+func (e *Editor) SetGutter(g GutterSpec) {
+	e.gutter = &g
+	if w := e.wantGutterW(); w != e.gutterW {
+		e.gutterW = w
+		e.contentSizeDirty = true
+	}
+}
+
+func (e *Editor) gutterPad() float32 {
+	if e.gutter != nil && e.gutter.Padding > 0 {
+		return e.gutter.Padding
+	}
+	return theme.Current().Spacing.S
 }
 
 // SetSoftWrap toggles soft wrapping of long lines at the viewport width. The
@@ -599,6 +668,7 @@ func (e *Editor) setSoftWrap(v bool) {
 	if e.SoftWrap == v {
 		return
 	}
+	e.keepScrollAnchor()
 	e.SoftWrap = v
 	if !v {
 		e.lineRows = nil
@@ -607,10 +677,46 @@ func (e *Editor) setSoftWrap(v bool) {
 	}
 	e.wrapFull = true
 	e.contentSizeDirty = true
-	if _, clientH, _, _ := e.scrollMetrics(); clientH > 0 {
-		e.clampScroll()
-		e.ensureCaretVisible()
+}
+
+// keepScrollAnchor remembers the caret's row, or the top row when the caret
+// is off screen, and its y in the view, so the next layout puts it back in
+// the same place after the rows reflow.
+func (e *Editor) keepScrollAnchor() {
+	if e.anchorSet || e.lineH <= 0 {
+		return
 	}
+	_, clientH, _, _ := e.scrollMetrics()
+	if clientH <= 0 {
+		return
+	}
+	off := e.caret
+	y := float32(e.rowOfByte(off))*e.lineH - e.ScrollPx
+	if y < 0 || y+e.lineH > clientH {
+		r := int(e.ScrollPx / e.lineH)
+		off = e.rowStartByte(r)
+		y = float32(r)*e.lineH - e.ScrollPx
+	}
+	e.anchorOff, e.anchorY, e.anchorSet = off, y, true
+}
+
+// restoreScrollAnchor scrolls so the anchored row is back at its old y.
+func (e *Editor) restoreScrollAnchor() {
+	if !e.anchorSet || e.wrapStale() {
+		return
+	}
+	e.anchorSet = false
+	e.ScrollPx = float32(e.rowOfByte(e.anchorOff))*e.lineH - e.anchorY
+}
+
+// rowStartByte is the offset where visual row r starts.
+func (e *Editor) rowStartByte(r int) int {
+	if e.SoftWrap && len(e.rowPrefix) > 1 {
+		r = max(0, min(r, e.rowPrefix[len(e.rowPrefix)-1]-1))
+		_, absStart, _ := e.wrapRowAbs(r)
+		return absStart
+	}
+	return e.pt.LineStart(max(0, min(r, e.pt.LineCount()-1)))
 }
 
 // SetWrapWords toggles breaking wrapped rows at word boundaries (falling back
@@ -622,6 +728,46 @@ func (e *Editor) SetWrapWords(v bool) {
 	e.WrapWords = v
 	e.wrapFull = true
 	e.contentSizeDirty = true
+}
+
+// SetWrapIndent sets where continuation rows of a soft-wrapped line start:
+// at column 0, under the line's leading whitespace, or one tab stop past it.
+// Indents are measured in rendered columns, and capped at half the row so
+// deeply nested lines still have room for text.
+func (e *Editor) SetWrapIndent(m WrapIndent) {
+	if e.WrapIndent == m {
+		return
+	}
+	e.keepScrollAnchor()
+	e.WrapIndent = m
+	e.wrapFull = true
+	e.contentSizeDirty = true
+}
+
+// wrapIndentCells is how far continuation rows of a line starting with view
+// are indented, for rows of cols cells.
+func (e *Editor) wrapIndentCells(view []byte, cols int) int {
+	if e.WrapIndent == WrapIndentNone {
+		return 0
+	}
+	n := indentDepth(view, max(e.tabW, 1))
+	if e.WrapIndent == WrapHanging {
+		n += max(e.tabW, 1)
+	}
+	return min(n, cols/2)
+}
+
+// rowIndentPx is the x shift of global visual row r in wrap mode.
+func (e *Editor) rowIndentPx(r int) float32 {
+	if !e.SoftWrap || len(e.rowPrefix) < 2 {
+		return 0
+	}
+	ln := e.rowOfVisual(r)
+	ri := r - e.rowPrefix[ln]
+	if ln >= len(e.lineRows) || ri < 0 || ri >= len(e.lineRows[ln]) {
+		return 0
+	}
+	return float32(e.lineRows[ln][ri].indent) * e.cellW
 }
 
 func (e *Editor) recomputeContentSize() {
@@ -760,10 +906,15 @@ func (e *Editor) rebuildRowPrefix() {
 // last word boundary that fits, falling back to a hard cell break for runs
 // longer than a row.
 func (e *Editor) wrapLineRows(view []byte) []wrapRow {
-	cols := e.wrapCols
-	rows := make([]wrapRow, 0, len(view)/cols+2)
+	full := e.wrapCols
+	ind := e.wrapIndentCells(view, full)
+	rows := make([]wrapRow, 0, len(view)/full+2)
 	rowStart := 0
 	for rowStart < len(view) {
+		cols, indent := full, 0
+		if len(rows) > 0 { // continuation row: narrower by the indent
+			cols, indent = full-ind, ind
+		}
 		col := 0
 		i := rowStart
 		lastBreak := -1
@@ -782,7 +933,7 @@ func (e *Editor) wrapLineRows(view []byte) []wrapRow {
 			}
 		}
 		if i >= len(view) { // the rest of the line fits in this row
-			rows = append(rows, wrapRow{int32(rowStart), int32(len(view))})
+			rows = append(rows, wrapRow{int32(rowStart), int32(len(view)), int32(indent)})
 			break
 		}
 		// Overflow at byte i. If a word straddles the boundary, break before it
@@ -804,11 +955,11 @@ func (e *Editor) wrapLineRows(view []byte) []wrapRow {
 				i = b
 			}
 		}
-		rows = append(rows, wrapRow{int32(rowStart), int32(i)})
+		rows = append(rows, wrapRow{int32(rowStart), int32(i), int32(indent)})
 		rowStart = i
 	}
 	if len(rows) == 0 { // empty line: one empty row
-		rows = append(rows, wrapRow{0, int32(len(view))})
+		rows = append(rows, wrapRow{0, int32(len(view)), 0})
 	}
 	return rows
 }
@@ -890,7 +1041,8 @@ func (e *Editor) xInRow(off int) float32 {
 	if !e.SoftWrap || len(e.rowPrefix) < 2 {
 		return e.caretXInLine(e.lineOf(off), off)
 	}
-	ln, absStart, _ := e.wrapRowAbs(e.rowOfByte(off))
+	r := e.rowOfByte(off)
+	ln, absStart, _ := e.wrapRowAbs(r)
 	ls := e.pt.LineStart(ln)
 	view := e.lineView(ln)
 	rel := off - ls
@@ -898,7 +1050,7 @@ func (e *Editor) xInRow(off int) float32 {
 	if rel < start {
 		rel = start
 	}
-	return e.monoPrefixWidth(view[start:], rel-start)
+	return e.rowIndentPx(r) + e.monoPrefixWidth(view[start:], rel-start)
 }
 
 // lineView returns a zero-copy view of line ln's bytes.
@@ -1006,19 +1158,20 @@ func (e *Editor) scrollMetrics() (clientW, clientH float32, vShow, hShow bool) {
 	f := e.viewport.Frame
 	clientW, clientH = f.W, f.H
 	vShow = e.ContentHeight > clientH
+	vBar, hBar := e.vbar.gutter(editorBarSize), e.hbar.gutter(editorBarSize)
 	if vShow {
-		clientW = f.W - editorBarSize
+		clientW = f.W - vBar
 	}
 	hShow = e.ContentWidth > clientW
 	if hShow {
-		clientH = f.H - editorBarSize
+		clientH = f.H - hBar
 	}
 	if e.ContentHeight > clientH {
 		vShow = true
-		clientW = f.W - editorBarSize
+		clientW = f.W - vBar
 		hShow = e.ContentWidth > clientW
 		if hShow {
-			clientH = f.H - editorBarSize
+			clientH = f.H - hBar
 		}
 	}
 	return clientW, clientH, vShow, hShow
@@ -1034,17 +1187,17 @@ func (e *Editor) syncScrollbarLayout(vShow, hShow bool) {
 	if vShow {
 		bottom := float32(0)
 		if hShow {
-			bottom = editorBarSize
+			bottom = e.hbar.strip(editorBarSize)
 		}
-		e.vbar.host.Style = layout.Box().W(editorBarSize).AbsTop(0).AbsRight(0).AbsBottom(bottom)
+		e.vbar.host.Style = layout.Box().W(e.vbar.strip(editorBarSize)).AbsTop(0).AbsRight(0).AbsBottom(bottom)
 		e.vbar.host.ReapplyStyle()
 	}
 	if hShow {
 		right := float32(0)
 		if vShow {
-			right = editorBarSize
+			right = e.vbar.strip(editorBarSize)
 		}
-		e.hbar.host.Style = layout.Box().H(editorBarSize).AbsLeft(0).AbsRight(right).AbsBottom(0)
+		e.hbar.host.Style = layout.Box().H(e.hbar.strip(editorBarSize)).AbsLeft(0).AbsRight(right).AbsBottom(0)
 		e.hbar.host.ReapplyStyle()
 	}
 }
@@ -1070,13 +1223,19 @@ func (e *Editor) clampScroll() {
 
 func (e *Editor) overScrollbar(m *input.Mouse) bool {
 	_, _, vShow, hShow := e.scrollMetrics()
-	if vShow && e.vbar.host.Frame.Contains(m.X, m.Y) {
+	if vShow && e.vbar.hit(m.X, m.Y) {
 		return true
 	}
-	if hShow && e.hbar.host.Frame.Contains(m.X, m.Y) {
+	if hShow && e.hbar.hit(m.X, m.Y) {
 		return true
 	}
 	return false
+}
+
+// SetScrollbars overrides the theme's ScrollbarMode for this editor.
+func (e *Editor) SetScrollbars(m theme.ScrollbarMode) {
+	e.vbar.SetMode(m)
+	e.hbar.SetMode(m)
 }
 
 // Focus grants keyboard focus to the editor.
@@ -1109,6 +1268,8 @@ func (e *Editor) FocusEl() *layout.Element { return e.host }
 func (e *Editor) Layout(c *Ctx) *layout.Element {
 	c.Focus().Add(e)
 	e.Update(c.Mouse())
+	e.vbar.tick(c, e.viewport.Frame)
+	e.hbar.tick(c, e.viewport.Frame)
 	if d, ok := e.AnimationWait(); ok {
 		c.Animate(d)
 	}
@@ -1750,7 +1911,7 @@ func (e *Editor) moveCluster(dir int, extend bool) {
 		next = monoRuneStep(view, off, dir)
 		rowStart := e.rowOfByte(ls + next)
 		_, absStart, _ := e.wrapRowAbs(rowStart)
-		gx = e.monoPrefixWidth(view, next) - e.monoPrefixWidth(view, absStart-ls)
+		gx = e.rowIndentPx(rowStart) + e.monoPrefixWidth(view[absStart-ls:], next-(absStart-ls))
 	case e.isHuge(ln):
 		if off < 0 {
 			off = 0
@@ -1818,7 +1979,7 @@ func (e *Editor) moveVertical(dir int, extend bool) {
 		ln, absStart, absEnd := e.wrapRowAbs(r)
 		ls := e.pt.LineStart(ln)
 		view := e.pt.LineSlice(ln, absStart-ls, absEnd-ls)
-		off := e.monoByteForX(view, e.goalX)
+		off := e.monoByteForX(view, e.goalX-e.rowIndentPx(r))
 		e.moveTo(absStart+off, extend)
 		return
 	}
@@ -2107,8 +2268,9 @@ func (e *Editor) offsetAtPoint(px, py float32) int {
 		ln, absStart, absEnd := e.wrapRowAbs(row)
 		ls := e.pt.LineStart(ln)
 		view := e.pt.LineSlice(ln, absStart-ls, absEnd-ls)
-		off := e.monoByteForX(view, px-x0)
-		e.goalX = e.monoPrefixWidth(view, off)
+		ind := e.rowIndentPx(row)
+		off := e.monoByteForX(view, px-x0-ind)
+		e.goalX = ind + e.monoPrefixWidth(view, off)
 		return absStart + off
 	}
 	line := int((py - f.Y + e.ScrollPx) / e.lineH)
@@ -2364,6 +2526,7 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 			rows = append(rows, paintRow{
 				line: ln, rowStart: int(row.start), rowEnd: int(row.end),
 				lineEnd: e.pt.LineLen(ln), visual: r, first: row.start == 0,
+				xoff: float32(row.indent) * cellW,
 			})
 			ri++
 		}
@@ -2422,8 +2585,8 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		lineEnd := ls + pr.lineEnd
 
 		// The painted slice is small in every mode: whole line, wrapped row, or
-		// a huge line's visible window. Wrapped rows always start at the text
-		// origin; only a non-wrapped huge line's window is offset within it.
+		// a huge line's visible window. Wrapped rows start at the text origin
+		// plus their wrap indent; a huge line's window sits at its offset.
 		sline := frameText().LineMono(string(txt[pr.rowStart:pr.rowEnd]))
 		drawX := x0 + pr.xoff
 		if !e.SoftWrap && pr.rowStart == 0 {
@@ -2504,9 +2667,20 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 	dl.PopClip()
 
 	if e.gutterW > 0 {
-		dl.AddRect(gutter, th.ChromeMuted)
-		// 1px divider between gutter and text area.
-		dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
+		numRight := f.X + e.gutterW - 8
+		if g := e.gutter; g != nil {
+			if g.Fill != TokenUnset {
+				dl.AddRect(gutter, g.Fill.Resolve(th))
+			}
+			if g.Separator {
+				dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
+			}
+			numRight = f.X + e.gutterW - e.gutterPad()
+		} else {
+			dl.AddRect(gutter, th.ChromeMuted)
+			// 1px divider between gutter and text area.
+			dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
+		}
 		dl.PushClip(render.Rect{X: gutter.X, Y: gutter.Y, W: gutter.W, H: vp.H})
 		for _, pr := range rows {
 			y := f.Y + float32(pr.visual)*e.lineH - e.ScrollPx
@@ -2518,7 +2692,7 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 			}
 			num := strconv.Itoa(pr.line + 1)
 			numW, _ := engine.MeasureMono(num)
-			engine.DrawStringTopMono(dl, num, f.X+e.gutterW-numW-8, y+vpad, th.ForegroundSubtle)
+			engine.DrawStringTopMono(dl, num, numRight-numW, y+vpad, th.ForegroundSubtle)
 		}
 		dl.PopClip()
 	}

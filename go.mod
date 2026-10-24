@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jhump/protoreflect v1.16.0
 	github.com/lqqyt2423/go-mitmproxy v1.9.4
-	github.com/mirzakhany/yoga v0.25.1
+	github.com/mirzakhany/yoga v0.26.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	github.com/zalando/go-keyring v0.2.8

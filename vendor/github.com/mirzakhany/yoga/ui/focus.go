@@ -34,6 +34,37 @@ type FocusScope struct {
 	modalFrom    int       // items[modalFrom:] are descendants of the open modal
 	defaultFocus Focusable // first EnsureFocus this frame; applied in finishBuild
 	onChange     func()    // optional; called when focused identity changes
+	modality     Modality  // how the user last interacted
+}
+
+// Modality is the input the user last drove the UI with.
+type Modality int
+
+const (
+	// ModalityKeyboard: the last interaction was a key press (Tab, arrows,
+	// Enter, …), so focus rings show. This is the starting modality.
+	ModalityKeyboard Modality = iota
+	// ModalityPointer: the last interaction was a click, so built-in widgets
+	// other than text inputs hide their focus ring.
+	ModalityPointer
+)
+
+// Modality reports how the user last interacted: keyboard or pointer.
+func (f *FocusScope) Modality() Modality { return f.modality }
+
+// FocusVisible reports whether focus should be drawn now: true after
+// keyboard interaction, false after a click, as browsers do for
+// :focus-visible.
+func (f *FocusScope) FocusVisible() bool { return f.modality == ModalityKeyboard }
+
+func (f *FocusScope) setModality(m Modality) {
+	if f.modality == m {
+		return
+	}
+	f.modality = m
+	if f.onChange != nil {
+		f.onChange()
+	}
 }
 
 // NewFocusScope creates an empty scope. The runtime owns one for the lifetime
@@ -232,6 +263,9 @@ func (f *FocusScope) Prev() {
 // widget under it. Later items win over earlier ones (topmost). A press marked
 // KeepFocus leaves focus alone.
 func (f *FocusScope) HandleMouse(m *input.Mouse) {
+	if m != nil && (m.Pressed || m.RightPressed) {
+		f.setModality(ModalityPointer)
+	}
 	if m == nil || m.KeepFocus || !(m.Pressed || m.RightPressed) {
 		return
 	}
@@ -255,6 +289,14 @@ func (f *FocusScope) HandleMouse(m *input.Mouse) {
 func (f *FocusScope) Route(kb *input.Keyboard) {
 	if kb == nil {
 		return
+	}
+	for _, ev := range kb.Keys {
+		// Shortcuts (Cmd/Ctrl/Alt chords) are not navigation; browsers keep
+		// the modality for them too.
+		if !ev.Mods.Primary() && !ev.Mods.Has(input.ModAlt) {
+			f.setModality(ModalityKeyboard)
+			break
+		}
 	}
 	if f.modal != nil {
 		f.routeModal(kb)

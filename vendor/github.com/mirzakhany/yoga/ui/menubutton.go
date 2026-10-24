@@ -97,10 +97,11 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		r := spec.resolve(th, interactState{
 			hovered: st.hovered, pressed: st.pressed, focused: st.focused, disabled: disabled,
+			focusVisible: focusVisible(st.focused),
 		})
 		frame := scaledFrame(el.Frame, r.scaleX, r.scaleY)
 		paintResolvedBox(dl, frame, r, th.Radius.Medium)
-		if st.focused {
+		if focusVisible(st.focused) {
 			fill := r.bg
 			if fill.A == 0 {
 				fill = th.Chrome

@@ -19,18 +19,75 @@ const (
 )
 
 type badgeData struct {
-	tone BadgeTone
+	tone   BadgeTone
+	hue    Hue
+	hasHue bool
+	mono   bool
+	tag    bool // Tag: small radius instead of a pill
 }
+
+// Hue names a categorical color (see theme.Theme.Categorical). Unlike a
+// BadgeTone it carries no status meaning: use it to tell apart HTTP methods,
+// environments or tags.
+type Hue = theme.Hue
+
+const (
+	HueRed    = theme.HueRed
+	HueOrange = theme.HueOrange
+	HueYellow = theme.HueYellow
+	HueGreen  = theme.HueGreen
+	HueTeal   = theme.HueTeal
+	HueBlue   = theme.HueBlue
+	HuePurple = theme.HuePurple
+	HuePink   = theme.HuePink
+)
 
 // Badge is a compact status/count pill.
 func Badge(label string) *Node {
 	return &Node{kind: kindBadge, text: label, extra: &badgeData{tone: BadgeMuted}}
 }
 
-// Tone sets Badge coloring.
+// Tag is a small label chip, like Badge but with squared-off corners, for
+// tags and environment names. Color it with Hue or Tone.
+func Tag(label string) *Node {
+	return &Node{kind: kindBadge, text: label, extra: &badgeData{tone: BadgeMuted, tag: true}}
+}
+
+// badgeStyle is the coloring of a Badge, Tag or RangeBar, or nil.
+func (n *Node) badgeStyle() *badgeData {
+	switch d := n.extra.(type) {
+	case *badgeData:
+		return d
+	case *rangeData:
+		return &d.style
+	}
+	return nil
+}
+
+// Tone sets Badge, Tag or RangeBar coloring.
 func (n *Node) Tone(t BadgeTone) *Node {
-	if d, ok := n.extra.(*badgeData); ok {
+	if d := n.badgeStyle(); d != nil {
 		d.tone = t
+		d.hasHue = false
+	}
+	return n
+}
+
+// Hue colors a Badge or Tag with a categorical hue: the hue's text on its
+// tinted fill, readable at caption size in every theme. On a RangeBar it
+// colors the segment.
+func (n *Node) Hue(h Hue) *Node {
+	if d := n.badgeStyle(); d != nil && h >= 0 && h < theme.NumHues {
+		d.hue, d.hasHue = h, true
+	}
+	return n
+}
+
+// Mono draws a Badge or Tag label in the monospace font, so short codes
+// such as HTTP methods line up.
+func (n *Node) Mono() *Node {
+	if d, ok := n.extra.(*badgeData); ok {
+		d.mono = true
 	}
 	return n
 }
@@ -43,9 +100,16 @@ func (n *Node) layoutBadge(c *Ctx) *layout.Element {
 		tone = d.tone
 	}
 	style := th.Typography.Caption
+	mono := d != nil && d.mono
+	measure := func(eng *shape.Engine, s string) (float32, float32) {
+		if mono {
+			return eng.MeasureMonoAt(s, style.Size)
+		}
+		return eng.MeasureAt(s, style.Size)
+	}
 	var tw, lh float32
 	if eng := c.Text(); eng != nil {
-		tw, lh = eng.MeasureAt(n.text, style.Size)
+		tw, lh = measure(eng, n.text)
 	} else {
 		lh = style.LineHeight
 		tw = style.Size * 0.5 * float32(len(n.text))
@@ -57,10 +121,21 @@ func (n *Node) layoutBadge(c *Ctx) *layout.Element {
 	el := layout.New(applyLayoutSpec(layout.Box().Size(w, h).FlexShrink(0), n.spec))
 	label := n.text
 	bg, fg := badgeColors(th, tone)
+	if d != nil && d.hasHue {
+		bg, fg = th.CategoricalSurface[d.hue], th.Categorical[d.hue]
+	}
+	radius := th.Radius.Circular
+	if d != nil && d.tag {
+		radius = th.Radius.Medium
+	}
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		f := el.Frame
-		dl.AddRoundedRect(f, th.Radius.Circular, bg)
-		_, mh := text.MeasureAt(label, style.Size)
+		dl.AddRoundedRect(f, radius, bg)
+		_, mh := measure(text, label)
+		if mono {
+			text.DrawStringTopMonoAt(dl, label, f.X+padX, f.Y+(f.H-mh)/2, fg, style.Size)
+			return
+		}
 		text.DrawStringTopAt(dl, label, f.X+padX, f.Y+(f.H-mh)/2, fg, style.Size)
 	}
 	return el

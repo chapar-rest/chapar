@@ -193,7 +193,7 @@ func (n *Node) layoutSlider(c *Ctx) *layout.Element {
 			col = th.AccentHover
 		}
 		dl.AddRoundedRect(thumb, thumbR, col)
-		if st.focused && !disabled {
+		if focusVisible(st.focused) && !disabled {
 			paintFocusRing(dl, thumb, col, th)
 		}
 	}

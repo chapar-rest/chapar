@@ -120,7 +120,9 @@ func (n *Node) layoutStepper(c *Ctx) *layout.Element {
 			if prev != nil {
 				prev(dl, text)
 			}
-			paintFocusRing(dl, el.Frame, th.Surface, th)
+			if focusVisible(st.focused) {
+				paintFocusRing(dl, el.Frame, th.Surface, th)
+			}
 		}
 	}
 	return el

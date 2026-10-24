@@ -87,6 +87,7 @@ func applyResolved(name string) bool {
 	} else if t.Styles != nil {
 		active.Styles = t.Styles
 	}
+	applyPrefs(active)
 	return true
 }
 

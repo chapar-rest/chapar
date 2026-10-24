@@ -46,6 +46,7 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 		// equal and keep it.
 		tf.resetHistory()
 	}
+	tf.joined = c.env.joined
 	tf.OnChange = n.onChange
 	tf.OnSubmit = n.onSubmit
 	tf.Highlight = n.highlight
