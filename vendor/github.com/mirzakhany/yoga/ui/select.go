@@ -149,7 +149,10 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		}}
 	}
 	st.menu.SetItems(items)
-	st.menu.width = width
+	// The dropdown is at least as wide as the trigger, and wide enough for
+	// every option.
+	menuW := max(width, selectMenuWidth(c, options))
+	st.menu.width = menuW
 
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		f := el.Frame
@@ -224,7 +227,7 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 				st.menu.Close()
 			} else {
 				fr := e.Frame
-				st.menu.width = triggerMenuWidth(width, fr.W)
+				st.menu.width = triggerMenuWidth(menuW, fr.W)
 				st.menu.OpenAt(fr.X, fr.Y+fr.H)
 			}
 			c.MarkNeedsPaint()
@@ -238,6 +241,24 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		c.Overlay(st.menu.overlay())
 	}
 	return el
+}
+
+// selectMenuWidth is the narrowest dropdown that shows every option's label
+// in full. A narrow trigger — a FitContent select showing a short option —
+// would otherwise clip the longer ones.
+func selectMenuWidth(c *Ctx, options []SelectOption) float32 {
+	th := c.Theme()
+	eng := c.Text()
+	var tw float32
+	for _, opt := range options {
+		w := th.Typography.Body.Size * 0.5 * float32(len(opt.Label))
+		if eng != nil {
+			w, _ = eng.MeasureAt(opt.Label, th.Typography.Body.Size)
+		}
+		tw = max(tw, w)
+	}
+	// Menu.paint insets labels by Spacing.MNudge inside a thin border.
+	return tw + 2*th.Spacing.MNudge + 2*float32(th.Stroke.Thin) + th.Spacing.S
 }
 
 // selectFitWidth is a FitContent select's width: its selected label, the
