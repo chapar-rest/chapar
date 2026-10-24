@@ -45,9 +45,16 @@ jobs:
       - name: Build linux ${{ matrix.arch }}
         run: yoga package -os linux -arch ${{ matrix.arch }} -version ${{ github.event.release.tag_name }}
 
+      # Signs each asset for Chapar's in-app updater (build/updatesign); the
+      # app refuses to install an update without a valid .sig next to it.
+      - name: Sign update asset
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: go run ./build/updatesign sign ./dist/linux/chapar-linux-${{ github.event.release.tag_name }}-${{ matrix.arch }}.tar.xz
+
       - name: Upload Release Asset
         run: |
-          gh release upload ${{ github.event.release.tag_name }} ./dist/linux/chapar-linux-${{ github.event.release.tag_name }}-${{ matrix.arch }}.tar.xz
+          gh release upload ${{ github.event.release.tag_name }} ./dist/linux/chapar-linux-${{ github.event.release.tag_name }}-${{ matrix.arch }}.tar.xz ./dist/linux/chapar-linux-${{ github.event.release.tag_name }}-${{ matrix.arch }}.tar.xz.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash

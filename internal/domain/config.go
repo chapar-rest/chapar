@@ -125,6 +125,8 @@ type GeneralConfig struct {
 	// OverlayScrollbars draws thin scrollbars over the content that show
 	// only while scrolling, instead of a track beside it.
 	OverlayScrollbars bool `yaml:"overlayScrollbars"`
+	// CheckForUpdates looks for a newer release once at startup.
+	CheckForUpdates bool `yaml:"checkForUpdates"`
 }
 
 // UI densities for GeneralConfig.Density.
@@ -147,7 +149,8 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.UIFontSize != other.UIFontSize ||
 		g.HideNavbar != other.HideNavbar ||
 		g.Density != other.Density ||
-		g.OverlayScrollbars != other.OverlayScrollbars
+		g.OverlayScrollbars != other.OverlayScrollbars ||
+		g.CheckForUpdates != other.CheckForUpdates
 }
 
 const (
@@ -304,6 +307,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 				VaidateTLSCertificates: true,
 				Theme:                  "light",
 				UIFontSize:             14,
+				CheckForUpdates:        true,
 			},
 			Editor: EditorConfig{
 				FontFamily:        "JetBrains Mono",
@@ -352,6 +356,7 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"hideNavbar":             g.Spec.General.HideNavbar,
 			"density":                g.Spec.General.Density,
 			"overlayScrollbars":      g.Spec.General.OverlayScrollbars,
+			"checkForUpdates":        g.Spec.General.CheckForUpdates,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,

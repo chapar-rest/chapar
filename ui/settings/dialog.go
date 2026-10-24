@@ -159,6 +159,10 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 				p.mark()
 				p.previewAppearance()
 			}),
+			ui.FormSwitch("checkForUpdates", "Check for updates", "Look for a new version when Chapar starts", g.General.CheckForUpdates, func(v bool) {
+				g.General.CheckForUpdates = v
+				p.mark()
+			}),
 		).Padding(th.Spacing.M)
 	case catScripting:
 		return p.scriptingForm(th, g)
