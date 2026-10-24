@@ -345,21 +345,24 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
 	return ui.Column(
 		ui.Row(
-			container.AssistURLField(ui.TextField("ws-url-"+id, w.URL), c.varSrc).
-				Placeholder("wss://…").
-				OnChange(func(s string) { w.URL = s; c.markDirty() }).
-				OnSubmit(func(string) {
-					if c.state == stateIdle {
-						c.connect()
-					}
-				}).
-				Grow(1),
+			// URL and Connect read as one control.
+			ui.InputGroup("ws-request-"+id,
+				container.AssistURLField(ui.TextField("ws-url-"+id, w.URL), c.varSrc).
+					Placeholder("wss://…").
+					OnChange(func(s string) { w.URL = s; c.markDirty() }).
+					OnSubmit(func(string) {
+						if c.state == stateIdle {
+							c.connect()
+						}
+					}).
+					Grow(1),
+				c.connectButton(id),
+			).Grow(1),
 			ui.Button("ws-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-			c.connectButton(id),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
 		ui.Splitter("ws-split-"+id, splitDir, c.reqPane(th, ctx), c.respPane(th, ctx)).
