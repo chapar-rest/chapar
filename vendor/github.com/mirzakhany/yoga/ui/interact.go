@@ -6,7 +6,7 @@ func interactStateFor(disabled, hovered, pressed, focused bool) interactState {
 	if disabled {
 		return interactState{disabled: true}
 	}
-	return interactState{hovered: hovered, pressed: pressed, focused: focused}
+	return interactState{hovered: hovered, pressed: pressed, focused: focused, focusVisible: focusVisible(focused)}
 }
 
 func suppressHoverPressIfDisabled(disabled bool, hovered, pressed *bool) {

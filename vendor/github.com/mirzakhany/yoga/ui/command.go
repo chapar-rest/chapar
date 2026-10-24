@@ -18,6 +18,12 @@ type Command struct {
 	section  bool // non-selectable labeled separator
 	scope    string
 	run      func()
+
+	leading  View   // replaces icon when set
+	trailing string // right-aligned muted detail
+	alt      Chord  // secondary action key, run while the entry is highlighted
+	altRun   func()
+	altLabel string
 }
 
 // Cmd starts a fluent command builder. Commands are enabled by default.
@@ -55,6 +61,29 @@ func (c *Command) Group(s string) *Command { c.group = s; return c }
 
 // Icon sets an optional leading icon.
 func (c *Command) Icon(icon icons.Icon) *Command { c.icon = icon; return c }
+
+// Leading sets a view drawn before the title in place of the icon: a badge,
+// a color dot, any small view.
+func (c *Command) Leading(v View) *Command { c.leading = v; return c }
+
+// Trailing sets a short muted detail drawn right-aligned in the row, such as
+// the collection a request belongs to.
+func (c *Command) Trailing(s string) *Command { c.trailing = s; return c }
+
+// Alt sets a secondary action that runs, and closes the palette, when chord
+// (e.g. "⌘↵", "Mod+Enter") is pressed while this entry is highlighted, or
+// when the entry is clicked with the primary modifier held. Invalid chords
+// are ignored.
+func (c *Command) Alt(chord string, fn func()) *Command {
+	if ch, err := ParseChord(chord); err == nil {
+		c.alt, c.altRun = ch, fn
+	}
+	return c
+}
+
+// AltLabel names the Alt action in the palette's hint footer (default
+// "Alternate").
+func (c *Command) AltLabel(s string) *Command { c.altLabel = s; return c }
 
 // Shortcut parses and attaches a chord (e.g. "⌘S", "Mod+K"). Invalid strings are ignored.
 func (c *Command) Shortcut(s string) *Command {

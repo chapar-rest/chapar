@@ -29,6 +29,8 @@ type MenuItem struct {
 	// Checked paints a check mark before the label. Menus with any checked
 	// item indent every label so they stay aligned.
 	Checked bool
+	// Color, when set, paints the label in it instead of the foreground.
+	Color render.Color
 }
 
 // MenuSeparator is a divider between groups of menu items.
@@ -305,6 +307,8 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 		col := th.Foreground
 		if it.Disabled {
 			col = th.ForegroundDisabled
+		} else if it.Color.A > 0 {
+			col = it.Color
 		}
 		if it.Checked {
 			if sheet := frameIcons(); sheet != nil {

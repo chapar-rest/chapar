@@ -83,7 +83,7 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 		inter := interactStateFor(disabled, st.hovered, false, st.focused)
 		r := spec.resolve(th, inter)
 		trackR := switchTrackH / 2
-		fill := th.ChromeMuted
+		fill := th.SwitchTrackOff
 		if r.hasBg {
 			fill = r.bg
 		}
@@ -92,15 +92,15 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 			border = r.border
 		}
 		if checked && !disabled {
-			fill = th.Accent
-			border = th.Accent
-			if st.hovered {
+			fill = th.SwitchTrackOn
+			border = th.SwitchTrackOn
+			if st.hovered && th.SwitchTrackOn == th.Accent {
 				fill = th.AccentHover
 			}
 		} else if st.hovered && !disabled {
 			fill = th.ListHover
 		}
-		if st.focused && !disabled {
+		if focusVisible(st.focused) && !disabled {
 			border = th.FocusRingOn(fill)
 		}
 		bw := uniformBorderWidth(r.borderW, th.Stroke.Thin)
@@ -114,9 +114,9 @@ func (n *Node) layoutSwitch(c *Ctx) *layout.Element {
 		}
 		thumbY := f.Y + pad
 		thumb := render.Rect{X: thumbX, Y: thumbY, W: thumbD, H: thumbD}
-		thumbCol := th.Foreground
+		thumbCol := th.SwitchKnobOff
 		if checked {
-			thumbCol = th.AccentForeground
+			thumbCol = th.SwitchKnobOn
 		}
 		if disabled {
 			thumbCol = th.ForegroundDisabled

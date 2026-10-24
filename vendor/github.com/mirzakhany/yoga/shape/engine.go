@@ -86,6 +86,18 @@ func (e *Engine) MeasureMono(s string) (w, h float32) {
 	return e.Cache.GetMono(s).Width, e.Fonts.MonoMetrics().LineHeight
 }
 
+// MeasureMonoAt returns width and height for a mono string at logicalSize.
+func (e *Engine) MeasureMonoAt(s string, logicalSize render.Px) (w, h render.Px) {
+	return e.Cache.GetMonoAt(s, logicalSize).Width, e.Fonts.MonoMetricsAt(logicalSize).LineHeight
+}
+
+// DrawStringTopMonoAt draws mono text at logicalSize with top-left y.
+func (e *Engine) DrawStringTopMonoAt(dl *render.DrawList, s string, x, topY float32, c render.Color, logicalSize render.Px) float32 {
+	ln := e.Cache.GetMonoAt(s, logicalSize)
+	e.drawLineGlyphsTint(dl, ln, x, topY, func(int) render.Color { return c })
+	return ln.Width
+}
+
 // LineAt returns a shaped line at logicalSize (0 = default UI size).
 func (e *Engine) LineAt(text string, logicalSize render.Px) Line {
 	return e.Cache.GetAt(text, logicalSize)

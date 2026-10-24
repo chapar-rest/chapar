@@ -251,22 +251,25 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
 	return ui.Column(
 		ui.Row(
-			container.AssistURLField(ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address), c.varSrc).
-				Placeholder("host:port").
-				IconStart(icons.Server).
-				Width(300).
-				OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }),
-			ui.Select("grpc-method-"+id, c.methods).
-				Selected(optionIndex(spec.LasSelectedMethod, c.methods)).
-				OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }).
-				Grow(1),
+			// Address, method and Invoke read as one control.
+			ui.InputGroup("grpc-request-"+id,
+				container.AssistURLField(ui.TextField("grpc-addr-"+id, spec.ServerInfo.Address), c.varSrc).
+					Placeholder("host:port").
+					IconStart(icons.Server).
+					Width(300).
+					OnChange(func(s string) { spec.ServerInfo.Address = s; c.markDirty() }),
+				ui.Select("grpc-method-"+id, c.methods).
+					Selected(optionIndex(spec.LasSelectedMethod, c.methods)).
+					OnChange(func(v string) { spec.LasSelectedMethod = v; c.markDirty() }).
+					Grow(1),
+				ui.Button("grpc-send-"+id, ui.Text("Invoke")).Primary().IconStart(icons.Play).Hint("⌘↵").
+					Disabled(c.pending).OnClick(c.Send),
+			).Grow(1),
 			ui.Button("grpc-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-			ui.Button("grpc-send-"+id, ui.Text("Invoke")).Primary().IconStart(icons.Play).Hint("⌘↵").
-				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
 		ui.Splitter("grpc-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).

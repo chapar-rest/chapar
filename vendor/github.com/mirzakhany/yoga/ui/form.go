@@ -102,7 +102,17 @@ func FormHeading(title, desc string) FormItem {
 }
 
 type formData struct {
-	items []FormItem
+	items   []FormItem
+	grouped bool
+}
+
+// Grouped draws a Form's rows as one inset list, with dividers between rows,
+// instead of a bordered card per row. A FormHeading starts a new list.
+func (n *Node) Grouped() *Node {
+	if d, ok := n.extra.(*formData); ok {
+		d.grouped = true
+	}
+	return n
 }
 
 // Form renders a vertical list of labeled setting rows.
@@ -117,6 +127,29 @@ func (n *Node) layoutForm(c *Ctx) *layout.Element {
 	}
 	th := c.Theme()
 	rows := make([]View, 0, len(d.items))
+	if d.grouped {
+		var group []View
+		flush := func() {
+			if len(group) > 0 {
+				rows = append(rows, Column(group...).Background(TokenSurface).
+					Style(Spec{}.Radius(th.Radius.Medium).Border(TokenBorder, th.Stroke.Thin)))
+				group = nil
+			}
+		}
+		for _, item := range d.items {
+			if item.Kind == FormItemHeading {
+				flush()
+				rows = append(rows, formHeading(c, item))
+				continue
+			}
+			if len(group) > 0 {
+				group = append(group, HLine(th.Stroke.Thin, th.Border))
+			}
+			group = append(group, n.formRowContent(c, item))
+		}
+		flush()
+		return Column(rows...).Gap(th.Spacing.S).Style(n.spec).Layout(c)
+	}
 	for _, item := range d.items {
 		rows = append(rows, n.formRow(c, item))
 	}
@@ -128,6 +161,14 @@ func (n *Node) formRow(c *Ctx, item FormItem) View {
 	if item.Kind == FormItemHeading {
 		return formHeading(c, item)
 	}
+	return n.formRowContent(c, item).Background(TokenSurface).
+		Style(Spec{}.Radius(th.Radius.Medium).Border(TokenBorder, th.Stroke.Thin))
+}
+
+// formRowContent is a setting row without its card: icon, label and
+// description, and the control.
+func (n *Node) formRowContent(c *Ctx, item FormItem) *Node {
+	th := c.Theme()
 	pad := th.Spacing.M
 	iconSz := th.Metrics.IconSizeMD
 
@@ -159,9 +200,7 @@ func (n *Node) formRow(c *Ctx, item FormItem) View {
 		kids = append([]View{lead}, kids...)
 	}
 
-	return Row(kids...).Align(AlignStretch).Gap(th.Spacing.M).Padding(pad).
-		Background(TokenSurface).
-		Style(Spec{}.Radius(th.Radius.Medium).Border(TokenBorder, th.Stroke.Thin))
+	return Row(kids...).Align(AlignStretch).Gap(th.Spacing.M).Padding(pad)
 }
 
 func (n *Node) formControl(c *Ctx, item FormItem) View {

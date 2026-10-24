@@ -119,7 +119,20 @@ type GeneralConfig struct {
 	Theme                  string `yaml:"theme"`
 	UIFontSize             int    `yaml:"uiFontSize"`
 	HideNavbar             bool   `yaml:"hideNavbar"`
+	// Density is how tightly controls and spacing are packed: DensityCompact,
+	// DensityComfortable, or empty for the theme's own.
+	Density string `yaml:"density"`
+	// OverlayScrollbars draws thin scrollbars over the content that show
+	// only while scrolling, instead of a track beside it.
+	OverlayScrollbars bool `yaml:"overlayScrollbars"`
 }
+
+// UI densities for GeneralConfig.Density.
+const (
+	DensityDefault     = ""
+	DensityCompact     = "compact"
+	DensityComfortable = "comfortable"
+)
 
 func (g GeneralConfig) Changed(other GeneralConfig) bool {
 	return g.HTTPVersion != other.HTTPVersion ||
@@ -132,7 +145,9 @@ func (g GeneralConfig) Changed(other GeneralConfig) bool {
 		g.VaidateTLSCertificates != other.VaidateTLSCertificates ||
 		g.Theme != other.Theme ||
 		g.UIFontSize != other.UIFontSize ||
-		g.HideNavbar != other.HideNavbar
+		g.HideNavbar != other.HideNavbar ||
+		g.Density != other.Density ||
+		g.OverlayScrollbars != other.OverlayScrollbars
 }
 
 const (
@@ -335,6 +350,8 @@ func (g *GlobalConfig) ValuesMap() map[string]any {
 			"theme":                  g.Spec.General.Theme,
 			"uiFontSize":             g.Spec.General.UIFontSize,
 			"hideNavbar":             g.Spec.General.HideNavbar,
+			"density":                g.Spec.General.Density,
+			"overlayScrollbars":      g.Spec.General.OverlayScrollbars,
 		},
 		"editor": map[string]any{
 			"fontFamily":        g.Spec.Editor.FontFamily,

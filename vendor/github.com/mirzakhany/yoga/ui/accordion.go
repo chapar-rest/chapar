@@ -79,7 +79,7 @@ func (n *Node) layoutDisclosure(c *Ctx) *layout.Element {
 		if st.hovered {
 			dl.AddRoundedRect(f, th.Radius.Small, th.ListHover)
 		}
-		if st.focused {
+		if focusVisible(st.focused) {
 			paintFocusRing(dl, f, th.Surface, th)
 		}
 		chev := icons.ChevronDown

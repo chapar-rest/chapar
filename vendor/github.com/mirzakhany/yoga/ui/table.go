@@ -26,6 +26,14 @@ const (
 	// is "1" when on and anything else when off; clicking flips it and reports
 	// the new value through OnCellChange.
 	TableColToggle
+	// TableColSecret is an editable column whose values show as bullets,
+	// with an eye button per cell to reveal one. TableColumn.SecretWhen
+	// limits the masking to some rows. Masked values are never highlighted,
+	// suggested or matched by the filter, but the edit field still copies
+	// the real value.
+	TableColSecret
+	// TableColBadges shows a comma-separated value as a row of chips.
+	TableColBadges
 )
 
 // tableToggleOn is the cell value a TableColToggle column treats as on.
@@ -49,6 +57,15 @@ type TableColumn struct {
 	IconOff    icons.Icon
 	TooltipOn  string
 	TooltipOff string
+	// SecretWhen picks the rows a TableColSecret column masks. nil masks
+	// every row.
+	SecretWhen func(row TableRow) bool
+}
+
+// textKind reports whether a column holds text that can be sorted, filtered
+// and resized.
+func (k TableColumnKind) textKind() bool {
+	return k == TableColText || k == TableColEditable || k == TableColSecret || k == TableColBadges
 }
 
 // TableAction is an icon button in a TableColActions column.
@@ -134,6 +151,16 @@ type Table struct {
 	// resting pointer while the cell is being edited.
 	CellHoverInfo func(rowID, colID, value string, off int) (HoverCard, bool)
 
+	// CellView, when set and returning a view, draws that view in the cell
+	// instead of the column's own painting: a status dot, a link, a small
+	// button. Return nil to paint the cell as usual. Views are built for the
+	// visible rows only, each frame.
+	CellView func(row TableRow, col TableColumn) View
+	// ActionsOnHover shows the TableColActions buttons only on the hovered
+	// row, or the selected rows while the table has focus. The column keeps
+	// its width, so nothing shifts as they appear.
+	ActionsOnHover bool
+
 	// Background fills the table body. nil = transparent (parent surface shows through).
 	Background *render.Color
 	// HeaderBackground fills the header strip. nil = theme ChromeMuted.
@@ -144,7 +171,12 @@ type Table struct {
 	// CollapseEmpty sizes the host to header height only when there are no visible rows.
 	CollapseEmpty bool
 
-	vbar *Scrollbar
+	vbar      *Scrollbar
+	cellLayer *layout.Element // clipped body layer holding CellView elements
+	cellViews map[string]bool // "row\x00col" cells drawn by CellView this frame
+	revealed  map[string]bool // "row\x00col" secret cells shown in the clear
+	hoverEye  int             // column of the hovered reveal button; -1 = none
+	markPaint func()
 
 	scrollY          float32
 	contentH         float32
@@ -199,6 +231,7 @@ func NewTable(columns []TableColumn, actions []TableAction) *Table {
 		hoverRow:          -1,
 		hoverResizeCol:    -1,
 		hoverToggleCol:    -1,
+		hoverEye:          -1,
 	}
 	if len(t.Actions) == 0 {
 		t.Actions = []TableAction{{Icon: icons.Trash2, Tooltip: "Delete"}}
@@ -216,7 +249,9 @@ func NewTable(columns []TableColumn, actions []TableAction) *Table {
 	barSize := th.Metrics.ScrollbarSize
 	t.vbar = NewScrollbarAxis(Vertical, &t.scrollY, &t.contentH, barSize)
 
-	t.host = layout.New(layout.Box(), t.vbar.host)
+	t.cellLayer = layout.New(layout.Box().AbsLeft(0).AbsTop(0).AbsRight(0).AbsBottom(0))
+	t.cellLayer.Clip = true
+	t.host = layout.New(layout.Box(), t.cellLayer, t.vbar.host)
 	t.host.Clip = true
 	t.host.Paint = t.paint
 	t.host.OnMouse = t.onMouse
@@ -236,7 +271,10 @@ func (t *Table) Layout(c *Ctx) *layout.Element {
 	if c.Focus() != nil {
 		c.Focus().Add(t)
 	}
+	t.markPaint = c.MarkNeedsPaint
 	t.Update(c.Mouse())
+	t.vbar.tick(c, t.bodyViewport())
+	t.layoutCellViews(c)
 	if t.editingRowID != "" && t.editField != nil && t.editField.host != nil {
 		c.Overlay(t.editField.host)
 		t.editField.menu.layout(c)
@@ -477,8 +515,8 @@ func (t *Table) rowMatches(rowIdx int) bool {
 	q := strings.ToLower(t.Filter)
 	row := t.Rows[rowIdx]
 	for _, col := range t.Columns {
-		if col.Kind == TableColText || col.Kind == TableColEditable {
-			if t.cellMasked(row.ID, col.ID) {
+		if col.Kind.textKind() {
+			if t.maskedCell(row, col) {
 				// Matching a hidden value would leak it one guess at a time.
 				continue
 			}
@@ -508,7 +546,7 @@ func (t *Table) bodyMetrics() (clientW, clientH float32, vShow bool) {
 	clientW, clientH = f.W, f.H-t.headerH
 	vShow = t.contentH > clientH
 	if vShow {
-		clientW = f.W - t.barSize()
+		clientW = f.W - t.vbar.gutter(t.barSize())
 	}
 	return clientW, clientH, vShow
 }
@@ -521,7 +559,7 @@ func (t *Table) bodyViewport() render.Rect {
 
 func (t *Table) syncScrollbarLayout(vShow bool) {
 	if vShow {
-		t.vbar.host.Style = layout.Box().W(t.barSize()).AbsTop(t.headerH).AbsRight(0).AbsBottom(0)
+		t.vbar.host.Style = layout.Box().W(t.vbar.strip(t.barSize())).AbsTop(t.headerH).AbsRight(0).AbsBottom(0)
 		t.vbar.host.ReapplyStyle()
 	}
 }
@@ -549,7 +587,7 @@ func (t *Table) colResizable(colIdx int) bool {
 	if colIdx+1 < len(t.Columns) && t.Columns[colIdx+1].Locked {
 		return false
 	}
-	return col.Kind == TableColText || col.Kind == TableColEditable
+	return col.Kind.textKind()
 }
 
 // colShrinkable reports whether columnLayout may narrow a fixed column to
@@ -557,7 +595,7 @@ func (t *Table) colResizable(colIdx int) bool {
 // width. A width the user picked, by dragging or SetColumnWidth, stays.
 func (t *Table) colShrinkable(colIdx int) bool {
 	col := t.Columns[colIdx]
-	return !col.Locked && (col.Kind == TableColText || col.Kind == TableColEditable) &&
+	return !col.Locked && col.Kind.textKind() &&
 		t.colWidths[colIdx] == col.Width
 }
 
@@ -762,15 +800,28 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 
 		for i, col := range t.Columns {
 			cr := t.cellRect(y, i, widths, offsets)
+			if t.cellViews[cellKey(row.ID, col.ID)] {
+				continue // its CellView draws it
+			}
 			switch col.Kind {
 			case TableColCheckbox:
 				t.paintCheckbox(dl, cr, row.Selected, false)
-			case TableColText, TableColEditable:
+			case TableColBadges:
+				t.paintBadges(dl, text, cr, row.Cells[col.ID])
+			case TableColText, TableColEditable, TableColSecret:
 				val := row.Cells[col.ID]
 				if t.editingRowID == row.ID && t.editingColID == col.ID {
 					continue
 				}
-				if t.cellMasked(row.ID, col.ID) {
+				if t.secretCell(row, col) {
+					er := t.eyeRect(cr)
+					if vi == t.hoverRow || t.revealed[cellKey(row.ID, col.ID)] {
+						t.paintEye(dl, er, row.ID, col.ID, vi == t.hoverRow && i == t.hoverEye)
+					}
+					cr.W = f32max(0, er.X-cr.X)
+				}
+				masked := t.maskedCell(row, col)
+				if masked {
 					val = maskText(val)
 				}
 				style := th.Typography.Body
@@ -787,7 +838,7 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 				clipR := render.Rect{X: tx, Y: cr.Y, W: f32max(0, cr.X+cr.W-tx-t.padX()), H: cr.H}
 				dl.PushClip(clipR)
 				ty := cr.Y + (t.rowH-lh)/2
-				if spans := t.cellSpans(row.ID, col.ID, val); len(spans) > 0 {
+				if spans := t.cellSpans(row.ID, col.ID, val, masked); len(spans) > 0 {
 					drawSpannedText(dl, text, val, spans, tx, ty, th.Foreground, style.Size)
 				} else {
 					text.DrawStringTopAt(dl, val, tx, ty, th.Foreground, style.Size)
@@ -815,6 +866,9 @@ func (t *Table) paint(dl *render.DrawList, text *shape.Engine) {
 				ir := render.Rect{X: tr.X + (slot-iconSz)/2, Y: tr.Y + (slot-iconSz)/2, W: iconSz, H: iconSz}
 				frameIcons().Draw(dl, icon, ir, iconCol)
 			case TableColActions:
+				if !t.actionsShown(vi, row) {
+					break
+				}
 				iconSz, slot := t.actionSlotSize()
 				pad := th.Spacing.XS
 				for ai, act := range t.Actions {
@@ -933,13 +987,156 @@ func (t *Table) toggleSlotRect(cr render.Rect, slot float32) render.Rect {
 }
 
 func (t *Table) cellMasked(rowID, colID string) bool {
-	return t.Masked != nil && t.Masked(rowID, colID)
+	if t.Masked != nil && t.Masked(rowID, colID) {
+		return true
+	}
+	ci := t.colIndex(colID)
+	if ci < 0 || t.Columns[ci].Kind != TableColSecret {
+		return false
+	}
+	ri, ok := t.rowByID(rowID)
+	return ok && t.maskedCell(t.Rows[ri], t.Columns[ci])
+}
+
+// maskedCell is cellMasked for a row and column already in hand.
+func (t *Table) maskedCell(row TableRow, col TableColumn) bool {
+	if t.Masked != nil && t.Masked(row.ID, col.ID) {
+		return true
+	}
+	return t.secretCell(row, col) && !t.revealed[cellKey(row.ID, col.ID)]
+}
+
+// secretCell reports whether a TableColSecret column masks this row's cell
+// (whether or not it is revealed right now).
+func (t *Table) secretCell(row TableRow, col TableColumn) bool {
+	return col.Kind == TableColSecret && (col.SecretWhen == nil || col.SecretWhen(row))
+}
+
+func cellKey(rowID, colID string) string { return rowID + "\x00" + colID }
+
+// eyeRect is the reveal button at the right end of a secret cell.
+func (t *Table) eyeRect(cr render.Rect) render.Rect {
+	_, slot := t.actionSlotSize()
+	return render.Rect{X: cr.X + cr.W - slot - theme.Current().Spacing.XS, Y: cr.Y + (t.rowH-slot)/2, W: slot, H: slot}
+}
+
+func (t *Table) paintEye(dl *render.DrawList, er render.Rect, rowID, colID string, hovered bool) {
+	th := theme.Current()
+	iconSz, slot := t.actionSlotSize()
+	col := th.ForegroundMuted
+	if hovered {
+		dl.AddRoundedRect(er, th.Radius.Small, th.ListHover)
+		col = th.Foreground
+	}
+	icon := icons.Eye
+	if t.revealed[cellKey(rowID, colID)] {
+		icon = icons.EyeOff
+	}
+	ir := render.Rect{X: er.X + (slot-iconSz)/2, Y: er.Y + (slot-iconSz)/2, W: iconSz, H: iconSz}
+	frameIcons().Draw(dl, icon, ir, col)
+}
+
+// ToggleReveal shows a secret cell's value in the clear, or masks it again.
+func (t *Table) ToggleReveal(rowID, colID string) {
+	if t.revealed == nil {
+		t.revealed = map[string]bool{}
+	}
+	k := cellKey(rowID, colID)
+	if t.revealed[k] {
+		delete(t.revealed, k)
+	} else {
+		t.revealed[k] = true
+	}
+	if t.editingRowID == rowID && t.editingColID == colID {
+		t.editField.cfg.Password = t.cellMasked(rowID, colID)
+	}
+}
+
+// actionsShown reports whether a row's action buttons are drawn.
+func (t *Table) actionsShown(vi int, row TableRow) bool {
+	return !t.ActionsOnHover || vi == t.hoverRow || (t.focused && row.Selected)
+}
+
+// tableBadges splits a TableColBadges value into its chips.
+func tableBadges(value string) []string {
+	var out []string
+	for _, p := range strings.Split(value, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// paintBadges draws a TableColBadges cell: muted chips, clipped to the cell.
+func (t *Table) paintBadges(dl *render.DrawList, text *shape.Engine, cr render.Rect, value string) {
+	th := theme.Current()
+	style := th.Typography.Caption
+	padX, padY := th.Spacing.S, th.Spacing.XXS
+	x := cr.X + t.padX()
+	right := cr.X + cr.W - t.padX()
+	dl.PushClip(render.Rect{X: cr.X, Y: cr.Y, W: f32max(0, right-cr.X), H: cr.H})
+	for _, b := range tableBadges(value) {
+		if x >= right {
+			break
+		}
+		tw, lh := text.MeasureAt(b, style.Size)
+		chip := render.Rect{X: x, Y: cr.Y + (t.rowH-lh-2*padY)/2, W: tw + 2*padX, H: lh + 2*padY}
+		dl.AddRoundedRect(chip, th.Radius.Circular, th.ChromeMuted)
+		text.DrawStringTopAt(dl, b, x+padX, chip.Y+padY, th.ForegroundMuted, style.Size)
+		x += chip.W + th.Spacing.XS
+	}
+	dl.PopClip()
+}
+
+// layoutCellViews builds the CellView views of the visible rows and places
+// them over their cells in the clipped body layer.
+func (t *Table) layoutCellViews(c *Ctx) {
+	clear(t.cellViews)
+	clear(t.cellLayer.Children)
+	t.cellLayer.Children = t.cellLayer.Children[:0]
+	if t.CellView == nil {
+		return
+	}
+	if t.cellViews == nil {
+		t.cellViews = map[string]bool{}
+	}
+	t.cellLayer.Style.Top = t.headerH
+	t.cellLayer.ReapplyStyle()
+	cw, clientH, _ := t.bodyMetrics()
+	widths, offsets := t.columnLayout(cw)
+	f := t.host.Frame
+	first := max(0, int(t.scrollY/t.rowH))
+	for vi := first; vi < len(t.visible); vi++ {
+		top := float32(vi)*t.rowH - t.scrollY
+		if top >= clientH {
+			break
+		}
+		row := t.Rows[t.visible[vi]]
+		for i, col := range t.Columns {
+			if t.editingRowID == row.ID && t.editingColID == col.ID {
+				continue
+			}
+			v := t.CellView(row, col)
+			if v == nil {
+				continue
+			}
+			cr := t.cellRect(f.Y, i, widths, offsets)
+			el := Row(v).PaddingXY(t.padX(), 0).Align(AlignCenter).Layout(c)
+			el.Style.Pos = layout.PositionAbsolute
+			el.Style.Left, el.Style.Top = cr.X-f.X, top
+			el.Style.Width, el.Style.Height = cr.W, t.rowH
+			el.ReapplyStyle()
+			t.cellLayer.Children = append(t.cellLayer.Children, el)
+			t.cellViews[cellKey(row.ID, col.ID)] = true
+		}
+	}
 }
 
 // cellSpans is the highlighting for a cell painted in its row. A masked cell is
 // painted plain: the bullets have neither the value's offsets nor its meaning.
-func (t *Table) cellSpans(rowID, colID, value string) []TextSpan {
-	if t.CellHighlight == nil || value == "" || t.cellMasked(rowID, colID) {
+func (t *Table) cellSpans(rowID, colID, value string, masked bool) []TextSpan {
+	if t.CellHighlight == nil || value == "" || masked {
 		return nil
 	}
 	return clampSpans(t.CellHighlight(rowID, colID, value), len(value))
@@ -961,11 +1158,14 @@ func (t *Table) actionSlotX(cr render.Rect, actionIdx int) float32 {
 
 func (t *Table) overScrollbar(m *input.Mouse) bool {
 	_, _, vShow := t.bodyMetrics()
-	if vShow && t.vbar.host.Frame.Contains(m.X, m.Y) {
+	if vShow && t.vbar.hit(m.X, m.Y) {
 		return true
 	}
 	return false
 }
+
+// SetScrollbars overrides the theme's ScrollbarMode for this table.
+func (t *Table) SetScrollbars(m theme.ScrollbarMode) { t.vbar.SetMode(m) }
 
 func (t *Table) startColumnResize(colIdx int, x float32, currentW float32) {
 	t.resizeDragging = true
@@ -1031,6 +1231,14 @@ func (t *Table) handleHeaderMouse(el *layout.Element, m *input.Mouse, widths, of
 
 func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 	t.syncMetrics()
+	prevRow, prevEye := t.hoverRow, t.hoverEye
+	defer func() {
+		// Hover-only chrome (actions, reveal buttons) follows the pointer.
+		if (t.hoverRow != prevRow || t.hoverEye != prevEye) && t.markPaint != nil {
+			t.markPaint()
+		}
+	}()
+	t.hoverEye = -1
 	t.hoverRow = -1
 	t.hoverAction = -1
 	t.hoverToggleCol = -1
@@ -1083,6 +1291,21 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 		if !cr.Contains(m.X, m.Y) {
 			continue
 		}
+		if t.cellViews[cellKey(row.ID, col.ID)] {
+			continue // the cell's view took what it wanted
+		}
+		if t.secretCell(*row, col) && t.eyeRect(cr).Contains(m.X, m.Y) {
+			t.hoverEye = i
+			if m.Released {
+				t.ToggleReveal(row.ID, col.ID)
+				m.Consumed = true
+			}
+			if m.Pressed {
+				m.Consumed = true
+			}
+			handled = true
+			continue
+		}
 		switch col.Kind {
 		case TableColCheckbox:
 			if m.Released {
@@ -1096,7 +1319,7 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 				m.Consumed = true
 			}
 			handled = true
-		case TableColEditable:
+		case TableColEditable, TableColSecret:
 			if t.Editable {
 				if m.RightPressed {
 					// The edit field sits over the cell being edited and takes
@@ -1147,7 +1370,7 @@ func (t *Table) onMouse(el *layout.Element, m *input.Mouse) {
 		case TableColActions:
 			_, slot := t.actionSlotSize()
 			for ai, act := range t.Actions {
-				if !act.visible(row.ID) {
+				if !act.visible(row.ID) || !t.actionsShown(vi, *row) {
 					continue
 				}
 				ax := t.actionSlotX(cr, ai)
@@ -1280,6 +1503,8 @@ func (t *Table) startEdit(rowID, colID string) {
 	t.editingColID = colID
 	t.editOriginal = val
 	t.editField.cfg.Password = t.cellMasked(rowID, colID)
+	// A secret column hides values from onlookers, not from their owner.
+	t.editField.cfg.CopyMasked = t.Columns[max(0, t.colIndex(colID))].Kind == TableColSecret
 	t.editField.Highlight = nil
 	t.editField.Suggest = nil
 	if fn := t.CellHighlight; fn != nil {

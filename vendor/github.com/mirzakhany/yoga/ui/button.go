@@ -84,8 +84,9 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 	}
 
 	th := c.Theme()
+	j := c.env.joined
 	spec := n.buttonSpec(c)
-	inter := interactState{hovered: st.hovered, pressed: st.pressed, focused: st.focused, disabled: n.disabled}
+	inter := interactState{hovered: st.hovered, pressed: st.pressed, focused: st.focused, focusVisible: focusVisible(st.focused), disabled: n.disabled}
 	res := spec.resolve(th, inter)
 
 	old := c.pushEnv(env{
@@ -137,10 +138,19 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		r := spec.resolve(th, interactState{
 			hovered: st.hovered, pressed: st.pressed, focused: st.focused, disabled: disabled,
+			focusVisible: focusVisible(st.focused),
 		})
 		frame := scaledFrame(el.Frame, r.scaleX, r.scaleY)
-		paintResolvedBox(dl, frame, r, th.Radius.Medium)
-		if st.focused {
+		if j.in {
+			fill := r.bg
+			if !r.hasBg {
+				fill = render.Color{}
+			}
+			paintJoinedFill(dl, el.Frame, j, fill, th.Radius.Medium)
+		} else {
+			paintResolvedBox(dl, frame, r, th.Radius.Medium)
+		}
+		if focusVisible(st.focused) && !j.in {
 			fill := r.bg
 			if fill.A == 0 {
 				fill = th.Chrome

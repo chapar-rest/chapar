@@ -45,6 +45,10 @@ const (
 	TokenSuccessSurface
 	TokenInfoSurface
 	TokenLink
+	TokenSwitchTrackOff
+	TokenSwitchKnobOff
+	TokenSwitchTrackOn
+	TokenSwitchKnobOn
 )
 
 // Resolve looks up t on th. TokenUnset yields a fully transparent color.
@@ -121,6 +125,14 @@ func (t Token) Resolve(th *theme.Theme) render.Color {
 		return th.InfoSurface
 	case TokenLink:
 		return th.Link
+	case TokenSwitchTrackOff:
+		return th.SwitchTrackOff
+	case TokenSwitchKnobOff:
+		return th.SwitchKnobOff
+	case TokenSwitchTrackOn:
+		return th.SwitchTrackOn
+	case TokenSwitchKnobOn:
+		return th.SwitchKnobOn
 	default:
 		return render.Color{}
 	}

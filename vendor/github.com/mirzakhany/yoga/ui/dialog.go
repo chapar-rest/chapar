@@ -36,6 +36,13 @@ type DialogOpts struct {
 	Actions   []DialogAction
 	OnDismiss func() // Escape
 	Severity  DialogSeverity
+	// FitContent sizes the dialog to its content instead of Height: it
+	// grows with the body up to MaxHeight (or the window), then the body
+	// scrolls inside it.
+	FitContent bool
+	// MaxHeight caps a FitContent dialog; 0 means the window's height less
+	// its margin.
+	MaxHeight float32
 }
 
 // DialogHost manages modal dialogs with scrim.
@@ -48,6 +55,10 @@ type DialogHost struct {
 	inputValue string
 	// inputFresh selects the whole starting value on the first frame.
 	inputFresh bool
+	// fitH is the natural height a FitContent dialog measured last frame;
+	// bodySV is the scroll its body lives in.
+	fitH   float32
+	bodySV *ScrollView
 }
 
 var _ View = (*DialogHost)(nil)
@@ -64,6 +75,8 @@ func NewDialogHost() *DialogHost {
 func (d *DialogHost) Show(opts DialogOpts) {
 	d.opts = opts
 	d.Open = true
+	d.fitH = 0
+	d.bodySV = nil
 }
 
 // showMessage opens a sized message dialog with the given footer actions.
@@ -220,7 +233,11 @@ func (d *DialogHost) Layout(c *Ctx) *layout.Element {
 	}
 	vw, vh := c.Viewport()
 	th := c.Theme()
-	dw, dh := clampModalSize(vw, vh, d.opts.Width, d.opts.Height, 0, 0, th)
+	wantH := d.opts.Height
+	if d.opts.FitContent {
+		wantH = d.fitHeight(c)
+	}
+	dw, dh := clampModalSize(vw, vh, d.opts.Width, wantH, 0, 0, th)
 	d.panel = layoutModalPanel(c, d.scrim, d.chrome(c), dw, dh)
 	if c.Focus() != nil {
 		c.Focus().SetModal(d)
@@ -272,13 +289,40 @@ func (d *DialogHost) chrome(c *Ctx) View {
 			HLine(th.Stroke.Thin, th.Border),
 		)
 	}
-	if body != nil {
+	if body != nil && d.opts.FitContent {
+		d.bodySV = c.Widget("__dialog-body", func() any { return NewScrollView(nil) }).(*ScrollView)
+		kids = append(kids, Scroll("__dialog-body", body).Grow(1))
+	} else if body != nil {
 		kids = append(kids, ViewOf(body).Grow(1))
 	}
 	kids = append(kids, footer)
 
 	return Column(kids...).Grow(1).Background(TokenChrome).
 		Style(Spec{}.Radius(th.Radius.Large).Border(borderTok, th.Stroke.Thin))
+}
+
+// fitHeight is the height a FitContent dialog asks for: what its chrome and
+// whole body took last frame, capped by MaxHeight. Until that is known (the
+// first frame) it uses Height, or a small default.
+func (d *DialogHost) fitHeight(c *Ctx) float32 {
+	if d.panel != nil && d.bodySV != nil && d.bodySV.host.Frame.H > 0 {
+		natural := d.panel.Frame.H - d.bodySV.host.Frame.H + d.bodySV.contentHeight()
+		if natural != d.fitH {
+			d.fitH = natural
+			c.Invalidate() // lay out again at the measured height
+		}
+	}
+	h := d.fitH
+	if h <= 0 {
+		h = d.opts.Height
+		if h <= 0 {
+			h = 200
+		}
+	}
+	if d.opts.MaxHeight > 0 {
+		h = f32min(h, d.opts.MaxHeight)
+	}
+	return h
 }
 
 // Close hides the dialog.

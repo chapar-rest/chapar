@@ -234,7 +234,7 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 		el.Paint = func(dl *render.DrawList, eng *shape.Engine) {
 			f := el.Frame
 			// The focus ring fills its rect, so it goes under the text.
-			if st.focused {
+			if focusVisible(st.focused) {
 				fill := th.Surface
 				if st.hovered && !disabled {
 					fill = th.ListHover

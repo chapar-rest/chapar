@@ -95,7 +95,7 @@ func (n *Node) layoutRadio(c *Ctx) *layout.Element {
 		border := th.Border
 		if r.hasBorder {
 			border = r.border
-		} else if st.focused && !disabled {
+		} else if focusVisible(st.focused) && !disabled {
 			border = th.FocusRingOn(fill)
 		}
 		if selected && !disabled {

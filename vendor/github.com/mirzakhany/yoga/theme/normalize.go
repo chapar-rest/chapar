@@ -172,6 +172,34 @@ func deriveTokens(t *Theme) {
 		}
 	}
 
+	// Categorical hues start from one fixed set, so "red" means the same
+	// thing in every theme, and are fitted to each theme's surfaces the same
+	// way the status pairs are.
+	for i, base := range categoricalBase {
+		if colorUnset(t.CategoricalSurface[i]) {
+			t.CategoricalSurface[i] = highlightFill(base, surface, t.Foreground, fillAmount)
+		}
+		if colorUnset(t.Categorical[i]) {
+			t.Categorical[i] = fitAll(base, ContrastText, surface, chrome, t.CategoricalSurface[i])
+		}
+	}
+
+	if colorUnset(t.SwitchTrackOff) {
+		t.SwitchTrackOff = t.ChromeMuted
+		if colorUnset(t.SwitchTrackOff) {
+			t.SwitchTrackOff = chrome
+		}
+	}
+	if colorUnset(t.SwitchKnobOff) {
+		t.SwitchKnobOff = fitAll(t.ForegroundMuted, ContrastNonText, t.SwitchTrackOff)
+	}
+	if colorUnset(t.SwitchTrackOn) {
+		t.SwitchTrackOn = t.Accent
+	}
+	if colorUnset(t.SwitchKnobOn) {
+		t.SwitchKnobOn = fitAll(t.AccentForeground, ContrastNonText, t.SwitchTrackOn)
+	}
+
 	if colorUnset(t.Scrim) {
 		a := float32(0.45)
 		if !t.Dark {
@@ -215,6 +243,18 @@ func deriveTokens(t *Theme) {
 	if colorUnset(t.BracketMatch) && !colorUnset(t.Success) {
 		t.BracketMatch = highlightFill(t.Success, surface, fg, 0.40)
 	}
+}
+
+// categoricalBase are the starting hues of Theme.Categorical, in Hue order.
+var categoricalBase = [NumHues]render.Color{
+	rgb(229, 72, 77),  // red
+	rgb(247, 107, 21), // orange
+	rgb(255, 197, 61), // yellow
+	rgb(70, 167, 58),  // green
+	rgb(18, 165, 175), // teal
+	rgb(62, 99, 221),  // blue
+	rgb(142, 78, 198), // purple
+	rgb(214, 64, 159), // pink
 }
 
 // syncLegacyFromYoga copies Yoga tokens into legacy alias fields.

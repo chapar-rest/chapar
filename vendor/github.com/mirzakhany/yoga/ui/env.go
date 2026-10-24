@@ -15,6 +15,7 @@ type env struct {
 	hasSize          bool
 	controlHeight    float32
 	hasControlHeight bool
+	joined           joined // set while an InputGroup lays out its parts
 }
 
 func (c *Ctx) pushEnv(e env) env {
@@ -72,6 +73,17 @@ func (c *Ctx) bindFrameResources() {
 	activeText = c.text
 	activeIcons = c.icons
 	activeClip = c.clip
+	activeFocus = c.focus
+}
+
+// activeFocus is the frame's focus scope, read by paint code to decide
+// whether focus rings show.
+var activeFocus *FocusScope
+
+// focusVisible reports whether a focused widget draws its focus ring: only
+// after keyboard interaction (see FocusScope.FocusVisible).
+func focusVisible(focused bool) bool {
+	return focused && (activeFocus == nil || activeFocus.FocusVisible())
 }
 
 // Icons returns the sprite sheet bound to this context.

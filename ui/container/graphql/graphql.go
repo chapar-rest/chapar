@@ -183,18 +183,21 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 	splitDir := container.SplitPaneAxis(prefs.GetGlobalConfig().Spec.General.UseHorizontalSplit)
 	return ui.Column(
 		ui.Row(
-			container.AssistURLField(ui.TextField("gql-url-"+id, g.URL), c.varSrc).
-				Placeholder("https://…/graphql").
-				OnChange(func(s string) { g.URL = s; c.markDirty() }).
-				OnSubmit(func(string) { c.Send() }).
-				Grow(1),
+			// URL and Send read as one control.
+			ui.InputGroup("gql-request-"+id,
+				container.AssistURLField(ui.TextField("gql-url-"+id, g.URL), c.varSrc).
+					Placeholder("https://…/graphql").
+					OnChange(func(s string) { g.URL = s; c.markDirty() }).
+					OnSubmit(func(string) { c.Send() }).
+					Grow(1),
+				ui.Button("gql-send-"+id, ui.Text("Send")).Primary().IconStart(icons.Play).Hint("⌘↵").
+					Disabled(c.pending).OnClick(c.Send),
+			).Grow(1),
 			ui.Button("gql-save-"+id, ui.Text("Save")).IconStart(icons.Save).Disabled(!c.Dirty()).OnClick(func() {
 				if err := c.Save(); err != nil {
 					c.deps.ShowError(err)
 				}
 			}),
-			ui.Button("gql-send-"+id, ui.Text("Send")).Primary().IconStart(icons.Play).Hint("⌘↵").
-				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
 		ui.Splitter("gql-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).

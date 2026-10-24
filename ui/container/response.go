@@ -10,10 +10,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/input"
-	"github.com/mirzakhany/yoga/layout"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/shape"
 	"github.com/mirzakhany/yoga/theme"
 	"github.com/mirzakhany/yoga/ui"
 
@@ -76,7 +72,16 @@ func BodyHighlighter(kind string) highlight.Highlighter {
 // selected and copied, but not typed into. data is copied.
 func NewResponseEditor(data []byte, hl highlight.Highlighter, opts ...ui.EditorOption) *ui.Editor {
 	opts = append([]ui.EditorOption{ui.WithReadOnly(), ui.WithSoftWrap(true)}, opts...)
-	return ui.NewEditor(data, hl, opts...)
+	return StyleCodeEditor(ui.NewEditor(data, hl, opts...))
+}
+
+// StyleCodeEditor sets up how a code editor lays out its text: wrapped rows
+// hang one tab stop past their line's indent, so nested JSON keeps its shape,
+// and the line-number gutter is only as wide as its digits.
+func StyleCodeEditor(ed *ui.Editor) *ui.Editor {
+	ed.SetWrapIndent(ui.WrapHanging)
+	ed.SetGutter(ui.GutterSpec{MinDigits: 2, Fill: ui.TokenChromeMuted, Separator: true})
+	return ed
 }
 
 // ReplaceEditor closes the previous editor and returns a new read-only one
@@ -267,25 +272,78 @@ func DefaultResponseFilename(kind string) string {
 	}
 }
 
-// TimelineState holds selection and a retained ListView for the Timeline tab.
+// TimelineState holds selection and a retained table for the Timeline tab.
 type TimelineState struct {
 	Selected int
-	hover    int
-	List     *ui.ListView
+	table    *ui.Table
 	steps    []egress.TimelineStep
-	wake     func()
+	starts   []time.Duration // when each step began, as an offset from the first
+	total    time.Duration   // when the last step ended
 
 	detailTitle    string
 	detailSubtitle string
 	detailBody     string
 }
 
-// Ensure constructs the list once.
+// Timeline table column IDs.
+const (
+	tlColStep   = "step"
+	tlColPhase  = "phase"
+	tlColSpan   = "span"
+	tlColLength = "dur"
+)
+
+// Ensure constructs the table once.
 func (t *TimelineState) Ensure() {
-	if t.List == nil {
-		th := theme.Current()
-		t.List = ui.NewListView(ui.ListViewConfig{Gap: th.Spacing.XXS})
-		t.hover = -1
+	if t.table != nil {
+		return
+	}
+	// Each step's bar sits on one shared scale, so the table reads as a
+	// waterfall: where in the request each step happened, and how long it
+	// took.
+	t.table = ui.NewTable([]ui.TableColumn{
+		{ID: tlColStep, Label: "Step", Kind: ui.TableColText, Width: 130},
+		{ID: tlColPhase, Label: "Phase", Kind: ui.TableColText, Width: 80},
+		{ID: tlColSpan, Label: "Timing", Kind: ui.TableColText},
+		{ID: tlColLength, Label: "Duration", Kind: ui.TableColText, Width: 90, Locked: true},
+	}, nil)
+	t.table.Selectable = true
+	t.table.Editable = false
+	t.table.OnRowClick = func(rowID string) {
+		for i := range t.steps {
+			if timelineRowID(i) == rowID {
+				t.selectStep(i)
+				return
+			}
+		}
+	}
+	t.table.CellView = func(row ui.TableRow, col ui.TableColumn) ui.View {
+		if col.ID != tlColSpan {
+			return nil
+		}
+		i := -1
+		for k := range t.steps {
+			if timelineRowID(k) == row.ID {
+				i = k
+				break
+			}
+		}
+		if i < 0 {
+			return nil
+		}
+		step := t.steps[i]
+		from := t.starts[i]
+		// A step too short to see still gets a sliver, and an empty
+		// timeline a scale, so every row shows a bar.
+		total := max(t.total, time.Microsecond)
+		bar := ui.RangeBar("tl-span-"+row.ID, float32(from), float32(from+step.Duration), float32(total)).
+			Tooltip(fmt.Sprintf("%s %s", step.Name, step.Duration.Round(time.Microsecond)))
+		if step.Err != "" {
+			bar = bar.Tone(ui.BadgeError)
+		} else if h, ok := stepHue(step); ok {
+			bar = bar.Hue(h)
+		}
+		return ui.Row(bar.Grow(1)).Align(ui.AlignCenter).Grow(1)
 	}
 }
 
@@ -294,26 +352,30 @@ func (t *TimelineState) EnsureTimelineDetail() { t.Ensure() }
 
 // Close releases timeline widgets.
 func (t *TimelineState) Close() {
-	if t.List != nil {
-		t.List.Clear()
-		t.List = nil
-	}
+	t.table = nil
 	t.steps = nil
-	t.hover = -1
+	t.starts = nil
+	t.total = 0
 	t.Selected = -1
 	t.detailTitle = ""
 	t.detailSubtitle = ""
 	t.detailBody = ""
 }
 
-// SetSteps refreshes selection, list rows, and detail card from the response timeline.
+// SetSteps refreshes selection, table rows, and detail card from the response timeline.
 func (t *TimelineState) SetSteps(steps []egress.TimelineStep) {
 	t.Ensure()
 	t.steps = append([]egress.TimelineStep(nil), steps...)
-	t.hover = -1
+	// Steps run one after another, so each starts where the previous ended.
+	t.starts = make([]time.Duration, len(t.steps))
+	t.total = 0
+	for i, step := range t.steps {
+		t.starts[i] = t.total
+		t.total += step.Duration
+	}
 	if len(t.steps) == 0 {
 		t.Selected = -1
-		t.List.Clear()
+		t.table.SetRows(nil)
 		t.detailTitle = "No timeline"
 		t.detailSubtitle = ""
 		t.detailBody = "Send a request to see steps."
@@ -322,8 +384,68 @@ func (t *TimelineState) SetSteps(steps []egress.TimelineStep) {
 	if t.Selected < 0 || t.Selected >= len(t.steps) {
 		t.Selected = 0
 	}
-	t.rebuildList()
-	t.showDetail(t.steps[t.Selected])
+	rows := make([]ui.TableRow, len(t.steps))
+	for i, step := range t.steps {
+		phase := step.Phase
+		if phase == "" {
+			phase = "—"
+		}
+		rows[i] = ui.TableRow{
+			ID: timelineRowID(i),
+			Cells: map[string]string{
+				tlColStep:   step.Name,
+				tlColPhase:  phase,
+				tlColLength: stepDuration(step.Duration),
+			},
+		}
+	}
+	t.table.SetRows(rows)
+	t.selectStep(t.Selected)
+}
+
+// selectStep highlights step i and shows its detail.
+func (t *TimelineState) selectStep(i int) {
+	t.Selected = i
+	id := timelineRowID(i)
+	for k := range t.table.Rows {
+		t.table.Rows[k].Selected = t.table.Rows[k].ID == id
+	}
+	t.showDetail(t.steps[i])
+}
+
+// stepDuration shows d in milliseconds, with decimals below 10 ms so a
+// fast step does not read as zero.
+func stepDuration(d time.Duration) string {
+	ms := float64(d) / float64(time.Millisecond)
+	if ms < 10 {
+		return fmt.Sprintf("%.2f ms", ms)
+	}
+	return fmt.Sprintf("%.0f ms", ms)
+}
+
+func timelineRowID(i int) string { return fmt.Sprintf("step-%d", i) }
+
+// stepHue colors a step's bar by what it waits on: the scripts, connection
+// setup in cool hues, the server in orange, and the transfer in green.
+func stepHue(step egress.TimelineStep) (theme.Hue, bool) {
+	if step.Phase == egress.TimelinePhaseApp {
+		return theme.HuePink, true
+	}
+	switch step.Name {
+	case "DNS Lookup":
+		return theme.HueTeal, true
+	case "TCP Connect", "Connect":
+		return theme.HueBlue, true
+	case "TLS Handshake":
+		return theme.HuePurple, true
+	case "Request Sent":
+		return theme.HueYellow, true
+	case "Waiting (TTFB)", "Waiting":
+		return theme.HueOrange, true
+	case "Download", "Receive":
+		return theme.HueGreen, true
+	}
+	return 0, false
 }
 
 func (t *TimelineState) showDetail(step egress.TimelineStep) {
@@ -349,80 +471,9 @@ func (t *TimelineState) showDetail(step egress.TimelineStep) {
 	t.detailBody = strings.TrimRight(b.String(), "\n")
 }
 
-func (t *TimelineState) rebuildList() {
-	t.Ensure()
-	th := theme.Current()
-	rowH := th.Metrics.ControlHeight
-	items := make([]*layout.Element, 0, len(t.steps))
-	for i := range t.steps {
-		items = append(items, t.makeRow(i, rowH))
-	}
-	t.List.SetItems(items)
-}
-
-func (t *TimelineState) makeRow(i int, rowH float32) *layout.Element {
-	el := layout.New(layout.Box().H(rowH).FlexShrink(0))
-	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
-		if i < 0 || i >= len(t.steps) {
-			return
-		}
-		step := t.steps[i]
-		th := theme.Current()
-		fr := el.Frame
-		switch {
-		case t.Selected == i:
-			dl.AddRect(fr, th.ListActive)
-		case t.hover == i:
-			dl.AddRect(fr, th.ListHover)
-		}
-		pad := th.Spacing.S
-		style := th.Typography.Body
-		label := fmt.Sprintf("%s  %s", step.Name, step.Duration.Round(time.Millisecond))
-		_, lh := text.MeasureAt(label, style.Size)
-		ty := fr.Y + (fr.H-lh)/2
-		text.DrawStringTopAt(dl, label, fr.X+pad, ty, th.Foreground, style.Size)
-		if phase := step.Phase; phase != "" {
-			cap := th.Typography.Caption
-			tw, _ := text.MeasureAt(phase, cap.Size)
-			text.DrawStringTopAt(dl, phase, fr.X+fr.W-pad-tw, ty, th.ForegroundMuted, cap.Size)
-		}
-	}
-	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
-		if !e.Frame.Contains(m.X, m.Y) {
-			if t.hover == i {
-				t.hover = -1
-				t.invalidate()
-			}
-			return
-		}
-		m.SetCursor(input.CursorPointer)
-		if t.hover != i {
-			t.hover = i
-			t.invalidate()
-		}
-		if m.Released && i >= 0 && i < len(t.steps) {
-			t.Selected = i
-			t.showDetail(t.steps[i])
-			t.invalidate()
-			m.Consumed = true
-		}
-	}
-	return el
-}
-
-func (t *TimelineState) invalidate() {
-	if t.wake != nil {
-		t.wake()
-	}
-}
-
-// TimelineView renders a ListView of steps with a detail card below.
+// TimelineView renders a waterfall table of steps with a detail card below.
 func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *TimelineState, steps []egress.TimelineStep) ui.View {
 	state.Ensure()
-	state.wake = func() {
-		ctx.MarkNeedsPaint()
-		deps.WakeNow()
-	}
 	if len(steps) == 0 && len(state.steps) == 0 {
 		return ui.Column(
 			MutedParagraph("No timeline yet. Send a request to see steps."),
@@ -445,7 +496,7 @@ func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *Tim
 
 	return ui.Column(
 		ui.Caption("Steps"),
-		ui.ViewOf(state.List).Height(timelineListHeight(th, len(state.steps))).Grow(0),
+		ui.ViewOf(state.table).Height(timelineTableHeight(th, len(state.steps))).Grow(0),
 		// The detail sits at the bottom of the pane, as tall as its text;
 		// it scrolls once that is taller than the room below the steps.
 		ui.Column(ui.Scroll(id+"-detail-scroll", card).FitContent()).
@@ -454,11 +505,11 @@ func TimelineView(id string, th *theme.Theme, ctx *ui.Ctx, deps Deps, state *Tim
 	).Gap(th.Spacing.S).Grow(1)
 }
 
-// timelineListHeight fits up to timelineVisibleSteps rows, so the detail
-// below gets the rest of the pane; the list scrolls past that.
-func timelineListHeight(th *theme.Theme, n int) float32 {
+// timelineTableHeight fits the header and up to timelineVisibleSteps rows,
+// so the detail below gets the rest of the pane; the table scrolls past that.
+func timelineTableHeight(th *theme.Theme, n int) float32 {
 	n = min(n, timelineVisibleSteps)
-	return float32(n)*th.Metrics.ControlHeight + float32(n-1)*th.Spacing.XXS
+	return float32(n+1) * th.Metrics.ControlHeight
 }
 
 const timelineVisibleSteps = 4

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
@@ -37,7 +39,30 @@ type Scrollbar struct {
 	dragging bool
 	hovered  bool
 	grab     float32 // cursor-to-thumb offset captured at drag start (along axis)
+
+	// Mode override; when modeSet is false the bar follows the theme.
+	mode    theme.ScrollbarMode
+	modeSet bool
+
+	// Overlay fade state, advanced by tick once per frame.
+	alpha     float32   // 0 hidden … 1 fully shown
+	activeAt  time.Time // last scroll or pointer move over the scroll area
+	lastOff   float32
+	lastMX    float32
+	lastMY    float32
+	seen      bool // lastOff / lastMX / lastMY hold a previous frame's values
+	markPaint func()
 }
+
+// Overlay timing: the thumb stays up for overlayHold after the last activity,
+// then fades out over overlayFade.
+const (
+	overlayHold = 800 * time.Millisecond
+	overlayFade = 200 * time.Millisecond
+)
+
+// overlayPad is the gap between an overlay thumb and the edge it hugs.
+const overlayPad = 2
 
 // NewScrollbar creates a vertical scrollbar bound to the given offset/content
 // pointers. width is the track thickness in pixels.
@@ -61,6 +86,108 @@ func NewScrollbarAxis(axis Axis, offset, content *float32, thickness float32) *S
 	s.host.Paint = s.paint
 	s.host.OnMouse = s.onMouse
 	return s
+}
+
+// SetMode overrides the theme's ScrollbarMode for this bar.
+func (s *Scrollbar) SetMode(m theme.ScrollbarMode) { s.mode, s.modeSet = m, true }
+
+// FollowTheme drops a SetMode override.
+func (s *Scrollbar) FollowTheme() { s.modeSet = false }
+
+// overlay reports whether the bar draws over the content (ScrollOverlay).
+func (s *Scrollbar) overlay() bool {
+	if s.modeSet {
+		return s.mode == theme.ScrollOverlay
+	}
+	return theme.Current().Metrics.ScrollbarMode == theme.ScrollOverlay
+}
+
+// overlaySize is the resting thumb thickness of an overlay bar.
+func overlaySize() float32 {
+	if n := theme.Current().Metrics.ScrollbarOverlaySize; n > 0 {
+		return n
+	}
+	return 6
+}
+
+// gutter is the space the owner reserves for the bar beside its content:
+// classic in ScrollAlways mode, nothing for an overlay bar.
+func (s *Scrollbar) gutter(classic float32) float32 {
+	if s.overlay() {
+		return 0
+	}
+	return classic
+}
+
+// strip is the bar's cross-axis size: classic, or for an overlay bar room for
+// the widened thumb plus its edge gap.
+func (s *Scrollbar) strip(classic float32) float32 {
+	if s.overlay() {
+		return overlaySize() + 4 + 2*overlayPad
+	}
+	return classic
+}
+
+// hit reports whether (x, y) is on the bar as it is drawn now. An overlay bar
+// that has faded out lets the pointer through to the content below.
+func (s *Scrollbar) hit(x, y float32) bool {
+	if s.overlay() && s.alpha <= 0 && !s.dragging {
+		return false
+	}
+	return s.host.Frame.Contains(x, y)
+}
+
+// tick advances the overlay fade. Owners call it once per frame with the
+// area their content scrolls in; a scroll or pointer move there shows the
+// thumb, and it hides again after overlayHold of quiet.
+func (s *Scrollbar) tick(c *Ctx, area render.Rect) {
+	if c == nil {
+		return
+	}
+	s.markPaint = c.MarkNeedsPaint
+	if !s.overlay() {
+		s.alpha = 1
+		return
+	}
+	now := c.Now()
+	m := c.Mouse()
+	if s.seen {
+		if *s.Offset != s.lastOff {
+			s.activeAt = now
+		}
+		if m != nil && (m.X != s.lastMX || m.Y != s.lastMY) && area.Contains(m.X, m.Y) {
+			s.activeAt = now
+		}
+	}
+	s.lastOff = *s.Offset
+	if m != nil {
+		s.lastMX, s.lastMY = m.X, m.Y
+	}
+	s.seen = true
+
+	prev := s.alpha
+	held := s.dragging || s.hovered
+	idle := now.Sub(s.activeAt)
+	switch {
+	case !s.scrollable():
+		s.alpha = 0
+	case held || idle < overlayHold:
+		s.alpha = 1
+	case idle < overlayHold+overlayFade:
+		s.alpha = 1 - float32(idle-overlayHold)/float32(overlayFade)
+	default:
+		s.alpha = 0
+	}
+	if s.alpha != prev {
+		c.MarkNeedsPaint()
+	}
+	if s.alpha > 0 && !held {
+		if idle < overlayHold {
+			c.Animate(overlayHold - idle)
+		} else {
+			c.Animate(16 * time.Millisecond)
+		}
+	}
 }
 
 // scrollable reports whether content exceeds the track along the scroll axis.
@@ -147,12 +274,28 @@ func (s *Scrollbar) setOffsetFromPointer(px, py float32) {
 }
 
 func (s *Scrollbar) onMouse(el *layout.Element, m *input.Mouse) {
+	wasHovered := s.hovered
 	s.hovered = false
-	if !s.scrollable() || !el.Frame.Contains(m.X, m.Y) {
+	defer func() {
+		if s.hovered != wasHovered && s.overlay() && s.markPaint != nil {
+			s.markPaint()
+		}
+	}()
+	if !s.scrollable() || !s.hit(m.X, m.Y) {
+		if !m.Down {
+			s.dragging = false
+		}
 		return
 	}
 	tv := s.thumbVisual()
-	s.hovered = tv.Contains(m.X, m.Y)
+	if s.overlay() {
+		// Widen when the pointer is anywhere on the strip, and grab the
+		// thumb along its full cross-axis span so a thin thumb is easy to hit.
+		s.hovered = true
+		tv = s.thumb()
+	} else {
+		s.hovered = tv.Contains(m.X, m.Y)
+	}
 
 	if m.Pressed {
 		m.Consumed = true
@@ -227,10 +370,34 @@ func (s *Scrollbar) paint(dl *render.DrawList, _ *shape.Engine) {
 		return
 	}
 	th := theme.Current()
+	if s.overlay() {
+		s.paintOverlay(dl, th)
+		return
+	}
 	dl.AddRect(s.host.Frame, th.ScrollTrack)
 	col := th.ScrollThumb
 	if s.dragging || s.hovered {
 		col = th.ScrollThumbHover
 	}
 	dl.AddRect(s.thumbVisual(), col)
+}
+
+// paintOverlay draws a track-less rounded thumb hugging the far edge, faded by
+// alpha and widened while hovered or dragged.
+func (s *Scrollbar) paintOverlay(dl *render.DrawList, th *theme.Theme) {
+	if s.alpha <= 0 {
+		return
+	}
+	w := overlaySize()
+	if s.hovered || s.dragging {
+		w += 4
+	}
+	t := s.thumb()
+	r := render.Rect{X: t.X + t.W - overlayPad - w, Y: t.Y, W: w, H: t.H}
+	if s.axis == Horizontal {
+		r = render.Rect{X: t.X, Y: t.Y + t.H - overlayPad - w, W: t.W, H: w}
+	}
+	col := th.ScrollThumb
+	col.A *= s.alpha
+	dl.AddRoundedRect(r, w/2, col)
 }

@@ -15,6 +15,10 @@ const (
 	Pressed
 	Focused
 	Disabled
+	// FocusVisible is Focused, but only after keyboard interaction (Tab,
+	// arrows), like CSS :focus-visible. Use it for focus rings, so a click
+	// does not leave one behind.
+	FocusVisible
 )
 
 // Cursor is the OS pointer shape a spec may request.
@@ -313,6 +317,7 @@ func (s Spec) merge(p Spec) Spec {
 
 type interactState struct {
 	hovered, pressed, focused, disabled bool
+	focusVisible                        bool
 }
 
 type resolvedSpec struct {
@@ -335,8 +340,8 @@ type resolvedSpec struct {
 
 func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
 	out := s
-	var hover, press, focus, dis Spec
-	var hasH, hasP, hasF, hasD bool
+	var hover, press, focus, focusVis, dis Spec
+	var hasH, hasP, hasF, hasFV, hasD bool
 	for _, w := range s.when {
 		switch w.cond {
 		case Hovered:
@@ -347,6 +352,8 @@ func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
 			focus, hasF = w.patch, true
 		case Disabled:
 			dis, hasD = w.patch, true
+		case FocusVisible:
+			focusVis, hasFV = w.patch, true
 		}
 	}
 	if st.hovered && hasH && !st.disabled {
@@ -357,6 +364,9 @@ func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
 	}
 	if st.focused && hasF {
 		out = out.merge(focus)
+	}
+	if st.focusVisible && hasFV {
+		out = out.merge(focusVis)
 	}
 	if st.disabled && hasD {
 		out = out.merge(dis)

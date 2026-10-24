@@ -115,7 +115,7 @@ func (n *Node) layoutCheckbox(c *Ctx) *layout.Element {
 		} else if st.hovered && !disabled {
 			fill = th.ListHover
 		}
-		if st.focused && !disabled {
+		if focusVisible(st.focused) && !disabled {
 			border = th.FocusRingOn(fill)
 		}
 		radius := th.Radius.Small

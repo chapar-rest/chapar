@@ -24,11 +24,7 @@ const (
 	nameUnk  = "req-unk"
 )
 
-var (
-	patchColor   = render.RGBA8(0x9c, 0x27, 0xb0, 0xff)
-	optionsColor = render.RGBA8(0x00, 0x80, 0x80, 0xff)
-	wsColor      = render.RGBA8(0x0e, 0x8a, 0xc7, 0xff)
-)
+var wsColor = render.RGBA8(0x0e, 0x8a, 0xc7, 0xff)
 
 func icon(name string) yogaicons.Icon {
 	return yogaicons.Icon{Name: name}
@@ -91,29 +87,36 @@ func Color(req *domain.Request, th *theme.Theme) render.Color {
 		return wsColor
 	case domain.RequestTypeHTTP:
 		if req.Spec.HTTP == nil {
-			return th.Success
+			return th.Categorical[theme.HueGreen]
 		}
-		switch req.Spec.HTTP.Method {
-		case domain.RequestMethodGET:
-			return th.Success
-		case domain.RequestMethodPOST:
-			return th.Accent
-		case domain.RequestMethodPUT:
-			return th.Warning
-		case domain.RequestMethodDELETE:
-			return th.Error
-		case domain.RequestMethodPATCH:
-			return patchColor
-		case domain.RequestMethodOPTIONS:
-			return optionsColor
-		case domain.RequestMethodHEAD, domain.RequestMethodCONNECT, domain.RequestMethodTRACE:
-			return th.ForegroundMuted
-		default:
-			return th.ForegroundMuted
+		if h, ok := MethodHue(req.Spec.HTTP.Method); ok {
+			return th.Categorical[h]
 		}
+		return th.ForegroundMuted
 	default:
 		return th.ForegroundMuted
 	}
+}
+
+// MethodHue is the categorical hue an HTTP method is shown in, wherever it
+// appears: the tree badge, the method picker and the tab strip. HEAD,
+// CONNECT, TRACE and unknown methods have none and stay muted.
+func MethodHue(method string) (theme.Hue, bool) {
+	switch method {
+	case domain.RequestMethodGET:
+		return theme.HueGreen, true
+	case domain.RequestMethodPOST:
+		return theme.HueBlue, true
+	case domain.RequestMethodPUT:
+		return theme.HueOrange, true
+	case domain.RequestMethodPATCH:
+		return theme.HuePurple, true
+	case domain.RequestMethodDELETE:
+		return theme.HueRed, true
+	case domain.RequestMethodOPTIONS:
+		return theme.HueTeal, true
+	}
+	return 0, false
 }
 
 // For returns badge icon and tint for a request.

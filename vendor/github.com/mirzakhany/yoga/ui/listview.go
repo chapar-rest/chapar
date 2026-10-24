@@ -96,5 +96,6 @@ func (lv *ListView) Update(m *input.Mouse) {
 
 func (lv *ListView) Layout(c *Ctx) *layout.Element {
 	lv.Update(c.Mouse())
+	lv.scroll.vbar.tick(c, lv.scroll.host.Frame)
 	return lv.host
 }

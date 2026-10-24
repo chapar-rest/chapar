@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/mirzakhany/yoga/input"
@@ -42,10 +43,16 @@ type Ctx struct {
 	env      env
 	autoSeq  int
 
-	// needsPaint persists across BeginFrame. Set by Invalidate, theme/resize,
-	// Animate carry-over, focus changes, and widget visual micro-state changes.
+	// needsPaint persists across BeginFrame. Set by theme/resize, Animate
+	// carry-over, focus changes, and widget visual micro-state changes.
 	// Cleared after a successful paint (then re-set when Animate is still pending).
+	// UI goroutine only.
 	needsPaint bool
+	// invalidated is set by Invalidate from any goroutine and folded into
+	// needsPaint by BeginFrame. Kept apart from needsPaint so a request that
+	// lands mid-frame survives that frame's ClearNeedsPaint and paints the
+	// next wake, which is the first build that sees the new state.
+	invalidated atomic.Bool
 	// inputPhase/inputDirty track MarkNeedsPaint calls during the input pass so
 	// the runtime can rebuild Body before paint only when handlers mutated state.
 	inputPhase bool
@@ -77,6 +84,9 @@ func New(text *shape.Engine, focus *FocusScope, post func()) *Ctx {
 // body.
 func (c *Ctx) BeginFrame(vw, vh float32, m *input.Mouse, kb *input.Keyboard) {
 	c.now = time.Now()
+	if c.invalidated.Swap(false) {
+		c.needsPaint = true
+	}
 	c.vw, c.vh = vw, vh
 	c.mouse, c.keyboard = m, kb
 	c.theme = theme.Current()
@@ -102,9 +112,10 @@ func (c *Ctx) Mouse() *input.Mouse { return c.mouse }
 // Keyboard returns this frame's keyboard state. May be nil in tests.
 func (c *Ctx) Keyboard() *input.Keyboard { return c.keyboard }
 
-// Invalidate requests a repaint. Safe to call from any goroutine.
+// Invalidate requests a rebuild and repaint on the next wake. Safe to call
+// from any goroutine.
 func (c *Ctx) Invalidate() {
-	c.MarkNeedsPaint()
+	c.invalidated.Store(true)
 	if c.post != nil {
 		c.post()
 	}

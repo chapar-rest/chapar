@@ -89,7 +89,7 @@ func (sv *ScrollView) hostHeight() float32 {
 func (sv *ScrollView) viewport() render.Rect {
 	th := theme.Current()
 	f := sv.host.Frame
-	bar := th.Metrics.ScrollbarSize
+	bar := sv.vbar.gutter(th.Metrics.ScrollbarSize)
 	w := f.W
 	if sv.contentHeight() > f.H {
 		w = f.W - bar
@@ -110,9 +110,9 @@ func (sv *ScrollView) syncScroll() bool {
 	vShow := ch > hostH
 	prevMargin := sv.viewEl.Style.Margin.Right
 	if vShow {
-		sv.vbar.host.Style = layout.Box().W(bar).AbsTop(0).AbsRight(0).AbsBottom(0)
+		sv.vbar.host.Style = layout.Box().W(sv.vbar.strip(bar)).AbsTop(0).AbsRight(0).AbsBottom(0)
 		sv.vbar.host.ReapplyStyle()
-		sv.viewEl.Style.Margin.Right = bar
+		sv.viewEl.Style.Margin.Right = sv.vbar.gutter(bar)
 	} else {
 		sv.viewEl.Style.Margin.Right = 0
 	}
@@ -157,9 +157,13 @@ func (sv *ScrollView) Update(m *input.Mouse) {
 func (sv *ScrollView) Layout(c *Ctx) *layout.Element {
 	if c != nil {
 		sv.Update(c.Mouse())
+		sv.vbar.tick(c, sv.host.Frame)
 	}
 	return sv.host
 }
+
+// SetScrollbars overrides the theme's ScrollbarMode for this view.
+func (sv *ScrollView) SetScrollbars(m theme.ScrollbarMode) { sv.vbar.SetMode(m) }
 
 func (n *Node) layoutScroll(c *Ctx) *layout.Element {
 	id := n.id
@@ -167,12 +171,18 @@ func (n *Node) layoutScroll(c *Ctx) *layout.Element {
 		id = autoID(c, "scroll")
 	}
 	sv := c.Widget(id, func() any { return NewScrollView(nil) }).(*ScrollView)
+	opts, _ := n.extra.(scrollOpts)
+	if opts.modeSet {
+		sv.vbar.SetMode(opts.mode)
+	} else {
+		sv.vbar.FollowTheme()
+	}
 	var content *layout.Element
 	if n.child != nil {
 		content = n.child.Layout(c)
 	}
 	sv.setContent(content)
-	if _, fit := n.extra.(scrollFit); fit {
+	if opts.fit {
 		// Fill the leftover space like any scroll, but no taller than the
 		// content (known after layout). The basis stays 0 so tall content
 		// never pushes the parent past the room it has.
@@ -198,19 +208,48 @@ func (n *Node) layoutScroll(c *Ctx) *layout.Element {
 		sv.host.AfterLayout = sv.afterLayout
 	}
 	sv.Update(c.Mouse())
+	sv.vbar.tick(c, sv.host.Frame)
 	return sv.host
 }
 
-// scrollFit marks a Scroll that sizes itself to its content.
-type scrollFit struct{}
+// scrollOpts holds a Scroll node's options.
+type scrollOpts struct {
+	fit     bool // FitContent
+	mode    theme.ScrollbarMode
+	modeSet bool // Scrollbars was called
+}
 
 // FitContent makes a Scroll no taller than its content: it fills the space
 // it is given up to the content's height, and scrolls when the content needs
 // more. Unlike a fixed height it never makes its parent taller. To keep it at
 // the bottom of a column, wrap it in Column(...).Grow(1).Justify(JustifyEnd).
 func (n *Node) FitContent() *Node {
+	if d, ok := n.extra.(*selectData); ok && n.kind == kindSelect {
+		d.fit = true // sized to the selected label (see Select)
+		return n
+	}
 	if n.kind == kindScroll {
-		n.extra = scrollFit{}
+		o, _ := n.extra.(scrollOpts)
+		o.fit = true
+		n.extra = o
+	}
+	return n
+}
+
+// Scroll bar modes, for Scrollbars and the editor, table and tree setters.
+const (
+	ScrollAlways  = theme.ScrollAlways
+	ScrollOverlay = theme.ScrollOverlay
+)
+
+// Scrollbars overrides the theme's Metrics.ScrollbarMode for this Scroll:
+// ScrollOverlay draws a thin thumb over the content that fades when idle,
+// ScrollAlways keeps the classic gutter.
+func (n *Node) Scrollbars(m theme.ScrollbarMode) *Node {
+	if n.kind == kindScroll {
+		o, _ := n.extra.(scrollOpts)
+		o.mode, o.modeSet = m, true
+		n.extra = o
 	}
 	return n
 }

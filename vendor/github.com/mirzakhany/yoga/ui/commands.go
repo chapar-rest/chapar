@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
@@ -32,11 +33,35 @@ func commandSectionHeight(th *theme.Theme) float32 {
 	return th.Spacing.S + th.Typography.Caption.LineHeight + th.Spacing.S
 }
 
-func rowHeightFor(cmd *Command, th *theme.Theme) float32 {
+// Density selects how tall list rows are.
+type Density int
+
+const (
+	// DensityDefault keeps two-line palette rows: title over subtitle.
+	DensityDefault Density = iota
+	// DensityCompact uses single-line rows of Metrics.ControlHeight, with the
+	// subtitle dropped and the trailing detail on the same line.
+	DensityCompact
+)
+
+// rowHeight is the height of a selectable row at the host's density.
+func (h *CommandsHost) rowHeight(th *theme.Theme) float32 {
+	if h.density == DensityCompact {
+		return th.Metrics.ControlHeight
+	}
+	return commandRowHeight(th)
+}
+
+func (h *CommandsHost) rowHeightFor(cmd *Command, th *theme.Theme) float32 {
 	if cmd != nil && cmd.section {
 		return commandSectionHeight(th)
 	}
-	return commandRowHeight(th)
+	return h.rowHeight(th)
+}
+
+// commandFooterHeight is the hint footer's height.
+func commandFooterHeight(th *theme.Theme) float32 {
+	return th.Spacing.S*2 + th.Typography.Caption.LineHeight + th.Stroke.Thin
 }
 
 // CommandsHost is the window-owned command registry and searchable palette.
@@ -65,6 +90,9 @@ type CommandsHost struct {
 
 	lastPointerX, lastPointerY float32
 	pointerSeen                bool
+
+	density    Density
+	hintFooter bool
 }
 
 var _ View = (*CommandsHost)(nil)
@@ -114,6 +142,20 @@ func (h *CommandsHost) ToggleChord(s string) *CommandsHost {
 	if ch, err := ParseChord(s); err == nil {
 		h.toggle = ch
 	}
+	return h
+}
+
+// Density sets the palette's row height: DensityCompact shows single-line
+// rows so more results fit.
+func (h *CommandsHost) Density(d Density) *CommandsHost {
+	h.density = d
+	return h
+}
+
+// HintFooter shows a footer listing the palette's keys: ↑↓ to navigate, ↵ to
+// run, the highlighted entry's Alt chord, and esc to close.
+func (h *CommandsHost) HintFooter(v bool) *CommandsHost {
+	h.hintFooter = v
 	return h
 }
 
@@ -259,6 +301,10 @@ func (h *CommandsHost) FilterKeys(keys []input.KeyEvent) (pass []input.KeyEvent)
 	h.rebuildFilter()
 	moved := false
 	for _, ev := range keys {
+		if cmd := h.cursorCommand(); cmd != nil && cmd.altRun != nil && cmd.alt.Matches(ev) {
+			h.activateAlt(cmd)
+			continue
+		}
 		switch ev.Key {
 		case input.KeyUp:
 			h.moveCursor(-1)
@@ -353,21 +399,41 @@ func (h *CommandsHost) ensureCursorVisible() {
 func (h *CommandsHost) rowOffset(index int, th *theme.Theme) (top, height float32) {
 	var y float32
 	for i, cmd := range h.filtered {
-		rh := rowHeightFor(cmd, th)
+		rh := h.rowHeightFor(cmd, th)
 		if i == index {
 			return y, rh
 		}
 		y += rh
 	}
-	return y, commandRowHeight(th)
+	return y, h.rowHeight(th)
 }
 
 func (h *CommandsHost) contentHeight(th *theme.Theme) float32 {
 	var hgt float32
 	for _, cmd := range h.filtered {
-		hgt += rowHeightFor(cmd, th)
+		hgt += h.rowHeightFor(cmd, th)
 	}
 	return hgt
+}
+
+// cursorCommand is the highlighted selectable entry, or nil.
+func (h *CommandsHost) cursorCommand() *Command {
+	if h.cursor < 0 || h.cursor >= len(h.filtered) {
+		return nil
+	}
+	if cmd := h.filtered[h.cursor]; cmd != nil && !cmd.section {
+		return cmd
+	}
+	return nil
+}
+
+// activateAlt closes the palette and runs cmd's Alt action.
+func (h *CommandsHost) activateAlt(cmd *Command) {
+	if cmd == nil || !cmd.enabled || cmd.altRun == nil {
+		return
+	}
+	h.Hide()
+	cmd.altRun()
 }
 
 func (h *CommandsHost) activateCursor() {
@@ -396,17 +462,21 @@ func (h *CommandsHost) Layout(c *Ctx) *layout.Element {
 	if dw < 280 {
 		dw = f32max(280, vw-float32(th.Spacing.L)*2)
 	}
-	rowH := commandRowHeight(th)
+	rowH := h.rowHeight(th)
 	// Keep panel height stable whether the list is full, short, or empty so the
 	// search field does not jump as the query filters results.
 	listH := float32(commandsListMaxRows) * rowH
 	searchH := th.Metrics.ControlHeight + th.Spacing.M*2
-	dh := searchH + listH + th.Spacing.S
+	footH := float32(0)
+	if h.hintFooter {
+		footH = commandFooterHeight(th)
+	}
+	dh := searchH + listH + th.Spacing.S + footH
 	if dh > commandsPanelMaxH {
 		dh = commandsPanelMaxH
 	}
 	dh = f32min(dh, vh-float32(th.Spacing.XXXL)*2)
-	h.listView = f32max(0, dh-searchH)
+	h.listView = f32max(0, dh-searchH-footH)
 	h.searchH = searchH
 
 	x := f32max(0, (vw-dw)/2)
@@ -516,12 +586,35 @@ func (h *CommandsHost) chrome(c *Ctx) View {
 		body = Scroll(commandsListID, Column(rows...)).Grow(1)
 	}
 
-	return Column(
+	parts := []View{
 		Row(search).Padding(th.Spacing.M).Shrink(0),
 		HLine(th.Stroke.Thin, th.Border),
 		ViewOf(body).Grow(1),
-	).Grow(1).Background(TokenChrome).
+	}
+	if h.hintFooter {
+		parts = append(parts, HLine(th.Stroke.Thin, th.Border), h.footer(th))
+	}
+	return Column(parts...).Grow(1).Background(TokenChrome).
 		Style(Spec{}.Radius(th.Radius.Large).Border(TokenBorder, th.Stroke.Thin))
+}
+
+// footer lists the palette's keys.
+func (h *CommandsHost) footer(th *theme.Theme) View {
+	hint := func(key, label string) View {
+		return Row(Kbd(key), Caption(label).Style(Spec{}.TextColor(TokenForegroundMuted))).
+			Gap(th.Spacing.XS).Align(AlignCenter)
+	}
+	kids := []View{hint("↑↓", "Navigate"), hint("↵", "Run")}
+	if cmd := h.cursorCommand(); cmd != nil && cmd.altRun != nil {
+		label := cmd.altLabel
+		if label == "" {
+			label = "Alternate"
+		}
+		kids = append(kids, hint(cmd.alt.Label(), label))
+	}
+	kids = append(kids, Spacer(), hint("esc", "Close"))
+	return Row(kids...).Gap(th.Spacing.M).PaddingXY(th.Spacing.M, th.Spacing.S).
+		Height(commandFooterHeight(th) - th.Stroke.Thin).Align(AlignCenter).Shrink(0)
 }
 
 func (h *CommandsHost) emptyTitle() string {
@@ -543,26 +636,42 @@ func (r *commandRow) Layout(c *Ctx) *layout.Element {
 	if cmd.section {
 		return r.layoutSection(c, th)
 	}
-	rowH := commandRowHeight(th)
+	rowH := h.rowHeight(th)
 	active := i == h.cursor
 	hovered := i == h.hoverRow && !active
+	compact := h.density == DensityCompact
 
-	kids := make([]View, 0, 4)
-	if !cmd.icon.Empty() {
+	kids := make([]View, 0, 5)
+	switch {
+	case cmd.leading != nil:
+		kids = append(kids, cmd.leading)
+	case !cmd.icon.Empty():
 		kids = append(kids, Icon(cmd.icon, th.Metrics.IconSizeSM, th.ForegroundMuted))
 	}
-	titleKids := []View{Text(cmd.DisplayTitle())}
-	if sub := cmd.subtitle(); sub != "" {
-		titleKids = append(titleKids, Caption(sub))
+	title := matchTitle(cmd.DisplayTitle(), h.query, active)
+	if compact {
+		kids = append(kids, ViewOf(title).Grow(1))
+	} else {
+		titleKids := []View{title}
+		if sub := cmd.subtitle(); sub != "" {
+			titleKids = append(titleKids, Caption(sub))
+		}
+		kids = append(kids, Column(titleKids...).Gap(th.Spacing.XXS).Grow(1))
 	}
-	kids = append(kids, Column(titleKids...).Gap(th.Spacing.XXS).Grow(1))
+	if cmd.trailing != "" {
+		kids = append(kids, Caption(cmd.trailing).Style(Spec{}.TextColor(TokenForegroundMuted)).Ellipsis(EllipsisEnd).Shrink(1))
+	}
 	if cmd.shortcut.Valid() {
 		kids = append(kids, Kbd(cmd.shortcut.Label()))
 	}
 
+	padY := th.Spacing.M
+	if compact {
+		padY = 0
+	}
 	row := Row(kids...).
 		Gap(th.Spacing.M).
-		PaddingXY(th.Spacing.M, th.Spacing.M).
+		PaddingXY(th.Spacing.M, padY).
 		Height(rowH).
 		Align(AlignCenter)
 	if active {
@@ -592,8 +701,12 @@ func (r *commandRow) Layout(c *Ctx) *layout.Element {
 			m.SetCursor(input.CursorPointer)
 			if m.Released && cmdCopy.enabled {
 				h.cursor = idx
-				h.Hide()
-				h.run(cmdCopy)
+				if cmdCopy.altRun != nil && m.Mods.Primary() {
+					h.activateAlt(cmdCopy)
+				} else {
+					h.Hide()
+					h.run(cmdCopy)
+				}
 				m.Consumed = true
 			}
 		}
@@ -711,40 +824,148 @@ func matchScore(title, id, group, detail, q string) (int, bool) {
 }
 
 func subsequenceScore(hay, needle string) (int, bool) {
-	h := []rune(strings.ToLower(hay))
-	n := []rune(strings.ToLower(needle))
-	if len(n) == 0 {
-		return 0, true
+	score, _, ok := subsequenceMatch(hay, needle, false)
+	return score, ok
+}
+
+// subsequenceMatch matches needle against hay as a case-insensitive
+// subsequence, taking the leftmost occurrence of each rune. With keep it also
+// returns the byte offset in hay of every matched rune.
+func subsequenceMatch(hay, needle string, keep bool) (score int, pos []int, ok bool) {
+	if needle == "" {
+		return 0, nil, true
 	}
+	if keep {
+		pos = make([]int, 0, len(needle))
+	}
+	runes := 0
 	hi := 0
-	score := 0
 	consec := 0
 	first := -1
-	for _, nr := range n {
+	for _, nr := range needle {
 		found := false
-		for hi < len(h) {
-			hr := h[hi]
-			hi++
+		for hi < len(hay) {
+			hr, size := utf8.DecodeRuneInString(hay[hi:])
+			at := hi
+			hi += size
+			runes++
 			if equalFoldRune(hr, nr) {
 				if first < 0 {
-					first = hi - 1
+					first = runes - 1
 				}
 				consec++
 				score += 10 + consec*5
+				if keep {
+					pos = append(pos, at)
+				}
 				found = true
 				break
 			}
 			consec = 0
 		}
 		if !found {
-			return 0, false
+			return 0, nil, false
 		}
 	}
+	runes += utf8.RuneCountInString(hay[hi:])
 	if first == 0 {
 		score += 50
 	}
-	score += max(0, 40-len(h))
-	return score, true
+	score += max(0, 40-runes)
+	return score, pos, true
+}
+
+// FuzzyMatch reports whether query is a case-insensitive subsequence of s,
+// the way the command palette matches, and returns the byte ranges of s that
+// matched, with adjacent runes merged into one range. Use it to highlight
+// matches in custom lists.
+func FuzzyMatch(s, query string) (ranges [][2]int, ok bool) {
+	query = strings.TrimSpace(query)
+	_, pos, ok := subsequenceMatch(s, query, true)
+	if !ok {
+		return nil, false
+	}
+	for _, p := range pos {
+		_, size := utf8.DecodeRuneInString(s[p:])
+		if n := len(ranges); n > 0 && ranges[n-1][1] == p {
+			ranges[n-1][1] = p + size
+			continue
+		}
+		ranges = append(ranges, [2]int{p, p + size})
+	}
+	return ranges, true
+}
+
+// matchTitle is a row title with the runes matching q drawn in SemiBold, and
+// in the link color unless the row is highlighted.
+func matchTitle(s, q string, active bool) View {
+	ranges, ok := FuzzyMatch(s, q)
+	if !ok || len(ranges) == 0 {
+		return Text(s).Ellipsis(EllipsisEnd)
+	}
+	return &matchText{text: s, ranges: ranges, active: active}
+}
+
+type matchText struct {
+	text   string
+	ranges [][2]int
+	active bool
+}
+
+func (m *matchText) Layout(c *Ctx) *layout.Element {
+	th := c.Theme()
+	size := th.Typography.Body.Size
+	fg := th.Foreground
+	if c.env.hasColor {
+		fg = c.env.textColor
+	}
+	hl := th.Link
+	if m.active || c.env.hasColor {
+		hl = fg
+	}
+	type seg struct {
+		s      string
+		weight int
+		col    render.Color
+		w      float32
+	}
+	var segs []seg
+	add := func(s string, weight int, col render.Color) {
+		if s == "" {
+			return
+		}
+		w := size * 0.5 * float32(len(s))
+		if eng := c.Text(); eng != nil {
+			w, _ = eng.MeasureAtWeight(s, size, weight)
+		}
+		segs = append(segs, seg{s, weight, col, w})
+	}
+	at := 0
+	for _, r := range m.ranges {
+		add(m.text[at:r[0]], shape.WeightRegular, fg)
+		add(m.text[r[0]:r[1]], shape.WeightSemiBold, hl)
+		at = r[1]
+	}
+	add(m.text[at:], shape.WeightRegular, fg)
+	var tw float32
+	for _, sg := range segs {
+		tw += sg.w
+	}
+	lh := th.Typography.Body.LineHeight
+	if eng := c.Text(); eng != nil {
+		_, lh = eng.MeasureAtWeight(m.text, size, shape.WeightRegular)
+	}
+	el := layout.New(layout.Box().Size(tw, lh).FlexShrink(1).Min(0, lh))
+	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
+		dl.PushClip(el.Frame)
+		x := el.Frame.X
+		for _, sg := range segs {
+			text.DrawStringTopAtWeight(dl, sg.s, x, el.Frame.Y, sg.col, size, sg.weight)
+			x += sg.w
+		}
+		dl.PopClip()
+	}
+	return el
 }
 
 func equalFoldRune(a, b rune) bool {

@@ -89,6 +89,14 @@ type Tree struct {
 	// IconFor optionally overrides the icon (and its color) for a node.
 	IconFor func(n *TreeNode, expanded bool) (icon icons.Icon, color render.Color)
 
+	// Leading, when set and returning a view, draws that view in place of a
+	// node's icon: a method badge, a color dot. Return nil for the icon.
+	Leading func(n *TreeNode) View
+	// Trailing, when set and returning a view, draws it right-aligned in the
+	// node's row, such as a count or a status dot. The label is clipped
+	// before it.
+	Trailing func(n *TreeNode) View
+
 	// ContextMenu builds the right-click menu items for a node. n is nil for
 	// a right-click on the empty space below the rows.
 	ContextMenu func(n *TreeNode) []MenuItem
@@ -107,11 +115,18 @@ type Tree struct {
 	// its own subtree is always rejected before CanDrop is consulted.
 	CanDrop func(ev DropEvent) bool
 
-	hover     int
-	selected  int
-	focused   bool
-	rowH      float32
-	markPaint func()
+	hover    int
+	selected int
+	active   *TreeNode // highlighted whether or not the tree has focus (Reveal, SetActive)
+	focused  bool
+
+	// Leading/Trailing views of the visible rows, in a layer clipped to the
+	// content viewport. slotFirst is the row index of leads[0] and trails[0].
+	slotLayer     *layout.Element
+	slotFirst     int
+	leads, trails []*layout.Element
+	rowH          float32
+	markPaint     func()
 
 	// drag-and-drop state
 	dragging      bool
@@ -143,7 +158,7 @@ func NewTree(root *TreeNode) *Tree {
 		root:          root,
 		hover:         -1,
 		selected:      -1,
-		rowH:          th.Typography.Body.LineHeight + th.Spacing.S,
+		rowH:          treeRowHeight(th),
 		ChevronOpen:   icons.ChevronDown,
 		ChevronClosed: icons.ChevronRight,
 	}
@@ -158,7 +173,9 @@ func NewTree(root *TreeNode) *Tree {
 	t.hbar = NewScrollbarAxis(Horizontal, &t.scrollX, &t.contentW, barSize)
 	t.menu = NewMenu(treeMenuW, nil)
 
-	t.host = layout.New(layout.Box().FlexGrow(1), t.vbar.host, t.hbar.host)
+	t.slotLayer = layout.New(layout.Box().AbsLeft(0).AbsTop(0))
+	t.slotLayer.Clip = true
+	t.host = layout.New(layout.Box().FlexGrow(1), t.slotLayer, t.vbar.host, t.hbar.host)
 	t.host.Clip = true
 	t.host.Paint = t.paint
 	t.host.OnMouse = t.onMouse
@@ -186,6 +203,9 @@ func (t *Tree) Layout(c *Ctx) *layout.Element {
 	c.Focus().Add(t)
 	t.markPaint = c.MarkNeedsPaint
 	t.Update(c.Mouse())
+	t.vbar.tick(c, t.host.Frame)
+	t.hbar.tick(c, t.host.Frame)
+	t.layoutSlots(c)
 	if t.menu.Open {
 		t.menu.BindPaint(c)
 		c.Overlay(t.menu.overlay())
@@ -271,8 +291,21 @@ func (t *Tree) Remove(n *TreeNode) bool {
 	if t.selected >= 0 && t.selected < len(t.visible) && t.visible[t.selected] == n {
 		t.selected = -1
 	}
+	if t.active != nil && (t.active == n || n.contains(t.active)) {
+		t.active = nil
+	}
 	t.rebuild()
 	return true
+}
+
+// contains reports whether d is somewhere below n.
+func (n *TreeNode) contains(d *TreeNode) bool {
+	for _, c := range n.Children {
+		if c == d || c.contains(d) {
+			return true
+		}
+	}
+	return false
 }
 
 // Rebuild refreshes the flattened visible row list after structural changes.
@@ -375,20 +408,20 @@ func (t *Tree) scrollMetrics() (clientW, clientH float32, vShow, hShow bool) {
 	f := t.host.Frame
 	clientW, clientH = f.W, f.H
 	vShow = t.contentH > clientH
-	bar := t.barSize()
+	vBar, hBar := t.vbar.gutter(t.barSize()), t.hbar.gutter(t.barSize())
 	if vShow {
-		clientW = f.W - bar
+		clientW = f.W - vBar
 	}
 	hShow = t.contentW > clientW
 	if hShow {
-		clientH = f.H - bar
+		clientH = f.H - hBar
 	}
 	if t.contentH > clientH {
 		vShow = true
-		clientW = f.W - bar
+		clientW = f.W - vBar
 		hShow = t.contentW > clientW
 		if hShow {
-			clientH = f.H - bar
+			clientH = f.H - hBar
 		}
 	}
 	return clientW, clientH, vShow, hShow
@@ -404,17 +437,17 @@ func (t *Tree) syncScrollbarLayout(vShow, hShow bool) {
 	if vShow {
 		bottom := float32(0)
 		if hShow {
-			bottom = t.barSize()
+			bottom = t.hbar.strip(t.barSize())
 		}
-		t.vbar.host.Style = layout.Box().W(t.barSize()).AbsTop(0).AbsRight(0).AbsBottom(bottom)
+		t.vbar.host.Style = layout.Box().W(t.vbar.strip(t.barSize())).AbsTop(0).AbsRight(0).AbsBottom(bottom)
 		t.vbar.host.ReapplyStyle()
 	}
 	if hShow {
 		right := float32(0)
 		if vShow {
-			right = t.barSize()
+			right = t.vbar.strip(t.barSize())
 		}
-		t.hbar.host.Style = layout.Box().H(t.barSize()).AbsLeft(0).AbsRight(right).AbsBottom(0)
+		t.hbar.host.Style = layout.Box().H(t.hbar.strip(t.barSize())).AbsLeft(0).AbsRight(right).AbsBottom(0)
 		t.hbar.host.ReapplyStyle()
 	}
 }
@@ -522,6 +555,8 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
 		} else if t.focused && i == t.selected {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
+		} else if n == t.active {
+			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
 		} else if i == t.hover {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListHover)
 		}
@@ -541,11 +576,22 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 		}
 
 		iconX := baseX + chevW
-		name, col := t.iconFor(n)
-		frameIcons().Draw(dl, name, render.Rect{X: iconX, Y: y + (t.rowH-iconW)/2, W: iconW, H: iconW}, col)
+		labelX := iconX + iconW + t.labelGap()
+		if lead := t.slotAt(t.leads, i); lead != nil {
+			labelX = lead.Frame.X + lead.Frame.W + t.labelGap()
+		} else {
+			name, col := t.iconFor(n)
+			frameIcons().Draw(dl, name, render.Rect{X: iconX, Y: y + (t.rowH-iconW)/2, W: iconW, H: iconW}, col)
+		}
 
 		_, lh := text.MeasureAt(n.Label, style.Size)
-		text.DrawStringTopAt(dl, n.Label, iconX+iconW+t.labelGap(), y+(t.rowH-lh)/2, th.Foreground, style.Size)
+		if trail := t.slotAt(t.trails, i); trail != nil {
+			dl.PushClip(render.Rect{X: vp.X, Y: y, W: f32max(0, trail.Frame.X-t.labelGap()-vp.X), H: t.rowH})
+			text.DrawStringTopAt(dl, n.Label, labelX, y+(t.rowH-lh)/2, th.Foreground, style.Size)
+			dl.PopClip()
+		} else {
+			text.DrawStringTopAt(dl, n.Label, labelX, y+(t.rowH-lh)/2, th.Foreground, style.Size)
+		}
 	}
 
 	// Draw drop indicator on top of row content.
@@ -597,13 +643,19 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 // overScrollbar reports whether the cursor is over a currently-visible bar.
 func (t *Tree) overScrollbar(m *input.Mouse) bool {
 	_, _, vShow, hShow := t.scrollMetrics()
-	if vShow && t.vbar.host.Frame.Contains(m.X, m.Y) {
+	if vShow && t.vbar.hit(m.X, m.Y) {
 		return true
 	}
-	if hShow && t.hbar.host.Frame.Contains(m.X, m.Y) {
+	if hShow && t.hbar.hit(m.X, m.Y) {
 		return true
 	}
 	return false
+}
+
+// SetScrollbars overrides the theme's ScrollbarMode for this tree.
+func (t *Tree) SetScrollbars(m theme.ScrollbarMode) {
+	t.vbar.SetMode(m)
+	t.hbar.SetMode(m)
 }
 
 func (t *Tree) onMouse(el *layout.Element, m *input.Mouse) {
@@ -895,6 +947,150 @@ func (t *Tree) HandleKeys(keys []input.KeyEvent) {
 	}
 }
 
+// slotAt is row i's view element in a Leading/Trailing list, or nil. Its
+// Frame holds where the view was laid out.
+func (t *Tree) slotAt(els []*layout.Element, i int) *layout.Element {
+	i -= t.slotFirst
+	if i < 0 || i >= len(els) {
+		return nil
+	}
+	return els[i]
+}
+
+// layoutSlots builds the Leading and Trailing views of the visible rows. Each
+// sits in a row-wide strip so its own frame, read back at paint, says where
+// the label goes.
+func (t *Tree) layoutSlots(c *Ctx) {
+	clear(t.slotLayer.Children)
+	t.slotLayer.Children = t.slotLayer.Children[:0]
+	clear(t.leads)
+	clear(t.trails)
+	t.leads, t.trails = t.leads[:0], t.trails[:0]
+	if t.Leading == nil && t.Trailing == nil {
+		return
+	}
+	clientW, clientH, _, _ := t.scrollMetrics()
+	t.slotLayer.Style.Width, t.slotLayer.Style.Height = clientW, clientH
+	t.slotLayer.ReapplyStyle()
+	t.slotFirst = max(0, int(t.scrollY/t.rowH))
+	// strip lays v out in a row-wide strip and returns v's own element.
+	strip := func(v View, left, w, top float32, end bool) *layout.Element {
+		kids, at := []View{v, Spacer()}, 0
+		if end {
+			kids, at = []View{Spacer(), v}, 1
+		}
+		el := Row(kids...).Align(AlignCenter).Layout(c)
+		el.Style.Pos = layout.PositionAbsolute
+		el.Style.Left, el.Style.Top = left, top
+		el.Style.Width, el.Style.Height = f32max(0, w), t.rowH
+		el.ReapplyStyle()
+		t.slotLayer.Children = append(t.slotLayer.Children, el)
+		return el.Children[at]
+	}
+	for i := t.slotFirst; i < len(t.visible); i++ {
+		top := float32(i)*t.rowH - t.scrollY
+		if top >= clientH {
+			break
+		}
+		n := t.visible[i]
+		var lead, trail *layout.Element
+		if t.Leading != nil {
+			if v := t.Leading(n); v != nil {
+				left := t.padX() + float32(n.depth)*t.indent() + t.chevW() - t.scrollX
+				lead = strip(v, left, clientW-left, top, false)
+			}
+		}
+		if t.Trailing != nil {
+			if v := t.Trailing(n); v != nil {
+				trail = strip(v, 0, clientW-t.padX(), top, true)
+			}
+		}
+		t.leads = append(t.leads, lead)
+		t.trails = append(t.trails, trail)
+	}
+}
+
+// Selected is the node under the tree's cursor (the keyboard selection), or
+// nil.
+func (t *Tree) Selected() *TreeNode {
+	if t.selected < 0 || t.selected >= len(t.visible) {
+		return nil
+	}
+	return t.visible[t.selected]
+}
+
+// Active is the node set by Reveal or SetActive, or nil.
+func (t *Tree) Active() *TreeNode { return t.active }
+
+// SetActive highlights n (nil clears it) whether or not the tree has focus,
+// as an editor's sidebar marks the open file. It does not expand or scroll;
+// see Reveal.
+func (t *Tree) SetActive(n *TreeNode) { t.active = n }
+
+// Reveal expands n's ancestors, makes n the selected and active node, and
+// scrolls it into view, centering it when it was off screen. It reports
+// false, changing nothing, when n is not in the tree (or is hidden by the
+// filter).
+func (t *Tree) Reveal(n *TreeNode) bool {
+	path := t.pathTo(n)
+	if path == nil {
+		return false
+	}
+	for _, a := range path[:len(path)-1] {
+		if !a.expanded {
+			a.expanded = true
+			t.ensureLoaded(a)
+		}
+	}
+	t.rebuild()
+	idx := -1
+	for i, v := range t.visible {
+		if v == n {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return false
+	}
+	t.selected = idx
+	t.active = n
+	top := float32(idx) * t.rowH
+	_, clientH, _, _ := t.scrollMetrics()
+	if top < t.scrollY || top+t.rowH > t.scrollY+clientH {
+		t.scrollY = top + t.rowH/2 - clientH/2
+	}
+	t.clampScroll()
+	if t.markPaint != nil {
+		t.markPaint()
+	}
+	return true
+}
+
+// pathTo returns the nodes from a top-level row down to n, searching the
+// loaded children, or nil when n is not among them.
+func (t *Tree) pathTo(n *TreeNode) []*TreeNode {
+	if n == nil {
+		return nil
+	}
+	var path []*TreeNode
+	var walk func(p *TreeNode) bool
+	walk = func(p *TreeNode) bool {
+		for _, c := range p.Children {
+			path = append(path, c)
+			if c == n || walk(c) {
+				return true
+			}
+			path = path[:len(path)-1]
+		}
+		return false
+	}
+	if !walk(t.root) {
+		return nil
+	}
+	return path
+}
+
 func (t *Tree) ensureSelectedVisible() {
 	if t.selected < 0 || t.selected >= len(t.visible) {
 		return
@@ -910,8 +1106,17 @@ func (t *Tree) ensureSelectedVisible() {
 	t.clampScroll()
 }
 
+// treeRowHeight is a tree row's height for th.
+func treeRowHeight(th *theme.Theme) float32 {
+	if th.Metrics.TreeRowHeight > 0 {
+		return th.Metrics.TreeRowHeight
+	}
+	return th.Typography.Body.LineHeight + th.Spacing.S
+}
+
 // Update drives the scrollbars. Call once per frame after layout.
 func (t *Tree) Update(m *input.Mouse) {
+	t.rowH = treeRowHeight(theme.Current())
 	t.computeContentSize()
 	_, _, vShow, hShow := t.scrollMetrics()
 	t.syncScrollbarLayout(vShow, hShow)

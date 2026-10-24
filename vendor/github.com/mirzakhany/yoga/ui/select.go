@@ -17,6 +17,8 @@ type SelectOption struct {
 type selectData struct {
 	options []SelectOption
 	colors  map[string]render.Color
+	colorFn func(SelectOption) render.Color
+	fit     bool
 }
 
 type selectState struct {
@@ -52,6 +54,29 @@ func (n *Node) OptionColor(value string, col render.Color) *Node {
 	return n
 }
 
+// OptionColors colors each option's label, in the menu and on the trigger
+// while it is selected, with the color fn returns for it (e.g. HTTP methods
+// in their hues). A zero color leaves that option uncolored.
+func (n *Node) OptionColors(fn func(SelectOption) render.Color) *Node {
+	if d, ok := n.extra.(*selectData); ok {
+		d.colorFn = fn
+	}
+	return n
+}
+
+// optionColor is the label color for opt, if it has one.
+func (d *selectData) optionColor(opt SelectOption) (render.Color, bool) {
+	if c, ok := d.colors[opt.Value]; ok {
+		return c, true
+	}
+	if d.colorFn != nil {
+		if c := d.colorFn(opt); c.A > 0 {
+			return c, true
+		}
+	}
+	return render.Color{}, false
+}
+
 func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 	id := n.id
 	if id == "" {
@@ -68,9 +93,13 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 
 	th := c.Theme()
 	h := c.controlHeight()
+	j := c.env.joined
 	w := n.spec.width
 	if !n.spec.hasW {
 		w = 160
+	}
+	if d.fit {
+		w = selectFitWidth(c, d, n.selected)
 	}
 	el := layout.New(applyLayoutSpec(layout.Box().W(w).H(h).FlexShrink(0), n.spec))
 	st.el = el
@@ -92,12 +121,12 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		sel = 0
 	}
 	label := ""
-	value := ""
+	var tint render.Color
+	hasTint := false
 	if sel < len(d.options) {
 		label = d.options[sel].Label
-		value = d.options[sel].Value
+		tint, hasTint = d.optionColor(d.options[sel])
 	}
-	tint, hasTint := d.colors[value]
 	onChange := n.onChange
 	onSelectIdx := n.onSelectIdx
 	options := d.options
@@ -109,7 +138,8 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 	items := make([]MenuItem, len(options))
 	for i, opt := range options {
 		i, opt := i, opt
-		items[i] = MenuItem{Label: opt.Label, OnSelect: func() {
+		col, _ := d.optionColor(opt)
+		items[i] = MenuItem{Label: opt.Label, Color: col, OnSelect: func() {
 			if onSelectIdx != nil {
 				onSelectIdx(i, opt.Value)
 			}
@@ -119,7 +149,10 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		}}
 	}
 	st.menu.SetItems(items)
-	st.menu.width = width
+	// The dropdown is at least as wide as the trigger, and wide enough for
+	// every option.
+	menuW := max(width, selectMenuWidth(c, options))
+	st.menu.width = menuW
 
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		f := el.Frame
@@ -134,7 +167,7 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		border := th.Border
 		if r.hasBorder {
 			border = r.border
-		} else if st.focused {
+		} else if focusVisible(st.focused) {
 			border = th.FocusRing
 		}
 		radius := th.Radius.Medium
@@ -142,7 +175,11 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 			radius = uniformRadius(r.radii, th.Radius.Medium)
 		}
 		bw := uniformBorderWidth(r.borderW, th.Stroke.Thin)
-		paintChromeBox(dl, f, r, bg, border, bw, radius)
+		if j.in {
+			paintJoinedFill(dl, f, j, bg, radius)
+		} else {
+			paintChromeBox(dl, f, r, bg, border, bw, radius)
+		}
 		labelCol := th.Foreground
 		if disabled {
 			labelCol = th.ForegroundDisabled
@@ -150,9 +187,12 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 			labelCol = r.fg
 		}
 		if hasTint && !disabled {
-			dl.PushClip(f)
-			dl.AddRect(render.Rect{X: f.X, Y: f.Y, W: 2, H: f.H}, tint)
-			dl.PopClip()
+			if !j.in && d.colorFn == nil {
+				// The value-keyed OptionColor also marks the trigger's edge.
+				dl.PushClip(f)
+				dl.AddRect(render.Rect{X: f.X, Y: f.Y, W: 2, H: f.H}, tint)
+				dl.PopClip()
+			}
 			labelCol = tint
 		}
 		style := th.Typography.Body
@@ -187,7 +227,7 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 				st.menu.Close()
 			} else {
 				fr := e.Frame
-				st.menu.width = triggerMenuWidth(width, fr.W)
+				st.menu.width = triggerMenuWidth(menuW, fr.W)
 				st.menu.OpenAt(fr.X, fr.Y+fr.H)
 			}
 			c.MarkNeedsPaint()
@@ -201,4 +241,41 @@ func (n *Node) layoutSelect(c *Ctx) *layout.Element {
 		c.Overlay(st.menu.overlay())
 	}
 	return el
+}
+
+// selectMenuWidth is the narrowest dropdown that shows every option's label
+// in full. A narrow trigger — a FitContent select showing a short option —
+// would otherwise clip the longer ones.
+func selectMenuWidth(c *Ctx, options []SelectOption) float32 {
+	th := c.Theme()
+	eng := c.Text()
+	var tw float32
+	for _, opt := range options {
+		w := th.Typography.Body.Size * 0.5 * float32(len(opt.Label))
+		if eng != nil {
+			w, _ = eng.MeasureAt(opt.Label, th.Typography.Body.Size)
+		}
+		tw = max(tw, w)
+	}
+	// Menu.paint insets labels by Spacing.MNudge inside a thin border.
+	return tw + 2*th.Spacing.MNudge + 2*float32(th.Stroke.Thin) + th.Spacing.S
+}
+
+// selectFitWidth is a FitContent select's width: its selected label, the
+// chevron and the padding around them.
+func selectFitWidth(c *Ctx, d *selectData, sel int) float32 {
+	th := c.Theme()
+	if sel < 0 || sel >= len(d.options) {
+		sel = 0
+	}
+	label := ""
+	if sel < len(d.options) {
+		label = d.options[sel].Label
+	}
+	tw := th.Typography.Body.Size * 0.5 * float32(len(label))
+	if eng := c.Text(); eng != nil {
+		tw, _ = eng.MeasureAt(label, th.Typography.Body.Size)
+	}
+	pad := th.Spacing.MNudge
+	return pad + tw + th.Spacing.S + th.Metrics.IconSizeSM + pad
 }

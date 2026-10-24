@@ -240,24 +240,30 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 
 	return ui.Column(
 		ui.Row(
-			ui.Select("http-method-"+id, methods).
-				Width(110).
-				Selected(optionIndex(http.Method, methods)).
-				OnChange(func(v string) { http.Method = v; c.markDirty() }),
-			container.AssistURLField(ui.TextField("http-url-"+id, http.URL), c.varSrc).
-				Placeholder("https://… or paste a curl command").
-				OnChange(func(s string) {
-					if cmd, ok := pastedCurl(ctx.Clipboard(), s); ok && c.applyCurl(cmd) {
-						return
-					}
-					http.URL = s
-					q, p := container.SyncParamsFromURL(s, container.DumpKV(c.pathParams))
-					container.LoadKV(c.queryParams, q)
-					container.LoadKV(c.pathParams, p)
-					c.markDirty()
-				}).
-				OnSubmit(func(string) { c.Send() }).
-				Grow(1),
+			// Method, URL and Send read as one control.
+			ui.InputGroup("http-request-"+id,
+				ui.Select("http-method-"+id, methods).
+					FitContent().
+					Selected(optionIndex(http.Method, methods)).
+					OptionColors(func(o ui.SelectOption) render.Color { return methodColor(th, o.Value) }).
+					OnChange(func(v string) { http.Method = v; c.markDirty() }),
+				container.AssistURLField(ui.TextField("http-url-"+id, http.URL), c.varSrc).
+					Placeholder("https://… or paste a curl command").
+					OnChange(func(s string) {
+						if cmd, ok := pastedCurl(ctx.Clipboard(), s); ok && c.applyCurl(cmd) {
+							return
+						}
+						http.URL = s
+						q, p := container.SyncParamsFromURL(s, container.DumpKV(c.pathParams))
+						container.LoadKV(c.queryParams, q)
+						container.LoadKV(c.pathParams, p)
+						c.markDirty()
+					}).
+					OnSubmit(func(string) { c.Send() }).
+					Grow(1),
+				ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).
+					Disabled(c.pending).OnClick(c.Send),
+			).Grow(1),
 			ui.Button("http-code-"+id, ui.Text("Code")).IconStart(icons.Code).OnClick(func() {
 				container.ShowCodeDialog(ctx, c.deps, c.req)
 			}),
@@ -266,8 +272,6 @@ func (c *Container) Layout(ctx *ui.Ctx) ui.View {
 					c.deps.ShowError(err)
 				}
 			}),
-			ui.Button("http-send-"+id, ui.Text("Send")).Primary().Hint("⌘↵").IconStart(icons.Play).
-				Disabled(c.pending).OnClick(c.Send),
 		).Gap(th.Spacing.S).Margin(th.Spacing.XS).
 			MarginTop(th.Spacing.S),
 		ui.Splitter("http-split-"+id, splitDir, c.reqPane(th), c.respPane(th, ctx)).
@@ -498,6 +502,14 @@ func (c *Container) handleResult(r result) {
 	c.timeline.SetSteps(res.Timeline)
 	vars := container.DumpVariables(c.vars)
 	container.UpdateVariablePreviews(c.vars, vars, res)
+}
+
+// methodColor is the method's categorical hue, as in the request tree.
+func methodColor(th *theme.Theme, method string) render.Color {
+	if h, ok := reqicons.MethodHue(method); ok {
+		return th.Categorical[h]
+	}
+	return th.ForegroundMuted
 }
 
 func methodOptions() []ui.SelectOption {
