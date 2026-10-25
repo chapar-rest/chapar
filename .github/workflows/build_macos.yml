@@ -61,11 +61,20 @@ jobs:
               -sign "$IDENTITY" -notarize
           done
 
+      # Signs each asset for Chapar's in-app updater (build/updatesign); the
+      # app refuses to install an update without a valid .sig next to it.
+      - name: Sign update assets
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: go run ./build/updatesign sign ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-*.dmg
+
       - name: Upload Release Assets
         run: |
           gh release upload ${{ github.event.release.tag_name }} \
-            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-amd64.dmg
+            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-amd64.dmg \
+            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-amd64.dmg.sig
           gh release upload ${{ github.event.release.tag_name }} \
-            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-arm64.dmg
+            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-arm64.dmg \
+            ./dist/darwin/chapar-macos-${{ github.event.release.tag_name }}-arm64.dmg.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

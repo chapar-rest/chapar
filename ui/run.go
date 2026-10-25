@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"log"
+
 	"github.com/mirzakhany/yoga"
 	"github.com/mirzakhany/yoga/theme"
 
 	"github.com/chapar-rest/chapar/internal/prefs"
+	"github.com/chapar-rest/chapar/internal/update"
 )
 
 // Run starts the Yoga UI. It must be called from the main goroutine.
@@ -17,5 +20,13 @@ func Run() error {
 		CustomTitleBar: true,
 	}
 	_ = theme.Current() // theme selected before Run so the first clear matches
-	return yoga.Run(cfg, BuildApp)
+	if err := yoga.Run(cfg, BuildApp); err != nil {
+		return err
+	}
+	if restartAfterExit.Load() {
+		if err := update.Restart(); err != nil {
+			log.Printf("restarting after the update: %v", err)
+		}
+	}
+	return nil
 }

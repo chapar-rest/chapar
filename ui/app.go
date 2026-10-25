@@ -66,6 +66,7 @@ type App struct {
 	lang     *langsrv.Service
 	// lspPromptClosed holds languages whose install prompt the user closed.
 	lspPromptClosed map[string]bool
+	upd             *updater
 	secrets         *secret.Manager
 	console         *ConsolePanel
 	notifs          NotificationHistory
@@ -79,7 +80,7 @@ var _ yoga.Closer = (*App)(nil)
 var _ yoga.KeyHook = (*App)(nil)
 
 func BuildApp() *App {
-	a := &App{console: &ConsolePanel{}, sideOpen: true, lspPromptClosed: map[string]bool{}}
+	a := &App{console: &ConsolePanel{}, sideOpen: true, lspPromptClosed: map[string]bool{}, upd: &updater{}}
 	a.lang = langsrv.New(nil)
 	a.lang.Apply(prefs.GetGlobalConfig().Spec.LanguageServers)
 	a.scripts = scriptsrv.New()
@@ -426,6 +427,7 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 	if a.uiCtx == nil {
 		a.lang.SetWake(c.Invalidate)
 		a.scripts.SetWake(c.Invalidate)
+		a.startUpdateCheck(c.Invalidate)
 	}
 	if a.uiCtx == nil && a.mitm != nil {
 		a.mitm.SetWake(c.Invalidate)
@@ -435,6 +437,7 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	a.reportLanguageServers()
 	a.reportSkippedFiles()
+	a.reportUpdate()
 
 	if a.initErr != nil {
 		return ui.Column(
