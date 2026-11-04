@@ -529,6 +529,14 @@ func (c *Container) settingsTab(th *theme.Theme, id string, spec *domain.GRPCReq
 			set.TimeoutMilliseconds = int(v)
 			c.markDirty()
 		}),
+		ui.FormNumber("grpc-max-recv-"+id, "Max response size (MB)", "Largest message the server may send back; zero keeps gRPC's 4 MB default", float64(set.MaxReceiveMessageSizeMB), 0, 2047, 1, func(v float64) {
+			set.MaxReceiveMessageSizeMB = int(v)
+			c.markDirty()
+		}),
+		ui.FormNumber("grpc-max-send-"+id, "Max request size (MB)", "Largest message Chapar may send; zero means no limit", float64(set.MaxSendMessageSizeMB), 0, 2047, 1, func(v float64) {
+			set.MaxSendMessageSizeMB = int(v)
+			c.markDirty()
+		}),
 	}
 	if !set.Insecure {
 		certFile := func(key, label, desc, placeholder string, path *string) ui.FormItem {
