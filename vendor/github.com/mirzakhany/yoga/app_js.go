@@ -29,9 +29,10 @@ type Window struct {
 	drawList render.DrawList
 	winHost  *jsWindowHost
 
-	logicalW, logicalH int
+	logicalW, logicalH int // CSS pixels, before zoom
 	fbW, fbH           int
 	dpr                float64
+	zoomGen            uint64 // zoom.gen last applied
 
 	wakeCh      chan struct{}
 	eventFuncs  []js.Func
@@ -161,7 +162,7 @@ func (a *Window) wireCallbacks() {
 		rect := a.canvas.Call("getBoundingClientRect")
 		x := float32(e.Get("clientX").Float() - rect.Get("left").Float())
 		y := float32(e.Get("clientY").Float() - rect.Get("top").Float())
-		a.mouse.SetPos(x, y)
+		a.mouse.SetPos(x/zoom.factor, y/zoom.factor)
 	})
 	add(a.canvas, "pointerdown", func(e js.Value) {
 		a.canvas.Call("setPointerCapture", e.Get("pointerId"))
@@ -172,6 +173,12 @@ func (a *Window) wireCallbacks() {
 			a.mouse.SetButton(true)
 		case 2:
 			a.mouse.SetRightButton(true)
+		case 1:
+			a.keyboard.PressKey(input.KeyMouseMiddle, mapDOMMods(e))
+		case 3:
+			a.keyboard.PressKey(input.KeyMouseBack, mapDOMMods(e))
+		case 4:
+			a.keyboard.PressKey(input.KeyMouseForward, mapDOMMods(e))
 		}
 	})
 	add(a.canvas, "pointerup", func(e js.Value) {
@@ -231,7 +238,11 @@ func (a *Window) handleResize() {
 	a.dpr = dpr
 	a.logicalW, a.logicalH = logicalW, logicalH
 	a.fbW, a.fbH = fbW, fbH
-	a.renderer.Resize(fbW, fbH, logicalW, logicalH)
+	a.zoomGen = zoom.gen
+	a.renderer.ResizeLogical(fbW, fbH, float32(logicalW)/zoom.factor, float32(logicalH)/zoom.factor)
+	if a.text.SetScale(float32(dpr)*zoom.factor) && a.uiCtx != nil {
+		a.uiCtx.MarkNeedsPaint()
+	}
 	if a.uiApp != nil {
 		a.uiCtx.MarkNeedsPaint()
 	}
@@ -257,6 +268,7 @@ func (a *Window) runApp(app App) {
 	a.uiApp = app
 	a.uiFocus = ui.NewFocusScope()
 	a.uiCtx = ui.New(a.text, a.uiFocus, a.wake)
+	zoom.wake = a.wake
 	a.uiCtx.SetIcons(Icons())
 	a.uiCtx.SetClipboard(a.clip)
 	a.uiCtx.SetWindow(a.winHost)
@@ -274,7 +286,10 @@ func (a *Window) runApp(app App) {
 			a.uiCtx.MarkNeedsPaint()
 		}
 
-		w, h := float32(a.logicalW), float32(a.logicalH)
+		if a.zoomGen != zoom.gen {
+			a.handleResize()
+		}
+		w, h := float32(a.logicalW)/zoom.factor, float32(a.logicalH)/zoom.factor
 		if w > 0 && h > 0 {
 			if w != lastW || h != lastH {
 				a.uiCtx.MarkNeedsPaint()
@@ -293,6 +308,7 @@ func (a *Window) runApp(app App) {
 			a.uiCtx.BeginInputPhase()
 			layout.Dispatch(inRoot, a.mouse)
 			a.uiFocus.HandleMouse(a.mouse)
+			a.uiFocus.RouteClaimed(a.keyboard)
 			if a.uiCtx.Commands() != nil {
 				a.uiCtx.Commands().Dispatch(a.keyboard)
 			}
@@ -557,6 +573,12 @@ func mapDOMKey(key, code string) (input.Key, bool) {
 		return input.KeyApostrophe, true
 	case "\\":
 		return input.KeyBackslash, true
+	case "PageUp":
+		return input.KeyPageUp, true
+	case "PageDown":
+		return input.KeyPageDown, true
+	case "Insert":
+		return input.KeyInsert, true
 	}
 	_ = code
 	return input.KeyNone, false

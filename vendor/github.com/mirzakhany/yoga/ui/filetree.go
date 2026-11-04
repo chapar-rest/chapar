@@ -6,8 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mirzakhany/yoga/icons"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
+	"github.com/mirzakhany/yoga/render"
 )
 
 // FileTree is a recursive directory explorer. It is a thin wrapper over the
@@ -22,6 +24,13 @@ type FileTree struct {
 	OnChange   func()
 	// OnMove fires after a successful drag-and-drop move with the old and new paths.
 	OnMove func(src, dst string)
+	// Hidden, when set, decides which directory entries are left out; it is
+	// read on every directory load. Nil hides dotfiles.
+	Hidden func(name string, dir bool) bool
+	// OnKey, when set, sees each key while the tree is focused, with the
+	// selected entry's path ("" for none), before the tree's own navigation.
+	// It returns true for keys it handled, such as copy and paste.
+	OnKey func(path string, ev input.KeyEvent) bool
 }
 
 // NewFileTree builds an explorer for rootPath, eagerly reading the top level so
@@ -43,7 +52,7 @@ func NewFileTree(rootPath string) *FileTree {
 		var kids []*TreeNode
 		for _, de := range entries {
 			name := de.Name()
-			if len(name) > 0 && name[0] == '.' {
+			if ft.hidden(name, de.IsDir()) {
 				continue
 			}
 			kids = append(kids, &TreeNode{
@@ -168,7 +177,23 @@ func (ft *FileTree) Focused() bool { return ft.tree.Focused() }
 func (ft *FileTree) HandleText(runes []rune) { ft.tree.HandleText(runes) }
 
 // HandleKeys processes keyboard navigation for the file tree.
-func (ft *FileTree) HandleKeys(keys []input.KeyEvent) { ft.tree.HandleKeys(keys) }
+func (ft *FileTree) HandleKeys(keys []input.KeyEvent) {
+	if ft.OnKey == nil || !ft.tree.Focused() {
+		ft.tree.HandleKeys(keys)
+		return
+	}
+	path := ""
+	if n := ft.tree.Selected(); n != nil {
+		path, _ = n.Data.(string)
+	}
+	rest := keys[:0:0]
+	for _, ev := range keys {
+		if !ft.OnKey(path, ev) {
+			rest = append(rest, ev)
+		}
+	}
+	ft.tree.HandleKeys(rest)
+}
 
 // CapturesTab reports that plain Tab should move focus rather than act on the tree.
 func (ft *FileTree) CapturesTab() bool { return false }
@@ -179,15 +204,147 @@ func (ft *FileTree) FocusOnClick() bool { return true }
 // FocusEl returns the element used for click-to-focus hit testing.
 func (ft *FileTree) FocusEl() *layout.Element { return ft.tree.FocusEl() }
 
-// SetContextMenu installs a builder for the per-file right-click menu.
+// SetContextMenu installs a builder for the right-click menu. path is the
+// clicked file or folder, or "" for the empty space below the rows.
 func (ft *FileTree) SetContextMenu(fn func(path string) []MenuItem) {
 	ft.tree.ContextMenu = func(n *TreeNode) []MenuItem {
 		if n == nil {
-			return nil
+			return fn("")
 		}
 		p, _ := n.Data.(string)
 		return fn(p)
 	}
+}
+
+// SetLabelColor colors file and folder names, for example by git status.
+// fn returns false to keep the default color.
+func (ft *FileTree) SetLabelColor(fn func(path string, dir bool) (render.Color, bool)) {
+	if fn == nil {
+		ft.tree.LabelColor = nil
+		return
+	}
+	ft.tree.LabelColor = func(n *TreeNode) (render.Color, bool) {
+		p, _ := n.Data.(string)
+		return fn(p, n.branch())
+	}
+}
+
+// SetIconFor picks the glyph and its color for each row, for example by file
+// type. open is whether a folder is expanded. fn nil restores the defaults.
+func (ft *FileTree) SetIconFor(fn func(path string, dir, open bool) (icons.Icon, render.Color)) {
+	if fn == nil {
+		ft.tree.IconFor = nil
+		return
+	}
+	ft.tree.IconFor = func(n *TreeNode, expanded bool) (icons.Icon, render.Color) {
+		p, _ := n.Data.(string)
+		return fn(p, n.branch(), expanded)
+	}
+}
+
+// CollapseAll closes every open folder and then fires OnChange.
+func (ft *FileTree) CollapseAll() {
+	ft.tree.CollapseAll()
+	if ft.OnChange != nil {
+		ft.OnChange()
+	}
+}
+
+func (ft *FileTree) hidden(name string, dir bool) bool {
+	if ft.Hidden != nil {
+		return ft.Hidden(name, dir)
+	}
+	return len(name) > 0 && name[0] == '.'
+}
+
+// Root returns the directory the tree shows.
+func (ft *FileTree) Root() string {
+	p, _ := ft.tree.root.Data.(string)
+	return p
+}
+
+// Reload re-reads the directory at path from disk after something changed
+// it. Children that still exist keep their nodes, so expanded folders stay
+// expanded. A path not loaded in the tree (or a file's path, which reloads its
+// directory) is ignored when no loaded node matches.
+func (ft *FileTree) Reload(path string) {
+	n := ft.find(path)
+	if n != nil && n.Leaf {
+		n = n.parent
+	}
+	if n == nil {
+		return
+	}
+	if !n.loaded {
+		return
+	}
+	old := map[string]*TreeNode{}
+	for _, c := range n.Children {
+		if p, ok := c.Data.(string); ok {
+			old[p] = c
+		}
+	}
+	kids := ft.tree.Loader(n)
+	for i, k := range kids {
+		if p, ok := k.Data.(string); ok {
+			if o := old[p]; o != nil && o.Leaf == k.Leaf {
+				kids[i] = o
+			}
+		}
+	}
+	n.Children = kids
+	for _, c := range kids {
+		c.parent = n
+		c.depth = n.depth + 1
+	}
+	ft.tree.rebuild()
+}
+
+// Reveal expands the folders down to path, loading them as needed, then
+// selects and scrolls to its row. It reports false when path is outside the
+// tree or does not exist.
+func (ft *FileTree) Reveal(path string) bool {
+	root := ft.Root()
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+	n := ft.tree.root
+	if rel != "." {
+		for _, part := range strings.Split(rel, string(filepath.Separator)) {
+			ft.tree.ensureLoaded(n)
+			var next *TreeNode
+			for _, c := range n.Children {
+				if c.Label == part {
+					next = c
+					break
+				}
+			}
+			if next == nil {
+				return false
+			}
+			n = next
+		}
+	}
+	return ft.tree.Reveal(n)
+}
+
+// find returns the loaded node whose path is path, or nil.
+func (ft *FileTree) find(path string) *TreeNode {
+	path = filepath.Clean(path)
+	var walk func(n *TreeNode) *TreeNode
+	walk = func(n *TreeNode) *TreeNode {
+		if p, ok := n.Data.(string); ok && filepath.Clean(p) == path {
+			return n
+		}
+		for _, c := range n.Children {
+			if f := walk(c); f != nil {
+				return f
+			}
+		}
+		return nil
+	}
+	return walk(ft.tree.root)
 }
 
 // reloadNode clears a directory node's children and re-reads them from disk if

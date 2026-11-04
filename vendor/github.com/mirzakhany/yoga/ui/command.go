@@ -12,7 +12,7 @@ type Command struct {
 	detail   string // secondary line (path, description); preferred over group in the row
 	group    string
 	icon     icons.Icon
-	shortcut Chord
+	shortcut KeySeq
 	enabled  bool
 	hidden   bool
 	section  bool // non-selectable labeled separator
@@ -85,17 +85,25 @@ func (c *Command) Alt(chord string, fn func()) *Command {
 // "Alternate").
 func (c *Command) AltLabel(s string) *Command { c.altLabel = s; return c }
 
-// Shortcut parses and attaches a chord (e.g. "⌘S", "Mod+K"). Invalid strings are ignored.
+// Shortcut parses and attaches a shortcut: a chord (e.g. "⌘S", "Mod+K",
+// "Alt+Mouse4") or two in a row ("Mod+K Mod+S"). Invalid strings are
+// ignored.
 func (c *Command) Shortcut(s string) *Command {
-	if ch, err := ParseChord(s); err == nil {
-		c.shortcut = ch
+	if seq, err := ParseKeySeq(s); err == nil {
+		c.shortcut = seq
 	}
 	return c
 }
 
 // ShortcutChord attaches a pre-parsed chord.
 func (c *Command) ShortcutChord(ch Chord) *Command {
-	c.shortcut = ch
+	c.shortcut = KeySeq{First: ch}
+	return c
+}
+
+// ShortcutSeq attaches a pre-parsed shortcut.
+func (c *Command) ShortcutSeq(s KeySeq) *Command {
+	c.shortcut = s
 	return c
 }
 

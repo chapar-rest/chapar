@@ -3,10 +3,10 @@ package layout
 import "math"
 
 type flexItem struct {
-	child                      *Element
-	basis, main, cross         float32
-	mMain                      float32
-	mCrossStart, mCrossEnd     float32
+	child                  *Element
+	basis, main, cross     float32
+	mMain                  float32
+	mCrossStart, mCrossEnd float32
 }
 
 type flexLineRange struct {

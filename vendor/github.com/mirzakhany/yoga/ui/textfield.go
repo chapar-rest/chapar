@@ -27,6 +27,11 @@ type TextFieldConfig struct {
 	Radius      float32
 	BorderWidth float32
 	Height      float32
+	// Multiline makes the input a text area (see TextArea): newlines are
+	// kept, long lines wrap, and the height follows the line count between
+	// MinRows and MaxRows.
+	Multiline        bool
+	MinRows, MaxRows int
 }
 
 // TextField is a single-line text input with optional border, rounded corners,
@@ -62,6 +67,17 @@ type TextInput struct {
 	// the content is wider than the field.
 	scrollX float32
 
+	// Multi-line state: the vertical scroll, the x Up/Down keeps to (<0 for
+	// none), the wrap of the value and the width it was made at, and the
+	// caret and value followCaret last scrolled to.
+	scrollY   float32
+	goalX     float32
+	spans     []textSpan
+	wrapW     float32
+	wrapText  string
+	seenCaret int
+	seenValue string
+
 	// Multi-click tracking for word (double) and select-all (triple) selection.
 	lastClickTime time.Time
 	lastClickX    float32
@@ -79,6 +95,19 @@ type TextInput struct {
 	menu  editMenu
 	sugg  suggestState
 	hover hoverState
+
+	embed fieldEmbed // set when another widget hosts and draws the field
+}
+
+// fieldEmbed is how a widget that hosts a TextInput inside its own painting,
+// such as the editor's find bar, styles it: the host draws the box, and padR
+// keeps room on the right for the host's own buttons.
+type fieldEmbed struct {
+	on       bool
+	padR     float32
+	bg, line render.Color
+	fg       render.Color
+	hasFg    bool
 }
 
 // textSnap is a TextInput state that undo/redo returns to.
@@ -107,6 +136,7 @@ func NewTextInput(cfg TextFieldConfig) *TextInput {
 		blinkStart: time.Now(),
 		caretShown: true,
 		selAnchor:  -1,
+		goalX:      -1,
 		hover:      hoverState{off: -1},
 	}
 	padX := th.Spacing.MNudge
@@ -205,7 +235,7 @@ func (tf *TextInput) textRight() float32 {
 	if !tf.cfg.IconEnd.Empty() {
 		x -= tf.iconSize() + tf.iconGap()
 	}
-	return x
+	return x - tf.embed.padR
 }
 
 // displayPrefixFor returns the display text up to the given Value byte offset,
@@ -338,6 +368,7 @@ func (tf *TextInput) moveTo(off int, extend bool) {
 		tf.selAnchor = -1
 	}
 	tf.caret = off
+	tf.goalX = -1
 	tf.lastMerge = mergeNone
 	tf.blinkStart = time.Now()
 	tf.caretShown = true
@@ -350,6 +381,7 @@ func (tf *TextInput) moveTo(off int, extend bool) {
 // typed is the text a mergeType edit inserts.
 func (tf *TextInput) edit(merge editMerge, typed string, fn func()) {
 	before := textSnap{tf.Value, tf.caret, tf.selAnchor}
+	tf.goalX = -1
 	fn()
 	if tf.Value == before.value {
 		return
@@ -436,10 +468,7 @@ func (tf *TextInput) Redo() {
 }
 
 func (tf *TextInput) setValue(s string) {
-	// Single line: strip newlines.
-	if i := strings.IndexAny(s, "\n\r"); i >= 0 {
-		s = s[:i]
-	}
+	s = tf.oneLine(s)
 	if s == tf.Value {
 		tf.clampCaret()
 		return
@@ -449,6 +478,18 @@ func (tf *TextInput) setValue(s string) {
 	if tf.OnChange != nil {
 		tf.OnChange(s)
 	}
+}
+
+// oneLine keeps a single-line field's value to its first line; a multi-line
+// field keeps every line, with line endings made LF.
+func (tf *TextInput) oneLine(s string) string {
+	if tf.cfg.Multiline {
+		return normalizeNewlines(s)
+	}
+	if i := strings.IndexAny(s, "\n\r"); i >= 0 {
+		s = s[:i]
+	}
+	return s
 }
 
 func (tf *TextInput) clampCaret() {
@@ -464,9 +505,7 @@ func (tf *TextInput) insertAtCaret(s string) {
 	if s == "" {
 		return
 	}
-	if i := strings.IndexAny(s, "\n\r"); i >= 0 {
-		s = s[:i]
-	}
+	s = tf.oneLine(s)
 	if s == "" {
 		return
 	}
@@ -491,7 +530,13 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 		bg = r.bg
 	}
 	border := th.Border
-	if tf.joined.in {
+	if tf.embed.on {
+		border = tf.embed.line
+		if tf.focused {
+			border = th.FocusRing
+		}
+		dl.AddRoundedRectBorder(f, tf.cfg.Radius, tf.cfg.BorderWidth, tf.embed.bg, border)
+	} else if tf.joined.in {
 		paintJoinedFill(dl, f, tf.joined, bg, uniformRadius(r.radii, tf.cfg.Radius))
 	} else if r.hasBorder {
 		border = r.border
@@ -503,12 +548,15 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 	}
 	bw := uniformBorderWidth(r.borderW, tf.cfg.BorderWidth)
 	radius := uniformRadius(r.radii, tf.cfg.Radius)
-	if !tf.joined.in {
+	if !tf.joined.in && !tf.embed.on {
 		paintChromeBox(dl, f, r, bg, border, bw, radius)
 	}
 
 	iconSz := tf.iconSize()
 	iconY := f.Y + (f.H-iconSz)/2
+	if tf.cfg.Multiline {
+		iconY = f.Y + (theme.Current().Metrics.ControlHeight-iconSz)/2
+	}
 	if !tf.cfg.IconStart.Empty() {
 		ix := f.X + tf.padX()
 		sheet.Draw(dl, tf.cfg.IconStart, render.Rect{X: ix, Y: iconY, W: iconSz, H: iconSz}, th.ForegroundMuted)
@@ -516,6 +564,17 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 	if !tf.cfg.IconEnd.Empty() {
 		ix := f.X + f.W - tf.padX() - iconSz
 		sheet.Draw(dl, tf.cfg.IconEnd, render.Rect{X: ix, Y: iconY, W: iconSz, H: iconSz}, th.ForegroundMuted)
+	}
+
+	if tf.cfg.Multiline {
+		col := th.Foreground
+		if tf.disabled {
+			col = th.ForegroundDisabled
+		} else if r.hasFg {
+			col = r.fg
+		}
+		tf.paintLines(dl, col)
+		return
 	}
 
 	tx := tf.textLeft()
@@ -533,6 +592,9 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 		col = th.ForegroundDisabled
 	} else if r.hasFg {
 		col = r.fg
+	}
+	if tf.embed.hasFg {
+		col = tf.embed.fg
 	}
 	if show == "" && !tf.focused {
 		show = tf.cfg.Placeholder
@@ -571,10 +633,18 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 		return
 	}
 	tf.trackHover(e, m)
+	if tf.cfg.Multiline && m.ScrollY != 0 && e.Frame.Contains(m.X, m.Y) {
+		maxScroll := f32max(0, float32(len(tf.lines()))*tf.lineHeight()-tf.viewH())
+		if maxScroll > 0 {
+			tf.scrollY = clampf(tf.scrollY-m.ScrollY*WheelPixelsPerUnit, 0, maxScroll)
+			m.ScrollY = 0
+			m.Consumed = true
+		}
+	}
 	if m.RightPressed && e.Frame.Contains(m.X, m.Y) {
 		// Keep a selection the click lands in, so the menu can act on it;
 		// anywhere else moves the caret there first.
-		off := tf.offsetAtX(m.X)
+		off := tf.offsetAt(m.X, m.Y)
 		if lo, hi := tf.selRange(); !tf.hasSelection() || off < lo || off > hi {
 			tf.moveTo(off, false)
 		}
@@ -584,7 +654,7 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 		return
 	}
 	if m.Pressed && e.Frame.Contains(m.X, m.Y) {
-		off := tf.offsetAtX(m.X)
+		off := tf.offsetAt(m.X, m.Y)
 		now := time.Now()
 		if now.Sub(tf.lastClickTime) < doubleClickInterval && absF(m.X-tf.lastClickX) <= multiClickSlop {
 			tf.clickCount++
@@ -597,6 +667,7 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 		tf.lastClickTime = now
 		tf.lastClickX = m.X
 		tf.lastMerge = mergeNone
+		tf.goalX = -1
 
 		switch tf.clickCount {
 		case 2: // word selection; a password is one word, so its spaces stay hidden
@@ -622,7 +693,7 @@ func (tf *TextInput) onMouse(e *layout.Element, m *input.Mouse) {
 	}
 	// Drag extends the selection, even past the field's edges.
 	if tf.dragging && m.Down {
-		tf.caret = tf.offsetAtX(m.X)
+		tf.caret = tf.offsetAt(m.X, m.Y)
 	}
 	if !m.Down {
 		tf.dragging = false
@@ -725,6 +796,17 @@ func (tf *TextInput) SelectAll() {
 	tf.caret = len(tf.Value)
 }
 
+// SetSelection selects the byte range from anchor to caret, clamped to the
+// value; the caret ends up at caret. Equal offsets just place the caret.
+func (tf *TextInput) SetSelection(anchor, caret int) {
+	if tf.disabled {
+		return
+	}
+	clamp := func(i int) int { return max(0, min(i, len(tf.Value))) }
+	tf.selAnchor = clamp(anchor)
+	tf.caret = clamp(caret)
+}
+
 // HasSelection reports whether a non-empty range is selected.
 func (tf *TextInput) HasSelection() bool { return tf.hasSelection() }
 
@@ -768,7 +850,8 @@ func (tf *TextInput) Cut() {
 	}
 }
 
-// Paste replaces the selection with the first line of the clipboard text.
+// Paste replaces the selection with the clipboard text: its first line, unless
+// the field is multi-line.
 func (tf *TextInput) Paste() {
 	clip := frameClipboard()
 	if tf.disabled || clip == nil {
@@ -804,6 +887,11 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 			continue
 		}
 		if ev.Key == input.KeyEnter && !ev.Mods.Primary() {
+			if tf.cfg.Multiline && (shift || tf.OnSubmit == nil) {
+				tf.edit(mergeNone, "", func() { tf.insertAtCaret("\n") })
+				tf.refreshSuggest()
+				continue
+			}
 			if tf.OnSubmit != nil {
 				tf.OnSubmit(tf.Value)
 			}
@@ -811,6 +899,10 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 		}
 		if ev.Mods.Primary() {
 			switch ev.Key {
+			case input.KeyUp, input.KeyHome:
+				tf.moveTo(0, shift)
+			case input.KeyDown, input.KeyEnd:
+				tf.moveTo(len(tf.Value), shift)
 			case input.KeyA:
 				tf.SelectAll()
 			case input.KeyC:
@@ -865,10 +957,28 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 			} else {
 				tf.moveTo(nextRuneOff(tf.Value, tf.caret), shift)
 			}
+		case input.KeyUp, input.KeyDown:
+			if tf.cfg.Multiline {
+				delta := 1
+				if ev.Key == input.KeyUp {
+					delta = -1
+				}
+				tf.moveLine(delta, shift)
+			}
 		case input.KeyHome:
-			tf.moveTo(0, shift)
+			if tf.cfg.Multiline {
+				lo, _ := tf.lineBounds()
+				tf.moveTo(lo, shift)
+			} else {
+				tf.moveTo(0, shift)
+			}
 		case input.KeyEnd:
-			tf.moveTo(len(tf.Value), shift)
+			if tf.cfg.Multiline {
+				_, hi := tf.lineBounds()
+				tf.moveTo(hi, shift)
+			} else {
+				tf.moveTo(len(tf.Value), shift)
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
@@ -19,6 +20,13 @@ type cardData struct {
 	title, subtitle string
 	body            View
 	variant         CardVariant
+	actions         []View
+	footer          View
+	selected        bool
+}
+
+type cardState struct {
+	hovered, pressed bool
 }
 
 // Card is a surfaced container with optional title, subtitle, and body.
@@ -42,6 +50,40 @@ func (n *Node) Flat() *Node {
 	return n
 }
 
+// Actions puts views, such as an IconButton or a "..." MenuButton, at the
+// right end of the card's title row. Their clicks do not reach the card.
+func (n *Node) Actions(views ...View) *Node {
+	if d, ok := n.extra.(*cardData); ok {
+		d.actions = views
+	}
+	return n
+}
+
+// Footer puts a view below the card's body.
+func (n *Node) Footer(v View) *Node {
+	if d, ok := n.extra.(*cardData); ok {
+		d.footer = v
+	}
+	return n
+}
+
+// CardSelected paints the card's border in the accent color.
+func (n *Node) CardSelected(v bool) *Node {
+	if d, ok := n.extra.(*cardData); ok {
+		d.selected = v
+	}
+	return n
+}
+
+// ClickableCard is a Card that highlights under the pointer and runs the
+// handler set with OnClick when clicked. id keys hover and press across
+// frames.
+func ClickableCard(id, title, subtitle string, body View) *Node {
+	n := Card(title, subtitle, body)
+	n.id = id
+	return n
+}
+
 func (n *Node) layoutCard(c *Ctx) *layout.Element {
 	th := c.Theme()
 	d, _ := n.extra.(*cardData)
@@ -50,8 +92,21 @@ func (n *Node) layoutCard(c *Ctx) *layout.Element {
 	}
 	pad := th.Spacing.L
 	var kids []View
+	var head []View
 	if d.title != "" {
-		kids = append(kids, Text(d.title).Size(th.Typography.Subtitle.Size).Weight(th.Typography.Subtitle.Weight))
+		head = append(head, Text(d.title).Size(th.Typography.Subtitle.Size).Weight(th.Typography.Subtitle.Weight).Ellipsis(EllipsisEnd).Grow(1))
+	}
+	if len(d.actions) > 0 {
+		if d.title == "" {
+			head = append(head, Spacer())
+		}
+		head = append(head, d.actions...)
+	}
+	switch {
+	case len(d.actions) > 0:
+		kids = append(kids, Row(head...).Gap(th.Spacing.XS).Align(AlignCenter))
+	case len(head) > 0:
+		kids = append(kids, head[0])
 	}
 	if d.subtitle != "" {
 		kids = append(kids, Text(d.subtitle).Size(th.Typography.Caption.Size).Style(Spec{}.TextColor(TokenForegroundMuted)))
@@ -59,8 +114,16 @@ func (n *Node) layoutCard(c *Ctx) *layout.Element {
 	if d.body != nil {
 		kids = append(kids, d.body)
 	}
+	if d.footer != nil {
+		kids = append(kids, d.footer)
+	}
 	el := Column(kids...).Gap(th.Spacing.XS).Padding(pad).Style(n.spec).Layout(c)
+	var st *cardState
+	if n.id != "" {
+		st = c.Widget(n.id, func() any { return &cardState{} }).(*cardState)
+	}
 	variant := d.variant
+	selected := d.selected
 	prev := el.Paint
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		r := th.Radius.Large
@@ -70,9 +133,37 @@ func (n *Node) layoutCard(c *Ctx) *layout.Element {
 		case CardRaised:
 			drawElevationShadow(dl, el.Frame, r, th.Elevation.ShadowSm)
 		}
-		dl.AddRoundedRectBorder(el.Frame, r, th.Stroke.Thin, th.Chrome, th.Border)
+		fill, border := th.Chrome, th.Border
+		if st != nil && st.hovered {
+			fill = th.ListHover
+		}
+		if selected {
+			border = th.Accent
+		}
+		dl.AddRoundedRectBorder(el.Frame, r, th.Stroke.Thin, fill, border)
 		if prev != nil {
 			prev(dl, text)
+		}
+	}
+	if st != nil {
+		onClick := n.onClick
+		el.OnMouse = func(e *layout.Element, m *input.Mouse) {
+			inside := e.Frame.Contains(m.X, m.Y)
+			trackHover(c, &st.hovered, inside)
+			if inside && onClick != nil {
+				m.SetCursor(CursorPointer)
+			}
+			if inside && m.Pressed {
+				trackBool(c, &st.pressed, true)
+				m.Consumed = true
+			}
+			if m.Released {
+				if st.pressed && inside && onClick != nil {
+					onClick()
+					c.MarkNeedsPaint()
+				}
+				trackBool(c, &st.pressed, false)
+			}
 		}
 	}
 	return el

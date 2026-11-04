@@ -77,12 +77,16 @@ type CommandsHost struct {
 	scope       string
 	placeholder string
 
-	cmds     []*Command // this frame's registrations
-	byID     map[string]int
-	toggle   Chord
-	filtered []*Command
-	hoverRow int // mouse highlight; -1 = none (persists across frames)
-	ctx      *Ctx
+	cmds   []*Command // this frame's registrations
+	byID   map[string]int
+	toggle Chord
+	// pending is the first chord of a two-chord shortcut, waiting for the
+	// second key.
+	pending    Chord
+	hasPending bool
+	filtered   []*Command
+	hoverRow   int // mouse highlight; -1 = none (persists across frames)
+	ctx        *Ctx
 
 	listSV   *ScrollView
 	listView float32
@@ -216,6 +220,21 @@ func (h *CommandsHost) Dispatch(kb *input.Keyboard) {
 	}
 	kept := kb.Keys[:0]
 	for _, ev := range kb.Keys {
+		if h.hasPending {
+			// The key after a sequence's first chord belongs to the
+			// sequence, whether or not it completes one.
+			h.hasPending = false
+			if cmd := h.matchSecond(ev); cmd != nil {
+				h.run(cmd)
+			}
+			continue
+		}
+		if !h.Open && h.startsSequence(ev) {
+			// A chord that begins a two-chord shortcut waits for the next
+			// key, even when it is also a shortcut of its own.
+			h.pending, h.hasPending = chordOf(ev), true
+			continue
+		}
 		if h.toggle.Valid() && h.toggle.Matches(ev) {
 			h.Toggle()
 			continue
@@ -234,6 +253,59 @@ func (h *CommandsHost) Dispatch(kb *input.Keyboard) {
 	kb.Keys = kept
 }
 
+// Run runs the registered command id, as if picked in the palette, and
+// reports whether it ran: it must be registered this frame and enabled.
+// Apps use it for extra bindings of a command, such as keybindings that
+// apply only in some context.
+func (h *CommandsHost) Run(id string) bool {
+	i, ok := h.byID[id]
+	if !ok || i >= len(h.cmds) {
+		return false
+	}
+	cmd := h.cmds[i]
+	if cmd == nil || cmd.section || !cmd.enabled || cmd.run == nil {
+		return false
+	}
+	cmd.run()
+	return true
+}
+
+// Pending returns the first chord of a two-chord shortcut that is waiting
+// for its second key, such as "⌘K", or "" when none is. Show it in a status
+// bar so the wait is not a mystery.
+func (h *CommandsHost) Pending() string {
+	if !h.hasPending {
+		return ""
+	}
+	return h.pending.Label()
+}
+
+// chordOf is the chord a key event presses.
+func chordOf(ev input.KeyEvent) Chord { return Chord{Key: ev.Key, Mods: ev.Mods} }
+
+func (h *CommandsHost) startsSequence(ev input.KeyEvent) bool {
+	for _, cmd := range h.cmds {
+		if cmd != nil && !cmd.section && cmd.enabled && cmd.shortcut.Then.Valid() && cmd.shortcut.First.Matches(ev) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchSecond finds the two-chord shortcut the pending chord and ev make.
+func (h *CommandsHost) matchSecond(ev input.KeyEvent) *Command {
+	first := input.KeyEvent{Key: h.pending.Key, Mods: h.pending.Mods}
+	for _, cmd := range h.cmds {
+		if cmd == nil || cmd.section || !cmd.enabled || !cmd.shortcut.Then.Valid() {
+			continue
+		}
+		if cmd.shortcut.First.Matches(first) && cmd.shortcut.Then.Matches(ev) {
+			return cmd
+		}
+	}
+	return nil
+}
+
 func (h *CommandsHost) modalBlocked() bool {
 	c := h.ctx
 	if c == nil {
@@ -250,10 +322,10 @@ func (h *CommandsHost) modalBlocked() bool {
 
 func (h *CommandsHost) matchShortcut(ev input.KeyEvent) *Command {
 	for _, cmd := range h.cmds {
-		if cmd == nil || cmd.section || !cmd.enabled || !cmd.shortcut.Valid() {
+		if cmd == nil || cmd.section || !cmd.enabled || !cmd.shortcut.Valid() || cmd.shortcut.Then.Valid() {
 			continue
 		}
-		if cmd.shortcut.Matches(ev) {
+		if cmd.shortcut.First.Matches(ev) {
 			return cmd
 		}
 	}
@@ -506,12 +578,7 @@ func (h *CommandsHost) Layout(c *Ctx) *layout.Element {
 	if c.Focus() != nil {
 		c.Focus().BeginModal()
 	}
-	inner := h.chrome(c)
-	var innerEl *layout.Element
-	if inner != nil {
-		innerEl = inner.Layout(c)
-	}
-	host := layout.New(layout.Box().Absolute(x, y).Size(dw, dh), innerEl)
+	host := layout.New(layout.Box().Absolute(x, y).Size(dw, dh), h.chrome(c).Layout(c))
 	host.Overlay = true
 	host.Paint = func(dl *render.DrawList, _ *shape.Engine) {
 		r := th.Radius.Large

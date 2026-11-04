@@ -342,9 +342,10 @@ func (d *FileDialog) footer(_ *theme.Theme) View {
 		})
 	}
 	openLabel := "Open"
-	if d.opts.Mode == FileDialogOpenFolder {
+	switch d.opts.Mode {
+	case FileDialogOpenFolder:
 		openLabel = "Select"
-	} else if d.opts.Mode == FileDialogSaveFile {
+	case FileDialogSaveFile:
 		openLabel = "Save"
 	}
 	return Row(

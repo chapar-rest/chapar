@@ -98,6 +98,22 @@ func (c *LineCache) GetMonoAt(text string, logicalSize render.Px) Line {
 	return ln
 }
 
+// GetMonoTabs shapes editor mono text with tab stops every tabCols columns,
+// returning a cached line when possible. tabCols <= 0, or the configured
+// width, is GetMono.
+func (c *LineCache) GetMonoTabs(text string, tabCols int) Line {
+	if tabCols <= 0 || tabCols == c.shaper.fs.TabCols() {
+		return c.GetMono(text)
+	}
+	h := hashLineTabs(text, tabCols)
+	if ln, ok := c.lookup(h); ok {
+		return ln
+	}
+	ln := c.shaper.ShapeLineMonoTabs(text, tabCols)
+	c.store(h, ln)
+	return ln
+}
+
 // lookup reads both generations, promoting a cold hit back into hot.
 func (c *LineCache) lookup(h uint64) (Line, bool) {
 	if ln, ok := c.hot[h]; ok {
@@ -170,5 +186,14 @@ func hashLineAt(s string, logicalSize float32, mono bool, weight int) uint64 {
 	if weight >= WeightSemiBold {
 		_, _ = h.Write([]byte{2})
 	}
+	return h.Sum64()
+}
+
+// hashLineTabs keys a mono line shaped with its own tab width apart from the
+// same text at the configured width.
+func hashLineTabs(s string, tabCols int) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(s))
+	_, _ = h.Write([]byte{1, 3, byte(tabCols), byte(tabCols >> 8)})
 	return h.Sum64()
 }

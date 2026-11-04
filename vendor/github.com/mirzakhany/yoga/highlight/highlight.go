@@ -29,9 +29,7 @@ import (
 
 	tree_sitter_xml "github.com/tree-sitter-grammars/tree-sitter-xml/bindings/go"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
-	tree_sitter_go "github.com/tree-sitter/tree-sitter-go/bindings/go"
 	tree_sitter_json "github.com/tree-sitter/tree-sitter-json/bindings/go"
-	tree_sitter_python "github.com/tree-sitter/tree-sitter-python/bindings/go"
 )
 
 func (e Edit) toInputEdit() *tree_sitter.InputEdit {
@@ -46,21 +44,74 @@ func (e Edit) toInputEdit() *tree_sitter.InputEdit {
 }
 
 // ForPath returns a highlighter appropriate for a file path, chosen by its
-// extension. This is the single place to register new languages: add a grammar
+// file name or extension. This is the single place to register new languages: add a grammar
 // binding and a classifier, then map the extension here. Unknown types fall
 // back to plain text (Noop).
+//
+// Extensions added with Register take precedence.
 func ForPath(path string) Highlighter {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".go":
-		return NewGo()
-	case ".json":
-		return NewJSON()
-	case ".py", ".pyi":
-		return NewPython()
-	case ".xml", ".xsd", ".xsl", ".xslt", ".svg":
-		return NewXML()
-	default:
-		return Noop{}
+	if h, ok := registered(path); ok {
+		return h
+	}
+	if f, ok := builtinFile[strings.ToLower(filepath.Base(path))]; ok {
+		return f()
+	}
+	if f, ok := builtinExt[strings.ToLower(filepath.Ext(path))]; ok {
+		return f()
+	}
+	return Noop{}
+}
+
+// builtinExt maps extensions to the built-in grammars.
+var builtinExt = map[string]Factory{
+	".go": NewGo, ".json": NewJSON, ".jsonc": NewJSON,
+	".py": NewPython, ".pyi": NewPython,
+	".xml": NewXML, ".xsd": NewXML, ".xsl": NewXML, ".xslt": NewXML, ".svg": NewXML,
+	".ts": NewTypeScript, ".mts": NewTypeScript, ".cts": NewTypeScript, ".tsx": NewTSX,
+	".js": NewJavaScript, ".jsx": NewJavaScript, ".mjs": NewJavaScript, ".cjs": NewJavaScript,
+	".rs": NewRust, ".sh": NewBash, ".bash": NewBash, ".zsh": NewBash,
+	".css": NewCSS, ".html": NewHTML, ".htm": NewHTML,
+	".yaml": NewYAML, ".yml": NewYAML,
+	".md": NewMarkdown, ".markdown": NewMarkdown, ".sql": NewSQL,
+	".java": NewJava, ".proto": NewProto, ".mk": NewMake, ".mak": NewMake,
+	".toml": NewTOML, ".c": NewC, ".h": NewC, ".cs": NewCSharp, ".lua": NewLua,
+	".cc": NewCPP, ".cpp": NewCPP, ".cxx": NewCPP, ".c++": NewCPP,
+	".hh": NewCPP, ".hpp": NewCPP, ".hxx": NewCPP, ".h++": NewCPP, ".ipp": NewCPP,
+	".rb": NewRuby, ".rake": NewRuby, ".gemspec": NewRuby, ".ru": NewRuby,
+	".php": NewPHP, ".zig": NewZig, ".zon": NewZig,
+	".gitignore": NewGitignore, ".env": NewDotenv, ".ini": NewINI, ".cfg": NewINI,
+	".dockerfile": NewDockerfile, ".diff": NewDiff, ".patch": NewDiff,
+}
+
+// builtinFile maps lowercase file names without an extension to the
+// built-in grammars; a file name wins over the extension.
+var builtinFile = map[string]Factory{
+	"makefile": NewMake, "gnumakefile": NewMake,
+	"gemfile": NewRuby, "rakefile": NewRuby, "podfile": NewRuby, "vagrantfile": NewRuby,
+	"dockerfile": NewDockerfile, "containerfile": NewDockerfile,
+	"go.mod": NewGoMod, "go.work": NewGoMod,
+	".gitignore": NewGitignore, ".dockerignore": NewGitignore, ".npmignore": NewGitignore,
+	".prettierignore": NewGitignore, ".eslintignore": NewGitignore, ".ignore": NewGitignore,
+	".rgignore": NewGitignore, ".fdignore": NewGitignore, ".helmignore": NewGitignore,
+	".env": NewDotenv, ".env.local": NewDotenv, ".env.example": NewDotenv,
+	".env.development": NewDotenv, ".env.production": NewDotenv, ".env.test": NewDotenv,
+	".editorconfig": NewINI, ".gitconfig": NewINI, ".gitmodules": NewINI, ".npmrc": NewINI,
+}
+
+func init() {
+	for name, f := range map[string]Factory{
+		"go": NewGo, "json": NewJSON, "python": NewPython, "xml": NewXML,
+		"typescript": NewTypeScript, "tsx": NewTSX, "javascript": NewJavaScript,
+		"rust": NewRust, "bash": NewBash, "shell": NewBash, "css": NewCSS, "html": NewHTML,
+		"yaml": NewYAML, "markdown": NewMarkdown, "sql": NewSQL,
+		"java": NewJava, "proto": NewProto, "make": NewMake, "makefile": NewMake,
+		"toml": NewTOML, "c": NewC, "cpp": NewCPP, "c++": NewCPP, "csharp": NewCSharp, "c#": NewCSharp,
+		"lua": NewLua, "ruby": NewRuby, "php": NewPHP, "zig": NewZig,
+		"gitignore": NewGitignore, "ignore": NewGitignore, "dotenv": NewDotenv, "env": NewDotenv,
+		"ini": NewINI, "dockerfile": NewDockerfile, "docker": NewDockerfile,
+		"gomod": NewGoMod, "go.mod": NewGoMod, "diff": NewDiff, "patch": NewDiff,
+	} {
+		registerName(name, f)
 	}
 }
 
@@ -95,6 +146,9 @@ type classifyFunc func(w *rangeWalker, root *tree_sitter.Node)
 type rangeWalker struct {
 	lo, hi int
 	toks   []Token
+	// src is the parsed text, for classifiers that read it (query
+	// predicates); nil for the others.
+	src []byte
 }
 
 // newRangeWalker returns a walker scoped to [lo, hi).
@@ -194,11 +248,20 @@ type tsHighlighter struct {
 	// oversize records that the last source exceeded maxBytes, so crossing the
 	// limit clears any tokens the editor is still holding exactly once.
 	oversize bool
+	// keepSrc keeps the parsed text beside the tree for the classifier, which
+	// needs it for query predicates such as #match?.
+	keepSrc bool
 }
 
 // newTS starts a worker loop for the given grammar/classifier and returns it.
 func newTS(langFn func() unsafe.Pointer, classify classifyFunc) Highlighter {
+	return startTS(langFn, classify, false)
+}
+
+// startTS is newTS, with keepSrc for classifiers that read the source.
+func startTS(langFn func() unsafe.Pointer, classify classifyFunc, keepSrc bool) Highlighter {
 	h := &tsHighlighter{
+		keepSrc:  keepSrc,
 		wake:     make(chan struct{}, 1),
 		results:  make(chan []Token, 1),
 		done:     make(chan struct{}),
@@ -211,7 +274,7 @@ func newTS(langFn func() unsafe.Pointer, classify classifyFunc) Highlighter {
 }
 
 // NewGo starts a worker loop highlighting Go source and returns its handle.
-func NewGo() Highlighter { return newTS(tree_sitter_go.Language, classifyGo) }
+func NewGo() Highlighter { return goQuery.highlighter(classifyGo) }
 
 // NewJSON starts a worker loop highlighting JSON and returns its handle.
 func NewJSON() Highlighter { return newTS(tree_sitter_json.Language, classifyJSON) }
@@ -221,7 +284,7 @@ func NewJSON() Highlighter { return newTS(tree_sitter_json.Language, classifyJSO
 func NewXML() Highlighter { return newTS(tree_sitter_xml.LanguageXML, classifyXML) }
 
 // NewPython returns a Tree-sitter highlighter for Python source.
-func NewPython() Highlighter { return newTS(tree_sitter_python.Language, classifyPython) }
+func NewPython() Highlighter { return pythonQuery.highlighter(classifyPython) }
 
 func (h *tsHighlighter) loop() {
 	parser := tree_sitter.NewParser()
@@ -234,6 +297,7 @@ func (h *tsHighlighter) loop() {
 
 	var prev *tree_sitter.Tree
 	var prevLen int
+	var prevSrc []byte // the text prev was parsed from, when keepSrc
 	// doneLo/doneHi is the range the delivered tokens cover, so a wake that
 	// only repeats the current request does no work.
 	doneLo, doneHi := 0, 0
@@ -261,6 +325,8 @@ func (h *tsHighlighter) loop() {
 						prev = nil
 						prevLen = 0
 					}
+					h.recycleSource(prevSrc)
+					prevSrc = nil
 					haveResult = false
 					continue
 				}
@@ -273,7 +339,7 @@ func (h *tsHighlighter) loop() {
 				}
 				doneLo, doneHi = lo, hi
 				haveResult = true
-				deliver(h.results, h.classifyRange(prev, lo, hi))
+				deliver(h.results, h.classifyRange(prev, prevSrc, lo, hi))
 				continue
 			}
 			latestSrc := work.src
@@ -300,13 +366,17 @@ func (h *tsHighlighter) loop() {
 			// works from the tree alone. srcLen is kept because latestSrc must
 			// not be read after this point.
 			srcLen := len(latestSrc)
-			latestSrc = nil
-			h.recycleSource(work.src)
-			work.src = nil
-
 			if tree == nil {
+				h.recycleSource(work.src)
 				continue
 			}
+			if h.keepSrc {
+				h.recycleSource(prevSrc)
+				prevSrc = work.src
+			} else {
+				h.recycleSource(work.src)
+			}
+			work.src = nil
 			if prev != nil {
 				prev.Close()
 			}
@@ -315,7 +385,7 @@ func (h *tsHighlighter) loop() {
 
 			doneLo, doneHi = h.wantRange()
 			haveResult = true
-			deliver(h.results, h.classifyRange(tree, doneLo, doneHi))
+			deliver(h.results, h.classifyRange(tree, prevSrc, doneLo, doneHi))
 		}
 	}
 }
@@ -346,8 +416,9 @@ func parse(parser *tree_sitter.Parser, src []byte, oldTree *tree_sitter.Tree) *t
 }
 
 // classifyRange walks tree for [lo, hi) and returns the tokens in it.
-func (h *tsHighlighter) classifyRange(tree *tree_sitter.Tree, lo, hi int) []Token {
+func (h *tsHighlighter) classifyRange(tree *tree_sitter.Tree, src []byte, lo, hi int) []Token {
 	w := newRangeWalker(lo, hi)
+	w.src = src
 	h.classify(w, tree.RootNode())
 	return w.toks
 }

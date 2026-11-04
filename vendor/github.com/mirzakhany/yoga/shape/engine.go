@@ -72,6 +72,12 @@ func (e *Engine) Line(text string) Line { return e.Cache.Get(text) }
 // LineMono shapes and caches a single editor mono line.
 func (e *Engine) LineMono(text string) Line { return e.Cache.GetMono(text) }
 
+// LineMonoTabs is LineMono with tab stops every tabCols columns; tabCols <= 0
+// uses the configured width.
+func (e *Engine) LineMonoTabs(text string, tabCols int) Line {
+	return e.Cache.GetMonoTabs(text, tabCols)
+}
+
 // Measure returns width and height for a single-line UI string.
 //
 // Measurement goes through the shaped-line cache: layout measures the same

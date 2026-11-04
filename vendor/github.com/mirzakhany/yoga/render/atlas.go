@@ -147,18 +147,18 @@ func NewAtlasScale(scale float32) *FontAtlas {
 		scale = 1
 	}
 	a := &FontAtlas{
-		scale:     scale,
-		monoW:     initialMonoW,
-		monoH:     initialMonoH,
-		colorW:    initialColorW,
-		colorH:    initialColorH,
-		W:         initialMonoW,
-		H:         initialMonoH,
-		glyphs:    make(map[glyphKey]GlyphEntry),
-		icons:     make(map[string]IconEntry, 32),
-		images:    make(map[string]ImageEntry, 8),
-		iconFails: make(map[string]bool),
-		monoShelf: shelf{pad: 1},
+		scale:      scale,
+		monoW:      initialMonoW,
+		monoH:      initialMonoH,
+		colorW:     initialColorW,
+		colorH:     initialColorH,
+		W:          initialMonoW,
+		H:          initialMonoH,
+		glyphs:     make(map[glyphKey]GlyphEntry),
+		icons:      make(map[string]IconEntry, 32),
+		images:     make(map[string]ImageEntry, 8),
+		iconFails:  make(map[string]bool),
+		monoShelf:  shelf{pad: 1},
 		colorShelf: shelf{pad: 1},
 	}
 	a.monoPix = make([]byte, a.monoW*a.monoH)

@@ -70,8 +70,16 @@ func (n *Node) layoutIconButton(c *Ctx) *layout.Element {
 		}
 	}
 
+	hidden := n.hidden && (menu == nil || !menu.Open)
+	if hidden {
+		st.hovered, st.pressed = false, false
+	}
+
 	spec := c.styles().ButtonSubtle.merge(n.spec)
 	el.Paint = func(dl *render.DrawList, _ *shape.Engine) {
+		if hidden {
+			return
+		}
 		// An open menu keeps its button lit, as a hovered one.
 		hovered := st.hovered || (menu != nil && menu.Open)
 		r := spec.resolve(th, interactState{hovered: hovered, pressed: st.pressed, disabled: disabled})
@@ -96,7 +104,7 @@ func (n *Node) layoutIconButton(c *Ctx) *layout.Element {
 		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
-		if disabled {
+		if disabled || hidden {
 			return
 		}
 		inside := e.Frame.Contains(m.X, m.Y)
@@ -114,6 +122,17 @@ func (n *Node) layoutIconButton(c *Ctx) *layout.Element {
 				c.MarkNeedsPaint()
 			}
 			trackBool(c, &st.pressed, false)
+		}
+	}
+	if menu != nil && menu.Open {
+		if kb := c.Keyboard(); kb != nil {
+			for _, ev := range kb.Keys {
+				if ev.Key == input.KeyEscape {
+					menu.Close()
+					c.MarkNeedsPaint()
+					break
+				}
+			}
 		}
 	}
 	if menu != nil && menu.Open {

@@ -29,8 +29,9 @@ type glfwWindowHost struct {
 	window         *glfw.Window
 	customTitleBar bool
 	nativeControls bool
-	controlsInset  float32
+	controlsInset  float32 // in window points
 	undecorated    bool
+	zoom           float32 // SetZoom factor last applied; 0 is unzoomed
 
 	dragging                   bool
 	dragMouseX, dragMouseY     float64
@@ -45,6 +46,7 @@ func newGLFWWindowHost(window *glfw.Window, cfg Config) *glfwWindowHost {
 	h := &glfwWindowHost{
 		window:         window,
 		customTitleBar: cfg.CustomTitleBar,
+		zoom:           1,
 	}
 	if cfg.CustomTitleBar {
 		applyCustomTitleBarChrome(window, h)
@@ -56,10 +58,19 @@ func (h *glfwWindowHost) CustomTitleBar() bool { return h.customTitleBar }
 func (h *glfwWindowHost) NativeControls() bool { return h.nativeControls }
 func (h *glfwWindowHost) ControlsInset() float32 {
 	if h.nativeControls {
+		if h.zoom > 0 {
+			return h.controlsInset / h.zoom
+		}
 		return h.controlsInset
 	}
 	return 0
 }
+
+// setZoom records the zoom so ControlsInset converts the native controls'
+// width to zoomed points. The controls themselves stay where the platform
+// draws them: AppKit's title bar view is a fixed height, and moving them
+// down for a taller zoomed bar hides them.
+func (h *glfwWindowHost) setZoom(z float32) { h.zoom = z }
 
 func (h *glfwWindowHost) Close() { h.window.SetShouldClose(true) }
 

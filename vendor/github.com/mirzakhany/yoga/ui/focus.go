@@ -24,6 +24,14 @@ type KeyFilterer interface {
 	FilterKeys(keys []input.KeyEvent) (pass []input.KeyEvent)
 }
 
+// KeyClaimer is an optional Focusable capability for widgets that take raw
+// keyboard input, such as a terminal. While the widget is focused and no
+// modal is open, the keys it claims go straight to it, ahead of command
+// shortcuts and the app's KeyHook.
+type KeyClaimer interface {
+	ClaimsKey(ev input.KeyEvent) bool
+}
+
 // FocusScope routes Tab traversal and keyboard input among focusables. It is
 // rebuilt every frame: widgets call Add during Layout(c), so beginFrame
 // clears the per-frame item list while preserving which widget is focused.
@@ -266,7 +274,7 @@ func (f *FocusScope) HandleMouse(m *input.Mouse) {
 	if m != nil && (m.Pressed || m.RightPressed) {
 		f.setModality(ModalityPointer)
 	}
-	if m == nil || m.KeepFocus || !(m.Pressed || m.RightPressed) {
+	if m == nil || m.KeepFocus || (!m.Pressed && !m.RightPressed) {
 		return
 	}
 	items := f.tabItems()
@@ -279,6 +287,35 @@ func (f *FocusScope) HandleMouse(m *input.Mouse) {
 			f.focusTo(it)
 			return
 		}
+	}
+}
+
+// RouteClaimed delivers the keys the focused widget claims (see KeyClaimer)
+// and removes them from kb. The runtime calls it before command dispatch.
+func (f *FocusScope) RouteClaimed(kb *input.Keyboard) {
+	if kb == nil || len(kb.Keys) == 0 || f.modal != nil {
+		return
+	}
+	cur := f.focused
+	if cur == nil || f.indexOf(cur) < 0 {
+		return
+	}
+	kc, ok := cur.(KeyClaimer)
+	if !ok {
+		return
+	}
+	var claimed []input.KeyEvent
+	kept := kb.Keys[:0]
+	for _, ev := range kb.Keys {
+		if kc.ClaimsKey(ev) {
+			claimed = append(claimed, ev)
+		} else {
+			kept = append(kept, ev)
+		}
+	}
+	kb.Keys = kept
+	if len(claimed) > 0 {
+		cur.HandleKeys(claimed)
 	}
 }
 

@@ -18,6 +18,15 @@ type titleBarState struct {
 
 type titleBarView struct {
 	children []View
+	center   View
+}
+
+// Center places v in the middle of the bar, whatever the widths of the
+// children on either side, such as a search box or the window title. It is
+// drawn over the row, so keep the sides narrow enough to leave it room.
+func (t *titleBarView) Center(v View) *titleBarView {
+	t.center = v
+	return t
 }
 
 // TitleBar is a VS Code-style custom title bar row. It reserves space for native
@@ -59,6 +68,13 @@ func (t *titleBarView) Layout(c *Ctx) *layout.Element {
 		hasControlHeight: true,
 	})
 	el := row.Layout(c)
+	if t.center != nil {
+		// Out of flow and as wide as the bar: the side children keep their
+		// places and the center sits in the middle of the window.
+		mid := Row(Spacer(), t.center, Spacer()).Layout(c)
+		mid.Style = mid.Style.AbsLeft(0).AbsRight(0).AbsTop(0).AbsBottom(0)
+		el.Children = append(el.Children, mid)
+	}
 	c.popEnv(old)
 	st := c.Widget(titleBarWidgetID, func() any { return &titleBarState{} }).(*titleBarState)
 

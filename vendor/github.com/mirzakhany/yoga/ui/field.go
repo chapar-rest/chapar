@@ -33,6 +33,22 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 		tf.cfg.IconEnd = iconEnd
 	}
 	tf.cfg.Password = password
+	n.bindTextInput(c, tf)
+	// Re-apply height each frame so cached widgets follow theme metrics and
+	// an explicit .Height(...) on the node. EditableLabel passes Height via
+	// TextFieldConfig and paints into its own frame, so it is unaffected.
+	h := c.controlHeight()
+	if n.spec.hasH {
+		h = n.spec.height
+	}
+	tf.cfg.Height = h
+	tf.host.Style.Height = h
+	tf.host.Style.MinHeight = h
+	return n.finishTextInput(c, tf)
+}
+
+// bindTextInput copies the node's value, callbacks and style to the field.
+func (n *Node) bindTextInput(c *Ctx, tf *TextInput) {
 	if tf.Value != n.text {
 		tf.Value = n.text
 		if tf.caret > len(tf.Value) {
@@ -57,20 +73,19 @@ func (n *Node) layoutTextField(c *Ctx) *layout.Element {
 	if n.disabled && tf.focused {
 		tf.Blur()
 	}
-	// Re-apply height each frame so cached widgets follow theme metrics and
-	// an explicit .Height(...) on the node. EditableLabel passes Height via
-	// TextFieldConfig and paints into its own frame, so it is unaffected.
-	h := c.controlHeight()
-	if n.spec.hasH {
-		h = n.spec.height
-	}
-	tf.cfg.Height = h
-	tf.host.Style.Height = h
-	tf.host.Style.MinHeight = h
+}
+
+// finishTextInput lays the field out and applies the node's layout spec.
+func (n *Node) finishTextInput(c *Ctx, tf *TextInput) *layout.Element {
 	el := tf.Layout(c)
 	tf.RegisterSuggest(c)
-	if n.defaultFocus && c.Focus() != nil {
-		c.Focus().EnsureFocus(tf)
+	if c.Focus() != nil {
+		switch {
+		case n.focusNow && !n.disabled:
+			c.Focus().Focus(tf)
+		case n.defaultFocus:
+			c.Focus().EnsureFocus(tf)
+		}
 	}
 	if !n.spec.hasW {
 		el.Style.MinWidth = tf.minWidth()

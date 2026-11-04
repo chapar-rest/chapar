@@ -117,18 +117,18 @@ const (
 type Style struct {
 	Disp Display
 
-	Dir     FlexDirection
-	Justify Justify
-	Align   Align
+	Dir       FlexDirection
+	Justify   Justify
+	Align     Align
 	SelfAlign Align
-	Wrap    Wrap
-	Pos     Position
+	Wrap      Wrap
+	Pos       Position
 
 	Grow   float32
 	Shrink float32
 	Basis  Px
 
-	Width, Height                         Px
+	Width, Height                            Px
 	MinWidth, MinHeight, MaxWidth, MaxHeight Px
 
 	Margin  Edges
@@ -167,16 +167,16 @@ type Style struct {
 // stretches its children, shrink factor 1, and all sizes auto.
 func Box() Style {
 	return Style{
-		Disp:    DisplayFlex,
-		Dir:     Column,
-		Justify: JustifyStart,
-		Align:   AlignStretch,
+		Disp:      DisplayFlex,
+		Dir:       Column,
+		Justify:   JustifyStart,
+		Align:     AlignStretch,
 		SelfAlign: AlignAuto,
-		Wrap:    NoWrap,
-		Pos:     PositionRelative,
-		Grow:    0,
-		Shrink:  1,
-		Basis:   nan,
+		Wrap:      NoWrap,
+		Pos:       PositionRelative,
+		Grow:      0,
+		Shrink:    1,
+		Basis:     nan,
 
 		Width: nan, Height: nan,
 		MinWidth: nan, MinHeight: nan, MaxWidth: nan, MaxHeight: nan,
@@ -191,17 +191,17 @@ func Box() Style {
 func (s Style) Display(d Display) Style         { s.Disp = d; return s }
 func (s Style) Direction(d FlexDirection) Style { s.Dir = d; return s }
 func (s Style) JustifyContent(j Justify) Style  { s.Justify = j; return s }
-func (s Style) AlignItems(a Align) Style { s.Align = a; return s }
-func (s Style) AlignSelf(a Align) Style  { s.SelfAlign = a; return s }
+func (s Style) AlignItems(a Align) Style        { s.Align = a; return s }
+func (s Style) AlignSelf(a Align) Style         { s.SelfAlign = a; return s }
 func (s Style) FlexWrap(w Wrap) Style           { s.Wrap = w; return s }
-func (s Style) FlexGrow(v float32) Style  { s.Grow = v; return s }
-func (s Style) FlexShrink(v float32) Style { s.Shrink = v; return s }
-func (s Style) FlexBasis(v Px) Style       { s.Basis = v; return s }
-func (s Style) W(v Px) Style               { s.Width = v; return s }
-func (s Style) H(v Px) Style               { s.Height = v; return s }
-func (s Style) Size(w, h Px) Style         { s.Width, s.Height = w, h; return s }
-func (s Style) Min(w, h Px) Style          { s.MinWidth, s.MinHeight = w, h; return s }
-func (s Style) Max(w, h Px) Style          { s.MaxWidth, s.MaxHeight = w, h; return s }
+func (s Style) FlexGrow(v float32) Style        { s.Grow = v; return s }
+func (s Style) FlexShrink(v float32) Style      { s.Shrink = v; return s }
+func (s Style) FlexBasis(v Px) Style            { s.Basis = v; return s }
+func (s Style) W(v Px) Style                    { s.Width = v; return s }
+func (s Style) H(v Px) Style                    { s.Height = v; return s }
+func (s Style) Size(w, h Px) Style              { s.Width, s.Height = w, h; return s }
+func (s Style) Min(w, h Px) Style               { s.MinWidth, s.MinHeight = w, h; return s }
+func (s Style) Max(w, h Px) Style               { s.MaxWidth, s.MaxHeight = w, h; return s }
 
 func (s Style) Gap(v Px) Style          { s.RowGap, s.ColGap = v, v; return s }
 func (s Style) GapXY(col, row Px) Style { s.ColGap, s.RowGap = col, row; return s }

@@ -340,6 +340,8 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 
 Constructing these inside `Body` resets caret, scroll, and selection every frame.
 
+Editor shortcuts live in a keymap: see [docs/editor-shortcuts.md](docs/editor-shortcuts.md) for the defaults, `editor.SetKeymap` or `ui.EditorDefaults.Keymap` to change them, and `editor.Run(ui.ActionFind)` to call an action from your own command.
+
 `editor.SetText(s)` replaces the document as one undoable edit, for actions such as Format. Tree-sitter highlighters skip documents over `highlight.MaxBytes` (2 MB by default); `editor.HighlightOversize()` reports when that happened, so the app can say why the text is uncolored, and `editor.HighlightAnyway()` lifts the limit for that editor.
 
 ### Splitter, drawer, tabs, nav, menus
@@ -368,6 +370,8 @@ ui.Tabs("tabs", tabs).Selected(i).OnSelectItem(onSelect).OnTabClose(onClose).
 // and a "+N ⌄" button at the right edge lists the hidden tabs.
 // Section switcher without close buttons:
 ui.Tabs("sections", tabs).Selected(i).OnSelectItem(onSelect).Closable(false)
+// Per-tab state: TabModel{Busy: true} shows a spinner in place of the icon,
+// TabModel{Status: th.Warning} a colored dot after the title.
 
 ui.Nav("nav", ui.NavVertical, ui.NavIconTop, items...).
     Selected(i).OnSelectItem(func(i int, id string) { … }).Width(88)
@@ -376,6 +380,11 @@ ui.Dropdown("file", "File", []ui.MenuItem{{Label: "Save", OnSelect: save}})
 ui.MenuButton("export", "Export", items).Primary().IconStart(icons.Save) // click opens menu
 ui.MenuButton("save", "Save", items).Primary().OnClick(save)        // split: label=action, chevron=menu
 ui.IconButton("more", icons.Ellipsis).Menu(items)                   // icon only, menu under its right edge
+// MenuItem{Icon: icons.Trash2, Danger: true} adds a leading icon and the error color.
+
+ui.ClickableCard("p1", "Project", "Description", body).OnClick(open).
+    Actions(ui.IconButton("p1-more", icons.Ellipsis).Menu(items)).    // title-row slot
+    Footer(ui.Caption("3 sessions"))
 ```
 
 ### Dialogs and toasts
@@ -388,6 +397,7 @@ c.Dialogs().ShowInfo("Info", "helpful note", nil)
 c.Dialogs().ShowWarning("Warning", "check before continuing", nil)
 c.Dialogs().ShowError("Error", "request failed", nil)
 c.Dialogs().ShowAction("Delete?", "This cannot be undone.", onYes, onNo)
+c.Dialogs().ShowDanger("Remove?", "This cannot be undone.", "Remove", onRemove)
 c.Dialogs().ShowInput("Name", "placeholder", onOK, onCancel)
 
 c.Dialogs().Show(ui.DialogOpts{
@@ -555,3 +565,7 @@ For Cursor (and any agent you paste into):
 - [`.cursor/skills/yoga-ui/SKILL.md`](.cursor/skills/yoga-ui/SKILL.md) — rules and bootstrap
 - [`.cursor/skills/yoga-ui/widgets.md`](.cursor/skills/yoga-ui/widgets.md) — constructors
 - [`.cursor/skills/yoga-ui/examples.md`](.cursor/skills/yoga-ui/examples.md) — patterns from `example/`
+
+## License
+
+Yoga is released under the [MIT License](LICENSE). Contributors are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).

@@ -37,6 +37,8 @@ type Config struct {
 }
 
 // applyDefaults fills any unset Config fields with sensible defaults.
+//
+//nolint:unused // called from app_gpu.go and app_js.go, not the nogpu build
 func (c Config) applyDefaults() Config {
 	if c.Title == "" {
 		c.Title = "Yoga"

@@ -195,13 +195,6 @@ func maxf(a, b float32) float32 {
 	return b
 }
 
-func minf(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func intrinsicWidth(e *Element, constraint float32) float32 {
 	s := &e.Style
 	if !isUnset(s.Width) {
@@ -458,11 +451,11 @@ func layoutFlex(e *Element, contentW, contentH float32) {
 	}
 
 	type item struct {
-		child *Element
-		basis float32
-		main  float32
-		cross float32
-		mMain float32 // margin on main axis (start+end)
+		child                  *Element
+		basis                  float32
+		main                   float32
+		cross                  float32
+		mMain                  float32 // margin on main axis (start+end)
 		mCrossStart, mCrossEnd float32
 	}
 

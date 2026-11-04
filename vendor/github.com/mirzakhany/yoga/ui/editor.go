@@ -3,6 +3,8 @@ package ui
 import (
 	"bytes"
 	"math"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -52,6 +54,22 @@ type paintRow struct {
 	xoff     float32 // x of the painted slice relative to the line's text origin
 }
 
+// AutoIndent is what Enter carries onto the new line.
+type AutoIndent int
+
+const (
+	// AutoIndentDefault follows EditorDefaults.AutoIndent.
+	AutoIndentDefault AutoIndent = iota
+	// AutoIndentNone starts the new line at column 0.
+	AutoIndentNone
+	// AutoIndentKeep copies the current line's leading whitespace.
+	AutoIndentKeep
+	// AutoIndentBrackets keeps the indent and adds one level after an opening
+	// bracket or a trailing colon. Enter between a bracket pair puts the
+	// closing bracket on its own line.
+	AutoIndentBrackets
+)
+
 // bracketClose maps an opening bracket to its matching closing bracket.
 var bracketClose = map[rune]rune{
 	'(': ')',
@@ -66,34 +84,18 @@ var bracketOpen = map[rune]rune{
 	']': '[',
 }
 
-// searchState holds the state for the find/replace overlay.
-type searchState struct {
-	open         bool
-	focused      bool // true when the panel has keyboard focus (vs. the editor text area)
-	replaceMode  bool
-	query        string
-	replace      string
-	focusField   int // 0=search input, 1=replace input
-	queryCaret   int // byte offset of caret in query
-	replaceCaret int // byte offset of caret in replace
-	matches      []matchRange
-	current      int // index of active match (-1 = none)
-}
-
-// matchRange is a [lo, hi) byte range in the document.
-type matchRange struct{ lo, hi int }
-
 // indentDepth returns the column depth of leading whitespace in s,
 // counting spaces as 1 and tabs as advancing to the next tabW stop.
 func indentDepth(s []byte, tabW int) int {
 	n := 0
 	for _, ch := range string(s) {
-		if ch == ' ' {
+		switch ch {
+		case ' ':
 			n++
-		} else if ch == '\t' {
+		case '\t':
 			n = ((n / tabW) + 1) * tabW
-		} else {
-			break
+		default:
+			return n
 		}
 	}
 	return n
@@ -143,7 +145,18 @@ type Editor struct {
 	undoMaxSteps int
 	undoMaxBytes int
 	lastMerge    editMerge // kind of the last edit, mergeNone after anything else
-	lastEditAt   time.Time
+	// Every undo step gets a fresh id from opSeq; savedID is the id of the
+	// newest step when the text was last saved (0 for none), so undoing back
+	// to the saved text reads as unmodified again.
+	opSeq   uint64
+	savedID uint64
+	// extra are the selections beyond the primary one (caret, selAnchor);
+	// see editor_multi.go.
+	extra      []cursor
+	inMulti    bool // multi is running an action per selection
+	undoGroup  int  // nonzero: edits now share this undo group
+	groupSeq   int
+	lastEditAt time.Time
 
 	// tokens is the latest syntax highlight result. It covers only the byte
 	// range last requested from the highlighter (hlLo..hlHi) when the
@@ -161,13 +174,18 @@ type Editor struct {
 	lspUI     lspState
 
 	contentSizeDirty bool
+	revision         uint64
+	lineMarks        map[int]LineMarkKind
+	inline           inlineSuggestion
 
 	gutterW float32
 	lineH   float32
 	textPad float32
-	goalX   float32
+	goalX   float32 // x Up/Down keep to, while goalSet
+	goalSet bool
 
-	tabW    int     // tab width in columns, mirrors engine config
+	tabW    int     // tab width in columns: tabSet, else the engine's
+	tabSet  int     // SetTabWidth; 0 follows the engine config
 	fontGen uint64  // last-seen engine font generation
 	cellW   float32 // mono cell advance width, mirrors fontGen
 
@@ -180,6 +198,9 @@ type Editor struct {
 	WrapWords                bool
 	WrapIndent               WrapIndent
 	wrapSet                  bool // SoftWrap was chosen for this editor; ignore EditorDefaults.SoftWrap
+	indentSet                bool // SetIndentSpaces was called; ignore EditorDefaults.IndentSpaces
+	indentSpaces             bool
+	autoIndent               AutoIndent
 	noGutter                 bool // WithoutGutter: never show line numbers
 	gutter                   *GutterSpec
 	shareContent             bool // construction-time: build over the caller's slice, no copy
@@ -187,6 +208,9 @@ type Editor struct {
 	lineRows                 [][]wrapRow
 	rowPrefix                []int   // rowPrefix[i] = visual rows before logical line i (len = LineCount+1)
 	revealCaret              bool    // scroll the caret into view once the wrap tables are rebuilt
+	revealCenter             bool    // the pending reveal centers the caret row (CenterCaret)
+	revealWoke               bool    // a frame was requested for the pending reveal
+	pastEndH                 float32 // blank space added below the last line (ScrollPastEnd)
 	anchorSet                bool    // restore anchorOff to anchorY once rows reflow
 	anchorOff                int     // byte whose row keeps its place across a wrap change
 	anchorY                  float32 // that row's y relative to the top of the view
@@ -197,6 +221,17 @@ type Editor struct {
 	wrapDirtySet             bool
 
 	search searchState
+	box    boxSelect
+	fold   foldState
+
+	addGoalX float32 // x AddCursorLine keeps to while it adds cursors
+
+	keymapOwn  []EditorBinding // SetKeymap; nil follows EditorDefaults.Keymap
+	keymapC    *compiledKeymap
+	keyPending *editorChord // first chord of a sequence, waiting for the next
+
+	comment    highlight.Comment // SetLineComment
+	commentSet bool
 
 	// ContextMenu, when set, edits the right-click menu: it receives the
 	// standard edit items and returns the ones to show, so an app can add its
@@ -208,11 +243,25 @@ type Editor struct {
 	// language server, and returns candidates plus the byte range they
 	// replace.
 	Suggest SuggestFunc
+	// OnInlineAccept, when set, runs after Tab inserts the inline suggestion
+	// (see SetInlineSuggestion), with the inserted text.
+	OnInlineAccept func(text string)
 	// HoverInfo, when set, explains the byte offset under a resting pointer.
 	// It runs whether or not a language server is attached, and its card is
 	// shown above any diagnostics and server hover text.
 	HoverInfo HoverInfoFunc
-	menu      editMenu
+	// OnModClick, when set, runs for a ⌘-click (Ctrl-click off macOS) on the
+	// text with the byte offset under the pointer, such as to go to a
+	// definition. Returning true consumes the click; the caret moves there.
+	OnModClick func(off int) bool
+	// KeyFilter and TextFilter see keys and typed text before the editor
+	// does; returning true consumes them. A modal keymap such as Vim's sets
+	// both, so that in normal mode letters are commands, not text.
+	KeyFilter  func(ev input.KeyEvent) bool
+	TextFilter func(runes []rune) bool
+	// CaretStyle is the caret's shape; Vim's normal mode uses CaretBlock.
+	CaretStyle CaretStyle
+	menu       editMenu
 
 	paintRows []paintRow // scratch reused across paints
 
@@ -226,6 +275,12 @@ type editOp struct {
 	inserted    string
 	caretBefore int
 	caretAfter  int
+	group       int // edits with the same nonzero group undo together
+	id          uint64
+	// selBefore and selAfter are every selection, primary first, before and
+	// after a group: set on its first and last op, so undo and redo put back
+	// all the cursors a multi-cursor edit had.
+	selBefore, selAfter []cursor
 }
 
 func (op *editOp) size() int { return len(op.deleted) + len(op.inserted) }
@@ -241,14 +296,19 @@ const editorBarSize = 14 // scrollbar thickness (vertical and horizontal)
 // SoftWrap applies to editors whose wrap was not set by WithSoftWrap or
 // SetSoftWrap, and LineNumbers to editors built without WithoutGutter.
 var EditorDefaults = struct {
-	SoftWrap          bool // wrap long lines at the viewport width
-	WrapWords         bool // prefer breaking wrapped rows at word boundaries
-	UndoSteps         int  // most undo steps kept; <= 0 means no limit
-	UndoBytes         int  // most text bytes kept by undo; <= 0 means no limit
-	LineNumbers       bool // show the line-number gutter
-	AutoCloseBrackets bool // typing ( [ { inserts the closing bracket too
-	AutoCloseQuotes   bool // typing " ' ` inserts the closing quote too
-	IndentSpaces      bool // Tab inserts spaces up to the next tab stop
+	SoftWrap          bool       // wrap long lines at the viewport width
+	WrapWords         bool       // prefer breaking wrapped rows at word boundaries
+	UndoSteps         int        // most undo steps kept; <= 0 means no limit
+	UndoBytes         int        // most text bytes kept by undo; <= 0 means no limit
+	LineNumbers       bool       // show the line-number gutter
+	AutoCloseBrackets bool       // typing ( [ { inserts the closing bracket too
+	AutoCloseQuotes   bool       // typing " ' ` inserts the closing quote too
+	IndentSpaces      bool       // Tab inserts spaces up to the next tab stop
+	AutoIndent        AutoIndent // what Enter carries to the new line; Default means None
+	ScrollPastEnd     bool       // let the last line scroll up to the top of the view
+	// Keymap replaces the built-in shortcuts (DefaultEditorKeymap) for
+	// editors without their own SetKeymap; nil keeps the built-in ones.
+	Keymap []EditorBinding
 }{
 	WrapWords:         true,
 	UndoSteps:         1000,
@@ -413,8 +473,9 @@ func (e *Editor) visibleLineRange() (first, last int) {
 		first = e.rowOfVisual(minInt(lo, maxInt(total-1, 0)))
 		last = e.rowOfVisual(minInt(maxInt(hi-1, 0), maxInt(total-1, 0)))
 	} else {
-		first = maxInt(firstRow-margin, 0)
-		last = minInt(firstRow+rows+margin, lc) - 1
+		total := e.lineRowCount()
+		first = e.rowLine(minInt(maxInt(firstRow-margin, 0), maxInt(total-1, 0)))
+		last = e.rowLine(maxInt(minInt(firstRow+rows+margin, total)-1, 0))
 	}
 	if first < 0 {
 		first = 0
@@ -482,7 +543,7 @@ func (e *Editor) VisualRowCount() int {
 	if e.SoftWrap && len(e.rowPrefix) > 0 {
 		return e.rowPrefix[len(e.rowPrefix)-1]
 	}
-	return e.pt.LineCount()
+	return e.lineRowCount()
 }
 
 // Bytes returns the current document content.
@@ -491,8 +552,27 @@ func (e *Editor) Bytes() []byte { return e.pt.Bytes() }
 // Modified reports whether there are unsaved changes.
 func (e *Editor) Modified() bool { return e.modified }
 
-// MarkSaved clears the modified flag.
-func (e *Editor) MarkSaved() { e.modified = false }
+// Revision counts edits to the text, undo and redo included. Apps compare it
+// across frames to notice changes, for an idle timer or a stale cache.
+func (e *Editor) Revision() uint64 { return e.revision }
+
+// MarkSaved clears the modified flag and records the current undo step as
+// the saved one, so undoing or redoing back to it clears the flag again.
+func (e *Editor) MarkSaved() {
+	e.savedID = e.topID()
+	e.modified = false
+}
+
+// topID is the id of the newest undo step, 0 when there is none.
+func (e *Editor) topID() uint64 {
+	if len(e.undo) == 0 {
+		return 0
+	}
+	return e.undo[len(e.undo)-1].id
+}
+
+// stepModified recomputes the modified flag after an edit, undo or redo.
+func (e *Editor) stepModified() { e.modified = e.topID() != e.savedID }
 
 // SetText replaces the whole document with s as a single undoable edit, the
 // way selecting everything and pasting s would, so the editor reports itself
@@ -503,6 +583,7 @@ func (e *Editor) SetText(s string) {
 	if e.readOnly || s == string(e.pt.Bytes()) {
 		return
 	}
+	e.extra = nil
 	caret := e.caret
 	e.applyEdit(0, e.pt.Len(), s, mergeNone)
 	e.lastMerge = mergeNone
@@ -511,6 +592,54 @@ func (e *Editor) SetText(s string) {
 	}
 	e.caret = caret
 	e.ensureCaretVisible()
+}
+
+// ApplyText changes the document to s as one undoable edit that replaces
+// only the span that differs, so the caret, selection and scroll position
+// outside that span stay where they were. Formatters use it to rewrite a
+// buffer without making the view jump. It does nothing when s is already the
+// content or the editor is read-only.
+func (e *Editor) ApplyText(s string) {
+	old := e.pt.Bytes()
+	if e.readOnly || s == string(old) {
+		return
+	}
+	e.extra = nil
+	pre := 0
+	for pre < len(old) && pre < len(s) && old[pre] == s[pre] {
+		pre++
+	}
+	suf := 0
+	for suf < len(old)-pre && suf < len(s)-pre && old[len(old)-1-suf] == s[len(s)-1-suf] {
+		suf++
+	}
+	for pre > 0 && pre < len(old) && !utf8.RuneStart(old[pre]) {
+		pre--
+	}
+	for suf > 0 && !utf8.RuneStart(old[len(old)-suf]) {
+		suf--
+	}
+	lo, oldHi := pre, len(old)-suf
+	ins := s[pre : len(s)-suf]
+	delta := len(ins) - (oldHi - lo)
+	shift := func(off int) int {
+		switch {
+		case off <= lo:
+			return off
+		case off >= oldHi:
+			return off + delta
+		}
+		return lo + len(ins) // inside the change: end of the new text
+	}
+	caret, anchor := shift(e.caret), e.selAnchor
+	if anchor >= 0 {
+		anchor = shift(anchor)
+	}
+	scroll := e.ScrollPx
+	e.applyEdit(lo, oldHi-lo, ins, mergeNone)
+	e.lastMerge = mergeNone
+	e.caret, e.selAnchor = caret, anchor
+	e.ScrollPx = scroll
 }
 
 // HighlightOversize reports whether the document is larger than its
@@ -540,7 +669,9 @@ func (e *Editor) Update(m *input.Mouse) {
 	if gen := frameText().FontGen(); gen != e.fontGen {
 		e.fontGen = gen
 		e.lineH = frameText().MetricsMono().LineHeight
-		e.tabW = frameText().TabWidth()
+		if e.tabSet == 0 {
+			e.tabW = frameText().TabWidth()
+		}
 		w, _ := frameText().MeasureMono("n")
 		e.cellW = w
 		e.wrapFull = true
@@ -579,6 +710,7 @@ func (e *Editor) Update(m *input.Mouse) {
 		e.hbar.Update(m, vp)
 	}
 	e.clampScroll()
+	e.findUpdate()
 	// Scroll and the wrap tables are settled, so the visible range is now known.
 	e.syncHighlightRange()
 }
@@ -592,16 +724,29 @@ const editorLargeDocLines = 500
 // caret/hit-test geometry instead of the shaped line.
 const maxShapedLine = 8192
 
-// followDefaults applies the live EditorDefaults (line numbers, soft wrap)
-// that this editor does not override.
+// followDefaults applies the live EditorDefaults (line numbers, soft wrap,
+// scroll past end) that this editor does not override.
 func (e *Editor) followDefaults() {
 	if w := e.wantGutterW(); w != e.gutterW {
 		e.gutterW = w
 		e.contentSizeDirty = true
 	}
+	if h := e.wantPastEndH(); h != e.pastEndH {
+		e.contentSizeDirty = true
+	}
 	if !e.wrapSet {
 		e.setSoftWrap(EditorDefaults.SoftWrap)
 	}
+}
+
+// wantPastEndH is the blank space below the last line: with
+// EditorDefaults.ScrollPastEnd, enough for the last line to reach the top of
+// the view. Editors built WithoutGutter (inputs, logs, previews) never get it.
+func (e *Editor) wantPastEndH() float32 {
+	if !EditorDefaults.ScrollPastEnd || e.noGutter {
+		return 0
+	}
+	return f32max(0, e.viewport.Frame.H-e.lineH)
 }
 
 // wantGutterW is the gutter width the editor should currently have.
@@ -617,9 +762,17 @@ func (e *Editor) wantGutterW() float32 {
 		if e.pt != nil {
 			digits = max(digits, len(strconv.Itoa(e.pt.LineCount())))
 		}
-		return 2*e.gutterPad() + float32(digits)*e.cellW
+		return 2*e.gutterPad() + float32(digits)*e.cellW + e.foldGutterW()
 	}
-	return editorGutterW
+	return editorGutterW + e.foldGutterW()
+}
+
+// foldGutterW is the room the gutter keeps for fold chevrons.
+func (e *Editor) foldGutterW() float32 {
+	if e.fold.off {
+		return 0
+	}
+	return foldGutterW
 }
 
 // GutterSpec styles an editor's line-number gutter (see SetGutter).
@@ -716,7 +869,7 @@ func (e *Editor) rowStartByte(r int) int {
 		_, absStart, _ := e.wrapRowAbs(r)
 		return absStart
 	}
-	return e.pt.LineStart(max(0, min(r, e.pt.LineCount()-1)))
+	return e.pt.LineStart(e.rowLine(max(0, min(r, e.lineRowCount()-1))))
 }
 
 // SetWrapWords toggles breaking wrapped rows at word boundaries (falling back
@@ -771,9 +924,10 @@ func (e *Editor) rowIndentPx(r int) float32 {
 }
 
 func (e *Editor) recomputeContentSize() {
+	e.pastEndH = e.wantPastEndH()
 	if e.SoftWrap {
 		e.syncWrap()
-		e.ContentHeight = float32(e.rowPrefix[len(e.rowPrefix)-1]) * e.lineH
+		e.ContentHeight = float32(e.rowPrefix[len(e.rowPrefix)-1])*e.lineH + e.pastEndH
 		// The viewport fits the wrapped rows, so there is never horizontal
 		// scrolling in wrap mode.
 		e.ContentWidth = e.gutterW + e.textPad + float32(e.wrapCols)*e.cellW
@@ -784,7 +938,7 @@ func (e *Editor) recomputeContentSize() {
 		return
 	}
 	engine := frameText()
-	e.ContentHeight = float32(e.pt.LineCount()) * e.lineH
+	e.ContentHeight = float32(e.lineRowCount())*e.lineH + e.pastEndH
 	lc := e.pt.LineCount()
 	var maxTextW float32
 	if lc > editorLargeDocLines {
@@ -896,8 +1050,14 @@ func (e *Editor) rebuildRowPrefix() {
 		e.rowPrefix = make([]int, lc+1)
 	}
 	e.rowPrefix[0] = 0
+	if len(e.fold.hidden) == 0 {
+		for i := 0; i < lc; i++ {
+			e.rowPrefix[i+1] = e.rowPrefix[i] + len(e.lineRows[i])
+		}
+		return
+	}
 	for i := 0; i < lc; i++ {
-		e.rowPrefix[i+1] = e.rowPrefix[i] + len(e.lineRows[i])
+		e.rowPrefix[i+1] = e.rowPrefix[i] + e.shownRows(i)
 	}
 }
 
@@ -999,7 +1159,99 @@ func (e *Editor) rowOfVisual(r int) int {
 }
 
 func (e *Editor) shapedLine(ln int) shape.Line {
-	return frameText().LineMono(e.pt.Line(ln))
+	return e.lineMono(e.pt.Line(ln))
+}
+
+// lineMono shapes text with this editor's tab stops.
+func (e *Editor) lineMono(text string) shape.Line {
+	return frameText().LineMonoTabs(text, e.tabSet)
+}
+
+// SetTabWidth sets the columns per tab stop for this editor, overriding the
+// font config's width; cols <= 0 goes back to following it.
+func (e *Editor) SetTabWidth(cols int) {
+	cols = max(cols, 0)
+	if cols == e.tabSet {
+		return
+	}
+	e.tabSet = cols
+	if cols > 0 {
+		e.tabW = cols
+	} else if t := frameText(); t != nil {
+		e.tabW = t.TabWidth()
+	}
+	e.wrapFull = true
+	e.contentSizeDirty = true
+}
+
+// TabWidth is the columns per tab stop this editor lays tabs out with.
+func (e *Editor) TabWidth() int { return max(e.tabW, 1) }
+
+// SetIndentSpaces makes Tab and auto-indent insert spaces (true) or tabs
+// (false) in this editor, whatever EditorDefaults.IndentSpaces says.
+func (e *Editor) SetIndentSpaces(v bool) { e.indentSet, e.indentSpaces = true, v }
+
+// IndentSpaces reports whether this editor indents with spaces.
+func (e *Editor) IndentSpaces() bool {
+	if e.indentSet {
+		return e.indentSpaces
+	}
+	return EditorDefaults.IndentSpaces
+}
+
+// SetAutoIndent sets what Enter carries onto the new line in this editor;
+// AutoIndentDefault follows EditorDefaults.AutoIndent.
+func (e *Editor) SetAutoIndent(m AutoIndent) { e.autoIndent = m }
+
+func (e *Editor) autoIndentMode() AutoIndent {
+	if e.autoIndent != AutoIndentDefault {
+		return e.autoIndent
+	}
+	if EditorDefaults.AutoIndent != AutoIndentDefault {
+		return EditorDefaults.AutoIndent
+	}
+	return AutoIndentNone
+}
+
+// newline is Enter: a line break carrying the indent AutoIndent asks for.
+func (e *Editor) newline() {
+	mode := e.autoIndentMode()
+	if mode == AutoIndentNone {
+		e.replaceSelection("\n", mergeNone)
+		return
+	}
+	lo, hi := e.selRange()
+	doc := e.pt.Bytes()
+	ls := e.pt.LineStart(e.lineOf(lo))
+	head := doc[ls:lo]
+	lead := head[:len(head)-len(bytes.TrimLeft(head, " \t"))]
+	ins := "\n" + string(lead)
+	caret := len(ins)
+	if mode == AutoIndentBrackets {
+		if before := bytes.TrimRight(head, " \t"); len(before) > 0 {
+			last := rune(before[len(before)-1])
+			if _, open := bracketClose[last]; open || last == ':' {
+				if e.IndentSpaces() {
+					ins += strings.Repeat(" ", e.TabWidth())
+				} else {
+					ins += "\t"
+				}
+				caret = len(ins)
+				// The closer moves down to its own line at the old indent,
+				// taking the blanks before it along.
+				ln := e.lineOf(hi)
+				rest := doc[hi : e.pt.LineStart(ln)+len(e.pt.Line(ln))]
+				trimmed := bytes.TrimLeft(rest, " \t")
+				if open && len(trimmed) > 0 && rune(trimmed[0]) == bracketClose[last] {
+					hi += len(rest) - len(trimmed)
+					ins += "\n" + string(lead)
+				}
+			}
+		}
+	}
+	e.applyEdit(lo, hi-lo, ins, mergeNone)
+	e.caret, e.selAnchor = lo+caret, -1
+	e.ensureCaretVisible()
 }
 
 // isHuge reports whether line ln exceeds the windowed-shaping threshold.
@@ -1012,7 +1264,7 @@ func (e *Editor) isHuge(ln int) bool {
 func (e *Editor) rowOfByte(off int) int {
 	e.freshWrap()
 	if !e.SoftWrap || len(e.rowPrefix) < 2 {
-		return e.lineOf(off)
+		return e.lineRow(e.lineOf(off))
 	}
 	if off < 0 {
 		off = 0
@@ -1021,6 +1273,9 @@ func (e *Editor) rowOfByte(off int) int {
 		off = n
 	}
 	ln := e.lineOf(off)
+	if e.lineHidden(ln) {
+		return max(e.rowPrefix[ln]-1, 0) // the fold's own row
+	}
 	rel := off - e.pt.LineStart(ln)
 	rows := e.lineRows[ln]
 	lo, hi := 0, len(rows)-1
@@ -1248,6 +1503,7 @@ func (e *Editor) Focus() {
 func (e *Editor) Blur() {
 	e.focused = false
 	e.menu.close()
+	e.findBlur()
 }
 
 // Focused reports whether the editor has keyboard focus.
@@ -1268,6 +1524,12 @@ func (e *Editor) FocusEl() *layout.Element { return e.host }
 func (e *Editor) Layout(c *Ctx) *layout.Element {
 	c.Focus().Add(e)
 	e.Update(c.Mouse())
+	if e.revealCaret && !e.revealWoke {
+		// Laid out this frame; reveal on the next. Once only, so an editor
+		// kept at zero size does not redraw forever.
+		e.revealWoke = true
+		c.Invalidate()
+	}
 	e.vbar.tick(c, e.viewport.Frame)
 	e.hbar.tick(c, e.viewport.Frame)
 	if d, ok := e.AnimationWait(); ok {
@@ -1285,6 +1547,7 @@ func (e *Editor) Layout(c *Ctx) *layout.Element {
 	}
 	c.Overlay(e.lspOverlay)
 	e.menu.layout(c)
+	e.findLayout(c)
 	return e.host
 }
 
@@ -1295,6 +1558,9 @@ func (e *Editor) Contains(x, y float32) bool {
 
 // AnimationWait implements the runtime's optional animation hook.
 func (e *Editor) AnimationWait() (time.Duration, bool) {
+	if e.fold.anim.on {
+		return 16 * time.Millisecond, true
+	}
 	hoverWake, hoverPending := e.lspHoverWake()
 	if !e.focused && !time.Now().Before(e.parseUntil) && !hoverPending {
 		return 0, false
@@ -1302,7 +1568,7 @@ func (e *Editor) AnimationWait() (time.Duration, bool) {
 	const half = 500 * time.Millisecond
 	since := time.Since(e.blinkStart) % (2 * half)
 	wait := half - (since % half)
-	if e.dragging {
+	if e.dragging || e.box.on {
 		if fast := 16 * time.Millisecond; wait > fast {
 			wait = fast
 		}
@@ -1315,6 +1581,9 @@ func (e *Editor) AnimationWait() (time.Duration, bool) {
 	}
 	if hoverPending && hoverWake < wait {
 		wait = hoverWake
+	}
+	if fw, ok := e.findWake(); ok && fw < wait {
+		wait = fw
 	}
 	if wait < 16*time.Millisecond && !e.dragging {
 		wait = 16 * time.Millisecond
@@ -1330,6 +1599,7 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, merge editMerge) int {
 	if e.readOnly {
 		return e.caret
 	}
+	e.goalSet = false
 	b := e.pt.Bytes()
 	if pos < 0 {
 		pos = 0
@@ -1347,6 +1617,10 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, merge editMerge) int {
 		inserted:    ins,
 		caretBefore: e.caret,
 		caretAfter:  pos + len(ins),
+		group:       e.undoGroup,
+	}
+	if op.group != 0 {
+		merge = mergeNone // one action over several selections is one step
 	}
 
 	if delLen > 0 {
@@ -1360,7 +1634,12 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, merge editMerge) int {
 		merge = mergeNone
 	}
 	now := time.Now()
-	if !e.mergeInto(&op, merge, now) {
+	e.opSeq++
+	if e.mergeInto(&op, merge, now) {
+		// The merged step now holds different text from what was saved.
+		e.undo[len(e.undo)-1].id = e.opSeq
+	} else {
+		op.id = e.opSeq
 		e.undo = append(e.undo, op)
 		e.undoBytes += op.size()
 	}
@@ -1370,7 +1649,8 @@ func (e *Editor) applyEdit(pos, delLen int, ins string, merge editMerge) int {
 
 	clear(e.redo) // release the discarded redo payloads
 	e.redo = e.redo[:0]
-	e.modified = true
+	e.stepModified()
+	e.revision++
 	e.contentSizeDirty = true
 	e.selAnchor = -1
 	e.caret = op.caretAfter
@@ -1437,6 +1717,7 @@ func (e *Editor) trimUndo() {
 }
 
 func (e *Editor) afterMutation(edit highlight.Edit) {
+	e.foldsAfterEdit(edit) // before anything maps lines to rows
 	e.hl.UpdateEdit(e.pt.Bytes(), edit)
 	e.contentSizeDirty = true // Undo/Redo don't set this themselves
 	e.markParsePending()
@@ -1445,7 +1726,7 @@ func (e *Editor) afterMutation(edit highlight.Edit) {
 	e.markWrapDirty(edit)
 	e.ensureCaretVisible()
 	if e.search.open {
-		e.runSearch()
+		e.findAfterEdit(edit)
 	}
 	e.lspDidChange()
 }
@@ -1523,11 +1804,28 @@ func (e *Editor) deleteSelection() bool {
 	return true
 }
 
-// Undo reverts the most recent edit.
+// Undo reverts the most recent edit, or the edits one action made at every
+// selection.
 func (e *Editor) Undo() {
+	if f := e.findInput(); f != nil {
+		f.Undo()
+		return
+	}
 	if e.readOnly || len(e.undo) == 0 {
 		return
 	}
+	e.extra = nil
+	g := e.undo[len(e.undo)-1].group
+	op := e.undoOne()
+	for g != 0 && len(e.undo) > 0 && e.undo[len(e.undo)-1].group == g {
+		op = e.undoOne()
+	}
+	if op.selBefore != nil {
+		e.setCursors(slices.Clone(op.selBefore))
+	}
+}
+
+func (e *Editor) undoOne() editOp {
 	op := e.undo[len(e.undo)-1]
 	e.undo[len(e.undo)-1] = editOp{}
 	e.undo = e.undo[:len(e.undo)-1]
@@ -1544,18 +1842,36 @@ func (e *Editor) Undo() {
 	e.caret = op.caretBefore
 	e.selAnchor = -1
 	e.lastMerge = mergeNone
-	e.modified = true
+	e.stepModified()
+	e.revision++
 	e.afterMutation(highlight.Edit{
 		StartByte: op.pos, OldEndByte: op.pos + len(op.inserted), NewEndByte: op.pos + len(op.deleted),
 		Start: startPt, OldEnd: oldEndPt, NewEnd: e.pointOf(op.pos + len(op.deleted)),
 	})
+	return op
 }
 
-// Redo re-applies the most recently undone edit.
+// Redo re-applies the most recently undone edit, or group of edits.
 func (e *Editor) Redo() {
+	if f := e.findInput(); f != nil {
+		f.Redo()
+		return
+	}
 	if e.readOnly || len(e.redo) == 0 {
 		return
 	}
+	e.extra = nil
+	g := e.redo[len(e.redo)-1].group
+	op := e.redoOne()
+	for g != 0 && len(e.redo) > 0 && e.redo[len(e.redo)-1].group == g {
+		op = e.redoOne()
+	}
+	if op.selAfter != nil {
+		e.setCursors(slices.Clone(op.selAfter))
+	}
+}
+
+func (e *Editor) redoOne() editOp {
 	op := e.redo[len(e.redo)-1]
 	e.redo[len(e.redo)-1] = editOp{}
 	e.redo = e.redo[:len(e.redo)-1]
@@ -1573,11 +1889,13 @@ func (e *Editor) Redo() {
 	e.caret = op.caretAfter
 	e.selAnchor = -1
 	e.lastMerge = mergeNone
-	e.modified = true
+	e.stepModified()
+	e.revision++
 	e.afterMutation(highlight.Edit{
 		StartByte: op.pos, OldEndByte: op.pos + len(op.deleted), NewEndByte: op.pos + len(op.inserted),
 		Start: startPt, OldEnd: oldEndPt, NewEnd: e.pointOf(op.pos + len(op.inserted)),
 	})
+	return op
 }
 
 // ---------------------------------------------------------------------------
@@ -1589,12 +1907,23 @@ func (e *Editor) HandleText(runes []rune) {
 	if len(runes) == 0 {
 		return
 	}
-	if e.search.open && e.search.focused {
-		e.searchHandleText(runes)
+	if e.TextFilter != nil && !e.inMulti && !e.findFocused() && e.TextFilter(runes) {
+		return
+	}
+	if e.findFocused() {
+		e.findHandleText(runes)
 		return
 	}
 	if e.readOnly {
 		return
+	}
+	if len(e.extra) > 0 && !e.inMulti {
+		e.multi(true, func() { e.HandleText(runes) })
+		return
+	}
+	if e.inlineLive() {
+		text, at := e.inline.text, e.caret
+		defer e.inlineAfterType(text, at, string(runes))
 	}
 	if len(runes) == 1 {
 		r := runes[0]
@@ -1632,14 +1961,18 @@ func (e *Editor) HandleText(runes []rune) {
 }
 
 // HandleKeys processes navigation, editing, and shortcut keys for one frame.
+// Shortcuts come from the keymap (see editor_keymap.go); the keys it leaves
+// unbound, such as Enter, Backspace and the arrows, are handled here.
 func (e *Editor) HandleKeys(keys []input.KeyEvent) {
-	clip := frameClipboard()
 	for _, ev := range keys {
 		shift := ev.Mods.Has(input.ModShift)
+		if e.KeyFilter != nil && !e.inMulti && !e.findFocused() && !e.lspUI.compOpen && e.KeyFilter(ev) {
+			continue
+		}
 
-		// Search bar consumes keys only while it is focused.
-		if e.search.open && e.search.focused {
-			e.searchHandleKey(ev)
+		// The find bar takes every key while it is focused.
+		if e.findFocused() {
+			e.findHandleKey(ev)
 			continue
 		}
 
@@ -1648,42 +1981,31 @@ func (e *Editor) HandleKeys(keys []input.KeyEvent) {
 			continue
 		}
 
-		if ev.Mods.Primary() {
-			switch ev.Key {
-			case input.KeySpace:
-				e.requestCompletion()
-			case input.KeyA:
-				e.SelectAll()
-			case input.KeyC:
-				e.copy(clip)
-			case input.KeyX:
-				e.cut(clip)
-			case input.KeyV:
-				e.paste(clip)
-			case input.KeyZ:
-				if shift {
-					e.Redo()
-				} else {
-					e.Undo()
-				}
-			case input.KeyY:
-				e.Redo()
-			case input.KeyF:
-				e.openSearch(false)
-			case input.KeyH:
-				e.openSearch(true)
-			case input.KeyW:
-				if ev.Mods.Has(input.ModAlt) {
-					e.SetSoftWrap(!e.SoftWrap)
-				}
-			}
+		// Tab takes the inline suggestion and Escape drops it.
+		if e.inlineKey(ev) {
 			continue
+		}
+
+		if !e.inMulti && e.runKey(ev, ScopeText) {
+			continue
+		}
+		if len(e.extra) > 0 && !e.inMulti && e.multiKey(ev) {
+			continue
+		}
+		if ev.Mods.Primary() {
+			continue // an unbound shortcut is not text navigation
 		}
 		switch ev.Key {
 		case input.KeyEscape:
-			e.closeSearch()
+			// Extra cursors went first (multiKey); then the find bar, then
+			// the selection.
+			if e.search.open {
+				e.closeSearch()
+			} else {
+				e.selAnchor = -1
+			}
 		case input.KeyEnter:
-			e.replaceSelection("\n", mergeNone)
+			e.newline()
 		case input.KeyTab:
 			e.replaceSelection(e.tabText(), mergeNone)
 		case input.KeyBackspace:
@@ -1752,7 +2074,7 @@ func (e *Editor) typeQuote(q rune) bool {
 // tabText is what the Tab key inserts: a tab, or with
 // EditorDefaults.IndentSpaces the spaces that reach the next tab stop.
 func (e *Editor) tabText() string {
-	if !EditorDefaults.IndentSpaces {
+	if !e.IndentSpaces() {
 		return "\t"
 	}
 	lo, _ := e.selRange()
@@ -1795,7 +2117,7 @@ func (e *Editor) deleteForward() {
 // selection the click lands in, otherwise moves the caret there, and shows the
 // edit menu.
 func (e *Editor) openContextMenuAt(m *input.Mouse) {
-	if e.search.open && e.searchBarRect().Contains(m.X, m.Y) {
+	if e.search.open && e.findGeom().bar.Contains(m.X, m.Y) {
 		return
 	}
 	off := e.offsetAtPoint(m.X, m.Y)
@@ -1815,12 +2137,62 @@ func (e *Editor) openContextMenuAt(m *input.Mouse) {
 
 // SelectAll selects the whole document.
 func (e *Editor) SelectAll() {
+	if f := e.findInput(); f != nil {
+		f.SelectAll()
+		return
+	}
+	e.extra = nil
 	e.selAnchor = 0
 	e.caret = e.pt.Len()
 }
 
 // HasSelection reports whether a non-empty range is selected.
 func (e *Editor) HasSelection() bool { return e.hasSelection() }
+
+// Selection returns the selected byte range [start, end) with start <= end,
+// whichever way it was dragged. With nothing selected both are the caret.
+func (e *Editor) Selection() (start, end int) { return e.selRange() }
+
+// SelectedText returns the selected text, or "" with nothing selected.
+func (e *Editor) SelectedText() string {
+	lo, hi := e.selRange()
+	return string(e.pt.Bytes()[lo:hi])
+}
+
+// Caret returns the caret's byte offset.
+func (e *Editor) Caret() int { return e.caret }
+
+// SetSelection selects from anchor to caret, byte offsets in either order, and
+// scrolls the caret into view. Equal offsets place the caret with nothing
+// selected. Offsets are clamped to the text and moved back to a rune start.
+func (e *Editor) SetSelection(anchor, caret int) {
+	e.extra = nil
+	e.goalSet = false
+	anchor, caret = e.clampOffset(anchor), e.clampOffset(caret)
+	e.caret = caret
+	e.selAnchor = -1
+	if anchor != caret {
+		e.selAnchor = anchor
+	}
+	e.ensureCaretVisible()
+}
+
+// LineCol converts a byte offset to a 0-based line and a 0-based column
+// counted in runes.
+func (e *Editor) LineCol(off int) (line, col int) { return e.lineColOf(e.clampOffset(off)) }
+
+// Offset converts a 0-based line and rune column to a byte offset. Lines past
+// the end clamp to the last line, columns past the end to the line's end.
+func (e *Editor) Offset(line, col int) int { return e.offsetOf(line, maxInt(col, 0)) }
+
+func (e *Editor) clampOffset(off int) int {
+	b := e.pt.Bytes()
+	off = maxInt(0, minInt(off, len(b)))
+	for off > 0 && off < len(b) && !utf8.RuneStart(b[off]) {
+		off--
+	}
+	return off
+}
 
 // CanUndo reports whether Undo has an edit to revert.
 func (e *Editor) CanUndo() bool { return !e.readOnly && len(e.undo) > 0 }
@@ -1830,14 +2202,29 @@ func (e *Editor) CanRedo() bool { return !e.readOnly && len(e.redo) > 0 }
 
 // Copy puts the selection on the clipboard and reports whether it did. With
 // nothing selected it leaves the clipboard alone.
-func (e *Editor) Copy() bool { return e.copy(frameClipboard()) }
+func (e *Editor) Copy() bool {
+	if f := e.findInput(); f != nil {
+		return f.Copy()
+	}
+	if len(e.extra) > 0 {
+		e.copyAll(frameClipboard())
+		return true
+	}
+	return e.copy(frameClipboard())
+}
 
 // Cut moves the selection to the clipboard. A read-only editor copies it and
 // keeps the text, as Ctrl/Cmd+X does.
-func (e *Editor) Cut() { e.cut(frameClipboard()) }
+func (e *Editor) Cut() {
+	if f := e.findInput(); f != nil {
+		f.Cut()
+		return
+	}
+	e.cutAll(frameClipboard())
+}
 
 // Paste replaces the selection with the clipboard text.
-func (e *Editor) Paste() { e.paste(frameClipboard()) }
+func (e *Editor) Paste() { e.pasteAll(frameClipboard()) }
 
 func (e *Editor) copy(clip input.Clipboard) bool {
 	if clip == nil || !e.hasSelection() {
@@ -1865,14 +2252,8 @@ func (e *Editor) paste(clip input.Clipboard) {
 	if s == "" {
 		return
 	}
-	if e.search.open && e.search.focused {
-		// The find and replace fields are single-line: keep the first line.
-		if i := strings.IndexAny(s, "\r\n"); i >= 0 {
-			s = s[:i]
-		}
-		if s != "" {
-			e.searchHandleText([]rune(s))
-		}
+	if f := e.findInput(); f != nil {
+		f.Paste() // single-line: it keeps the first line
 		return
 	}
 	e.replaceSelection(s, mergeNone)
@@ -1885,6 +2266,7 @@ func (e *Editor) moveTo(off int, extend bool) {
 	if n := e.pt.Len(); off > n {
 		off = n
 	}
+	off = e.skipFolded(off, off >= e.caret)
 	if extend {
 		if e.selAnchor < 0 {
 			e.selAnchor = e.caret
@@ -1894,6 +2276,7 @@ func (e *Editor) moveTo(off int, extend bool) {
 	}
 	e.caret = off
 	e.lastMerge = mergeNone
+	e.goalSet = false // horizontal moves and jumps reset the column Up/Down keep
 	e.blinkStart = time.Now()
 	e.ensureCaretVisible()
 }
@@ -1902,6 +2285,15 @@ func (e *Editor) moveCluster(dir int, extend bool) {
 	ln := e.lineOf(e.caret)
 	ls := e.pt.LineStart(ln)
 	off := e.caret - ls
+	// At a line's edge the step crosses the line break.
+	if dir > 0 && off >= e.pt.LineLen(ln) && ln+1 < e.pt.LineCount() {
+		e.moveTo(e.pt.LineStart(ln+1), extend)
+		return
+	}
+	if dir < 0 && off <= 0 && ln > 0 {
+		e.moveTo(ls-1, extend)
+		return
+	}
 	view := e.lineView(ln)
 	var next int
 	var gx float32
@@ -1966,7 +2358,7 @@ func (e *Editor) moveVertical(dir int, extend bool) {
 	if e.SoftWrap && len(e.rowPrefix) > 1 {
 		// Up/Down move one visual row, preserving the goal x within the row.
 		r := e.rowOfByte(e.caret)
-		if e.goalX == 0 {
+		if !e.goalSet {
 			e.goalX = e.xInRow(e.caret)
 		}
 		r += dir
@@ -1981,19 +2373,15 @@ func (e *Editor) moveVertical(dir int, extend bool) {
 		view := e.pt.LineSlice(ln, absStart-ls, absEnd-ls)
 		off := e.monoByteForX(view, e.goalX-e.rowIndentPx(r))
 		e.moveTo(absStart+off, extend)
+		e.goalSet = true
 		return
 	}
 	line, _ := e.lineColOf(e.caret)
-	if e.goalX == 0 {
+	if !e.goalSet {
 		e.goalX = e.caretXInLine(e.lineOf(e.caret), e.caret)
 	}
-	line += dir
-	if line < 0 {
-		line = 0
-	}
-	if lc := e.pt.LineCount(); line >= lc {
-		line = lc - 1
-	}
+	// Step a visual row, so a collapsed block counts as one line.
+	line = e.rowLine(clampInt(e.lineRow(line)+dir, 0, e.lineRowCount()-1))
 	ls := e.pt.LineStart(line)
 	var off int
 	if e.isHuge(line) {
@@ -2002,6 +2390,7 @@ func (e *Editor) moveVertical(dir int, extend bool) {
 		off = e.shapedLine(line).ByteForX(e.goalX)
 	}
 	e.moveTo(ls+off, extend)
+	e.goalSet = true
 }
 
 // ---------------------------------------------------------------------------
@@ -2076,101 +2465,6 @@ func (e *Editor) offsetOf(line, col int) int {
 // Mouse: click to place caret, drag to select
 // ---------------------------------------------------------------------------
 
-// Find bar geometry, shared by painting and hit-testing.
-const (
-	searchLabelW   = float32(44) // "Find:" / "Repl:" labels
-	searchCloseW   = float32(20) // the × close button
-	searchCountW   = float32(60) // match count / replace buttons
-	searchTextPadX = float32(4)  // text inset inside an input
-)
-
-// searchInputRect returns the input box of row 0 (find) or row 1 (replace).
-func (e *Editor) searchInputRect(row int) render.Rect {
-	bar := e.searchBarRect()
-	return render.Rect{
-		X: bar.X + searchLabelW,
-		Y: bar.Y + float32(row)*searchRowH,
-		W: searchBarW - searchLabelW - searchCloseW - searchCountW,
-		H: searchRowH,
-	}
-}
-
-// replaceButtonRects returns the hit boxes of the replace-one and
-// replace-all buttons on the replace row.
-func (e *Editor) replaceButtonRects() (one, all render.Rect) {
-	in := e.searchInputRect(1)
-	x := in.X + in.W + 4
-	bw := float32(24)
-	if eng := frameText(); eng != nil {
-		bw, _ = eng.MeasureMono("->1")
-	}
-	one = render.Rect{X: x, Y: in.Y, W: bw, H: in.H}
-	all = render.Rect{X: x + bw + 4, Y: in.Y, W: bw, H: in.H}
-	return one, all
-}
-
-// searchClick handles a press inside the find bar: the close button, the
-// replace buttons, or an input, where it focuses that field and puts the
-// caret under the pointer.
-func (e *Editor) searchClick(x, y float32) {
-	bar := e.searchBarRect()
-	if x >= bar.X+bar.W-searchCloseW && y <= bar.Y+searchRowH {
-		e.closeSearch()
-		return
-	}
-	e.search.focused = true
-	if e.search.replaceMode && !e.readOnly {
-		one, all := e.replaceButtonRects()
-		switch {
-		case one.Contains(x, y):
-			e.doReplace()
-			return
-		case all.Contains(x, y):
-			e.doReplaceAll()
-			return
-		}
-	}
-	row := 0
-	if e.search.replaceMode && y >= bar.Y+searchRowH {
-		row = 1
-	}
-	e.search.focusField = row
-	field, caret := e.searchField()
-	in := e.searchInputRect(row)
-	if eng := frameText(); eng != nil {
-		*caret = eng.LineMono(*field).ByteForX(x - in.X - searchTextPadX)
-	} else if x < in.X {
-		*caret = 0
-	}
-	if *caret < 0 {
-		*caret = 0
-	}
-	if *caret > len(*field) {
-		*caret = len(*field)
-	}
-	e.blinkStart = time.Now()
-}
-
-// searchBarRect returns the bounding box of the search overlay panel.
-func (e *Editor) searchBarRect() render.Rect {
-	f := e.viewport.Frame
-	rows := 1
-	if e.search.replaceMode {
-		rows = 2
-	}
-	_, _, vShow, _ := e.scrollMetrics()
-	vbarW := float32(0)
-	if vShow {
-		vbarW = editorBarSize
-	}
-	return render.Rect{
-		X: f.X + f.W - searchBarW - 6 - vbarW,
-		Y: f.Y + 6,
-		W: searchBarW,
-		H: searchRowH * float32(rows),
-	}
-}
-
 func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 	if el.Frame.Contains(m.X, m.Y) && (m.ScrollY != 0 || m.ScrollX != 0) {
 		e.vbar.ApplyWheel(m, el.Frame)
@@ -2181,16 +2475,11 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 		return
 	}
 
-	// Search panel interaction.
-	if e.search.open && m.Pressed {
-		bar := e.searchBarRect()
-		if bar.Contains(m.X, m.Y) {
-			e.searchClick(m.X, m.Y)
-			m.Consumed = true
-			return
-		}
-		// Click outside panel: hand focus back to the editor text area.
-		e.search.focused = false
+	if e.findMouse(m) {
+		return
+	}
+	if e.foldMouse(m) {
+		return
 	}
 
 	f := el.Frame
@@ -2203,6 +2492,41 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 		if m.Consumed {
 			return
 		}
+		if m.Mods.Primary() && e.OnModClick != nil && e.OnModClick(off) {
+			e.caret, e.selAnchor = off, -1
+			e.extra = nil
+			m.Consumed = true
+			return
+		}
+		if m.Mods.Has(input.ModAlt) && m.Mods.Has(input.ModShift) {
+			// ⌥⇧-drag selects a column.
+			e.startBoxSelect(m.X, m.Y)
+			m.Consumed = true
+			return
+		}
+		if m.Mods.Has(input.ModShift) {
+			// ⇧-click extends the selection from its anchor, and a drag
+			// keeps extending it.
+			e.extra = nil
+			if e.selAnchor < 0 {
+				e.selAnchor = e.caret
+			}
+			e.caret = off
+			e.dragging = true
+			e.lastMerge = mergeNone
+			e.goalSet = false
+			e.blinkStart = time.Now()
+			m.Consumed = true
+			return
+		}
+		if m.Mods.Has(input.ModAlt) && !e.readOnly {
+			// ⌥-click adds a caret.
+			e.AddCursorAt(off)
+			e.blinkStart = time.Now()
+			m.Consumed = true
+			return
+		}
+		e.extra = nil
 		now := time.Now()
 		if now.Sub(e.lastClickTime) < doubleClickInterval &&
 			absF(m.X-e.lastClickX) <= multiClickSlop &&
@@ -2234,14 +2558,19 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 			e.dragging = true
 		}
 		e.lastMerge = mergeNone
+		e.goalSet = false
 		e.blinkStart = time.Now()
 		m.Consumed = true
+	}
+	if e.box.on && m.Down {
+		e.updateBoxSelect(m.X, m.Y)
 	}
 	if e.dragging && m.Down {
 		e.caret = e.offsetAtPoint(m.X, m.Y)
 	}
 	if !m.Down {
 		e.dragging = false
+		e.box.on = false
 	}
 }
 
@@ -2273,13 +2602,8 @@ func (e *Editor) offsetAtPoint(px, py float32) int {
 		e.goalX = ind + e.monoPrefixWidth(view, off)
 		return absStart + off
 	}
-	line := int((py - f.Y + e.ScrollPx) / e.lineH)
-	if line < 0 {
-		line = 0
-	}
-	if lc := e.pt.LineCount(); line >= lc {
-		line = lc - 1
-	}
+	row := int((py - f.Y + e.ScrollPx) / e.lineH)
+	line := e.rowLine(clampInt(row, 0, e.lineRowCount()-1))
 	ls := e.pt.LineStart(line)
 	x0 := f.X + e.gutterW + e.textPad - e.ScrollX
 	var off int
@@ -2391,9 +2715,26 @@ func (e *Editor) lineRangeAt(off int) (int, int) {
 	return lo, e.pt.Len()
 }
 
+// CenterCaret scrolls so the caret's row sits in the middle of the view, for
+// jumps to a definition or search result. An editor that has not been laid
+// out yet centers once it has.
+func (e *Editor) CenterCaret() {
+	e.revealCenter = true
+	e.ensureCaretVisible()
+}
+
 func (e *Editor) ensureCaretVisible() {
+	if len(e.fold.hidden) > 0 {
+		// A caret placed inside a collapsed block (a search match, a jump to
+		// a definition) opens it.
+		for _, c := range append([]int{e.caret}, e.extraCarets()...) {
+			e.revealLine(e.lineOf(c))
+		}
+	}
 	_, clientH, _, _ := e.scrollMetrics()
 	if clientH <= 0 {
+		// Not laid out yet (a freshly opened file): reveal after layout.
+		e.revealCaret = true
 		return
 	}
 	if e.wrapStale() {
@@ -2402,9 +2743,13 @@ func (e *Editor) ensureCaretVisible() {
 		e.revealCaret = true
 		return
 	}
+	e.revealWoke = false
 	row := e.rowOfByte(e.caret)
 	top := float32(row) * e.lineH
-	if top < e.ScrollPx {
+	if e.revealCenter {
+		e.revealCenter = false
+		e.ScrollPx = top + e.lineH/2 - clientH/2
+	} else if top < e.ScrollPx {
 		e.ScrollPx = top
 	} else if top+e.lineH > e.ScrollPx+clientH {
 		e.ScrollPx = top + e.lineH - clientH
@@ -2515,7 +2860,7 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		ln := e.rowOfVisual(first)
 		ri := first - e.rowPrefix[ln]
 		for r := first; r < rLast; r++ {
-			for ln < len(e.lineRows) && ri >= len(e.lineRows[ln]) {
+			for ln < len(e.lineRows) && ri >= e.shownRows(ln) {
 				ln++
 				ri = 0
 			}
@@ -2531,11 +2876,11 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 			ri++
 		}
 	} else {
-		lc := e.pt.LineCount()
-		rLast := minInt(first+visibleCount, lc)
-		for ln := first; ln < rLast; ln++ {
+		rLast := minInt(first+visibleCount, e.lineRowCount())
+		for r := first; r < rLast; r++ {
+			ln := e.rowLine(r)
 			ll := e.pt.LineLen(ln)
-			pr := paintRow{line: ln, rowStart: 0, rowEnd: ll, lineEnd: ll, visual: ln, first: true}
+			pr := paintRow{line: ln, rowStart: 0, rowEnd: ll, lineEnd: ll, visual: r, first: true}
 			// Windowed shaping: huge lines only paint their visible byte window.
 			if ll > maxShapedLine {
 				pr.rowStart, pr.rowEnd = e.visibleWindow(e.lineView(ln))
@@ -2554,7 +2899,7 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 	// Current line highlight — drawn before text clips so it spans full width.
 	if e.focused {
 		r := e.rowOfByte(e.caret)
-		lineY := f.Y + float32(r)*e.lineH - e.ScrollPx
+		lineY := e.rowY(r)
 		if lineY >= vp.Y-e.lineH && lineY < vp.Y+vp.H {
 			dl.PushClip(vp)
 			dl.AddRect(render.Rect{X: vp.X, Y: lineY, W: vp.W, H: e.lineH}, th.CurrentLine)
@@ -2575,10 +2920,19 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 	if len(rows) > 0 && len(e.tokens) > 0 {
 		tokHint = tokenIndexAt(e.tokens, e.pt.LineStart(rows[0].line)+rows[0].rowStart)
 	}
+	ghost := e.inlinePaintLines()
+	caretRow := -1
+	if ghost != nil {
+		caretRow = e.rowOfByte(e.caret)
+	}
+	e.fold.pills = e.fold.pills[:0]
 	for _, pr := range rows {
-		y := f.Y + float32(pr.visual)*e.lineH - e.ScrollPx
+		y := e.rowY(pr.visual)
 		if y >= vp.Y+vp.H {
 			break
+		}
+		if e.foldCovers(pr.visual) {
+			dl.AddRect(render.Rect{X: textArea.X, Y: y, W: textArea.W, H: e.lineH}, th.Background)
 		}
 		ls := e.pt.LineStart(pr.line)
 		txt := e.lineView(pr.line)
@@ -2587,7 +2941,7 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		// The painted slice is small in every mode: whole line, wrapped row, or
 		// a huge line's visible window. Wrapped rows start at the text origin
 		// plus their wrap indent; a huge line's window sits at its offset.
-		sline := frameText().LineMono(string(txt[pr.rowStart:pr.rowEnd]))
+		sline := e.lineMono(string(txt[pr.rowStart:pr.rowEnd]))
 		drawX := x0 + pr.xoff
 		if !e.SoftWrap && pr.rowStart == 0 {
 			if w := e.gutterW + e.textPad + sline.Width; w > e.ContentWidth {
@@ -2609,9 +2963,11 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		if e.search.open {
 			matchCol := th.SearchMatch
 			activeCol := th.SearchMatchActive
-			for i, mr := range e.search.matches {
-				if mr.hi <= ls || mr.lo >= lineEnd {
-					continue
+			ms := e.search.matches
+			for i := sort.Search(len(ms), func(i int) bool { return ms[i].hi > ls }); i < len(ms); i++ {
+				mr := ms[i]
+				if mr.lo >= lineEnd {
+					break
 				}
 				a := maxInt(mr.lo, ls)
 				b := minInt(mr.hi, lineEnd)
@@ -2633,6 +2989,13 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 				dl.AddRect(render.Rect{X: drawX + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, th.Selection)
 			}
 		}
+		for _, c := range e.extra {
+			if lo, hi := c.lo(), c.hi(); lo < hi && lo <= lineEnd && hi >= ls {
+				for _, rect := range e.windowRects(sline, maxInt(lo, ls)-ls, minInt(hi, lineEnd)-ls, pr.rowStart, pr.rowEnd, y, e.lineH) {
+					dl.AddRect(render.Rect{X: drawX + rect[0], Y: rect[1], W: rect[2], H: rect[3]}, th.Selection)
+				}
+			}
+		}
 
 		// Bracket match highlights.
 		if hasBrackets {
@@ -2649,25 +3012,73 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 
 		topY := y + vpad
 		tintBase := ls + pr.rowStart
+		// On the caret's row the text after the caret moves past the ghost
+		// text, so the row paints only up to the caret here.
+		split := len(txt)
+		if pr.visual == caretRow {
+			split = e.caret - tintBase
+		}
 		engine.DrawLineGlyphs(dl, sline, drawX, topY, func(byteOff int) render.Color {
+			if byteOff >= split {
+				return render.Color{}
+			}
 			col, h := e.colorAtHint(tintBase+byteOff, tokHint)
 			tokHint = h
 			return th.SyntaxColor(col)
 		})
 
 		e.paintDiagnosticsLine(dl, ls, lineEnd, sline, drawX, pr.rowStart, pr.rowEnd, y)
+		e.paintFoldPlaceholder(dl, engine, pr, x0, y, vpad)
+	}
+	if caretRow >= 0 {
+		ls := e.pt.LineStart(e.lineOf(e.caret))
+		rowEnd := ls + e.pt.LineLen(e.lineOf(e.caret))
+		if e.SoftWrap && len(e.rowPrefix) > 1 {
+			_, _, end := e.wrapRowAbs(caretRow)
+			rowEnd = end
+		}
+		suffixBase := e.caret
+		rowEnd = min(max(rowEnd, suffixBase), suffixBase+maxShapedLine) // a huge line paints a bounded tail
+		suffix := e.pt.Bytes()[suffixBase:rowEnd]
+		cy := e.rowY(caretRow)
+		e.paintInline(dl, engine, ghost, x0+e.xInRow(e.caret), cy, x0, cy+vpad, suffix, func(byteOff int) render.Color {
+			col, _ := e.colorAtHint(suffixBase+byteOff, 0)
+			return th.SyntaxColor(col)
+		}, textArea)
 	}
 	if e.focused && e.caretVisible() {
-		r := e.rowOfByte(e.caret)
-		cx := x0 + e.xInRow(e.caret)
-		cy := f.Y + float32(r)*e.lineH - e.ScrollPx
-		dl.AddRect(render.Rect{X: cx, Y: cy + vpad, W: 2, H: textH}, th.Accent)
+		for _, caret := range append([]int{e.caret}, e.extraCarets()...) {
+			r := e.rowOfByte(caret)
+			cx := x0 + e.xInRow(caret)
+			cy := e.rowY(r)
+			if cy+e.lineH < vp.Y || cy > vp.Y+vp.H {
+				continue
+			}
+			switch e.CaretStyle {
+			case CaretBlock:
+				w := e.cellW
+				if next := e.nextRune(caret); next > caret && e.lineOf(next) == e.lineOf(caret) && e.pt.Bytes()[caret] != '\n' {
+					w = f32max(w, x0+e.xInRow(next)-cx)
+				}
+				col := th.Accent
+				col.A *= 0.55
+				dl.AddRect(render.Rect{X: cx, Y: cy + vpad, W: w, H: textH}, col)
+			case CaretUnderline:
+				dl.AddRect(render.Rect{X: cx, Y: cy + vpad + textH - 2, W: e.cellW, H: 2}, th.Accent)
+			default:
+				dl.AddRect(render.Rect{X: cx, Y: cy + vpad, W: 2, H: textH}, th.Accent)
+			}
+		}
 	}
 	dl.PopClip()
 	dl.PopClip()
 
 	if e.gutterW > 0 {
-		numRight := f.X + e.gutterW - 8
+		foldW := float32(0)
+		if !e.fold.off {
+			foldW = foldGutterW
+		}
+		numRight := f.X + e.gutterW - foldW - 8
 		if g := e.gutter; g != nil {
 			if g.Fill != TokenUnset {
 				dl.AddRect(gutter, g.Fill.Resolve(th))
@@ -2675,17 +3086,34 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 			if g.Separator {
 				dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
 			}
-			numRight = f.X + e.gutterW - e.gutterPad()
+			numRight = f.X + e.gutterW - foldW - e.gutterPad()
 		} else {
 			dl.AddRect(gutter, th.ChromeMuted)
 			// 1px divider between gutter and text area.
 			dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
 		}
 		dl.PushClip(render.Rect{X: gutter.X, Y: gutter.Y, W: gutter.W, H: vp.H})
+		markX := gutter.X + gutter.W - foldW - lineMarkW - 1
 		for _, pr := range rows {
-			y := f.Y + float32(pr.visual)*e.lineH - e.ScrollPx
+			y := e.rowY(pr.visual)
 			if y >= vp.Y+vp.H {
 				break
+			}
+			if e.foldCovers(pr.visual) {
+				dl.AddRect(render.Rect{X: gutter.X, Y: y, W: gutter.W, H: e.lineH}, th.ChromeMuted)
+			}
+			e.paintFoldChevron(dl, pr, gutter, y)
+			if k, ok := e.lineMarks[pr.line]; ok {
+				switch k {
+				case LineAdded:
+					dl.AddRect(render.Rect{X: markX, Y: y, W: lineMarkW, H: e.lineH}, th.Success)
+				case LineModified:
+					dl.AddRect(render.Rect{X: markX, Y: y, W: lineMarkW, H: e.lineH}, th.Accent)
+				case LineRemoved:
+					if pr.first {
+						dl.AddRect(render.Rect{X: markX - 3, Y: y - 1, W: lineMarkW + 3, H: 3}, th.Error)
+					}
+				}
 			}
 			if !pr.first {
 				continue // continuation rows carry no gutter number
@@ -2698,8 +3126,26 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 	}
 
 	// Search/replace overlay (drawn last, on top of everything).
-	e.paintSearchBar(dl, engine)
+	e.paintFindBar(dl, engine)
 }
+
+// LineMarkKind is how a line differs from a base version, such as the last
+// commit, for the gutter's change bar.
+type LineMarkKind int
+
+const (
+	LineAdded    LineMarkKind = iota + 1 // a new line
+	LineModified                         // a changed line
+	LineRemoved                          // lines were deleted just above this one
+)
+
+// lineMarkW is the width of the gutter change bar.
+const lineMarkW = 3
+
+// SetLineMarks shows change bars in the gutter, keyed by 0-based line. A
+// LineRemoved mark sits on the line after the deleted ones (a line past the
+// end marks a deletion at the end). Nil clears them.
+func (e *Editor) SetLineMarks(marks map[int]LineMarkKind) { e.lineMarks = marks }
 
 // caretVisible returns the blink phase.
 func (e *Editor) caretVisible() bool {
@@ -2794,9 +3240,10 @@ func (e *Editor) findMatchForward(from int, same, other rune) int {
 	depth := 1
 	for i := from; i < limit; {
 		r, sz := utf8.DecodeRune(b[i:])
-		if r == same {
+		switch r {
+		case same:
 			depth++
-		} else if r == other {
+		case other:
 			depth--
 			if depth == 0 {
 				return i
@@ -2819,9 +3266,10 @@ func (e *Editor) findMatchBackward(from int, same, other rune) int {
 	depth := 1
 	for i := len(b); i > start; {
 		r, sz := utf8.DecodeLastRune(b[:i])
-		if r == same {
+		switch r {
+		case same:
 			depth++
-		} else if r == other {
+		case other:
 			depth--
 			if depth == 0 {
 				return i - sz
@@ -2830,294 +3278,4 @@ func (e *Editor) findMatchBackward(from int, same, other rune) int {
 		i -= sz
 	}
 	return -1
-}
-
-// ---------------------------------------------------------------------------
-// Search / replace
-// ---------------------------------------------------------------------------
-
-func (e *Editor) openSearch(replaceMode bool) {
-	e.search.open = true
-	e.search.focused = true
-	e.search.replaceMode = replaceMode && !e.readOnly
-	e.search.focusField = 0
-	if e.hasSelection() {
-		lo, hi := e.selRange()
-		e.search.query = string(e.pt.Bytes()[lo:hi])
-		e.search.queryCaret = len(e.search.query)
-	}
-	e.runSearch()
-}
-
-func (e *Editor) closeSearch() {
-	e.search.open = false
-	e.search.focused = false
-	e.search.matches = e.search.matches[:0]
-}
-
-// runSearch updates e.search.matches for the current query.
-func (e *Editor) runSearch() {
-	e.search.matches = e.search.matches[:0]
-	if e.search.query == "" {
-		e.search.current = -1
-		return
-	}
-	b := e.pt.Bytes()
-	q := []byte(e.search.query)
-	for start := 0; start+len(q) <= len(b); {
-		idx := bytes.Index(b[start:], q)
-		if idx < 0 {
-			break
-		}
-		pos := start + idx
-		e.search.matches = append(e.search.matches, matchRange{pos, pos + len(q)})
-		start = pos + len(q)
-	}
-	// Pick the match at or after the current caret.
-	e.search.current = -1
-	for i, mr := range e.search.matches {
-		if mr.lo >= e.caret {
-			e.search.current = i
-			break
-		}
-	}
-	if e.search.current == -1 && len(e.search.matches) > 0 {
-		e.search.current = 0
-	}
-}
-
-func (e *Editor) searchNext() {
-	if len(e.search.matches) == 0 {
-		return
-	}
-	e.search.current = (e.search.current + 1) % len(e.search.matches)
-	e.jumpToMatch(e.search.current)
-}
-
-func (e *Editor) searchPrev() {
-	if len(e.search.matches) == 0 {
-		return
-	}
-	n := len(e.search.matches)
-	e.search.current = (e.search.current - 1 + n) % n
-	e.jumpToMatch(e.search.current)
-}
-
-func (e *Editor) jumpToMatch(idx int) {
-	if idx < 0 || idx >= len(e.search.matches) {
-		return
-	}
-	mr := e.search.matches[idx]
-	e.selAnchor = mr.lo
-	e.caret = mr.hi
-	e.ensureCaretVisible()
-}
-
-// searchField returns pointers to the focused field's text and caret.
-func (e *Editor) searchField() (*string, *int) {
-	if e.search.replaceMode && e.search.focusField == 1 {
-		return &e.search.replace, &e.search.replaceCaret
-	}
-	return &e.search.query, &e.search.queryCaret
-}
-
-func (e *Editor) searchHandleText(runes []rune) {
-	field, caret := e.searchField()
-	s := string(runes)
-	*field = (*field)[:*caret] + s + (*field)[*caret:]
-	*caret += len(s)
-	if e.search.focusField == 0 {
-		e.runSearch()
-		if e.search.current >= 0 {
-			e.jumpToMatch(e.search.current)
-		}
-	}
-}
-
-func (e *Editor) searchHandleKey(ev input.KeyEvent) {
-	shift := ev.Mods.Has(input.ModShift)
-	switch ev.Key {
-	case input.KeyEscape:
-		e.closeSearch()
-	case input.KeyEnter:
-		if e.search.replaceMode && e.search.focusField == 1 {
-			e.doReplace()
-		} else if shift {
-			e.searchPrev()
-		} else {
-			e.searchNext()
-		}
-	case input.KeyTab:
-		if e.search.replaceMode {
-			e.search.focusField = 1 - e.search.focusField
-		}
-	case input.KeyBackspace:
-		field, caret := e.searchField()
-		if *caret > 0 {
-			_, sz := utf8.DecodeLastRune([]byte((*field)[:*caret]))
-			*field = (*field)[:*caret-sz] + (*field)[*caret:]
-			*caret -= sz
-			if e.search.focusField == 0 {
-				e.runSearch()
-			}
-		}
-	case input.KeyDelete:
-		field, caret := e.searchField()
-		if *caret < len(*field) {
-			_, sz := utf8.DecodeRune([]byte((*field)[*caret:]))
-			*field = (*field)[:*caret] + (*field)[*caret+sz:]
-			if e.search.focusField == 0 {
-				e.runSearch()
-			}
-		}
-	case input.KeyLeft:
-		field, caret := e.searchField()
-		if *caret > 0 {
-			_, sz := utf8.DecodeLastRune([]byte((*field)[:*caret]))
-			*caret -= sz
-		}
-	case input.KeyRight:
-		field, caret := e.searchField()
-		if *caret < len(*field) {
-			_, sz := utf8.DecodeRune([]byte((*field)[*caret:]))
-			*caret += sz
-		}
-	case input.KeyHome:
-		_, caret := e.searchField()
-		*caret = 0
-	case input.KeyEnd:
-		field, caret := e.searchField()
-		*caret = len(*field)
-	}
-	// Cmd/Ctrl shortcuts while search bar is open.
-	if ev.Mods.Primary() {
-		switch ev.Key {
-		case input.KeyH:
-			e.search.replaceMode = !e.search.replaceMode
-		case input.KeyF:
-			e.search.focusField = 0
-		case input.KeyV:
-			e.paste(frameClipboard())
-		}
-	}
-}
-
-func (e *Editor) doReplace() {
-	cur := e.search.current
-	if cur < 0 || cur >= len(e.search.matches) {
-		return
-	}
-	mr := e.search.matches[cur]
-	e.applyEdit(mr.lo, mr.hi-mr.lo, e.search.replace, mergeNone)
-	e.runSearch()
-	if len(e.search.matches) > 0 {
-		if cur >= len(e.search.matches) {
-			cur = 0
-		}
-		e.search.current = cur
-		e.jumpToMatch(cur)
-	}
-}
-
-func (e *Editor) doReplaceAll() {
-	for i := len(e.search.matches) - 1; i >= 0; i-- {
-		mr := e.search.matches[i]
-		e.applyEdit(mr.lo, mr.hi-mr.lo, e.search.replace, mergeNone)
-	}
-	e.runSearch()
-}
-
-// ---------------------------------------------------------------------------
-// Search bar painting
-// ---------------------------------------------------------------------------
-
-const (
-	searchBarW = float32(310)
-	searchRowH = float32(30)
-)
-
-func (e *Editor) paintSearchBar(dl *render.DrawList, engine *shape.Engine) {
-	if !e.search.open {
-		return
-	}
-	th := theme.Current()
-	m := engine.MetricsMono()
-
-	bar := e.searchBarRect()
-	barX, barY, barH := bar.X, bar.Y, bar.H
-
-	// Background + border.
-	dl.AddRoundedRectBorder(
-		render.Rect{X: barX, Y: barY, W: searchBarW, H: barH},
-		4, 1, th.Chrome, th.Border,
-	)
-
-	textTopY := func(row int) float32 {
-		return barY + float32(row)*searchRowH + (searchRowH-m.LineHeight)/2
-	}
-
-	findField := e.searchInputRect(0)
-	inputX, inputW := findField.X, findField.W
-
-	noMatch := e.search.query != "" && len(e.search.matches) == 0
-	searchFieldBg := th.Background
-	if noMatch {
-		// Tint the input when the query has no matches. ErrorSurface is built
-		// from the palette, so this stays legible on light themes too.
-		searchFieldBg = th.ErrorSurface
-	}
-
-	// --- Search row ---
-	engine.DrawStringTopMono(dl, "Find:", barX+5, textTopY(0), th.TextDim)
-	dl.AddRoundedRect(render.Rect{X: inputX, Y: barY + 4, W: inputW, H: searchRowH - 8}, 2, searchFieldBg)
-
-	// Search text + caret (clipped to field).
-	dl.PushClip(render.Rect{X: inputX, Y: barY, W: inputW, H: searchRowH})
-	textColor := th.Foreground
-	if noMatch {
-		textColor = th.ErrorForeground
-	}
-	engine.DrawStringTopMono(dl, e.search.query, inputX+searchTextPadX, textTopY(0), textColor)
-	if e.search.focused && e.search.focusField == 0 {
-		qw, _ := engine.MeasureMono(e.search.query[:e.search.queryCaret])
-		cx := inputX + searchTextPadX + qw
-		dl.AddRect(render.Rect{X: cx, Y: barY + 5, W: 1.5, H: searchRowH - 10}, th.Caret)
-	}
-	dl.PopClip()
-
-	// Match count.
-	var countStr string
-	switch {
-	case len(e.search.matches) > 0:
-		countStr = strconv.Itoa(e.search.current+1) + "/" + strconv.Itoa(len(e.search.matches))
-	case e.search.query != "":
-		countStr = "0/0"
-	}
-	countX := inputX + inputW + 4
-	engine.DrawStringTopMono(dl, countStr, countX, textTopY(0), th.TextDim)
-
-	// Close button.
-	closeX := barX + searchBarW - 16
-	engine.DrawStringTopMono(dl, "x", closeX, textTopY(0), th.ForegroundMuted)
-
-	// --- Replace row ---
-	if e.search.replaceMode {
-		engine.DrawStringTopMono(dl, "Repl:", barX+5, textTopY(1), th.TextDim)
-		replFieldY := barY + searchRowH
-		dl.AddRoundedRect(render.Rect{X: inputX, Y: replFieldY + 4, W: inputW, H: searchRowH - 8}, 2, th.Background)
-
-		dl.PushClip(render.Rect{X: inputX, Y: replFieldY, W: inputW, H: searchRowH})
-		engine.DrawStringTopMono(dl, e.search.replace, inputX+searchTextPadX, textTopY(1), th.Foreground)
-		if e.search.focused && e.search.focusField == 1 {
-			rw, _ := engine.MeasureMono(e.search.replace[:e.search.replaceCaret])
-			cx := inputX + searchTextPadX + rw
-			dl.AddRect(render.Rect{X: cx, Y: replFieldY + 5, W: 1.5, H: searchRowH - 10}, th.Accent)
-		}
-		dl.PopClip()
-
-		// Replace-one and replace-all buttons.
-		one, all := e.replaceButtonRects()
-		engine.DrawStringTopMono(dl, "->1", one.X, textTopY(1), th.Accent)
-		engine.DrawStringTopMono(dl, "->*", all.X, textTopY(1), th.Accent)
-	}
 }

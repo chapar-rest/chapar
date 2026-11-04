@@ -16,6 +16,7 @@ package lsp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,6 +63,8 @@ type rpcConn struct {
 	pending map[int]chan rpcMessage
 
 	onNotify notifyFunc
+	// onRequest answers server→client requests; nil uses serverRequestResult.
+	onRequest func(method string, params json.RawMessage) any
 
 	closeOnce sync.Once
 	closed    chan struct{}
@@ -144,6 +147,37 @@ func (c *rpcConn) callTimeout(method string, params any, d time.Duration) (json.
 	}
 }
 
+// callCtx is call bounded by ctx. When ctx ends first, the server is asked to
+// cancel the request.
+func (c *rpcConn) callCtx(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	c.mu.Lock()
+	c.nextID++
+	id := c.nextID
+	ch := make(chan rpcMessage, 1)
+	c.pending[id] = ch
+	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		delete(c.pending, id)
+		c.mu.Unlock()
+	}()
+	if err := c.writeFrame(map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params}); err != nil {
+		return nil, err
+	}
+	select {
+	case msg := <-ch:
+		if msg.Error != nil {
+			return nil, msg.Error
+		}
+		return msg.Result, nil
+	case <-c.closed:
+		return nil, io.ErrClosedPipe
+	case <-ctx.Done():
+		_ = c.notify("$/cancelRequest", map[string]any{"id": id})
+		return nil, ctx.Err()
+	}
+}
+
 // Close shuts down the transport. The read loop unblocks pending calls.
 func (c *rpcConn) Close() error {
 	err := c.rwc.Close()
@@ -196,11 +230,23 @@ func (c *rpcConn) dispatch(msg rpcMessage) {
 		// Server→client request. We implement no client-side features, so reply
 		// with an empty result to keep the server from blocking (e.g. on
 		// client/registerCapability).
-		_ = c.writeFrame(map[string]any{
-			"jsonrpc": "2.0",
-			"id":      json.RawMessage(*msg.ID),
-			"result":  serverRequestResult(msg.Method, msg.Params),
-		})
+		id, method, params := json.RawMessage(*msg.ID), msg.Method, msg.Params
+		answer := func() {
+			var result any
+			if c.onRequest != nil {
+				result = c.onRequest(method, params)
+			} else {
+				result = serverRequestResult(method, params)
+			}
+			_ = c.writeFrame(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+		}
+		if c.onRequest != nil {
+			// The app may take a while (applying an edit waits for the UI),
+			// and the read loop must keep reading meanwhile.
+			go answer()
+		} else {
+			answer()
+		}
 	case msg.Method != "":
 		// Notification.
 		if c.onNotify != nil {

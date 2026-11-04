@@ -119,29 +119,34 @@ func (tf *TextInput) refreshSuggest() {
 	}
 	f := tf.host.Frame
 	x := tf.textLeft() - tf.scrollX + tf.offsetXForValue(start)
-	tf.sugg.menu.OpenAt(clampf(x, f.X, f.X+f.W), tf.suggestY())
+	top, bottom := f.Y, f.Y+f.H
+	if tf.cfg.Multiline {
+		// Open at the line being completed, not the whole area.
+		x, top = tf.caretPos(start)
+		bottom = top + tf.lineHeight()
+	}
+	tf.sugg.menu.OpenAt(clampf(x, f.X, f.X+f.W), tf.suggestY(top, bottom))
 	// OpenAt leaves the hover on a checked item; a fresh list starts at the top.
 	tf.sugg.menu.hover = 0
 	tf.sugg.menu.scrollY = 0
 }
 
-// suggestY is where the popup opens: under the field, or above it when the room
-// below is too tight and there is more of it above. Either way the popup must
-// not cover the text being completed.
-func (tf *TextInput) suggestY() float32 {
-	f := tf.host.Frame
+// suggestY is where the popup opens: under the text being completed, which
+// spans top to bottom, or above it when the room below is too tight and there
+// is more of it above. Either way the popup must not cover that text.
+func (tf *TextInput) suggestY(top, bottom float32) float32 {
 	gap := theme.Current().Spacing.XS
-	below := f.Y + f.H + gap
+	below := bottom + gap
 	if viewportH <= 0 {
 		return below
 	}
 	h := tf.sugg.menu.height()
 	roomBelow := viewportH - below
-	roomAbove := f.Y - gap
+	roomAbove := top - gap
 	if h <= roomBelow || roomAbove <= roomBelow {
 		return below
 	}
-	return f32max(0, f.Y-gap-f32min(h, roomAbove))
+	return f32max(0, top-gap-f32min(h, roomAbove))
 }
 
 // applySuggestion replaces the suggested range with text and puts the caret

@@ -94,7 +94,18 @@ func (s *Shaper) ShapeLineMonoAt(text string, logicalSize render.Px) Line {
 	return s.shapeLineFaceAt(text, true, logicalSize, WeightRegular)
 }
 
+// ShapeLineMonoTabs shapes editor mono text with tab stops every tabCols
+// columns instead of the configured width; tabCols <= 0 uses the configured
+// width.
+func (s *Shaper) ShapeLineMonoTabs(text string, tabCols int) Line {
+	return s.shapeLine(text, true, 0, WeightRegular, tabCols)
+}
+
 func (s *Shaper) shapeLineFaceAt(text string, mono bool, logicalSize render.Px, weight int) Line {
+	return s.shapeLine(text, mono, logicalSize, weight, 0)
+}
+
+func (s *Shaper) shapeLine(text string, mono bool, logicalSize render.Px, weight, tabs int) Line {
 	if text == "" {
 		return Line{LogicalSize: logicalSize, Weight: weight, Mono: mono}
 	}
@@ -118,6 +129,9 @@ func (s *Shaper) shapeLineFaceAt(text string, mono bool, logicalSize render.Px, 
 		if tabStop {
 			cw := s.cellWidthAt(mono, logicalSize, weight)
 			tabCols := s.fs.TabCols()
+			if tabs > 0 {
+				tabCols = tabs
+			}
 			col := int(x / cw)
 			nextCol := (col/tabCols + 1) * tabCols
 			next := float32(nextCol) * cw
@@ -254,10 +268,10 @@ func (s *Shaper) shapeSegment(runes []rune, byteBase int, startX float32, mono b
 			glyphs = append(glyphs, Glyph{
 				FaceID: faceID, GID: g.GlyphID,
 				X: x, Y: gy - toLogical(s.fs, g.YBearing),
-				BearingX:    toLogical(s.fs, g.XOffset+g.XBearing),
-				OffsetX:     toLogical(s.fs, g.XOffset),
-				Baseline:    gy,
-				W:           w, H: h,
+				BearingX: toLogical(s.fs, g.XOffset+g.XBearing),
+				OffsetX:  toLogical(s.fs, g.XOffset),
+				Baseline: gy,
+				W:        w, H: h,
 				Advance:     adv,
 				ClusterByte: clusterByte,
 				ClusterLen:  clusterLen,

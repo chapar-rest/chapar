@@ -281,8 +281,8 @@ func (pt *PieceTable) Delete(offset, length int) {
 	pt.cacheValid = false
 
 	end := offset + length
-	out := pt.pieces[:0:0] // build a fresh slice to avoid aliasing surprises
-	out = make([]piece, 0, len(pt.pieces)+2)
+	// Build a fresh slice to avoid aliasing surprises.
+	out := make([]piece, 0, len(pt.pieces)+2)
 	acc := 0
 	for _, p := range pt.pieces {
 		pStart, pEnd := acc, acc+p.length

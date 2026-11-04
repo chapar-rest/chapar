@@ -54,7 +54,6 @@ var (
 	okabeBlue        = rgb(0, 114, 178)   // info / accent
 	okabeSkyBlue     = rgb(86, 180, 233)  // accent on dark
 	okabePurple      = rgb(204, 121, 167) // syntax
-	okabeYellow      = rgb(240, 228, 66)  // syntax
 )
 
 // yogaColorblindDark is a dark theme whose status colors come from the

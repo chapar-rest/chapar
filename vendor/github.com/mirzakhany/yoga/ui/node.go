@@ -20,6 +20,7 @@ const (
 	kindParagraph
 	kindButton
 	kindTextField
+	kindTextArea
 	kindCheckbox
 	kindIconButton
 	kindWrap
@@ -71,18 +72,20 @@ const (
 // Node is the universal view value. Layout directives and widgets return *Node
 // so modifiers chain. Node implements View.
 type Node struct {
-	kind         nodeKind
-	id           string
-	children     []View
-	child        View
-	inner        View
-	raw          *layout.Element
-	text         string
-	spec         Spec
-	onClick      func()
+	kind     nodeKind
+	id       string
+	children []View
+	child    View
+	inner    View
+	raw      *layout.Element
+	text     string
+	spec     Spec
+	onClick  func()
 	// menuItems, when hasMenu is set, make an IconButton open a menu.
 	menuItems []MenuItem
 	hasMenu   bool
+	// hidden is set by Reveal(false).
+	hidden       bool
 	onChange     func(string)
 	onSubmit     func(string)
 	onToggle     func(bool)
@@ -106,6 +109,7 @@ type Node struct {
 	labelMuted   bool
 	labelStrike  bool
 	defaultFocus bool
+	focusNow     bool
 	ghostHover   bool
 	extra        any
 	selected     int
@@ -465,6 +469,14 @@ func (n *Node) DefaultFocus() *Node {
 	return n
 }
 
+// FocusNow, when v is true, moves keyboard focus to this text field or text
+// area this frame, such as when the panel holding it opens. Pass true for one
+// frame only, or the field keeps taking focus back.
+func (n *Node) FocusNow(v bool) *Node {
+	n.focusNow = v
+	return n
+}
+
 // OnClick sets a pointer-up handler.
 func (n *Node) OnClick(fn func()) *Node {
 	n.onClick = fn
@@ -585,9 +597,28 @@ func (n *Node) Layout(c *Ctx) *layout.Element {
 		if tipID == "" {
 			tipID = autoID(c, "node")
 		}
-		attachNodeTooltip(c, tipID, n.tooltip, el)
+		if n.tipHidden(c) {
+			hideNodeTooltip(c, tipID)
+		} else {
+			attachNodeTooltip(c, tipID, n.tooltip, el)
+		}
 	}
 	return el
+}
+
+// tipHidden reports whether an IconButton's tooltip should stay away: while
+// its menu is open, the tooltip would cover the menu, and while Reveal hides
+// it, there is nothing to explain.
+func (n *Node) tipHidden(c *Ctx) bool {
+	if n.kind != kindIconButton {
+		return false
+	}
+	if n.hasMenu && n.id != "" {
+		if d, ok := c.peekWidget(n.id + "-menu").(*dropdownState); ok && d.menu != nil && d.menu.Open {
+			return true
+		}
+	}
+	return n.hidden
 }
 
 func (n *Node) layoutKind(c *Ctx) *layout.Element {
@@ -643,6 +674,8 @@ func (n *Node) layoutKind(c *Ctx) *layout.Element {
 		return n.layoutButton(c)
 	case kindTextField:
 		return n.layoutTextField(c)
+	case kindTextArea:
+		return n.layoutTextArea(c)
 	case kindEditableLabel:
 		return n.layoutEditableLabel(c)
 	case kindCheckbox:

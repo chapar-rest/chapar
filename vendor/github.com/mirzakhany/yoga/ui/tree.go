@@ -89,6 +89,10 @@ type Tree struct {
 	// IconFor optionally overrides the icon (and its color) for a node.
 	IconFor func(n *TreeNode, expanded bool) (icon icons.Icon, color render.Color)
 
+	// LabelColor optionally colors a node's label, such as a file's git
+	// status. Return false for the default foreground.
+	LabelColor func(n *TreeNode) (render.Color, bool)
+
 	// Leading, when set and returning a view, draws that view in place of a
 	// node's icon: a method badge, a color dot. Return nil for the icon.
 	Leading func(n *TreeNode) View
@@ -499,6 +503,36 @@ func (t *Tree) SetExpanded(n *TreeNode, open bool) {
 	t.toggle(n)
 }
 
+// CollapseAll closes every branch below the root. The selection moves to the
+// top-level row that held it and the scroll is kept in range. OnToggle does
+// not fire; a filter in effect keeps its matches open until it is cleared.
+func (t *Tree) CollapseAll() {
+	sel := t.Selected()
+	var walk func(n *TreeNode)
+	walk = func(n *TreeNode) {
+		for _, c := range n.Children {
+			c.expanded = false
+			walk(c)
+		}
+	}
+	walk(t.root)
+	t.rebuild()
+	t.selected = -1
+	if path := t.pathTo(sel); path != nil {
+		for i, v := range t.visible {
+			if v == path[0] {
+				t.selected = i
+				break
+			}
+		}
+	}
+	t.hover = -1
+	t.clampScroll()
+	if t.markPaint != nil {
+		t.markPaint()
+	}
+}
+
 // branch reports whether a node should be treated as expandable.
 func (n *TreeNode) branch() bool { return !n.Leaf }
 
@@ -585,12 +619,18 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 		}
 
 		_, lh := text.MeasureAt(n.Label, style.Size)
+		labelCol := th.Foreground
+		if t.LabelColor != nil {
+			if col, ok := t.LabelColor(n); ok {
+				labelCol = col
+			}
+		}
 		if trail := t.slotAt(t.trails, i); trail != nil {
 			dl.PushClip(render.Rect{X: vp.X, Y: y, W: f32max(0, trail.Frame.X-t.labelGap()-vp.X), H: t.rowH})
-			text.DrawStringTopAt(dl, n.Label, labelX, y+(t.rowH-lh)/2, th.Foreground, style.Size)
+			text.DrawStringTopAt(dl, n.Label, labelX, y+(t.rowH-lh)/2, labelCol, style.Size)
 			dl.PopClip()
 		} else {
-			text.DrawStringTopAt(dl, n.Label, labelX, y+(t.rowH-lh)/2, th.Foreground, style.Size)
+			text.DrawStringTopAt(dl, n.Label, labelX, y+(t.rowH-lh)/2, labelCol, style.Size)
 		}
 	}
 

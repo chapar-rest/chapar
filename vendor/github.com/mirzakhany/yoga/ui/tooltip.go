@@ -84,6 +84,14 @@ func attachNodeTooltip(c *Ctx, id, text string, el *layout.Element) {
 	}
 }
 
+// hideNodeTooltip drops a shown or pending node tooltip, so it starts over
+// on the next hover.
+func hideNodeTooltip(c *Ctx, id string) {
+	if st, ok := c.peekWidget(id + "#tip").(*tooltipState); ok {
+		st.hovered, st.visible = false, false
+	}
+}
+
 func buildTooltipOverlay(c *Ctx, anchor render.Rect, text string) *layout.Element {
 	th := c.Theme()
 	style := th.Typography.Caption

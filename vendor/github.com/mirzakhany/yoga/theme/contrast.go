@@ -85,29 +85,6 @@ func awayFrom(bg render.Color) render.Color {
 	return black
 }
 
-// fit lightens or darkens c until it reaches want against bg, mixing toward
-// whichever extreme moves away from bg. Hue survives because the mix is a
-// straight interpolation toward an achromatic endpoint. When the target is
-// unreachable (bg is mid-gray) it returns the closest attempt.
-func fit(c, bg render.Color, want float64) render.Color {
-	if ContrastRatio(c, bg) >= want {
-		return c
-	}
-	target := awayFrom(bg)
-	best, bestRatio := c, ContrastRatio(c, bg)
-	for i := 1; i <= 100; i++ {
-		cand := mix(c, target, float32(i)/100)
-		r := ContrastRatio(cand, bg)
-		if r >= want {
-			return cand
-		}
-		if r > bestRatio {
-			best, bestRatio = cand, r
-		}
-	}
-	return best
-}
-
 // fitAll adjusts c until it meets want against every background, trying both
 // directions and keeping the candidate with the best worst-case ratio. Used for
 // tokens painted over more than one surface, such as a focus ring that must

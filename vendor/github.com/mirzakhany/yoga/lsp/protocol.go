@@ -217,8 +217,9 @@ type initializeParams struct {
 	// WorkspaceFolders repeats the root. Some servers (pyright) ignore
 	// rootUri and, without a folder, treat each file's directory as its
 	// workspace, missing the config and stubs at the root.
-	WorkspaceFolders []workspaceFolder  `json:"workspaceFolders"`
-	Capabilities     clientCapabilities `json:"capabilities"`
+	WorkspaceFolders      []workspaceFolder  `json:"workspaceFolders"`
+	Capabilities          clientCapabilities `json:"capabilities"`
+	InitializationOptions any                `json:"initializationOptions,omitempty"`
 }
 
 type workspaceFolder struct {
@@ -229,6 +230,7 @@ type workspaceFolder struct {
 type clientCapabilities struct {
 	General      generalCapabilities      `json:"general"`
 	TextDocument textDocumentCapabilities `json:"textDocument"`
+	Workspace    map[string]any           `json:"workspace"`
 }
 
 type generalCapabilities struct {
@@ -240,6 +242,14 @@ type textDocumentCapabilities struct {
 	Completion         completionCapabilities  `json:"completion"`
 	Hover              hoverCapabilities       `json:"hover"`
 	PublishDiagnostics publishDiagCapabilities `json:"publishDiagnostics"`
+	Definition         map[string]any          `json:"definition"`
+	References         map[string]any          `json:"references"`
+	Rename             map[string]any          `json:"rename"`
+	Formatting         map[string]any          `json:"formatting"`
+	RangeFormatting    map[string]any          `json:"rangeFormatting"`
+	DocumentSymbol     map[string]any          `json:"documentSymbol"`
+	SignatureHelp      map[string]any          `json:"signatureHelp"`
+	CodeAction         map[string]any          `json:"codeAction"`
 }
 
 type syncCapabilities struct {
@@ -260,6 +270,10 @@ type publishDiagCapabilities struct {
 
 type initializeResult struct {
 	Capabilities serverCapabilities `json:"capabilities"`
+}
+
+type initializeRawResult struct {
+	Capabilities map[string]json.RawMessage `json:"capabilities"`
 }
 
 type serverCapabilities struct {
