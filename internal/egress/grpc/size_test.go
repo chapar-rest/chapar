@@ -36,7 +36,7 @@ func echoServer(t *testing.T) string {
 			},
 		}},
 	}, struct{}{})
-	go srv.Serve(lis)
+	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
 	return lis.Addr().String()
 }
@@ -49,7 +49,7 @@ func TestMessageSizeLimits(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		return conn.Invoke(context.Background(), "/test.Echo/Echo", wrapperspb.Bytes(make([]byte, size)), &wrapperspb.BytesValue{})
 	}
 
