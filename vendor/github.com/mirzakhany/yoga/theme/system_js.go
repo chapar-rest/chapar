@@ -11,3 +11,8 @@ func osPrefersDark() bool {
 	}
 	return false
 }
+
+func osPrefersReducedMotion() bool {
+	media := js.Global().Call("matchMedia", "(prefers-reduced-motion: reduce)")
+	return media.Truthy() && media.Get("matches").Bool()
+}

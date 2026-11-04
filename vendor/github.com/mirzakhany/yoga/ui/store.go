@@ -1,5 +1,9 @@
 package ui
 
+// releaser is widget state holding resources, such as highlighter workers,
+// that must be freed when its widget leaves the tree.
+type releaser interface{ release() }
+
 type widgetStore struct {
 	items map[string]any
 	used  map[string]struct{}
@@ -44,6 +48,9 @@ func (c *Ctx) EndFrame() {
 	}
 	for id := range c.store.items {
 		if _, ok := c.store.used[id]; !ok {
+			if r, ok := c.store.items[id].(releaser); ok {
+				r.release()
+			}
 			delete(c.store.items, id)
 		}
 	}

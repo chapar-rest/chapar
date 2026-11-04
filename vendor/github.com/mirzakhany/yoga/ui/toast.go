@@ -173,7 +173,9 @@ func (t *ToastHost) prune() {
 	t.notices = notices
 }
 
-func (t *ToastHost) variantIcon(v ToastVariant) (icons.Icon, Token) {
+// Icon is the icon and color token toasts use for the variant, so other
+// views listing notices can match them.
+func (v ToastVariant) Icon() (icons.Icon, Token) {
 	switch v {
 	case ToastSuccess:
 		return icons.CircleCheck, TokenSuccessForeground
@@ -238,7 +240,7 @@ func (t *ToastHost) noticeCard(c *Ctx, n noticeEntry, w float32) (View, float32)
 	body := th.Typography.Body
 	ctrl := c.controlHeight()
 	key := n.key
-	icon, tok := t.variantIcon(n.opts.Variant)
+	icon, tok := n.opts.Variant.Icon()
 
 	header := Row(
 		Icon(icon, th.Metrics.IconSizeMD, tok.Resolve(th)),

@@ -10,9 +10,6 @@ import (
 	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
 
-// iconBakePx matches icons.BakePx — pre-rasterized Lucide icons are baked at this size.
-const iconBakePx = 40
-
 // svgOverrides maps icon names to raw SVG bytes registered at runtime via RegisterIcon.
 var svgOverrides = map[string][]byte{}
 

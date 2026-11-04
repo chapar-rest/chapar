@@ -125,6 +125,16 @@ func (n *Node) layoutForm(c *Ctx) *layout.Element {
 	if d == nil {
 		d = &formData{}
 	}
+	id := n.id
+	if id == "" {
+		id = autoID(c, "form")
+	}
+	return Responsive(id+"#width", func(w float32) View {
+		return n.formRows(c, d, w > 0 && w < formStackW)
+	}).Layout(c)
+}
+
+func (n *Node) formRows(c *Ctx, d *formData, stacked bool) View {
 	th := c.Theme()
 	rows := make([]View, 0, len(d.items))
 	if d.grouped {
@@ -145,29 +155,29 @@ func (n *Node) layoutForm(c *Ctx) *layout.Element {
 			if len(group) > 0 {
 				group = append(group, HLine(th.Stroke.Thin, th.Border))
 			}
-			group = append(group, n.formRowContent(c, item))
+			group = append(group, n.formRowContent(c, item, stacked))
 		}
 		flush()
-		return Column(rows...).Gap(th.Spacing.S).Style(n.spec).Layout(c)
+		return Column(rows...).Gap(th.Spacing.S).Style(n.spec)
 	}
 	for _, item := range d.items {
-		rows = append(rows, n.formRow(c, item))
+		rows = append(rows, n.formRow(c, item, stacked))
 	}
-	return Column(rows...).Gap(th.Spacing.S).Style(n.spec).Layout(c)
+	return Column(rows...).Gap(th.Spacing.S).Style(n.spec)
 }
 
-func (n *Node) formRow(c *Ctx, item FormItem) View {
+func (n *Node) formRow(c *Ctx, item FormItem, stacked bool) View {
 	th := c.Theme()
 	if item.Kind == FormItemHeading {
 		return formHeading(c, item)
 	}
-	return n.formRowContent(c, item).Background(TokenSurface).
+	return n.formRowContent(c, item, stacked).Background(TokenSurface).
 		Style(Spec{}.Radius(th.Radius.Medium).Border(TokenBorder, th.Stroke.Thin))
 }
 
 // formRowContent is a setting row without its card: icon, label and
 // description, and the control.
-func (n *Node) formRowContent(c *Ctx, item FormItem) *Node {
+func (n *Node) formRowContent(c *Ctx, item FormItem, stacked bool) *Node {
 	th := c.Theme()
 	pad := th.Spacing.M
 	iconSz := th.Metrics.IconSizeMD
@@ -200,8 +210,21 @@ func (n *Node) formRowContent(c *Ctx, item FormItem) *Node {
 		kids = append([]View{lead}, kids...)
 	}
 
+	if stacked {
+		// Too narrow for both side by side: the control goes under the text.
+		top := []View{textCol}
+		if lead != nil {
+			top = []View{lead, textCol}
+		}
+		return Column(Row(top...).Align(AlignStretch).Gap(th.Spacing.M), Row(control)).
+			Gap(th.Spacing.S).Padding(pad)
+	}
 	return Row(kids...).Align(AlignStretch).Gap(th.Spacing.M).Padding(pad)
 }
+
+// formStackW is the form width below which each row puts its control under
+// its label and description rather than beside them.
+const formStackW = 360
 
 func (n *Node) formControl(c *Ctx, item FormItem) View {
 	switch item.Kind {

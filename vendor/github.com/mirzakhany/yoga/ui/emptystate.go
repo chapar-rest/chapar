@@ -38,19 +38,36 @@ func (n *Node) layoutEmptyState(c *Ctx) *layout.Element {
 		d = &emptyStateData{}
 	}
 	th := c.Theme()
+	center := func(v View) View { return Row(v).Justify(JustifyCenter) }
 	kids := make([]View, 0, 4)
 	if !d.icon.Empty() {
-		kids = append(kids, Icon(d.icon, th.Metrics.IconSizeMD*2, th.ForegroundMuted))
+		kids = append(kids, center(Icon(d.icon, th.Metrics.IconSizeMD*2, th.ForegroundMuted)))
 	}
 	if d.title != "" {
-		kids = append(kids, Subtitle(d.title))
+		kids = append(kids, center(Subtitle(d.title)))
+	}
+	// The block is as wide as its widest line, and narrower when the room is:
+	// the detail wraps then rather than running past the edges.
+	var w float32
+	if eng := c.Text(); eng != nil {
+		if d.title != "" {
+			w, _ = eng.MeasureAtWeight(d.title, th.Typography.Subtitle.Size, th.Typography.Subtitle.Weight)
+		}
+		if d.detail != "" {
+			dw, _ := eng.MeasureAt(d.detail, th.Typography.Body.Size)
+			w = f32max(w, dw)
+		}
 	}
 	if d.detail != "" {
-		kids = append(kids, Muted(d.detail))
+		kids = append(kids, Paragraph(d.detail).TextAlign(AlignCenter).Style(Spec{}.TextColor(TokenForegroundMuted)))
 	}
 	if d.action != nil {
-		kids = append(kids, d.action)
+		kids = append(kids, center(d.action))
 	}
-	inner := Column(kids...).Gap(th.Spacing.M).Align(AlignCenter)
-	return Center(inner).Style(n.spec).Padding(th.Spacing.XXL).Layout(c)
+	inner := Column(kids...).Gap(th.Spacing.M).Align(AlignStretch).Shrink(1)
+	if w > 0 {
+		inner = inner.Width(w + 1)
+	}
+	return Column(Row(Spacer(), inner, Spacer())).Justify(JustifyCenter).Grow(1).
+		Style(n.spec).Padding(th.Spacing.XXL).Layout(c)
 }

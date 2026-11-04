@@ -11,8 +11,11 @@ import (
 
 // DialogAction is a button in a dialog footer.
 type DialogAction struct {
-	Label    string
-	Primary  bool
+	Label   string
+	Primary bool
+	// Danger styles the button in the theme's error color, for actions
+	// that destroy something, such as Delete.
+	Danger   bool
 	Disabled bool
 	OnClick  func()
 }
@@ -53,8 +56,10 @@ type DialogHost struct {
 	opts  DialogOpts
 	// inputValue holds the controlled text for ShowInput.
 	inputValue string
-	// inputFresh selects the whole starting value on the first frame.
+	// inputFresh selects the starting value on the first frame.
 	inputFresh bool
+	// inputErr is what InputOpts.Validate said about inputValue.
+	inputErr string
 	// fitH is the natural height a FitContent dialog measured last frame;
 	// bodySV is the scroll its body lives in.
 	fitH   float32
@@ -152,6 +157,24 @@ func (d *DialogHost) ShowAction(title, message string, onYes, onNo func()) {
 	)
 }
 
+// dangerButtonSpec recolors a primary button for a destructive action.
+var dangerButtonSpec = Background(TokenError).
+	When(Hovered, Background(TokenError)).
+	When(Pressed, Background(TokenError).Scale(0.96, 0.96))
+
+// ShowDanger opens a confirmation for a destructive action: Cancel and a
+// confirm button labelled confirm, painted in the error color. Escape
+// cancels.
+func (d *DialogHost) ShowDanger(title, message, confirm string, onConfirm func()) {
+	d.showMessage(title, message, DialogSeverityNone,
+		[]DialogAction{
+			{Label: "Cancel"},
+			{Label: confirm, Danger: true, OnClick: onConfirm},
+		},
+		nil,
+	)
+}
+
 func dialogSeverityStyle(s DialogSeverity) (icon icons.Icon, color Token) {
 	switch s {
 	case DialogSeverityInfo:
@@ -173,23 +196,60 @@ func (d *DialogHost) ShowInput(title, placeholder string, onOK func(value string
 // ShowInputValue opens a dialog with a text field that starts out holding
 // value, for renames and other edits. Enter in the field works like OK.
 func (d *DialogHost) ShowInputValue(title, placeholder, value string, onOK func(value string), onCancel func()) {
+	d.ShowInputOpts(InputOpts{Title: title, Placeholder: placeholder, Value: value, OnOK: onOK, OnCancel: onCancel})
+}
+
+// InputOpts configures ShowInputOpts.
+type InputOpts struct {
+	Title       string
+	Placeholder string
+	Value       string
+	// SelectStart and SelectEnd are the byte range selected at first; both
+	// zero selects the whole value.
+	SelectStart, SelectEnd int
+	// Validate, when set, runs on every change. A non-empty result shows
+	// under the field and disables OK and Enter.
+	Validate func(value string) string
+	OnOK     func(value string)
+	OnCancel func()
+}
+
+// ShowInputOpts opens a dialog with a text field, as ShowInputValue does, with
+// a chosen starting selection and live validation.
+func (d *DialogHost) ShowInputOpts(o InputOpts) {
 	th := theme.Current()
 	pad := th.Spacing.L
 	titleH := th.Typography.Subtitle.LineHeight
 	bodyH := th.Metrics.ControlHeight + pad
+	if o.Validate != nil {
+		bodyH += th.Spacing.S + th.Typography.Caption.LineHeight
+	}
 	footerH := th.Metrics.ControlHeight + pad
 	height := pad + titleH + pad + bodyH + pad + footerH
 
-	ok := func() {
-		d.Close()
-		if onOK != nil {
-			onOK(d.inputValue)
+	const okIdx = 1
+	validate := func() {
+		d.inputErr = ""
+		if o.Validate != nil {
+			d.inputErr = o.Validate(d.inputValue)
+		}
+		if len(d.opts.Actions) > okIdx {
+			d.opts.Actions[okIdx].Disabled = d.inputErr != ""
 		}
 	}
-	d.inputValue = value
+	ok := func() {
+		if d.inputErr != "" {
+			return
+		}
+		d.Close()
+		if o.OnOK != nil {
+			o.OnOK(d.inputValue)
+		}
+	}
+	d.inputValue = o.Value
 	d.inputFresh = true
 	d.Show(DialogOpts{
-		Title:  title,
+		Title:  o.Title,
 		Width:  360,
 		Height: height,
 		Body: func(c *Ctx) View {
@@ -200,30 +260,39 @@ func (d *DialogHost) ShowInputValue(title, placeholder, value string, onOK func(
 				// kept from the last time and select the new value instead.
 				d.inputFresh = false
 				tf := c.Widget("__dialog-input", func() any {
-					return NewTextInput(TextFieldConfig{Placeholder: placeholder})
+					return NewTextInput(TextFieldConfig{Placeholder: o.Placeholder})
 				}).(*TextInput)
 				tf.Value = d.inputValue
 				tf.resetHistory()
-				tf.SelectAll()
+				if o.SelectStart == 0 && o.SelectEnd == 0 {
+					tf.SelectAll()
+				} else {
+					tf.SetSelection(o.SelectStart, o.SelectEnd)
+				}
 			}
-			return Column(
+			kids := []View{
 				TextField("__dialog-input", d.inputValue).
-					Placeholder(placeholder).
-					OnChange(func(s string) { d.inputValue = s }).
+					Placeholder(o.Placeholder).
+					OnChange(func(s string) { d.inputValue = s; validate() }).
 					OnSubmit(func(string) { ok() }).
 					DefaultFocus(),
-			).Padding(pad).Gap(th.Spacing.S)
+			}
+			if d.inputErr != "" {
+				kids = append(kids, Caption(d.inputErr).Style(Spec{}.TextColor(TokenError)))
+			}
+			return Column(kids...).Padding(pad).Gap(th.Spacing.S)
 		},
 		Actions: []DialogAction{
-			{Label: "Cancel", OnClick: onCancel},
+			{Label: "Cancel", OnClick: o.OnCancel},
 			{Label: "OK", Primary: true, OnClick: func() {
-				if onOK != nil {
-					onOK(d.inputValue)
+				if o.OnOK != nil {
+					o.OnOK(d.inputValue)
 				}
 			}},
 		},
-		OnDismiss: onCancel,
+		OnDismiss: o.OnCancel,
 	})
+	validate()
 }
 
 // Layout registers the scrim and panel while open.
@@ -258,6 +327,9 @@ func (d *DialogHost) chrome(c *Ctx) View {
 		btn := Button(fmt.Sprintf("dlg-act-%d", i), Text(act.Label))
 		if act.Primary {
 			btn = btn.Primary()
+		}
+		if act.Danger {
+			btn = btn.Primary().Style(dangerButtonSpec)
 		}
 		if act.Disabled {
 			btn = btn.Disabled(true)

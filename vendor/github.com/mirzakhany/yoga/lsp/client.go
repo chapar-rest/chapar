@@ -26,6 +26,11 @@ type clientHooks struct {
 	message func(typ int, text string)
 	// activity fires whenever new events are queued for the editor.
 	activity func()
+	// request answers server→client requests (workspace/applyEdit,
+	// workspace/configuration); nil falls back to empty replies.
+	request func(method string, params json.RawMessage) any
+	// initOptions is sent as initializationOptions.
+	initOptions any
 }
 
 // EventKind tags the variant of an async Event.
@@ -57,6 +62,7 @@ type client struct {
 	rpc      *rpcConn
 	encoding string // negotiated position encoding ("utf-8" or "utf-16")
 	hooks    clientHooks
+	caps     map[string]json.RawMessage // server capabilities, by name
 
 	mu     sync.Mutex
 	diags  map[string][]Diagnostic
@@ -72,6 +78,7 @@ func newClient(rwc io.ReadWriteCloser, rootURI string, hooks clientHooks) (*clie
 		diags:    make(map[string][]Diagnostic),
 	}
 	c.rpc = newRPC(rwc, c.onNotify)
+	c.rpc.onRequest = hooks.request
 
 	params := initializeParams{
 		ProcessID:        os.Getpid(),
@@ -87,8 +94,31 @@ func newClient(rwc io.ReadWriteCloser, rootURI string, hooks clientHooks) (*clie
 			TextDocument: textDocumentCapabilities{
 				Hover:              hoverCapabilities{ContentFormat: []string{"plaintext", "markdown"}},
 				PublishDiagnostics: publishDiagCapabilities{RelatedInformation: false},
+				Definition:         map[string]any{"linkSupport": true},
+				References:         map[string]any{},
+				Rename:             map[string]any{"prepareSupport": false},
+				Formatting:         map[string]any{},
+				RangeFormatting:    map[string]any{},
+				DocumentSymbol:     map[string]any{"hierarchicalDocumentSymbolSupport": true},
+				SignatureHelp: map[string]any{"signatureInformation": map[string]any{
+					"documentationFormat":  []string{"plaintext", "markdown"},
+					"parameterInformation": map[string]any{"labelOffsetSupport": true},
+				}},
+				CodeAction: map[string]any{"codeActionLiteralSupport": map[string]any{
+					"codeActionKind": map[string]any{"valueSet": []string{
+						"", "quickfix", "refactor", "refactor.extract", "refactor.inline",
+						"refactor.rewrite", "source", "source.organizeImports", "source.fixAll",
+					}},
+				}},
+			},
+			Workspace: map[string]any{
+				"applyEdit":     true,
+				"workspaceEdit": map[string]any{"documentChanges": true},
+				"symbol":        map[string]any{},
+				"configuration": true,
 			},
 		},
+		InitializationOptions: hooks.initOptions,
 	}
 	raw, err := c.rpc.callTimeout(methodInitialize, params, initializeTimeout)
 	if err != nil {
@@ -98,6 +128,10 @@ func newClient(rwc io.ReadWriteCloser, rootURI string, hooks clientHooks) (*clie
 	var res initializeResult
 	if json.Unmarshal(raw, &res) == nil && res.Capabilities.PositionEncoding != "" {
 		c.encoding = res.Capabilities.PositionEncoding
+	}
+	var rawRes initializeRawResult
+	if json.Unmarshal(raw, &rawRes) == nil {
+		c.caps = rawRes.Capabilities
 	}
 	if err := c.rpc.notify(methodInitialized, struct{}{}); err != nil {
 		c.rpc.Close()

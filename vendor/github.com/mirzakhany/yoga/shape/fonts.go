@@ -67,7 +67,7 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 	if scale < 1 {
 		scale = 1
 	}
-	px := int(logicalFontPx * float64(scale) + 0.5)
+	px := int(logicalFontPx*float64(scale) + 0.5)
 	if px < 1 {
 		px = 1
 	}
@@ -386,16 +386,6 @@ func fixedToFloat(v fixed.Int26_6) float32 { return float32(v) / 64 }
 
 func toLogical(fs *FontSystem, px fixed.Int26_6) float32 {
 	return fixedToFloat(px) / fs.scale
-}
-
-// baseInput builds a shaping input for the UI face.
-func (fs *FontSystem) baseInput(text []rune) shaping.Input {
-	return fs.baseInputFace(text, fs.primary, fs.uiPixelSize)
-}
-
-// baseInputMono builds a shaping input for the editor mono face.
-func (fs *FontSystem) baseInputMono(text []rune) shaping.Input {
-	return fs.baseInputFace(text, fs.mono, fs.monoPixelSize)
 }
 
 // baseInputFace builds a shaping input for a rune slice with default LTR paragraph direction.

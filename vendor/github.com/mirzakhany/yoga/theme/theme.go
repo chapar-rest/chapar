@@ -198,6 +198,29 @@ func (t *Theme) SyntaxColor(c highlight.ColorClass) render.Color {
 	case highlight.ClassMuted:
 		return t.ForegroundMuted
 	}
+	// The finer classes: themes rarely list them, so borrow a related class
+	// or a categorical hue, which is text-safe on the editor surface.
+	switch c {
+	case highlight.ClassFunction, highlight.ClassMethod:
+		return t.Categorical[HueBlue]
+	case highlight.ClassProperty:
+		return t.Categorical[HueTeal]
+	case highlight.ClassParameter:
+		return t.Categorical[HueOrange]
+	case highlight.ClassBuiltin:
+		return t.Categorical[HuePink]
+	case highlight.ClassConstant:
+		return t.SyntaxColor(highlight.ClassNumber)
+	case highlight.ClassTag:
+		return t.SyntaxColor(highlight.ClassKeyword)
+	case highlight.ClassAttribute, highlight.ClassNamespace:
+		return t.SyntaxColor(highlight.ClassType)
+	case highlight.ClassPunctuation:
+		return t.ForegroundMuted
+	}
+	if col, ok := t.Syntax[highlight.ClassDefault]; ok {
+		return col // variables and operators read as plain code
+	}
 	return t.Foreground
 }
 

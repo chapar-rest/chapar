@@ -52,18 +52,26 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 		minW += iconSlot
 		padLeft += iconSlot
 	}
+	var lw float32
 	if c.Text() != nil {
-		lw, _ := c.Text().MeasureAt(label, th.Typography.Body.Size)
-		minW += lw
+		lw, _ = c.Text().MeasureAt(label, th.Typography.Body.Size)
 	}
 	if split {
 		minW += th.Stroke.Thin
 	}
-
+	// Shrink lets the button narrow down to its icon and chevron, cutting the
+	// label short with "…"; otherwise it is never narrower than its label.
+	shrinks := n.spec.hasShrink && n.spec.shrink > 0
 	style := layout.Box().
 		Direction(layout.Row).
 		AlignItems(layout.AlignCenter).
-		H(h).Min(minW, h).FlexShrink(0)
+		FlexShrink(0)
+	if shrinks {
+		style = style.W(minW+lw).H(h).Min(minW, h)
+	} else {
+		style = style.H(h).Min(minW+lw, h)
+	}
+	minW += lw
 	style.Padding = layout.Edges{Left: padLeft, Right: padRight}
 	box := applyLayoutSpec(style, spec)
 	el := layout.New(box)
@@ -121,8 +129,12 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 			x += iconSz + iconGap
 		}
 		style := th.Typography.Body
-		_, lh := text.MeasureAt(label, style.Size)
-		text.DrawStringTopAt(dl, label, x, cy-lh/2, fg, style.Size)
+		shown := label
+		if shrinks {
+			shown = truncateToWidth(text, label, style.Size, shape.WeightRegular, frame.X+frame.W-padRight-x, EllipsisEnd)
+		}
+		_, lh := text.MeasureAt(shown, style.Size)
+		text.DrawStringTopAt(dl, shown, x, cy-lh/2, fg, style.Size)
 
 		chevronLeft := frame.X + frame.W - chevronSlot
 		if split {

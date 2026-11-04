@@ -36,6 +36,7 @@ type Window struct {
 	winHost  *glfwWindowHost
 	layerBG  render.Color // clear color last pushed to the surface layer
 	scroll   scrollNormalizer
+	zoomGen  uint64 // zoom.gen last applied
 
 	// ui app path: set by runApp.
 	uiApp   App
@@ -124,7 +125,7 @@ func (a *Window) applyCursor() {
 
 func (a *Window) wireCallbacks() {
 	a.window.SetCursorPosCallback(func(_ *glfw.Window, x, y float64) {
-		a.mouse.SetPos(float32(x), float32(y))
+		a.mouse.SetPos(float32(x)/zoom.factor, float32(y)/zoom.factor)
 	})
 	a.window.SetMouseButtonCallback(func(_ *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
 		a.mouse.Mods = mapMods(mods)
@@ -133,6 +134,15 @@ func (a *Window) wireCallbacks() {
 			a.mouse.SetButton(action == glfw.Press)
 		case glfw.MouseButtonRight:
 			a.mouse.SetRightButton(action == glfw.Press)
+		case glfw.MouseButtonMiddle, glfw.MouseButton4, glfw.MouseButton5:
+			if action == glfw.Press {
+				k := map[glfw.MouseButton]input.Key{
+					glfw.MouseButtonMiddle: input.KeyMouseMiddle,
+					glfw.MouseButton4:      input.KeyMouseBack,
+					glfw.MouseButton5:      input.KeyMouseForward,
+				}[button]
+				a.keyboard.PressKey(k, mapMods(mods))
+			}
 		}
 	})
 	a.window.SetScrollCallback(func(_ *glfw.Window, xoff, yoff float64) {
@@ -152,21 +162,16 @@ func (a *Window) wireCallbacks() {
 		}
 	})
 	a.window.SetFramebufferSizeCallback(func(win *glfw.Window, fbW, fbH int) {
-		logicalW, logicalH := win.GetSize()
 		if fbW <= 0 || fbH <= 0 {
 			return
 		}
-		a.renderer.Resize(fbW, fbH, logicalW, logicalH)
-		// Moving between displays changes the backing scale; re-bake text
-		// for it, otherwise glyphs are resampled and look blurry.
-		if logicalW > 0 && a.text.SetScale(float32(fbW)/float32(logicalW)) && a.uiCtx != nil {
-			a.uiCtx.MarkNeedsPaint()
-		}
+		a.resize(fbW, fbH)
 		syncSurfaceLayer(win, a.layerBG)
 		// Repaint synchronously during live resize so the window doesn't blank.
 		if a.uiApp != nil {
+			w, h := a.logicalSize()
 			a.uiCtx.MarkNeedsPaint()
-			a.paintAppFrame(a.uiApp, float32(logicalW), float32(logicalH))
+			a.paintAppFrame(a.uiApp, w, h)
 			a.uiCtx.ClearNeedsPaint()
 			if _, ok := a.uiCtx.AnimationWait(); ok {
 				a.uiCtx.MarkNeedsPaint()
@@ -176,6 +181,29 @@ func (a *Window) wireCallbacks() {
 }
 
 func (a *Window) Window() *glfw.Window { return a.window }
+
+// logicalSize is the size layout sees: the window's size in points, divided
+// by the zoom.
+func (a *Window) logicalSize() (w, h float32) {
+	fw, fh := a.window.GetSize()
+	return float32(fw) / zoom.factor, float32(fh) / zoom.factor
+}
+
+// resize points the renderer and text at a framebuffer of fbW×fbH pixels
+// showing the zoomed logical size.
+func (a *Window) resize(fbW, fbH int) {
+	a.zoomGen = zoom.gen
+	w, h := a.logicalSize()
+	a.renderer.ResizeLogical(fbW, fbH, w, h)
+	// Moving between displays or zooming changes the pixels per logical
+	// point; re-bake text for it, otherwise glyphs are resampled and blurry.
+	if w > 0 && a.text.SetScale(float32(fbW)/w) && a.uiCtx != nil {
+		a.uiCtx.MarkNeedsPaint()
+	}
+	if a.winHost != nil {
+		a.winHost.setZoom(zoom.factor)
+	}
+}
 
 // runApp drives the ui.App frame loop: it rebuilds the body when the loop
 // wakes (input, Invalidate, or Animate), hit-tests, then paints only when
@@ -189,6 +217,7 @@ func (a *Window) runApp(app App) {
 	a.uiCtx.SetIcons(Icons())
 	a.uiCtx.SetClipboard(a.clip)
 	a.uiCtx.SetWindow(a.winHost)
+	zoom.wake = glfw.PostEmptyEvent
 
 	var lastW, lastH float32
 	var lastMX, lastMY float32
@@ -203,9 +232,11 @@ func (a *Window) runApp(app App) {
 			a.layerBG = bg
 			syncSurfaceLayer(a.window, bg)
 		}
-		fw, fh := a.window.GetSize()
-		if fw > 0 && fh > 0 {
-			w, h := float32(fw), float32(fh)
+		if a.zoomGen != zoom.gen {
+			a.resize(a.window.GetFramebufferSize())
+			a.uiCtx.MarkNeedsPaint()
+		}
+		if w, h := a.logicalSize(); w > 0 && h > 0 {
 			if w != lastW || h != lastH {
 				a.uiCtx.MarkNeedsPaint()
 				lastW, lastH = w, h
@@ -224,6 +255,7 @@ func (a *Window) runApp(app App) {
 			a.uiCtx.BeginInputPhase()
 			layout.Dispatch(inRoot, a.mouse)
 			a.uiFocus.HandleMouse(a.mouse)
+			a.uiFocus.RouteClaimed(a.keyboard)
 			if a.uiCtx.Commands() != nil {
 				a.uiCtx.Commands().Dispatch(a.keyboard)
 			}
@@ -257,8 +289,8 @@ func (a *Window) runApp(app App) {
 			// Input handlers can resize the window synchronously: a title-bar
 			// double-click runs the whole zoom animation inside Dispatch. Paint
 			// at the size the window has now; w/h and inRoot were sampled before.
-			if nw, nh := a.window.GetSize(); nw > 0 && nh > 0 && (float32(nw) != w || float32(nh) != h) {
-				w, h = float32(nw), float32(nh)
+			if nw, nh := a.logicalSize(); nw > 0 && nh > 0 && (nw != w || nh != h) {
+				w, h = nw, nh
 				lastW, lastH = w, h
 				a.uiCtx.MarkNeedsPaint()
 				paint, rebuild = true, true
@@ -456,6 +488,12 @@ func mapKey(k glfw.Key) (input.Key, bool) {
 		return input.KeyApostrophe, true
 	case glfw.KeyBackslash:
 		return input.KeyBackslash, true
+	case glfw.KeyPageUp:
+		return input.KeyPageUp, true
+	case glfw.KeyPageDown:
+		return input.KeyPageDown, true
+	case glfw.KeyInsert:
+		return input.KeyInsert, true
 	}
 	return input.KeyNone, false
 }

@@ -22,9 +22,9 @@ package layout
 //	func (a *App) Root() *layout.Element  { return a.host.Root() }
 //	func (a *App) Layout(w, h float32)    { a.host.Layout(w, h) }
 type Host struct {
-	build func() *Element
-	root  *Element
-	dirty bool
+	build  func() *Element
+	root   *Element
+	dirty  bool
 	vw, vh float32
 }
 

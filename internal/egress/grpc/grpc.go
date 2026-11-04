@@ -86,8 +86,29 @@ func (s *Service) Dial(req *domain.GRPCRequestSpec, extraOpts ...grpc.DialOption
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
+	opts = append(opts, callSizeOptions(req.Settings)...)
 	opts = append(opts, extraOpts...)
 	return grpc.NewClient(req.ServerInfo.Address, opts...)
+}
+
+// maxMessageSizeMB is the largest size limit gRPC can take: its limits are
+// ints and messages are capped at 2 GB on the wire.
+const maxMessageSizeMB = 2047
+
+// callSizeOptions applies the request's message size limits to every call
+// on the connection, reflection included. Zero leaves gRPC's default.
+func callSizeOptions(set domain.GRPCSettings) []grpc.DialOption {
+	var calls []grpc.CallOption
+	if mb := min(set.MaxReceiveMessageSizeMB, maxMessageSizeMB); mb > 0 {
+		calls = append(calls, grpc.MaxCallRecvMsgSize(mb<<20))
+	}
+	if mb := min(set.MaxSendMessageSizeMB, maxMessageSizeMB); mb > 0 {
+		calls = append(calls, grpc.MaxCallSendMsgSize(mb<<20))
+	}
+	if len(calls) == 0 {
+		return nil
+	}
+	return []grpc.DialOption{grpc.WithDefaultCallOptions(calls...)}
 }
 
 func GenerateExampleJSON(messageDescriptor protoreflect.MessageDescriptor) map[string]interface{} {

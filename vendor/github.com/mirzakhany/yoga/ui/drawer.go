@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	drawerHandleHit   = 6
-	drawerMinSize     = 80
-	drawerAnimDur     = 180 * time.Millisecond
-	drawerSwipeSlop   = 8
-	drawerSwipeSnap   = 0.4
-	drawerEdgeStrip   = 20
+	drawerHandleHit = 8
+	drawerMinSize   = 80
+	drawerAnimDur   = 180 * time.Millisecond
+	drawerSwipeSlop = 8
+	drawerSwipeSnap = 0.4
+	drawerEdgeStrip = 20
 )
 
 // Edge selects which viewport edge a Drawer docks to.
@@ -354,8 +354,10 @@ func (d *drawerView) visibleSize(st *drawerState) float32 {
 
 // pageItemStyle makes the page fill the drawer host while keeping its own
 // container styling (background, justify, padding, …).
+// pageItemStyle makes a pushed page take the room the panel leaves (basis
+// 0), so wide page content cannot push the panel out of the drawer.
 func pageItemStyle(el *layout.Element) layout.Style {
-	return paneItemStyle(el).FlexGrow(1).FlexShrink(1)
+	return paneItemStyle(el).FlexGrow(1).FlexShrink(1).FlexBasis(0).Min(0, 0)
 }
 
 func (d *drawerView) layoutPush(c *Ctx, st *drawerState, th *theme.Theme) *layout.Element {
@@ -510,10 +512,21 @@ func (d *drawerView) buildPanelShell(c *Ctx, st *drawerState, th *theme.Theme, l
 	}
 
 	box := layout.Box().Direction(g.panelDirection()).AlignItems(layout.AlignStretch).FlexShrink(0)
+	if !overlay {
+		// Pushing, the panel gives way down to its min when the drawer is
+		// narrower than it; its size comes back with the room.
+		box = box.FlexShrink(1)
+	}
 	if g.horizontal() {
 		box = box.W(layoutSize)
+		if !overlay {
+			box.MinWidth = f32min(d.minSz(), layoutSize)
+		}
 	} else {
 		box = box.H(layoutSize)
+		if !overlay {
+			box.MinHeight = f32min(d.minSz(), layoutSize)
+		}
 	}
 	panel := layout.New(box, children...)
 	panel.Clip = true

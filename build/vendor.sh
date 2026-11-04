@@ -12,7 +12,10 @@ cd "$(dirname "$0")/.."
 
 go mod vendor
 
-for mod in $(awk '/^# github.com\/tree-sitter/ {print $2}' vendor/modules.txt); do
+# Grammars live under several orgs (tree-sitter, tree-sitter-grammars,
+# coder3101), so match on the package path instead: every grammar has a
+# bindings/go package, plus go-tree-sitter itself.
+for mod in $(awk '/^# / {m=$2} /\/bindings\/go$/ || $1 == "github.com/tree-sitter/go-tree-sitter" {print m}' vendor/modules.txt | sort -u); do
   src=$(GOFLAGS=-mod=mod go list -m -f '{{.Dir}}' "$mod")
   dst="vendor/$mod"
   # Other language bindings (node, python, rust, swift, c) are not needed.

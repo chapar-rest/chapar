@@ -14,8 +14,11 @@ const (
 	splitHandleSize = 1
 	// splitHandleHit is the pointer hit strip, centered on the line. It
 	// overhangs the neighbouring panes instead of taking layout space.
-	splitHandleHit = 6
-	minPaneSize    = 80
+	splitHandleHit = 10
+	// splitHandleActive is the width of the accent bar painted while the
+	// handle is hovered or dragged, so the grab target reads as wider.
+	splitHandleActive = 3
+	minPaneSize       = 80
 )
 
 // splitView is a Column/Row of panes with draggable handles. Pane sizes live in
@@ -385,13 +388,20 @@ func applyPercentPaneStyle(el *layout.Element, grow float32) {
 func applyPaneStyle(el *layout.Element, axis Axis, size, min float32) {
 	style := paneItemStyle(el)
 	if size > 0 {
+		// A fixed pane gives way down to its min when the splitter is too
+		// small for every pane; its size comes back when the room does.
+		style = style.FlexShrink(1)
 		if axis == Horizontal {
 			style = style.W(size)
+			style.MinWidth = min
 		} else {
 			style = style.H(size)
+			style.MinHeight = min
 		}
 	} else {
-		style = style.FlexGrow(1)
+		// Basis 0: the flex pane takes the room left, not its content's
+		// width, or wide content would push the splitter past its parent.
+		style = style.FlexGrow(1).FlexBasis(0)
 		if axis == Horizontal {
 			style.MinWidth = min
 		} else {
@@ -474,11 +484,19 @@ func paintSplitHandle(st *splitState, idx int) layout.PaintFunc {
 			return
 		}
 		th := theme.Current()
-		col := th.Border
-		if active {
-			col = th.Accent
+		if !active {
+			dl.AddRect(f, th.Border)
+			return
 		}
-		dl.AddRect(f, col)
+		pad := float32(splitHandleActive-splitHandleSize) / 2
+		if st.axis == Horizontal {
+			f.X -= pad
+			f.W += 2 * pad
+		} else {
+			f.Y -= pad
+			f.H += 2 * pad
+		}
+		dl.AddRect(f, th.Accent)
 	}
 }
 

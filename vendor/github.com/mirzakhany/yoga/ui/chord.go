@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -18,8 +19,18 @@ type Chord struct {
 	primary bool
 }
 
-// ParseChord parses strings like "⌘S", "Mod+K", "Ctrl+Shift+P", "F5".
-// Mod, ⌘, Cmd, and Ctrl all mean the platform primary modifier.
+// LiteralCtrl makes Ctrl in a chord mean the Control key itself on macOS,
+// and Cmd (⌘, Super, Meta) the Command key, instead of both meaning the
+// platform's primary modifier. Mod stays primary everywhere. Off macOS,
+// Ctrl and Cmd both stay primary. Set it before parsing chords.
+var LiteralCtrl = false
+
+// literalMods reports whether Ctrl and Cmd parse as themselves.
+func literalMods() bool { return LiteralCtrl && runtime.GOOS == "darwin" }
+
+// ParseChord parses strings like "⌘S", "Mod+K", "Ctrl+Shift+P", "F5",
+// "Alt+Mouse4". Mod, ⌘, Cmd, and Ctrl all mean the platform primary
+// modifier, unless LiteralCtrl is set.
 func ParseChord(s string) (Chord, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -37,7 +48,21 @@ func ParseChord(s string) (Chord, error) {
 			c.Mods |= input.ModShift
 		case "alt", "option", "opt":
 			c.Mods |= input.ModAlt
-		case "mod", "cmd", "command", "meta", "super", "ctrl", "control", "⌘":
+		case "ctrl", "control":
+			if literalMods() {
+				c.Mods |= input.ModCtrl
+				continue
+			}
+			c.primary = true
+			c.Mods |= input.ModSuper
+		case "cmd", "command", "meta", "super", "⌘":
+			if literalMods() {
+				c.Mods |= input.ModSuper
+				continue
+			}
+			c.primary = true
+			c.Mods |= input.ModSuper
+		case "mod":
 			c.primary = true
 			c.Mods |= input.ModSuper // Label prefers ⌘; Matches uses Primary()
 		default:
@@ -126,6 +151,12 @@ func parseKeyToken(p string) (input.Key, bool) {
 		return input.KeyHome, true
 	case "end":
 		return input.KeyEnd, true
+	case "pageup", "pgup":
+		return input.KeyPageUp, true
+	case "pagedown", "pgdn":
+		return input.KeyPageDown, true
+	case "insert", "ins":
+		return input.KeyInsert, true
 	case "backspace", "bksp":
 		return input.KeyBackspace, true
 	case "delete", "del":
@@ -184,6 +215,12 @@ func parseKeyToken(p string) (input.Key, bool) {
 		return input.KeyF11, true
 	case "f12":
 		return input.KeyF12, true
+	case "mouse3", "mousemiddle", "middleclick":
+		return input.KeyMouseMiddle, true
+	case "mouse4", "mouseback":
+		return input.KeyMouseBack, true
+	case "mouse5", "mouseforward":
+		return input.KeyMouseForward, true
 	}
 	if len(p) == 1 {
 		r := unicode.ToUpper(rune(p[0]))
@@ -261,7 +298,14 @@ func (c Chord) Label() string {
 		return ""
 	}
 	var b strings.Builder
-	if c.primary || c.Mods.Has(input.ModSuper) || c.Mods.Has(input.ModCtrl) {
+	switch {
+	case c.primary:
+		b.WriteRune('⌘')
+	case c.Mods.Has(input.ModCtrl) && c.Mods.Has(input.ModSuper):
+		b.WriteString("⌃⌘")
+	case c.Mods.Has(input.ModCtrl) && literalMods():
+		b.WriteRune('⌃')
+	case c.Mods.Has(input.ModSuper) || c.Mods.Has(input.ModCtrl):
 		b.WriteRune('⌘')
 	}
 	if c.Mods.Has(input.ModAlt) {
@@ -276,6 +320,12 @@ func (c Chord) Label() string {
 
 func keyLabel(k input.Key) string {
 	switch k {
+	case input.KeyMouseMiddle:
+		return "Middle Click"
+	case input.KeyMouseBack:
+		return "Mouse Back"
+	case input.KeyMouseForward:
+		return "Mouse Forward"
 	case input.KeyLeft:
 		return "←"
 	case input.KeyRight:
@@ -288,6 +338,12 @@ func keyLabel(k input.Key) string {
 		return "Home"
 	case input.KeyEnd:
 		return "End"
+	case input.KeyPageUp:
+		return "PgUp"
+	case input.KeyPageDown:
+		return "PgDn"
+	case input.KeyInsert:
+		return "Ins"
 	case input.KeyBackspace:
 		return "⌫"
 	case input.KeyDelete:
@@ -381,6 +437,10 @@ func (c Chord) Matches(ev input.KeyEvent) bool {
 	if c.primary {
 		return ev.Mods.Primary()
 	}
+	if literalMods() {
+		return c.Mods.Has(input.ModCtrl) == ev.Mods.Has(input.ModCtrl) &&
+			c.Mods.Has(input.ModSuper) == ev.Mods.Has(input.ModSuper)
+	}
 	wantPrimary := c.Mods.Has(input.ModSuper) || c.Mods.Has(input.ModCtrl)
 	if wantPrimary {
 		return ev.Mods.Primary()
@@ -391,3 +451,58 @@ func (c Chord) Matches(ev input.KeyEvent) bool {
 
 // Valid reports whether the chord has a key.
 func (c Chord) Valid() bool { return c.Key != input.KeyNone }
+
+// KeySeq is a shortcut of one chord, or two pressed one after the other
+// ("Ctrl+K Ctrl+S").
+type KeySeq struct {
+	First, Then Chord // Then is invalid for a single chord
+}
+
+// ParseKeySeq parses a shortcut of one or two chords separated by spaces,
+// such as "⌘S" or "Mod+K Mod+S".
+func ParseKeySeq(s string) (KeySeq, error) {
+	parts := seqParts(s)
+	switch len(parts) {
+	case 1:
+		c, err := ParseChord(parts[0])
+		return KeySeq{First: c}, err
+	case 2:
+		a, err := ParseChord(parts[0])
+		if err != nil {
+			return KeySeq{}, err
+		}
+		b, err := ParseChord(parts[1])
+		if err != nil {
+			return KeySeq{}, err
+		}
+		return KeySeq{First: a, Then: b}, nil
+	case 0:
+		return KeySeq{}, fmt.Errorf("empty shortcut")
+	}
+	return KeySeq{}, fmt.Errorf("a shortcut has at most two chords: %q", s)
+}
+
+// seqParts splits a shortcut on the spaces between chords, keeping spaces
+// around "+" inside a chord ("Ctrl + K").
+func seqParts(s string) []string {
+	var out []string
+	for _, f := range strings.Fields(s) {
+		if n := len(out); n > 0 && (f == "+" || strings.HasPrefix(f, "+") || strings.HasSuffix(out[n-1], "+")) {
+			out[n-1] += f
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// Valid reports whether the sequence has a first chord.
+func (s KeySeq) Valid() bool { return s.First.Valid() }
+
+// Label is the sequence for Kbd chips, such as "⌘K ⌘S".
+func (s KeySeq) Label() string {
+	if !s.Then.Valid() {
+		return s.First.Label()
+	}
+	return s.First.Label() + " " + s.Then.Label()
+}

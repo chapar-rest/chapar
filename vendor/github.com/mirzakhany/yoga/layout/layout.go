@@ -408,7 +408,9 @@ func dispatchTree(e *Element, m *input.Mouse, stop *bool) {
 	// A clipped viewport's children are invisible outside its frame; skip them
 	// so scrolled-out widgets cannot consume events meant for what is actually
 	// painted there. The element's own handler still runs (it may track drags).
-	if !(e.Clip && !e.Frame.Contains(m.X, m.Y)) {
+	if e.Clip && !e.Frame.Contains(m.X, m.Y) {
+		dispatchLeave(e, m)
+	} else {
 		// Deepest/last children are visually on top, so visit them first.
 		for i := len(e.Children) - 1; i >= 0; i-- {
 			dispatchTree(e.Children[i], m, stop)
@@ -429,7 +431,9 @@ func dispatchBase(e *Element, m *input.Mouse, stop *bool) {
 	if e.Overlay {
 		return
 	}
-	if !(e.Clip && !e.Frame.Contains(m.X, m.Y)) {
+	if e.Clip && !e.Frame.Contains(m.X, m.Y) {
+		dispatchLeave(e, m)
+	} else {
 		for i := len(e.Children) - 1; i >= 0; i-- {
 			dispatchBase(e.Children[i], m, stop)
 			if *stop {
@@ -442,6 +446,40 @@ func dispatchBase(e *Element, m *input.Mouse, stop *bool) {
 		if m.Consumed {
 			*stop = true
 		}
+	}
+}
+
+// dispatchLeave tells the children of a clipped element the pointer is not
+// over them, when it moves outside the element: they are skipped otherwise,
+// and a row inside a scroll would stay hovered after the pointer left the
+// scroll. The event goes as a copy far off screen, with no press or wheel, so
+// no child can act on it; while a button is held it is not sent at all, so a
+// drag that started inside keeps its last position.
+func dispatchLeave(e *Element, m *input.Mouse) {
+	if m.Down || m.RightDown {
+		return
+	}
+	away := *m
+	away.X, away.Y = -1e6, -1e6
+	away.Pressed, away.RightPressed = false, false
+	away.ScrollX, away.ScrollY = 0, 0
+	away.Consumed = false
+	for _, ch := range e.Children {
+		dispatchAll(ch, &away)
+	}
+}
+
+// dispatchAll runs every handler under e, consumed or not, except in
+// overlays, which see the event on their own.
+func dispatchAll(e *Element, m *input.Mouse) {
+	if e.Overlay {
+		return
+	}
+	for i := len(e.Children) - 1; i >= 0; i-- {
+		dispatchAll(e.Children[i], m)
+	}
+	if e.OnMouse != nil {
+		e.OnMouse(e, m)
 	}
 }
 

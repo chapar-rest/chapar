@@ -17,3 +17,13 @@ func osPrefersDark() bool {
 	}
 	return v == 0
 }
+
+func osPrefersReducedMotion() bool {
+	k, err := winreg.OpenKey(winreg.CURRENT_USER, `Control Panel\Desktop\WindowMetrics`, winreg.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+	v, _, err := k.GetStringValue("MinAnimate")
+	return err == nil && v == "0"
+}

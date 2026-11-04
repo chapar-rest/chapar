@@ -17,6 +17,20 @@ const (
 	ClassWarning
 	ClassSuccess
 	ClassMuted
+	// Finer syntax classes, from highlight queries. Themes that do not color
+	// them fall back to a related class or one of their categorical hues.
+	ClassFunction  // function names, declared and called
+	ClassMethod    // method names
+	ClassVariable  // local names
+	ClassParameter // parameter names
+	ClassProperty  // fields and properties
+	ClassConstant  // constants, booleans, nil
+	ClassBuiltin   // builtin functions and variables (len, self, this)
+	ClassOperator
+	ClassPunctuation
+	ClassTag       // markup tags
+	ClassAttribute // markup attributes, annotations, decorators
+	ClassNamespace // packages and modules
 )
 
 // Token is a half-open byte range [Start, End) with a color class.

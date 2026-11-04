@@ -1,0 +1,16 @@
+version: "2"
+
+run:
+  build-tags:
+    - nogpu
+
+linters:
+  default: standard
+  exclusions:
+    presets:
+      # Unchecked Close, Remove, Flush and print calls.
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt

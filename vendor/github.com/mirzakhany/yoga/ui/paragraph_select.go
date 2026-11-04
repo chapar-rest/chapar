@@ -103,6 +103,10 @@ type paragraphSelection struct {
 	lastX     float32
 	lastY     float32
 
+	// hit, when set, replaces the span geometry below for hit testing; rich
+	// text lays out styled fragments rather than one string per line.
+	hit func(eng *shape.Engine, x, y float32) int
+
 	// Geometry of the last layout, for hit testing.
 	spans      []textSpan
 	lineX      func(i int) float32 // left edge of line i
@@ -125,6 +129,9 @@ func (p *paragraphSelection) setText(s string) {
 
 // offsetAt maps a point to the nearest byte offset in the text.
 func (p *paragraphSelection) offsetAt(eng *shape.Engine, x, y float32) int {
+	if p.hit != nil {
+		return p.hit(eng, x, y)
+	}
 	if len(p.spans) == 0 || p.lineH <= 0 {
 		return 0
 	}

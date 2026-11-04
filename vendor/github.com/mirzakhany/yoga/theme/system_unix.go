@@ -22,3 +22,8 @@ func osPrefersDark() bool {
 	}
 	return false
 }
+
+func osPrefersReducedMotion() bool {
+	out, err := exec.Command("gsettings", "get", "org.gnome.desktop.interface", "enable-animations").Output()
+	return err == nil && strings.TrimSpace(string(out)) == "false"
+}

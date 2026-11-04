@@ -6,15 +6,15 @@ import "github.com/mirzakhany/yoga/theme"
 // them on a cloned theme via Theme.Styles (type ComponentStyles) so a replica
 // can change control appearance as well as palette.
 type ComponentStyles struct {
-	ButtonPrimary   Spec
-	ButtonSecondary Spec
-	ButtonSubtle    Spec
-	ButtonGhost     Spec
+	ButtonPrimary    Spec
+	ButtonSecondary  Spec
+	ButtonSubtle     Spec
+	ButtonGhost      Spec
 	ButtonGhostHover Spec
-	TextField       Spec
-	Select          Spec
-	Checkbox        Spec
-	Switch          Spec
+	TextField        Spec
+	Select           Spec
+	Checkbox         Spec
+	Switch           Spec
 }
 
 // DefaultStyles returns token-based control specs. They recolor with theme.Use.

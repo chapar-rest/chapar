@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"sort"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/mirzakhany/yoga/highlight"
 	"github.com/mirzakhany/yoga/input"
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/lsp"
@@ -43,7 +45,8 @@ type diagSpan struct {
 // lspState holds the editor's language-server UI: diagnostics, the completion
 // popup, and hover-tooltip tracking. It lives on Editor as lspUI.
 type lspState struct {
-	diags     []lsp.Diagnostic
+	diags     []lsp.Diagnostic // from the language server
+	appDiags  []lsp.Diagnostic // from SetDiagnostics
 	diagSpans []diagSpan
 
 	// Completion popup. Items come either from the language server or from
@@ -61,6 +64,7 @@ type lspState struct {
 	hoverCard    HoverCard // application hover (local, instant)
 	hoverCardOK  bool
 	hoverText    string     // LSP textDocument/hover reply (async)
+	hoverCode    *hoverCode // syntax colors for the reply's code blocks
 	hoverDiags   []diagSpan // diagnostics under the cursor (local, instant)
 	hoverReqID   int
 	hoverX       float32
@@ -146,6 +150,11 @@ func (e *Editor) lspOpen() {
 	e.lsp = lspManager.Open(e.Path, func() []byte { return e.pt.Bytes() })
 }
 
+// AttachLSP connects the editor to its language server now, instead of when
+// it is first shown, so apps can query the server about files that are not
+// on screen.
+func (e *Editor) AttachLSP() { e.lspOpen() }
+
 func (e *Editor) lspDidChange() {
 	if e.lsp == nil {
 		return
@@ -174,17 +183,103 @@ func (e *Editor) lspUpdate(m *input.Mouse) {
 				}
 			case lsp.EventHover:
 				if ev.ReqID == e.lspUI.hoverReqID && ev.Hover != nil {
-					e.lspUI.hoverText = ev.Hover.Text()
+					e.setHoverText(ev.Hover.Text())
 				}
 			}
 		}
 	}
+	e.pollHoverCode()
 	e.trackHover(m)
+}
+
+// hoverCode colors the code blocks of a hover reply. The highlighter runs on
+// its own goroutine, like the editor's, and the tooltip shows the code plain
+// until the colors arrive a frame or two later.
+type hoverCode struct {
+	hl   highlight.Highlighter
+	toks []highlight.Token
+	done bool
+}
+
+// setHoverText takes a hover reply and starts coloring its code.
+func (e *Editor) setHoverText(text string) {
+	e.closeHoverCode()
+	e.lspUI.hoverText = text
+	_, code, lang := hoverDoc(text)
+	if code == "" {
+		return
+	}
+	var hl highlight.Highlighter
+	if f, ok := highlight.ByName(lang); ok && lang != "" {
+		hl = f()
+	} else {
+		hl = highlight.ForPath(e.Path) // untagged blocks are in the file's language
+	}
+	hl.Update([]byte(code))
+	e.lspUI.hoverCode = &hoverCode{hl: hl}
+}
+
+// pollHoverCode takes the hover code's colors once they are ready.
+func (e *Editor) pollHoverCode() {
+	hc := e.lspUI.hoverCode
+	if hc == nil || hc.done {
+		return
+	}
+	if toks, ok := hc.hl.Poll(); ok {
+		hc.toks, hc.done = toks, true
+		hc.hl.Close()
+		hc.hl = nil
+	}
+}
+
+func (e *Editor) closeHoverCode() {
+	if hc := e.lspUI.hoverCode; hc != nil && hc.hl != nil {
+		hc.hl.Close()
+	}
+	e.lspUI.hoverCode = nil
+}
+
+// LSPPosition converts a byte offset to a position in the attached language
+// server's encoding (UTF-8 columns when none is attached).
+func (e *Editor) LSPPosition(off int) lsp.Position {
+	enc := "utf-8"
+	if e.lsp != nil {
+		enc = e.lsp.Encoding()
+	}
+	return lsp.PositionAt(e.pt.Bytes(), off, enc)
+}
+
+// OffsetOfLSP converts a language-server position to a byte offset.
+func (e *Editor) OffsetOfLSP(p lsp.Position) int { return e.offsetFromLSP(p) }
+
+// LSPEncoding reports the attached server's position encoding.
+func (e *Editor) LSPEncoding() string {
+	if e.lsp != nil {
+		return e.lsp.Encoding()
+	}
+	return "utf-8"
+}
+
+// Diagnostics returns the language server's and the app's diagnostics.
+func (e *Editor) Diagnostics() []lsp.Diagnostic {
+	return append(append([]lsp.Diagnostic(nil), e.lspUI.diags...), e.lspUI.appDiags...)
+}
+
+// SetDiagnostics shows the application's own diagnostics, such as a config
+// file's validation errors, alongside any from a language server. Positions
+// use LSP coordinates (0-based lines, UTF-16 columns). Nil clears them.
+func (e *Editor) SetDiagnostics(diags []lsp.Diagnostic) {
+	e.lspUI.appDiags = diags
+	e.recomputeDiagSpans()
 }
 
 func (e *Editor) recomputeDiagSpans() {
 	spans := e.lspUI.diagSpans[:0]
-	for _, d := range e.lspUI.diags {
+	all := e.lspUI.diags
+	if len(e.lspUI.appDiags) > 0 {
+		all = append(append([]lsp.Diagnostic(nil), all...), e.lspUI.appDiags...)
+	}
+	for _, d := range all {
 		lo := e.offsetFromLSP(d.Range.Start)
 		hi := e.offsetFromLSP(d.Range.End)
 		if hi < lo {
@@ -267,6 +362,7 @@ func (e *Editor) hoverCardAt(off int) (HoverCard, bool) {
 }
 
 func (e *Editor) clearHover() {
+	e.closeHoverCode()
 	e.lspUI.hoverText = ""
 	e.lspUI.hoverDiags = nil
 	e.lspUI.hoverCardOK = false
@@ -277,6 +373,9 @@ func (e *Editor) clearHover() {
 // lspHoverWake reports the time remaining until a pending hover should fire, so
 // AnimationWait can schedule a repaint even while the mouse is stationary.
 func (e *Editor) lspHoverWake() (time.Duration, bool) {
+	if hc := e.lspUI.hoverCode; hc != nil && !hc.done {
+		return 16 * time.Millisecond, true // the hover's code colors are on their way
+	}
 	if e.lspUI.hovMoved.IsZero() || e.lspUI.hovRequested {
 		return 0, false
 	}
@@ -558,10 +657,13 @@ func (e *Editor) paintCompletion(dl *render.DrawList, eng *shape.Engine) {
 	dl.PopClip()
 }
 
-// tipLine is one display row of the hover tooltip with its color.
+// tipLine is one display row of the hover tooltip with its color. Code
+// rows are colored by the hover's code tokens from byte off of the code.
 type tipLine struct {
 	text string
 	col  render.Color
+	code bool
+	off  int
 }
 
 func (e *Editor) paintTooltip(dl *render.DrawList, eng *shape.Engine) {
@@ -584,10 +686,43 @@ func (e *Editor) paintTooltip(dl *render.DrawList, eng *shape.Engine) {
 	dl.AddElevationShadow(r, 6, render.Shadow{OffsetY: 2, Blur: 12, Color: render.Color{A: 1}})
 	dl.AddRoundedRectBorder(r, 6, 1, th.Chrome, th.Border)
 	dl.PushClip(r)
+	var toks []highlight.Token
+	if hc := e.lspUI.hoverCode; hc != nil {
+		toks = hc.toks
+	}
 	for i, ln := range lines {
-		eng.DrawStringTopMono(dl, ln.text, r.X+tooltipPad, r.Y+tooltipPad+float32(i)*lineH, ln.col)
+		y := r.Y + tooltipPad + float32(i)*lineH
+		if ln.code && len(toks) > 0 {
+			drawCodeLine(dl, eng, th, ln.text, ln.off, toks, r.X+tooltipPad, y)
+			continue
+		}
+		eng.DrawStringTopMono(dl, ln.text, r.X+tooltipPad, y, ln.col)
 	}
 	dl.PopClip()
+}
+
+// drawCodeLine draws text, which starts at byte off of the highlighted code,
+// in runs colored by toks (sorted, non-overlapping).
+func drawCodeLine(dl *render.DrawList, eng *shape.Engine, th *theme.Theme, text string, off int, toks []highlight.Token, x, y float32) {
+	end := off + len(text)
+	i := sort.Search(len(toks), func(i int) bool { return toks[i].End > off })
+	pos := off
+	run := func(to int, col render.Color) {
+		if to <= pos {
+			return
+		}
+		s := text[pos-off : to-off]
+		eng.DrawStringTopMono(dl, s, x, y, col)
+		w, _ := eng.MeasureMono(s)
+		x += w
+		pos = to
+	}
+	for ; i < len(toks) && toks[i].Start < end; i++ {
+		tk := toks[i]
+		run(max(tk.Start, off), th.Foreground)
+		run(min(tk.End, end), th.SyntaxColor(tk.Class))
+	}
+	run(end, th.Foreground)
 }
 
 // tooltipLines builds the tooltip content: diagnostic messages (colored by
@@ -615,37 +750,51 @@ func (e *Editor) tooltipLines(th *theme.Theme) []tipLine {
 			lines = append(lines, tipLine{text: strings.TrimRight(ln, " \t"), col: col})
 		}
 	}
-	hover := cleanHover(e.lspUI.hoverText)
+	hover, _, _ := hoverDoc(e.lspUI.hoverText)
 	if len(lines) > 0 && len(hover) > 0 {
 		lines = append(lines, tipLine{}) // blank separator row
 	}
 	for _, ln := range hover {
-		lines = append(lines, tipLine{text: ln, col: th.Foreground})
+		ln.col = th.Foreground
+		lines = append(lines, ln)
 	}
 	return lines
 }
 
-// cleanHover turns a markdown hover payload into a few plain display lines.
-func cleanHover(s string) []string {
-	var out []string
+// hoverDoc splits a markdown hover payload into display lines, at most
+// tooltipMaxLines. Lines inside code fences are marked as code; code is all
+// of them joined, for highlighting, and lang is the first fence's tag.
+func hoverDoc(s string) (lines []tipLine, code, lang string) {
+	var b strings.Builder
+	inCode := false
 	for _, ln := range strings.Split(s, "\n") {
 		ln = strings.TrimRight(ln, " \t")
-		if strings.HasPrefix(strings.TrimSpace(ln), "```") {
+		if t := strings.TrimSpace(ln); strings.HasPrefix(t, "```") {
+			if !inCode && lang == "" {
+				lang = strings.TrimSpace(strings.TrimPrefix(t, "```"))
+			}
+			inCode = !inCode
 			continue // drop code fences
 		}
-		if strings.TrimSpace(ln) == "" && len(out) == 0 {
+		if strings.TrimSpace(ln) == "" && len(lines) == 0 {
 			continue
 		}
-		out = append(out, ln)
-		if len(out) >= tooltipMaxLines {
-			break
+		if len(lines) >= tooltipMaxLines {
+			continue // keep reading for the code's language only
 		}
+		tl := tipLine{text: ln}
+		if inCode {
+			tl.code, tl.off = true, b.Len()
+			b.WriteString(ln)
+			b.WriteByte('\n')
+		}
+		lines = append(lines, tl)
 	}
 	// Trim trailing blank lines.
-	for len(out) > 0 && strings.TrimSpace(out[len(out)-1]) == "" {
-		out = out[:len(out)-1]
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1].text) == "" {
+		lines = lines[:len(lines)-1]
 	}
-	return out
+	return lines, b.String(), lang
 }
 
 // LSPOverlayMouse handles clicks on the completion popup. It is wired as the

@@ -42,6 +42,11 @@ type GRPCSettings struct {
 	TimeoutMilliseconds int    `yaml:"timeoutMilliseconds"`
 	NameOverride        string `yaml:"nameOverride"`
 
+	// MaxReceiveMessageSizeMB and MaxSendMessageSizeMB cap one message's
+	// size. Zero keeps gRPC's defaults: 4 MB received, no send limit.
+	MaxReceiveMessageSizeMB int `yaml:"maxReceiveMessageSizeMB,omitempty"`
+	MaxSendMessageSizeMB    int `yaml:"maxSendMessageSizeMB,omitempty"`
+
 	RootCertFile   string `yaml:"rootCertFile"`
 	ClientCertFile string `yaml:"clientCertFile"`
 	ClientKeyFile  string `yaml:"clientKeyFile"`

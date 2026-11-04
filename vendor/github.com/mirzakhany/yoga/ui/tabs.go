@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/mirzakhany/yoga/icons"
@@ -23,6 +24,12 @@ type TabModel struct {
 	// alone do not say what kind of document they hold.
 	Icon      icons.Icon
 	IconColor render.Color
+	// Busy replaces the icon with a small spinner while the tab's document
+	// is working, such as an agent session running a task.
+	Busy bool
+	// Status, when set, paints a dot of that color after the title, such
+	// as for a task that was interrupted.
+	Status render.Color
 }
 
 type tabsData struct {
@@ -173,9 +180,17 @@ func (n *Node) layoutTabs(c *Ctx) *layout.Element {
 	tabMenuFn := d.tabMenuFn
 	bg := d.bg
 	closable := d.closable
+	var now float64
+	for _, t := range tabs {
+		if t.Busy {
+			now = float64(c.Now().UnixNano()) / 1e9
+			c.Animate(spinnerFrame)
+			break
+		}
+	}
 	el.Paint = func(dl *render.DrawList, text *shape.Engine) {
 		g := st.fit(el, tabs, active, closable)
-		paintTabs(dl, text, el, g, tabs, active, st, bg, closable)
+		paintTabs(dl, text, el, g, tabs, active, st, bg, closable, now)
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		g := st.fit(e, tabs, active, closable)
@@ -419,7 +434,7 @@ func tabGeometry(el *layout.Element, tabs []TabModel, closable bool, scrollX flo
 		if badgeW > 0 {
 			badgeW += th.Spacing.SNudge
 		}
-		widths[i] = tabIconWidth(tab) + tw + badgeW + 2*padX + closeW
+		widths[i] = tabIconWidth(tab) + tw + badgeW + tabStatusWidth(tab) + 2*padX + closeW
 		g.content += widths[i]
 	}
 	g.view = render.Rect{X: f.X + el.Style.Padding.Left, Y: f.Y, W: f.W - el.Style.Padding.Left - el.Style.Padding.Right, H: f.H}
@@ -449,11 +464,39 @@ func tabGeometry(el *layout.Element, tabs []TabModel, closable bool, scrollX flo
 
 // tabIconWidth is the room a tab's leading icon takes, gap included.
 func tabIconWidth(tab TabModel) float32 {
-	if tab.Icon.Empty() {
+	if tab.Icon.Empty() && !tab.Busy {
 		return 0
 	}
 	th := theme.Current()
 	return th.Metrics.IconSizeSM + th.Spacing.S
+}
+
+// tabStatusWidth is the room a tab's status dot takes, gap included.
+func tabStatusWidth(tab TabModel) float32 {
+	if tab.Status.A == 0 {
+		return 0
+	}
+	th := theme.Current()
+	return tabStatusDot + th.Spacing.SNudge
+}
+
+// tabStatusDot is the diameter of a tab's status dot.
+const tabStatusDot = 7
+
+// tabSpinner paints a busy tab's spinner: an arc of dots turning with t.
+func tabSpinner(dl *render.DrawList, box render.Rect, col render.Color, t float64) {
+	cx, cy := box.X+box.W/2, box.Y+box.H/2
+	r := box.W/2 - 1.5
+	base := t * spinnerRadPerSec
+	for i := 0; i < 8; i++ {
+		f := float32(i) / 8
+		a := base + float64(f)*2*math.Pi
+		c := col
+		c.A *= 0.15 + 0.85*f
+		x := cx + r*float32(math.Cos(a))
+		y := cy + r*float32(math.Sin(a))
+		dl.AddRoundedRect(render.Rect{X: x - 1.25, Y: y - 1.25, W: 2.5, H: 2.5}, 1.25, c)
+	}
 }
 
 // tabExtents returns the tab extents with the strip scrolled to the start.
@@ -461,7 +504,7 @@ func tabExtents(el *layout.Element, tabs []TabModel, closable bool) []tabExtent 
 	return tabGeometry(el, tabs, closable, 0).ext
 }
 
-func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, g tabGeom, tabs []TabModel, active int, st *tabsState, bgOverride render.Color, closable bool) {
+func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, g tabGeom, tabs []TabModel, active int, st *tabsState, bgOverride render.Color, closable bool, now float64) {
 	th := theme.Current()
 	f := el.Frame
 	padX := th.Spacing.M
@@ -479,10 +522,10 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, g ta
 			continue
 		}
 		rect := render.Rect{X: e.x, Y: f.Y, W: e.w, H: f.H}
-		switch {
-		case i == active:
+		switch i {
+		case active:
 			dl.AddRect(rect, th.ListActive)
-		case i == hoverTab:
+		case hoverTab:
 			dl.AddRect(rect, th.ListHover)
 		}
 		if i == active {
@@ -492,7 +535,11 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, g ta
 			drawFocusRing(dl, rect, th.ListActive, th)
 		}
 		tx := e.x + padX
-		if !tab.Icon.Empty() {
+		if tab.Busy {
+			isz := th.Metrics.IconSizeSM
+			tabSpinner(dl, render.Rect{X: tx, Y: f.Y + (f.H-isz)/2, W: isz, H: isz}, th.Accent, now)
+			tx += tabIconWidth(tab)
+		} else if !tab.Icon.Empty() {
 			isz := th.Metrics.IconSizeSM
 			col := tab.IconColor
 			if col.A == 0 {
@@ -516,6 +563,12 @@ func paintTabs(dl *render.DrawList, text *shape.Engine, el *layout.Element, g ta
 			py := f.Y + (f.H-pillH)/2
 			dl.AddRoundedRect(render.Rect{X: px, Y: py, W: pillW, H: pillH}, th.Radius.Circular, th.ChromeMuted)
 			text.DrawStringTopAt(dl, tab.Badge, px+5, py+(pillH-bh)/2, th.ForegroundMuted, bsz)
+			tw += th.Spacing.SNudge + pillW
+		}
+		if tab.Status.A > 0 {
+			d := float32(tabStatusDot)
+			dx := tx + tw + th.Spacing.SNudge
+			dl.AddRoundedRect(render.Rect{X: dx, Y: f.Y + (f.H-d)/2, W: d, H: d}, d/2, tab.Status)
 		}
 		if closable {
 			c := e.close

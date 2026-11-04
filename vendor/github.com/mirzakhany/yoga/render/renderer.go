@@ -52,7 +52,7 @@ type Renderer struct {
 	ClearColor     Color
 }
 
-func dpiScale(fb, logical int) float32 {
+func dpiScale[T int | float32](fb int, logical T) float32 {
 	if logical <= 0 {
 		return 1
 	}
@@ -294,6 +294,12 @@ func (r *Renderer) createUniformAndBindGroup(width, height int) error {
 }
 
 func (r *Renderer) Resize(fbW, fbH, logicalW, logicalH int) {
+	r.ResizeLogical(fbW, fbH, float32(logicalW), float32(logicalH))
+}
+
+// ResizeLogical is Resize for a logical size that need not be whole pixels,
+// as when the UI is zoomed.
+func (r *Renderer) ResizeLogical(fbW, fbH int, logicalW, logicalH float32) {
 	if fbW <= 0 || fbH <= 0 {
 		return
 	}
@@ -302,7 +308,7 @@ func (r *Renderer) Resize(fbW, fbH, logicalW, logicalH int) {
 	r.surface.Configure(r.adapter, r.device, r.config)
 	r.scaleX = dpiScale(fbW, logicalW)
 	r.scaleY = dpiScale(fbH, logicalH)
-	u := [4]float32{float32(logicalW), float32(logicalH), 0, 0}
+	u := [4]float32{logicalW, logicalH, 0, 0}
 	r.queue.WriteBuffer(r.uniformBuf, 0, wgpu.ToBytes(u[:]))
 }
 
