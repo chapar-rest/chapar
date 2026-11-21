@@ -153,11 +153,7 @@ func (pt *PieceTable) LongestLine() (idx, byteLen int) {
 	pt.rebuildCache()
 	for i := 0; i < len(pt.lineStarts); i++ {
 		start := pt.lineStarts[i]
-		end := len(pt.flat)
-		if i+1 < len(pt.lineStarts) {
-			end = pt.lineStarts[i+1] - 1
-		}
-		if l := end - start; l > byteLen {
+		if l := pt.lineEnd(i) - start; l > byteLen {
 			byteLen = l
 			idx = i
 		}
@@ -165,7 +161,7 @@ func (pt *PieceTable) LongestLine() (idx, byteLen int) {
 	return idx, byteLen
 }
 
-// Line returns the text of line i (0-based) without its trailing newline.
+// Line returns the text of line i (0-based) without its line break.
 func (pt *PieceTable) Line(i int) string {
 	pt.rebuildCache()
 	if i < 0 || i >= len(pt.lineStarts) {
@@ -176,12 +172,16 @@ func (pt *PieceTable) Line(i int) string {
 	return string(pt.flat[start:end])
 }
 
-// lineEnd returns the flat-cache end offset of line i (exclusive of '\n').
+// lineEnd returns the flat-cache end offset of line i, before its line
+// break: '\n', or '\r\n' in a file with Windows line endings.
 // pt.rebuildCache must have run.
 func (pt *PieceTable) lineEnd(i int) int {
 	end := len(pt.flat)
 	if i+1 < len(pt.lineStarts) {
 		end = pt.lineStarts[i+1] - 1 // drop the '\n'
+		if end > pt.lineStarts[i] && pt.flat[end-1] == '\r' {
+			end--
+		}
 	}
 	if end < pt.lineStarts[i] {
 		end = pt.lineStarts[i]
@@ -189,7 +189,7 @@ func (pt *PieceTable) lineEnd(i int) int {
 	return end
 }
 
-// LineLen returns the byte length of line i without its trailing newline.
+// LineLen returns the byte length of line i without its line break.
 // Unlike Line it does not allocate.
 func (pt *PieceTable) LineLen(i int) int {
 	pt.rebuildCache()

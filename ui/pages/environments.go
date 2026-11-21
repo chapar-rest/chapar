@@ -159,7 +159,7 @@ func (p *Environments) Layout(c *ui.Ctx) ui.View {
 func (p *Environments) side(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	return ui.Column(
-		ui.Strong("Environments").Margin(th.Spacing.S),
+		ui.Overline("Environments").Margin(th.Spacing.S),
 		ui.Row(
 			ui.Spacer(),
 			ui.Button("env-import", ui.Text("Import")).OnClick(p.importFile),

@@ -57,16 +57,29 @@ func DefaultStroke() Stroke {
 type TypographyStyle struct {
 	Size       render.Px // font size in logical px
 	LineHeight render.Px // line box height in logical px
-	Weight     int       // 400 regular, 600 semibold
+	Weight     int       // 400 regular, 500 medium, 600 semibold
 }
 
 // Typography is the Yoga type ramp used by chrome widgets.
+//
+// From largest to smallest: Display for page and empty-state headlines,
+// Headline for dialog and page titles, Title for cards and panels, Subtitle
+// for group heads, Body and BodyStrong for UI text, BodySmall for dense rows,
+// Caption for hints and metadata, Overline for section labels (drawn in
+// capitals). Label is Body at Medium (500) weight, for control labels and the
+// selected item in a list, where SemiBold would shout. Display and Headline step well clear of Title so a page title
+// and its section heads read as different levels.
 type Typography struct {
 	Caption    TypographyStyle // 12/16
 	Body       TypographyStyle // 14/20
 	BodyStrong TypographyStyle // 14/20 semibold
 	Subtitle   TypographyStyle // 16/22
 	Title      TypographyStyle // 20/28
+	Display    TypographyStyle // 28/36 semibold
+	Headline   TypographyStyle // 24/32 semibold
+	BodySmall  TypographyStyle // 13/18
+	Overline   TypographyStyle // 11/16 semibold, capitals
+	Label      TypographyStyle // 14/20 medium: control labels, selected items
 }
 
 // DefaultTypography returns Yoga defaults (logical px).
@@ -77,6 +90,11 @@ func DefaultTypography() Typography {
 		BodyStrong: TypographyStyle{Size: 14, LineHeight: 20, Weight: 600},
 		Subtitle:   TypographyStyle{Size: 16, LineHeight: 22, Weight: 600},
 		Title:      TypographyStyle{Size: 20, LineHeight: 28, Weight: 600},
+		Display:    TypographyStyle{Size: 28, LineHeight: 36, Weight: 600},
+		Headline:   TypographyStyle{Size: 24, LineHeight: 32, Weight: 600},
+		BodySmall:  TypographyStyle{Size: 13, LineHeight: 18, Weight: 400},
+		Overline:   TypographyStyle{Size: 11, LineHeight: 16, Weight: 600},
+		Label:      TypographyStyle{Size: 14, LineHeight: 20, Weight: 500},
 	}
 }
 
@@ -96,23 +114,28 @@ type Elevation struct {
 	ShadowXl Shadow
 }
 
+// Shadow colors are the peak strength handed to render.AddElevationShadow,
+// which paints three halo layers at 10%, 7% and 5% of that alpha. At the old
+// 0.40-0.55 the darkest band came out near 10% black on dark themes and under
+// 3% on light ones, so Flat, Raised and Elevated cards looked identical.
+
 // DefaultElevationDark returns shadow presets tuned for dark surfaces.
 func DefaultElevationDark() Elevation {
 	return Elevation{
-		ShadowSm: Shadow{Blur: 3, Color: rgba(0, 0, 0, 0.40)},
-		ShadowMd: Shadow{OffsetY: 1, Blur: 5, Color: rgba(0, 0, 0, 0.45)},
-		ShadowLg: Shadow{OffsetY: 2, Blur: 8, Color: rgba(0, 0, 0, 0.50)},
-		ShadowXl: Shadow{OffsetY: 3, Blur: 12, Color: rgba(0, 0, 0, 0.55)},
+		ShadowSm: Shadow{OffsetY: 1, Blur: 3, Color: rgba(0, 0, 0, 0.80)},
+		ShadowMd: Shadow{OffsetY: 2, Blur: 8, Color: rgba(0, 0, 0, 1)},
+		ShadowLg: Shadow{OffsetY: 4, Blur: 14, Color: rgba(0, 0, 0, 1)},
+		ShadowXl: Shadow{OffsetY: 8, Blur: 24, Color: rgba(0, 0, 0, 1)},
 	}
 }
 
 // DefaultElevationLight returns shadow presets tuned for light surfaces.
 func DefaultElevationLight() Elevation {
 	return Elevation{
-		ShadowSm: Shadow{Blur: 3, Color: rgba(0, 0, 0, 0.10)},
-		ShadowMd: Shadow{OffsetY: 1, Blur: 5, Color: rgba(0, 0, 0, 0.12)},
-		ShadowLg: Shadow{OffsetY: 2, Blur: 8, Color: rgba(0, 0, 0, 0.14)},
-		ShadowXl: Shadow{OffsetY: 3, Blur: 12, Color: rgba(0, 0, 0, 0.16)},
+		ShadowSm: Shadow{OffsetY: 1, Blur: 3, Color: rgba(0, 0, 0, 0.35)},
+		ShadowMd: Shadow{OffsetY: 2, Blur: 8, Color: rgba(0, 0, 0, 0.45)},
+		ShadowLg: Shadow{OffsetY: 4, Blur: 14, Color: rgba(0, 0, 0, 0.55)},
+		ShadowXl: Shadow{OffsetY: 8, Blur: 24, Color: rgba(0, 0, 0, 0.65)},
 	}
 }
 

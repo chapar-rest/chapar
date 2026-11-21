@@ -347,7 +347,7 @@ func (c *Container) serverTab(th *theme.Theme, id string, spec *domain.GRPCReque
 	}
 	rows := []ui.View{
 		ui.Row(
-			ui.Strong("Methods from"),
+			ui.Label("Methods from"),
 			ui.Segmented("grpc-source-"+id,
 				ui.SegmentItem{Label: "Server reflection", Value: "reflection", Icon: icons.Radar},
 				ui.SegmentItem{Label: "Proto files", Value: "protos", Icon: icons.FileCode},
@@ -708,3 +708,6 @@ func (c *Container) postNotice(ctx *ui.Ctx) ui.View {
 	}
 	return container.PostRequestNotice("grpc-"+c.req.MetaData.ID, ctx, c.deps, c.lastResp)
 }
+
+// TabTooltip shows where the request goes when its workspace tab is hovered.
+func (c *Container) TabTooltip() string { return domain.RequestTarget(c.req) }

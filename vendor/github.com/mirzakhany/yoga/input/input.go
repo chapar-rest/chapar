@@ -54,6 +54,10 @@ type Mouse struct {
 	// the whole click frame.
 	Mods Mod
 
+	// Dropped are the paths of files dropped on the window this frame, at
+	// X, Y. A widget that takes them sets the field to nil.
+	Dropped []string
+
 	prevDown      bool
 	prevRightDown bool
 }
@@ -97,6 +101,11 @@ func (m *Mouse) AddScrollX(dx float32) {
 	m.ScrollX += dx
 }
 
+// Drop records files dropped on the window this frame.
+func (m *Mouse) Drop(paths []string) {
+	m.Dropped = append(m.Dropped, paths...)
+}
+
 // SetCursor requests an OS pointer shape for this frame.
 func (m *Mouse) SetCursor(c Cursor) { m.Cursor = c }
 
@@ -111,6 +120,7 @@ func (m *Mouse) EndFrame() {
 	m.ScrollX = 0
 	m.ScrollY = 0
 	m.Consumed = false
+	m.Dropped = nil
 }
 
 // Key is a platform-agnostic keyboard key identifier. The runtime maps raw
@@ -265,8 +275,25 @@ type Clipboard interface {
 	Set(string)
 }
 
+// ImageClipboard is a Clipboard that can also hold a picture. GetImage
+// returns the clipboard's image encoded as PNG, and false when it holds
+// none or the platform cannot read images.
+type ImageClipboard interface {
+	Clipboard
+	GetImage() ([]byte, bool)
+}
+
 // MemClipboard is an in-process Clipboard, handy for headless/testing.
-type MemClipboard struct{ data string }
+type MemClipboard struct {
+	data  string
+	image []byte
+}
 
 func (c *MemClipboard) Get() string  { return c.data }
-func (c *MemClipboard) Set(s string) { c.data = s }
+func (c *MemClipboard) Set(s string) { c.data, c.image = s, nil }
+
+// GetImage returns the PNG SetImage put on the clipboard.
+func (c *MemClipboard) GetImage() ([]byte, bool) { return c.image, c.image != nil }
+
+// SetImage puts a PNG on the clipboard in place of its text.
+func (c *MemClipboard) SetImage(png []byte) { c.data, c.image = "", png }

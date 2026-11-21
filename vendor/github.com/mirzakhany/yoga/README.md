@@ -490,6 +490,23 @@ Two themes exist for accessibility rather than taste: `yoga-high-contrast-light`
 
 Every shipped palette is checked against WCAG 2.1 AA by `theme`'s contrast tests: 4.5:1 for text on every surface it can land on, 3:1 for control outlines and focus rings. Tokens that are defined by a contrast relationship rather than by taste — `BorderControl`, `FocusRing`, the `*Foreground` / `*Surface` status pairs, and the editor washes — are derived from the palette in `normalize`, so a custom theme only sets its brand colors and still passes. Use `theme.ContrastRatio` to check your own.
 
+To write a theme, pick a 12-step neutral ramp, an accent and three status colors, and let `theme.FromPalette` derive the rest — the result meets the same contrast targets as the shipped themes:
+
+```go
+t := theme.FromPalette(theme.Palette{
+	Name: "acme-dark", Dark: true,
+	// sunken, surface, chrome, chrome-muted, overlay, border,
+	// hover, pressed, subtle, muted, disabled, text
+	Neutral: theme.Ramp{ /* 12 colors, darkest to lightest */ },
+	Accent:  render.RGBA8(53, 103, 214, 255),
+	Error:   render.RGBA8(229, 72, 77, 255),
+	Warning: render.RGBA8(245, 185, 74, 255),
+	Success: render.RGBA8(70, 184, 100, 255),
+})
+theme.Register(t)
+theme.Use("acme-dark")
+```
+
 For text, always use the `*Foreground` status tokens (`th.ErrorForeground`), never the raw `th.Error` hue: an amber `Warning` cannot reach 4.5:1 on a light surface. Draw focus rings through `th.FocusRingOn(fill)` rather than reading `th.FocusRing`, so the ring stays visible on accent-filled controls.
 
 Spacing, radius, stroke, and type ramps live on `c.Theme()` (`th.Spacing.M`, `th.Radius.Medium`, `th.Stroke.Thin`, `th.Typography.Body`).
@@ -505,6 +522,8 @@ Lucide is licensed under the ISC License.
 - **Animation.** `c.Animate(d)` schedules a repaint within `d` (caret blink, spinner, polling). The runtime waits the minimum requested duration, or sleeps until the next OS event.
 - **Background work.** Safe to call `c.Invalidate()` from any goroutine (highlight finished, HTTP returned). Typical pattern: a result channel drained at the top of `Body`, plus `c.Animate(30*time.Millisecond)` while a request is in flight (`example/apitest`).
 - **Shortcuts.** Read `c.Keyboard()` in `Body`, or implement `yoga.KeyHook` when a focused editor would otherwise eat the key.
+- **File drops.** `c.Mouse().Dropped` holds the paths of files dropped on the window this frame, at the pointer position. Set it to nil once taken.
+- **Clipboard images.** `c.Clipboard()` may also be an `input.ImageClipboard`; `GetImage()` returns the clipboard's picture as PNG. It works on macOS, and on Linux when `wl-paste` or `xclip` is installed. `MemClipboard.SetImage` fills it in tests.
 
 Pointer handlers set `m.Consumed = true` to stop bubbling. Overlay hit-testing runs first.
 

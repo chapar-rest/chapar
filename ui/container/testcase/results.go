@@ -130,7 +130,7 @@ func (c *Container) resultRow(th *theme.Theme, i int, s testrun.StepResult) ui.V
 		ui.Row(cells...).Gap(th.Spacing.S).Align(ui.AlignCenter).Grow(1),
 	).Ghost().HoverFill().OnClick(func() { c.selected = i })
 	if i == c.selected {
-		b = b.Background(ui.TokenListActive)
+		b = b.Background(ui.TokenSelected)
 	}
 	return b.Grow(1)
 }

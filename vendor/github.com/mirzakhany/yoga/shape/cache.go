@@ -183,8 +183,11 @@ func hashLineAt(s string, logicalSize float32, mono bool, weight int) uint64 {
 	if mono {
 		_, _ = h.Write([]byte{1})
 	}
-	if weight >= WeightSemiBold {
+	switch {
+	case weight >= WeightSemiBold:
 		_, _ = h.Write([]byte{2})
+	case weight >= WeightMedium:
+		_, _ = h.Write([]byte{4})
 	}
 	return h.Sum64()
 }

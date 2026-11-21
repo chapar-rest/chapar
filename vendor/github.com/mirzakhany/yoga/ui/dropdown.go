@@ -6,6 +6,10 @@ import (
 
 type dropdownData struct {
 	items []MenuItem
+	// MenuButton options.
+	placement Placement // PlacementTop opens the menu above the trigger
+	noChevron bool
+	caption   bool // caption-sized label and menu
 }
 
 type dropdownState struct {

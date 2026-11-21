@@ -588,9 +588,9 @@ func (t *Tree) paint(dl *render.DrawList, text *shape.Engine) {
 		} else if t.dragging && t.dragValid && i == t.dragTargetIdx && t.dragPos == DropInside {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
 		} else if t.focused && i == t.selected {
-			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
+			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.Selected)
 		} else if n == t.active {
-			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListActive)
+			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.Selected)
 		} else if i == t.hover {
 			dl.AddRect(render.Rect{X: f.X, Y: y, W: vp.W, H: t.rowH}, th.ListHover)
 		}

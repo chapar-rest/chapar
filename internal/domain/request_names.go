@@ -119,3 +119,32 @@ func hostPath(u *url.URL) string {
 	}
 	return host
 }
+
+// RequestTarget is what a request is sent to, for a tab's tooltip: the
+// method and URL of an HTTP request, the URL of a GraphQL or WebSocket
+// request, and the server address and method of a gRPC call. It is empty
+// while nothing is filled in.
+func RequestTarget(r *Request) string {
+	if r == nil {
+		return ""
+	}
+	switch r.MetaData.Type {
+	case RequestTypeGRPC:
+		if g := r.Spec.GRPC; g != nil {
+			return strings.TrimSpace(strings.TrimSpace(g.ServerInfo.Address) + " " + strings.TrimSpace(g.LasSelectedMethod))
+		}
+	case RequestTypeGraphQL:
+		if g := r.Spec.GraphQL; g != nil {
+			return strings.TrimSpace(g.URL)
+		}
+	case RequestTypeWebSocket:
+		if w := r.Spec.WebSocket; w != nil {
+			return strings.TrimSpace(w.URL)
+		}
+	default:
+		if h := r.Spec.HTTP; h != nil && strings.TrimSpace(h.URL) != "" {
+			return strings.TrimSpace(h.Method + " " + strings.TrimSpace(h.URL))
+		}
+	}
+	return ""
+}

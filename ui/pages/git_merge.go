@@ -444,7 +444,7 @@ func (g *Git) choice(c *ui.Ctx, id, side string, v any, on bool, pick func()) ui
 	).Gap(th.Spacing.XXS).Padding(th.Spacing.S).Radius(th.Radius.Medium).
 		Border(ui.TokenBorder, th.Stroke.Thin)
 	if on {
-		row = row.Background(ui.TokenListActive)
+		row = row.Background(ui.TokenSelected)
 	}
 	return row
 }

@@ -595,3 +595,6 @@ func sortedKeys(m map[string]string) []string {
 	slices.Sort(keys)
 	return keys
 }
+
+// TabTooltip shows where the request goes when its workspace tab is hovered.
+func (c *Container) TabTooltip() string { return domain.RequestTarget(c.req) }

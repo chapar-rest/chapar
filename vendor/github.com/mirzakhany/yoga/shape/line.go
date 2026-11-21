@@ -84,7 +84,7 @@ func (s *Shaper) ShapeLineAt(text string, logicalSize render.Px) Line {
 }
 
 // ShapeLineAtWeight shapes UI text at logicalSize with the given CSS-like weight.
-// Weight >= WeightSemiBold uses Inter SemiBold.
+// Weight >= WeightSemiBold uses Inter SemiBold, >= WeightMedium Inter Medium.
 func (s *Shaper) ShapeLineAtWeight(text string, logicalSize render.Px, weight int) Line {
 	return s.shapeLineFaceAt(text, false, logicalSize, weight)
 }
@@ -210,7 +210,9 @@ func (s *Shaper) shapeSegment(runes []rune, byteBase int, startX float32, mono b
 	case mono:
 		fm = monoFontmap{s.fs}
 	case weight >= WeightSemiBold:
-		fm = strongFontmap{s.fs}
+		fm = weightFontmap{s.fs, s.fs.primaryStrong}
+	case weight >= WeightMedium:
+		fm = weightFontmap{s.fs, s.fs.primaryMedium}
 	}
 	in := s.fs.baseInputFace(runes, face, runSize)
 	runs := s.fs.segment.Split(in, fm)

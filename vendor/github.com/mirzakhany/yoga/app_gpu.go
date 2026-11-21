@@ -150,6 +150,9 @@ func (a *Window) wireCallbacks() {
 		a.mouse.AddScrollX(dx)
 		a.mouse.AddScroll(dy)
 	})
+	a.window.SetDropCallback(func(_ *glfw.Window, names []string) {
+		a.mouse.Drop(names)
+	})
 	a.window.SetCharCallback(func(_ *glfw.Window, char rune) {
 		a.keyboard.TypeRune(char)
 	})
@@ -519,3 +522,7 @@ type glfwClipboard struct{ window *glfw.Window }
 
 func (c *glfwClipboard) Get() string  { return c.window.GetClipboardString() }
 func (c *glfwClipboard) Set(s string) { c.window.SetClipboardString(s) }
+
+// GetImage reads a picture from the system clipboard as PNG; GLFW reads
+// only text, so each platform does it its own way (clipboardImage).
+func (c *glfwClipboard) GetImage() ([]byte, bool) { return clipboardImage() }

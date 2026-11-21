@@ -258,7 +258,13 @@ func paintNavItem(dl *render.DrawList, text *shape.Engine, f render.Rect, itemLa
 	th := theme.Current()
 	switch {
 	case selected:
-		dl.AddRoundedRect(f, r, th.ListActive)
+		dl.AddRoundedRect(f, r, th.Selected)
+		// A short bar on the leading edge marks the current item, so selection
+		// does not rest on the fill alone. Link is text-safe on the chrome the
+		// nav sits on, which keeps the bar clear of the Selected tint too.
+		bar := th.Stroke.Thicker
+		bh := f.H / 2
+		dl.AddRoundedRect(render.Rect{X: f.X, Y: f.Y + (f.H-bh)/2, W: bar, H: bh}, bar/2, th.Link)
 	case hovered:
 		dl.AddRoundedRect(f, r, th.ListHover)
 	}
@@ -272,6 +278,12 @@ func paintNavItem(dl *render.DrawList, text *shape.Engine, f render.Rect, itemLa
 		frameIcons().Draw(dl, item.Icon, geom.icon, iconCol)
 	}
 	if item.Label != "" {
-		text.DrawStringTopAt(dl, item.Label, geom.textX, geom.textY, th.Foreground, style.Size)
+		// The current item's label steps up to Medium, a third cue next to the
+		// tint and the bar that does not depend on color.
+		weight := style.Weight
+		if selected {
+			weight = max(weight, th.Typography.Label.Weight)
+		}
+		text.DrawStringTopAtWeight(dl, item.Label, geom.textX, geom.textY, th.Foreground, style.Size, weight)
 	}
 }

@@ -168,7 +168,9 @@ func paintSegmented(dl *render.DrawList, text *shape.Engine, f render.Rect, item
 		case i == hover && !disabled:
 			dl.AddRoundedRect(cell, th.Radius.Small, th.ListHover)
 		}
-		fg := th.ForegroundSubtle
+		// Inactive labels are text, so they use Muted (4.5:1); Subtle is for
+		// icons and decoration only.
+		fg := th.ForegroundMuted
 		if disabled {
 			fg = th.ForegroundDisabled
 		} else if active {

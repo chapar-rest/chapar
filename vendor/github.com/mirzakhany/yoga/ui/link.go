@@ -73,12 +73,12 @@ func (n *Node) layoutLink(c *Ctx) *layout.Element {
 		} else if st.hovered {
 			fg = th.LinkHover
 		}
-		// The ring fills its rect, so it goes under the label. The frame hugs
-		// the text, so the ring sits a little outside it to clear the glyphs.
+		// The frame hugs the text; the ring already sits outside its rect, so a
+		// small horizontal pad is enough to clear the glyphs.
 		if focusVisible(st.focused) {
-			const pad = 3.0
-			ring := render.Rect{X: f.X - pad, Y: f.Y - pad/2, W: f.W + 2*pad, H: f.H + pad}
-			paintFocusRing(dl, ring, th.Surface, th)
+			const pad = 2.0
+			ring := render.Rect{X: f.X - pad, Y: f.Y, W: f.W + 2*pad, H: f.H}
+			paintFocusRing(dl, ring, th.Radius.Small, th)
 		}
 		_, mh := text.MeasureAt(label, style.Size)
 		ty := f.Y + (f.H-mh)/2

@@ -103,3 +103,17 @@ func (c *Ctx) Window() WindowHost { return c.window }
 
 // SetWindow attaches the platform window host used by TitleBar and WindowControls.
 func (c *Ctx) SetWindow(w WindowHost) { c.window = w }
+
+// WindowTitler is a WindowHost that can rename its window.
+type WindowTitler interface {
+	SetTitle(title string)
+}
+
+// SetWindowTitle sets the OS window title, which the Dock, Mission Control,
+// the taskbar and window switchers show, even when a custom title bar hides
+// it. It is cheap to call every frame; without a window it does nothing.
+func (c *Ctx) SetWindowTitle(title string) {
+	if t, ok := c.window.(WindowTitler); ok {
+		t.SetTitle(title)
+	}
+}

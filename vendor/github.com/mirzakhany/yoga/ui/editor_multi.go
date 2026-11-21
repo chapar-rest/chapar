@@ -392,8 +392,8 @@ func (e *Editor) pasteAll(clip input.Clipboard) {
 	if clip == nil {
 		return
 	}
-	text := clip.Get()
-	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+	text := e.toEOL(clip.Get())
+	lines := strings.Split(strings.TrimSuffix(text, e.EOL()), e.EOL())
 	if len(lines) != e.Cursors() {
 		e.multi(true, func() { e.replaceSelection(text, mergeNone) })
 		return

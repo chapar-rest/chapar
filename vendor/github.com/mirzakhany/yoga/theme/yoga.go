@@ -18,7 +18,7 @@ func yogaDark() Theme {
 		AccentForeground:   rgb(255, 255, 255),
 		Border:             rgb(54, 56, 68),
 		BorderStrong:       rgb(70, 74, 88),
-		ListHover:          rgb(54, 56, 68),
+		ListHover:          rgb(62, 64, 78), // one step above Border so a hovered row keeps its dividers
 		ListActive:         rgb(70, 74, 92),
 		FocusRing:          rgb(94, 129, 232),
 
@@ -62,7 +62,7 @@ func yogaLight() Theme {
 		AccentHover:        rgb(35, 97, 202),
 		AccentPressed:      rgb(30, 84, 175),
 		AccentForeground:   rgb(255, 255, 255),
-		Border:             rgb(215, 218, 225),
+		Border:             rgb(205, 209, 217), // 1.15:1 from ListHover so dividers survive hover
 		BorderStrong:       rgb(190, 195, 205),
 		ListHover:          rgb(221, 223, 230),
 		ListActive:         rgb(204, 209, 219),
@@ -147,7 +147,7 @@ func yogaMidnight() Theme {
 	t.AccentHover = rgb(41, 98, 209)
 	t.AccentPressed = rgb(36, 84, 180)
 	t.AccentForeground = rgb(255, 255, 255)
-	t.Border = rgb(42, 50, 61)
+	t.Border = rgb(50, 58, 70) // was 1.04:1 from ListHover
 	t.BorderStrong = rgb(58, 68, 82)
 	t.ListHover = rgb(41, 47, 57)
 	t.ListActive = rgb(48, 56, 67)

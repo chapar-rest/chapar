@@ -540,13 +540,15 @@ func (tf *TextInput) paint(dl *render.DrawList, _ *shape.Engine) {
 		paintJoinedFill(dl, f, tf.joined, bg, uniformRadius(r.radii, tf.cfg.Radius))
 	} else if r.hasBorder {
 		border = r.border
-	} else if tf.focused && !tf.disabled {
-		border = th.FocusRing
-		// Soft 2px accent glow around the field (box-shadow-style focus ring).
-		glow := render.Rect{X: f.X - 2, Y: f.Y - 2, W: f.W + 4, H: f.H + 4}
-		dl.AddRoundedRect(glow, tf.cfg.Radius+2, render.Color{R: th.FocusRing.R, G: th.FocusRing.G, B: th.FocusRing.B, A: 0.25})
 	}
 	bw := uniformBorderWidth(r.borderW, tf.cfg.BorderWidth)
+	if !tf.joined.in && !tf.embed.on && tf.focused && !tf.disabled &&
+		(!r.hasBorder || r.border == th.FocusRing) {
+		// Focus thickens the field's own border to Stroke.Thick in FocusRing,
+		// which holds 3:1 on the surface. It replaces a 25% glow that did not.
+		border = th.FocusRing
+		bw = max(bw, th.Stroke.Thick)
+	}
 	radius := uniformRadius(r.radii, tf.cfg.Radius)
 	if !tf.joined.in && !tf.embed.on {
 		paintChromeBox(dl, f, r, bg, border, bw, radius)
@@ -897,6 +899,9 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 			}
 			continue
 		}
+		if tf.handleMotionKey(ev) {
+			continue
+		}
 		if ev.Mods.Primary() {
 			switch ev.Key {
 			case input.KeyUp, input.KeyHome:
@@ -981,6 +986,60 @@ func (tf *TextInput) HandleKeys(keys []input.KeyEvent) {
 			}
 		}
 	}
+}
+
+// handleMotionKey moves or deletes by word or to the line's edge with the
+// platform's chords, as the editor does: ⌥ for a word and ⌘ for the line on
+// macOS, Ctrl for a word elsewhere. Shift extends the selection. It reports
+// whether ev was one of them.
+func (tf *TextInput) handleMotionKey(ev input.KeyEvent) bool {
+	mods := ev.Mods &^ input.ModShift
+	word := mods == input.ModAlt
+	if !editorMac {
+		word = mods == input.ModCtrl
+	}
+	line := editorMac && (mods == input.ModSuper || mods == input.ModCtrl)
+	if !word && !line {
+		return false
+	}
+	back := ev.Key == input.KeyLeft || ev.Key == input.KeyBackspace
+	if !back && ev.Key != input.KeyRight && ev.Key != input.KeyDelete {
+		return false
+	}
+	to := tf.motionTarget(back, line)
+	if ev.Key == input.KeyLeft || ev.Key == input.KeyRight {
+		tf.moveTo(to, ev.Mods.Has(input.ModShift))
+		return true
+	}
+	tf.edit(mergeNone, "", func() {
+		if tf.deleteSelection() {
+			return
+		}
+		lo, hi := min(to, tf.caret), max(to, tf.caret)
+		tf.caret = lo
+		tf.setValue(tf.Value[:lo] + tf.Value[hi:])
+	})
+	tf.refreshSuggest()
+	return true
+}
+
+// motionTarget is where a word or line move from the caret lands, backward
+// or forward. A password is one word, so its spaces stay hidden.
+func (tf *TextInput) motionTarget(back, line bool) int {
+	lo, hi := 0, len(tf.Value)
+	switch {
+	case line && tf.cfg.Multiline:
+		lo, hi = tf.lineBounds()
+	case line || tf.cfg.Password:
+	case back:
+		return wordLeftIn([]byte(tf.Value), tf.caret)
+	default:
+		return wordRightIn([]byte(tf.Value), tf.caret)
+	}
+	if back {
+		return lo
+	}
+	return hi
 }
 
 func prevRuneOff(s string, off int) int {

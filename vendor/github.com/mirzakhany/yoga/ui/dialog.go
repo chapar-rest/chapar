@@ -369,7 +369,7 @@ func (d *DialogHost) chrome(c *Ctx) View {
 	}
 	kids = append(kids, footer)
 
-	return Column(kids...).Grow(1).Background(TokenChrome).
+	return Column(kids...).Grow(1).Background(TokenOverlay).
 		Style(Spec{}.Radius(th.Radius.Large).Border(borderTok, th.Stroke.Thin))
 }
 

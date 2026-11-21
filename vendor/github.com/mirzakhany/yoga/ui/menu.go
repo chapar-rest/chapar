@@ -50,6 +50,9 @@ type Menu struct {
 	Open  bool
 	hover int
 
+	// TextSize is the labels' font size; 0 is the body size.
+	TextSize float32
+
 	// scrollY scrolls a menu taller than the room it has; maxH is that room,
 	// fixed when the menu opens.
 	scrollY float32
@@ -92,6 +95,14 @@ func (mu *Menu) itemHeight() float32 {
 		return th.Metrics.MenuItemHeight
 	}
 	return th.Metrics.ControlHeight
+}
+
+// textSize is the labels' font size.
+func (mu *Menu) textSize() float32 {
+	if mu.TextSize > 0 {
+		return mu.TextSize
+	}
+	return theme.Current().Typography.Body.Size
 }
 
 func (mu *Menu) separatorHeight() float32 { return theme.Current().Spacing.S + 1 }
@@ -255,6 +266,27 @@ func (mu *Menu) OpenAt(x, y float32) {
 	mu.clampScroll()
 }
 
+// OpenAbove shows the menu with its bottom edge at screen y, for a trigger at
+// the bottom of the window such as a status bar item. A menu taller than the
+// room above scrolls.
+func (mu *Menu) OpenAbove(x, y float32) {
+	h := mu.height()
+	margin := theme.Current().Spacing.S
+	if room := y - margin; room > 0 && h > room {
+		h = room
+	}
+	mu.OpenAt(x, y-h)
+	if f := mu.host.Frame; f.Y+f.H > y {
+		// Too tall for the room above: OpenAt let it run over the trigger.
+		mu.maxH = h
+		top := f32max(0, y-h)
+		mu.host.Style = layout.Box().Absolute(mu.host.Frame.X, top).Size(mu.width, h)
+		mu.host.ReapplyStyle()
+		mu.host.Frame = render.Rect{X: mu.host.Frame.X, Y: top, W: mu.width, H: h}
+		mu.clampScroll()
+	}
+}
+
 func (mu *Menu) overlay() *layout.Element { return mu.host }
 
 // Close hides the menu.
@@ -283,13 +315,13 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 	padX := th.Spacing.MNudge
 	r := th.Radius.Medium
 	drawElevationShadow(dl, f, r, th.Elevation.ShadowMd)
-	dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Chrome, th.Border)
+	dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Overlay, th.Border)
 	// Labels wider than the configured menu width are clipped to the frame, and
 	// rows stop inside the border so a hover fill cannot paint over it.
 	bw := float32(th.Stroke.Thin)
 	inner := render.Rect{X: f.X + bw, Y: f.Y + bw, W: f.W - 2*bw, H: f.H - 2*bw}
 	dl.PushClip(inner)
-	style := th.Typography.Body
+	size := mu.textSize()
 	labelX := padX
 	checkSz := th.Metrics.IconSizeSM
 	if mu.hasChecked() {
@@ -318,7 +350,7 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 		row := render.Rect{X: f.X, Y: y, W: f.W, H: itemH}
 		y += itemH
 		if i == mu.hover && !it.Disabled {
-			dl.AddRect(row, th.ListHover)
+			dl.AddRect(row, th.HoverOn(th.Overlay))
 		}
 		col := th.Foreground
 		if it.Disabled {
@@ -340,15 +372,15 @@ func (mu *Menu) paint(dl *render.DrawList, text *shape.Engine) {
 				sheet.Draw(dl, it.Icon, box, col)
 			}
 		}
-		_, lh := text.MeasureAt(it.Label, style.Size)
-		text.DrawStringTopAt(dl, it.Label, row.X+labelX, row.Y+(itemH-lh)/2, col, style.Size)
+		_, lh := text.MeasureAt(it.Label, size)
+		text.DrawStringTopAt(dl, it.Label, row.X+labelX, row.Y+(itemH-lh)/2, col, size)
 		if it.Shortcut != "" {
 			hint := th.ForegroundMuted
 			if it.Disabled {
 				hint = th.ForegroundDisabled
 			}
-			sw, _ := text.MeasureAt(it.Shortcut, style.Size)
-			text.DrawStringTopAt(dl, it.Shortcut, row.X+row.W-padX-sw, row.Y+(itemH-lh)/2, hint, style.Size)
+			sw, _ := text.MeasureAt(it.Shortcut, size)
+			text.DrawStringTopAt(dl, it.Shortcut, row.X+row.W-padX-sw, row.Y+(itemH-lh)/2, hint, size)
 		}
 	}
 	if total := mu.height(); total > f.H {
@@ -368,7 +400,7 @@ func (mu *Menu) contentWidth() float32 {
 		return 0
 	}
 	th := theme.Current()
-	size := th.Typography.Body.Size
+	size := mu.textSize()
 	padX := th.Spacing.MNudge
 	var widest float32
 	for _, it := range mu.items {

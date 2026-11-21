@@ -288,7 +288,7 @@ func (t *ToastHost) noticeCard(c *Ctx, n noticeEntry, w float32) (View, float32)
 	h += pad
 
 	card := Column(kids...).Gap(gap).Padding(pad).Grow(1).
-		Background(TokenChrome).
+		Background(TokenOverlay).
 		Style(Spec{}.Radius(th.Radius.Large).Border(tok, th.Stroke.Thin))
 	return card, h
 }
@@ -328,7 +328,7 @@ func (t *ToastHost) paint(dl *render.DrawList, text *shape.Engine) {
 		bg.A = 0.2
 		r := th.Radius.Medium
 		drawElevationShadow(dl, rect, r, th.Elevation.ShadowMd)
-		dl.AddRoundedRectBorder(rect, r, th.Stroke.Thin, th.Chrome, accent)
+		dl.AddRoundedRectBorder(rect, r, th.Stroke.Thin, th.Overlay, accent)
 		_, lh := text.MeasureAt(e.message, style.Size)
 		dl.PushClip(render.Rect{X: x + pad, Y: y, W: t.width - 2*pad, H: itemH})
 		text.DrawStringTopAt(dl, e.message, x+pad, y+(itemH-lh)/2, th.Foreground, style.Size)

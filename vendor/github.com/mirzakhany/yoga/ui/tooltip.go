@@ -116,7 +116,7 @@ func buildTooltipOverlay(c *Ctx, anchor render.Rect, text string) *layout.Elemen
 		f := host.Frame
 		r := th.Radius.Medium
 		drawElevationShadow(dl, f, r, th.Elevation.ShadowSm)
-		bg := th.Chrome
+		bg := th.Overlay
 		dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, bg, th.Border)
 		_, mh := eng.MeasureAt(msg, style.Size)
 		eng.DrawStringTopAt(dl, msg, f.X+padX, f.Y+(f.H-mh)/2, th.Foreground, style.Size)
@@ -179,7 +179,7 @@ func buildHoverCardOverlay(c *Ctx, anchor render.Rect, card HoverCard) *layout.E
 		f := host.Frame
 		r := th.Radius.Medium
 		drawElevationShadow(dl, f, r, th.Elevation.ShadowSm)
-		dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Chrome, th.Border)
+		dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Overlay, th.Border)
 		dl.PushClip(f)
 		ty := f.Y + padY
 		if card.Title != "" {

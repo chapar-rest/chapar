@@ -12,6 +12,11 @@ func osPrefersDark() bool {
 	return false
 }
 
+func osPrefersCoarsePointer() bool {
+	media := js.Global().Call("matchMedia", "(pointer: coarse)")
+	return media.Truthy() && media.Get("matches").Bool()
+}
+
 func osPrefersReducedMotion() bool {
 	media := js.Global().Call("matchMedia", "(prefers-reduced-motion: reduce)")
 	return media.Truthy() && media.Get("matches").Bool()

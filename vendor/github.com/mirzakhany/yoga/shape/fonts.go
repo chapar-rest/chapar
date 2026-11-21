@@ -16,9 +16,12 @@ import (
 
 const logicalFontPx = 14.0
 
-// Font weights used by UI chrome. Values >= WeightSemiBold select Inter SemiBold.
+// Font weights used by UI chrome. Values >= WeightSemiBold select Inter
+// SemiBold, values from WeightMedium up to it Inter Medium, and anything lower
+// Inter Regular.
 const (
 	WeightRegular  = 400
+	WeightMedium   = 500
 	WeightSemiBold = 600
 )
 
@@ -26,6 +29,7 @@ const (
 type FontSystem struct {
 	fontMap       *fontscan.FontMap
 	primary       *font.Face // UI sans-serif Regular
+	primaryMedium *font.Face // UI sans-serif Medium (500 <= Weight < 600)
 	primaryStrong *font.Face // UI sans-serif SemiBold (Weight >= 600)
 	mono          *font.Face // editor monospace face
 	scale         float32
@@ -78,6 +82,12 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 	}
 	primary.SetPpem(uint16(px), uint16(px))
 
+	primaryMedium, err := font.ParseTTF(bytes.NewReader(render.InterMediumTTF))
+	if err != nil {
+		return nil, err
+	}
+	primaryMedium.SetPpem(uint16(px), uint16(px))
+
 	primaryStrong, err := font.ParseTTF(bytes.NewReader(render.InterSemiBoldTTF))
 	if err != nil {
 		return nil, err
@@ -93,6 +103,7 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 	fm := fontscan.NewFontMap(log.Default())
 	uiMD := primary.Describe()
 	fm.AddFace(primary, fontscan.Location{File: "Inter-Regular.ttf"}, uiMD)
+	fm.AddFace(primaryMedium, fontscan.Location{File: "Inter-Medium.ttf"}, primaryMedium.Describe())
 	strongMD := primaryStrong.Describe()
 	fm.AddFace(primaryStrong, fontscan.Location{File: "Inter-SemiBold.ttf"}, strongMD)
 	monoMD := mono.Describe()
@@ -108,6 +119,7 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 	fs := &FontSystem{
 		fontMap:          fm,
 		primary:          primary,
+		primaryMedium:    primaryMedium,
 		primaryStrong:    primaryStrong,
 		mono:             mono,
 		scale:            scale,
@@ -122,6 +134,7 @@ func NewFontSystem(scale float32, useSystemFonts bool) (*FontSystem, error) {
 		monoMetricsCache: make(map[render.Px]Metrics),
 	}
 	fs.registerFace(primary)
+	fs.registerFace(primaryMedium)
 	fs.registerFace(primaryStrong)
 	fs.registerFace(mono)
 	fs.metrics = fs.computeMetrics(primary, fs.uiPixelSize, fs.uiLineFactor)
@@ -140,6 +153,10 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 	if err != nil {
 		return err
 	}
+	mediumFace, err := font.ParseTTF(bytes.NewReader(render.InterMediumTTF))
+	if err != nil {
+		return err
+	}
 	strongFace, err := font.ParseTTF(bytes.NewReader(render.InterSemiBoldTTF))
 	if err != nil {
 		return err
@@ -154,13 +171,16 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 	uiPx := fs.ppem(uiSize)
 	monoPx := fs.ppem(monoSize)
 	uiFace.SetPpem(uint16(uiPx.Round()), uint16(uiPx.Round()))
+	mediumFace.SetPpem(uint16(uiPx.Round()), uint16(uiPx.Round()))
 	strongFace.SetPpem(uint16(uiPx.Round()), uint16(uiPx.Round()))
 	monoFace.SetPpem(uint16(monoPx.Round()), uint16(monoPx.Round()))
 
 	fs.primary = uiFace
+	fs.primaryMedium = mediumFace
 	fs.primaryStrong = strongFace
 	fs.mono = monoFace
 	fs.registerFace(uiFace)
+	fs.registerFace(mediumFace)
 	fs.registerFace(strongFace)
 	fs.registerFace(monoFace)
 	fs.uiPixelSize = uiPx
@@ -178,6 +198,7 @@ func (fs *FontSystem) SetFont(cfg FontConfig) error {
 
 	// Refresh the query so non-ASCII fallback prefers the chosen families.
 	fs.fontMap.AddFace(uiFace, fontscan.Location{File: "ui"}, uiFace.Describe())
+	fs.fontMap.AddFace(mediumFace, fontscan.Location{File: "ui-medium"}, mediumFace.Describe())
 	fs.fontMap.AddFace(strongFace, fontscan.Location{File: "ui-strong"}, strongFace.Describe())
 	fs.fontMap.AddFace(monoFace, fontscan.Location{File: "mono"}, monoFace.Describe())
 
@@ -204,6 +225,7 @@ func (fs *FontSystem) SetScale(scale float32) bool {
 	fs.monoPixelSize = fs.ppem(fs.monoLogical)
 	ui, mono := uint16(fs.uiPixelSize.Round()), uint16(fs.monoPixelSize.Round())
 	fs.primary.SetPpem(ui, ui)
+	fs.primaryMedium.SetPpem(ui, ui)
 	fs.primaryStrong.SetPpem(ui, ui)
 	fs.mono.SetPpem(mono, mono)
 	fs.metrics = fs.computeMetrics(fs.primary, fs.uiPixelSize, fs.uiLineFactor)
@@ -281,23 +303,26 @@ func (m monoFontmap) ResolveFace(r rune) *font.Face {
 // SetScript implements shaping.FontmapScript.
 func (m monoFontmap) SetScript(s language.Script) { m.fs.SetScript(s) }
 
-// strongFontmap prefers Inter SemiBold for runes it can render, then falls back
-// to the normal UI/system resolution chain.
-type strongFontmap struct{ fs *FontSystem }
+// weightFontmap prefers one weight of Inter (Medium or SemiBold) for runes it
+// can render, then falls back to the normal UI/system resolution chain.
+type weightFontmap struct {
+	fs   *FontSystem
+	face *font.Face
+}
 
 // ResolveFace implements shaping.Fontmap.
-func (m strongFontmap) ResolveFace(r rune) *font.Face {
-	if strong := m.fs.primaryStrong; strong != nil {
-		if _, has := strong.NominalGlyph(r); has {
-			m.fs.registerFace(strong)
-			return strong
+func (m weightFontmap) ResolveFace(r rune) *font.Face {
+	if m.face != nil {
+		if _, has := m.face.NominalGlyph(r); has {
+			m.fs.registerFace(m.face)
+			return m.face
 		}
 	}
 	return m.fs.ResolveFace(r)
 }
 
 // SetScript implements shaping.FontmapScript.
-func (m strongFontmap) SetScript(s language.Script) { m.fs.SetScript(s) }
+func (m weightFontmap) SetScript(s language.Script) { m.fs.SetScript(s) }
 
 // Metrics returns UI line metrics in logical pixels at the default size.
 func (fs *FontSystem) Metrics() Metrics { return fs.metrics }
@@ -351,16 +376,23 @@ func (fs *FontSystem) PixelSize() fixed.Int26_6 { return fs.uiPixelSize }
 // Primary returns the UI sans-serif Regular face.
 func (fs *FontSystem) Primary() *font.Face { return fs.primary }
 
+// PrimaryMedium returns the UI sans-serif Medium face (500 <= Weight < 600).
+func (fs *FontSystem) PrimaryMedium() *font.Face { return fs.primaryMedium }
+
 // PrimaryStrong returns the UI sans-serif SemiBold face (Weight >= 600).
 func (fs *FontSystem) PrimaryStrong() *font.Face { return fs.primaryStrong }
 
 // Mono returns the editor monospace face.
 func (fs *FontSystem) Mono() *font.Face { return fs.mono }
 
-// uiFaceForWeight returns Regular or SemiBold for the given CSS-like weight.
+// uiFaceForWeight returns Regular, Medium or SemiBold for the given CSS-like
+// weight.
 func (fs *FontSystem) uiFaceForWeight(weight int) *font.Face {
-	if weight >= WeightSemiBold && fs.primaryStrong != nil {
+	switch {
+	case weight >= WeightSemiBold && fs.primaryStrong != nil:
 		return fs.primaryStrong
+	case weight >= WeightMedium && fs.primaryMedium != nil:
+		return fs.primaryMedium
 	}
 	return fs.primary
 }

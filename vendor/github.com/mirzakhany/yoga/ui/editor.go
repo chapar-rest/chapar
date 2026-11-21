@@ -176,6 +176,7 @@ type Editor struct {
 	contentSizeDirty bool
 	revision         uint64
 	lineMarks        map[int]LineMarkKind
+	marks            markState // change bars: rows painted, hover
 	inline           inlineSuggestion
 
 	gutterW float32
@@ -202,6 +203,8 @@ type Editor struct {
 	indentSpaces             bool
 	autoIndent               AutoIndent
 	noGutter                 bool // WithoutGutter: never show line numbers
+	minimapSet, minimapOn    bool // SetMinimap's choice over EditorDefaults.Minimap
+	minimapDrag              bool // a press on the minimap is scrolling
 	gutter                   *GutterSpec
 	shareContent             bool // construction-time: build over the caller's slice, no copy
 	readOnly                 bool // selection and copy work; edits are ignored
@@ -238,6 +241,9 @@ type Editor struct {
 	// own (Save…, Format, …). Returning none turns the menu off and leaves the
 	// right-click to widgets behind the editor.
 	ContextMenu func(items []MenuItem) []MenuItem
+	// OnLineMark runs when the pointer rests on a line's change bar (see
+	// SetLineMarks) or clicks it, such as to show what changed there.
+	OnLineMark func(line int)
 	// Suggest, when set, offers completions the application knows about, such
 	// as template variables. It is asked after every edit, ahead of the
 	// language server, and returns candidates plus the byte range they
@@ -306,6 +312,7 @@ var EditorDefaults = struct {
 	IndentSpaces      bool       // Tab inserts spaces up to the next tab stop
 	AutoIndent        AutoIndent // what Enter carries to the new line; Default means None
 	ScrollPastEnd     bool       // let the last line scroll up to the top of the view
+	Minimap           bool       // show the minimap at the right edge
 	// Keymap replaces the built-in shortcuts (DefaultEditorKeymap) for
 	// editors without their own SetKeymap; nil keeps the built-in ones.
 	Keymap []EditorBinding
@@ -642,6 +649,36 @@ func (e *Editor) ApplyText(s string) {
 	e.ScrollPx = scroll
 }
 
+// Repath moves the editor to path, as after its file was renamed or a new
+// buffer was given a language: syntax colors and the language server
+// document follow the new path's language. The text and undo history stay.
+func (e *Editor) Repath(path string) {
+	if path == e.Path {
+		return
+	}
+	e.Path = path
+	hl := highlight.ForPath(path)
+	e.hl.Close()
+	e.hl = hl
+	e.tokens = nil
+	e.hlRangeSet = false
+	if rh, ok := hl.(highlight.RangeHighlighter); ok {
+		first, last := e.visibleLineRange()
+		last = maxInt(last, minInt(first+initialHighlightLines, maxInt(e.pt.LineCount()-1, 0)))
+		e.hlLo, e.hlHi = e.pt.LineStart(first), e.pt.LineStart(last)+e.pt.LineLen(last)
+		e.hlRangeSet = true
+		rh.SetRange(e.hlLo, e.hlHi)
+	}
+	hl.Update(e.pt.Bytes())
+	e.markParsePending()
+	if e.lsp != nil {
+		e.lsp.Close()
+		e.lsp = nil
+		e.SetDiagnostics(nil)
+	}
+	e.lspOpened = false // the next frame opens the new path's document
+}
+
 // HighlightOversize reports whether the document is larger than its
 // highlighter's size limit and is shown without syntax colors. Only
 // highlighters that implement highlight.SizeLimited ever report it.
@@ -694,6 +731,7 @@ func (e *Editor) Update(m *input.Mouse) {
 	}
 	e.lspOpen()
 	e.lspUpdate(m)
+	e.trackMarkHover(m)
 	if e.contentSizeDirty {
 		e.recomputeContentSize()
 	}
@@ -1216,8 +1254,9 @@ func (e *Editor) autoIndentMode() AutoIndent {
 // newline is Enter: a line break carrying the indent AutoIndent asks for.
 func (e *Editor) newline() {
 	mode := e.autoIndentMode()
+	eol := e.EOL()
 	if mode == AutoIndentNone {
-		e.replaceSelection("\n", mergeNone)
+		e.replaceSelection(eol, mergeNone)
 		return
 	}
 	lo, hi := e.selRange()
@@ -1225,7 +1264,7 @@ func (e *Editor) newline() {
 	ls := e.pt.LineStart(e.lineOf(lo))
 	head := doc[ls:lo]
 	lead := head[:len(head)-len(bytes.TrimLeft(head, " \t"))]
-	ins := "\n" + string(lead)
+	ins := eol + string(lead)
 	caret := len(ins)
 	if mode == AutoIndentBrackets {
 		if before := bytes.TrimRight(head, " \t"); len(before) > 0 {
@@ -1244,7 +1283,7 @@ func (e *Editor) newline() {
 				trimmed := bytes.TrimLeft(rest, " \t")
 				if open && len(trimmed) > 0 && rune(trimmed[0]) == bracketClose[last] {
 					hi += len(rest) - len(trimmed)
-					ins += "\n" + string(lead)
+					ins += eol + string(lead)
 				}
 			}
 		}
@@ -1411,11 +1450,12 @@ func (e *Editor) lineTextWidth(line int) float32 {
 
 func (e *Editor) scrollMetrics() (clientW, clientH float32, vShow, hShow bool) {
 	f := e.viewport.Frame
-	clientW, clientH = f.W, f.H
+	w := f.W - e.minimapWidth()
+	clientW, clientH = w, f.H
 	vShow = e.ContentHeight > clientH
 	vBar, hBar := e.vbar.gutter(editorBarSize), e.hbar.gutter(editorBarSize)
 	if vShow {
-		clientW = f.W - vBar
+		clientW = w - vBar
 	}
 	hShow = e.ContentWidth > clientW
 	if hShow {
@@ -1423,7 +1463,7 @@ func (e *Editor) scrollMetrics() (clientW, clientH float32, vShow, hShow bool) {
 	}
 	if e.ContentHeight > clientH {
 		vShow = true
-		clientW = f.W - vBar
+		clientW = w - vBar
 		hShow = e.ContentWidth > clientW
 		if hShow {
 			clientH = f.H - hBar
@@ -1533,6 +1573,9 @@ func (e *Editor) Layout(c *Ctx) *layout.Element {
 	e.vbar.tick(c, e.viewport.Frame)
 	e.hbar.tick(c, e.viewport.Frame)
 	if d, ok := e.AnimationWait(); ok {
+		c.Animate(d)
+	}
+	if d, ok := e.markWake(); ok {
 		c.Animate(d)
 	}
 	if e.lspOverlay == nil {
@@ -2256,7 +2299,7 @@ func (e *Editor) paste(clip input.Clipboard) {
 		f.Paste() // single-line: it keeps the first line
 		return
 	}
-	e.replaceSelection(s, mergeNone)
+	e.replaceSelection(e.toEOL(s), mergeNone)
 }
 
 func (e *Editor) moveTo(off int, extend bool) {
@@ -2266,7 +2309,7 @@ func (e *Editor) moveTo(off int, extend bool) {
 	if n := e.pt.Len(); off > n {
 		off = n
 	}
-	off = e.skipFolded(off, off >= e.caret)
+	off = e.offBreak(e.skipFolded(off, off >= e.caret))
 	if extend {
 		if e.selAnchor < 0 {
 			e.selAnchor = e.caret
@@ -2291,7 +2334,7 @@ func (e *Editor) moveCluster(dir int, extend bool) {
 		return
 	}
 	if dir < 0 && off <= 0 && ln > 0 {
-		e.moveTo(ls-1, extend)
+		e.moveTo(e.lineEndOf(ls-1), extend)
 		return
 	}
 	view := e.lineView(ln)
@@ -2397,11 +2440,15 @@ func (e *Editor) moveVertical(dir int, extend bool) {
 // Offset / line-column geometry
 // ---------------------------------------------------------------------------
 
+// prevRune and nextRune step one rune, a "\r\n" being one step.
 func (e *Editor) prevRune(off int) int {
 	if off <= 0 {
 		return 0
 	}
 	b := e.pt.Bytes()
+	if off >= 2 && b[off-1] == '\n' && b[off-2] == '\r' {
+		return off - 2
+	}
 	_, sz := utf8.DecodeLastRune(b[:off])
 	return off - sz
 }
@@ -2411,8 +2458,43 @@ func (e *Editor) nextRune(off int) int {
 	if off >= len(b) {
 		return len(b)
 	}
+	if b[off] == '\r' && off+1 < len(b) && b[off+1] == '\n' {
+		return off + 2
+	}
 	_, sz := utf8.DecodeRune(b[off:])
 	return off + sz
+}
+
+// EOL is the document's line ending, read off its first line break:
+// "\r\n" or "\n". Enter, paste and the line commands write it.
+func (e *Editor) EOL() string {
+	b := e.pt.Bytes()
+	if i := bytes.IndexByte(b, '\n'); i > 0 && b[i-1] == '\r' {
+		return "\r\n"
+	}
+	return "\n"
+}
+
+// toEOL is s with its line breaks made the document's.
+func (e *Editor) toEOL(s string) string {
+	if !strings.Contains(s, "\n") {
+		return s
+	}
+	lf := strings.ReplaceAll(s, "\r\n", "\n")
+	if eol := e.EOL(); eol != "\n" {
+		return strings.ReplaceAll(lf, "\n", eol)
+	}
+	return lf
+}
+
+// offBreak moves off out of a "\r\n", to before it; carets never sit
+// inside one.
+func (e *Editor) offBreak(off int) int {
+	b := e.pt.Bytes()
+	if off > 0 && off < len(b) && b[off] == '\n' && b[off-1] == '\r' {
+		return off - 1
+	}
+	return off
 }
 
 func (e *Editor) pointOf(off int) highlight.Pt {
@@ -2474,11 +2556,17 @@ func (e *Editor) onMouse(el *layout.Element, m *input.Mouse) {
 	if e.overScrollbar(m) {
 		return
 	}
+	if e.minimapMouse(m) {
+		return
+	}
 
 	if e.findMouse(m) {
 		return
 	}
 	if e.foldMouse(m) {
+		return
+	}
+	if e.lineMarkMouse(m) {
 		return
 	}
 
@@ -3054,10 +3142,19 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 			if cy+e.lineH < vp.Y || cy > vp.Y+vp.H {
 				continue
 			}
+			// A block or underline on a tab covers one cell at the tab's
+			// end, like Vim, not the whole run of columns it expands to.
+			b := e.pt.Bytes()
+			onTab := caret < len(b) && b[caret] == '\t'
+			if onTab && e.CaretStyle != CaretBar {
+				if next := e.nextRune(caret); next > caret && e.lineOf(next) == e.lineOf(caret) {
+					cx = f32max(cx, x0+e.xInRow(next)-e.cellW)
+				}
+			}
 			switch e.CaretStyle {
 			case CaretBlock:
 				w := e.cellW
-				if next := e.nextRune(caret); next > caret && e.lineOf(next) == e.lineOf(caret) && e.pt.Bytes()[caret] != '\n' {
+				if next := e.nextRune(caret); !onTab && next > caret && e.lineOf(next) == e.lineOf(caret) && e.pt.Bytes()[caret] != '\n' {
 					w = f32max(w, x0+e.xInRow(next)-cx)
 				}
 				col := th.Accent
@@ -3093,11 +3190,15 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 			dl.AddRect(render.Rect{X: gutter.X + gutter.W - 1, Y: gutter.Y, W: 1, H: vp.H}, th.Border)
 		}
 		dl.PushClip(render.Rect{X: gutter.X, Y: gutter.Y, W: gutter.W, H: vp.H})
-		markX := gutter.X + gutter.W - foldW - lineMarkW - 1
+		markX := e.markX()
+		e.marks.rows = e.marks.rows[:0]
 		for _, pr := range rows {
 			y := e.rowY(pr.visual)
 			if y >= vp.Y+vp.H {
 				break
+			}
+			if pr.first {
+				e.marks.rows = append(e.marks.rows, markRow{line: pr.line, y: y})
 			}
 			if e.foldCovers(pr.visual) {
 				dl.AddRect(render.Rect{X: gutter.X, Y: y, W: gutter.W, H: e.lineH}, th.ChromeMuted)
@@ -3124,6 +3225,8 @@ func (e *Editor) paint(dl *render.DrawList, _ *shape.Engine) {
 		}
 		dl.PopClip()
 	}
+
+	e.paintMinimap(dl, th)
 
 	// Search/replace overlay (drawn last, on top of everything).
 	e.paintFindBar(dl, engine)

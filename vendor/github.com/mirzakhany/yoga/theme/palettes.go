@@ -240,7 +240,7 @@ func dracula() Theme {
 	t.AccentForeground = rgb(40, 42, 54)
 	t.Border = rgb(68, 71, 90)
 	t.BorderStrong = rgb(98, 102, 125)
-	t.ListHover = rgb(68, 71, 90)
+	t.ListHover = rgb(56, 59, 76) // was identical to Border
 	t.ListActive = rgb(88, 91, 112)
 	t.FocusRing = rgb(189, 147, 249)
 	t.Selection = rgb(68, 71, 90)

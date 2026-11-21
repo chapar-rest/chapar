@@ -4,7 +4,8 @@ import "github.com/mirzakhany/yoga/input"
 
 // inputImpliesPaint reports whether this frame's input changed what is on
 // screen. It covers the coarse cases (click, scroll, typing, drag); hover
-// transitions mark themselves via trackHover in the widgets.
+// transitions mark themselves via trackHover in the widgets. A file drop
+// counts as input too.
 //
 // scrolled, typed and dragged must be sampled *before* dispatch. The widget
 // that handles a wheel delta or a key zeroes it as it consumes it — see
@@ -14,5 +15,5 @@ import "github.com/mirzakhany/yoga/input"
 func inputImpliesPaint(m *input.Mouse, scrolled, typed, dragged bool) bool {
 	return m.Pressed || m.Released ||
 		m.RightPressed || m.RightReleased ||
-		scrolled || typed || dragged
+		scrolled || typed || dragged || len(m.Dropped) > 0
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
-	"github.com/mirzakhany/yoga/theme"
 )
 
 type buttonState struct {
@@ -114,7 +113,7 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 	}
 	if n.hint != "" && c.Text() != nil {
 		hw, _ := c.Text().MeasureAt(n.hint, th.Typography.Caption.Size)
-		hintSlot := 8 + hw + 10
+		hintSlot := th.Spacing.S + hw + th.Spacing.MNudge
 		minW += hintSlot
 		padRight += hintSlot
 	}
@@ -151,11 +150,7 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 			paintResolvedBox(dl, frame, r, th.Radius.Medium)
 		}
 		if focusVisible(st.focused) && !j.in {
-			fill := r.bg
-			if fill.A == 0 {
-				fill = th.Chrome
-			}
-			paintFocusRing(dl, el.Frame, fill, th)
+			paintFocusRing(dl, el.Frame, th.Radius.Medium, th)
 		}
 		fg := r.fg
 		if !r.hasFg {
@@ -171,13 +166,14 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 		}
 		if hint != "" {
 			hw, hh := text.MeasureAt(hint, th.Typography.Caption.Size)
-			chipW := hw + 10
-			chipH := hh + 2
+			chipW := hw + th.Spacing.MNudge
+			chipH := hh + 2*th.Stroke.Thin
 			chip := render.Rect{X: frame.X + frame.W - padX - chipW, Y: cy - chipH/2, W: chipW, H: chipH}
-			chipBg := render.Color{R: fg.R, G: fg.G, B: fg.B, A: 0.16}
-			chipFg := render.Color{R: fg.R, G: fg.G, B: fg.B, A: 0.62}
-			dl.AddRoundedRect(chip, th.Radius.Small, chipBg)
-			text.DrawStringTopAt(dl, hint, chip.X+(chipW-hw)/2, cy-hh/2, chipFg, th.Typography.Caption.Size)
+			// The chip is a light wash of the label color; the shortcut text
+			// itself stays at full label color, which a 62% alpha did not
+			// keep readable on lighter button fills.
+			dl.AddRoundedRect(chip, th.Radius.Small, alpha(fg, 0.16))
+			text.DrawStringTopAt(dl, hint, chip.X+(chipW-hw)/2, cy-hh/2, fg, th.Typography.Caption.Size)
 		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
@@ -202,12 +198,4 @@ func (n *Node) layoutButton(c *Ctx) *layout.Element {
 		}
 	}
 	return el
-}
-
-func paintFocusRing(dl *render.DrawList, rect render.Rect, fill render.Color, t *theme.Theme) {
-	r := t.Radius.Medium
-	if r <= 0 {
-		r = 4
-	}
-	dl.AddRoundedRectBorder(rect, r, t.Stroke.Thick, fill, t.FocusRingOn(fill))
 }

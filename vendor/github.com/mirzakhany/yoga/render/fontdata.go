@@ -7,6 +7,11 @@ import _ "embed"
 //go:embed assets/Inter-Regular.ttf
 var InterTTF []byte
 
+// InterMediumTTF is the embedded UI medium face for Weight 500 (OFL).
+//
+//go:embed assets/Inter-Medium.ttf
+var InterMediumTTF []byte
+
 // InterSemiBoldTTF is the embedded UI semibold face for Weight 600 (OFL).
 //
 //go:embed assets/Inter-SemiBold.ttf

@@ -233,15 +233,15 @@ func (n *Node) layoutEditableLabel(c *Ctx) *layout.Element {
 	} else {
 		el.Paint = func(dl *render.DrawList, eng *shape.Engine) {
 			f := el.Frame
-			// The focus ring fills its rect, so it goes under the text.
+			// Editable labels often sit in list and tree rows, so the ring
+			// goes inside the frame where a row's clip cannot cut it off.
+			fill := th.Surface
+			if st.hovered && !disabled {
+				fill = th.ListHover
+				dl.AddRoundedRect(f, radius, fill)
+			}
 			if focusVisible(st.focused) {
-				fill := th.Surface
-				if st.hovered && !disabled {
-					fill = th.ListHover
-				}
-				paintFocusRing(dl, f, fill, th)
-			} else if st.hovered && !disabled {
-				dl.AddRoundedRect(f, radius, th.ListHover)
+				paintFocusRingInset(dl, f, radius, fill, th)
 			}
 			show := labelValue
 			col := th.Foreground
