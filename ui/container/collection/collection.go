@@ -35,6 +35,7 @@ func Open(col *domain.Collection, deps container.Deps) *Container {
 		tabs: []ui.TabModel{{Title: "Notes"}, {Title: "Headers"}, {Title: "Auth"}},
 	}
 	c.notes = ui.NewEditor([]byte(c.col.Spec.Notes), highlight.Noop{})
+	c.notes.SetMinimap(false) // prose
 	c.headers = container.NewKVTable("col-hdr-"+c.col.MetaData.ID, c.markDirty)
 	container.LoadKV(c.headers, c.col.Spec.Headers)
 	c.varSrc = container.VarSource(deps, nil)

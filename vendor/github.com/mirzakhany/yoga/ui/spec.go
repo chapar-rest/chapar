@@ -392,7 +392,8 @@ func (s Spec) resolve(th *theme.Theme, st interactState) resolvedSpec {
 		r.hasCursor = true
 	}
 	r.scaleX, r.scaleY = 1, 1
-	if out.hasScale {
+	// A press "squish" is motion; with reduced motion the control keeps its size.
+	if out.hasScale && !theme.ReducedMotion() {
 		r.scaleX, r.scaleY = out.scaleX, out.scaleY
 	}
 	if out.hasFontSize {

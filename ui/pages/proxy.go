@@ -902,7 +902,7 @@ func (p *Proxy) filterBar(c *ui.Ctx) ui.View {
 func chipButton(id, label string, on bool) *ui.Node {
 	b := ui.Button(id, ui.Text(label)).Ghost().HoverFill()
 	if on {
-		b = b.Style(ui.Background(ui.TokenListActive).TextColor(ui.TokenForeground))
+		b = b.Style(ui.Background(ui.TokenSelected).TextColor(ui.TokenForeground))
 	}
 	return b
 }

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	"github.com/mirzakhany/yoga/layout"
 	"github.com/mirzakhany/yoga/render"
 	"github.com/mirzakhany/yoga/shape"
@@ -23,7 +25,7 @@ const (
 const ellipsisRune = "…"
 
 // Text renders a string. .Size(n) sets the font size in logical pixels.
-// .Weight(w) selects Regular (400) or SemiBold (600+).
+// .Weight(w) selects Regular (400), Medium (500-599) or SemiBold (600+).
 // Color and size inherit from the parent environment (e.g. a Button's TextColor)
 // unless overridden with Style.
 func Text(s string) *Node {
@@ -176,6 +178,19 @@ func elide(runes []rune, n int, mode EllipsisMode) string {
 	return string(runes[:n]) + ellipsisRune
 }
 
+// Display is the largest text role, for page and empty-state headlines.
+func Display(s string) *Node {
+	th := theme.Current()
+	return Text(s).Size(th.Typography.Display.Size).Weight(th.Typography.Display.Weight)
+}
+
+// Headline is a page or dialog title: a clear step above Title, so a page's
+// title and its section heads read as different levels.
+func Headline(s string) *Node {
+	th := theme.Current()
+	return Text(s).Size(th.Typography.Headline.Size).Weight(th.Typography.Headline.Weight)
+}
+
 // Title is title-ramp text in SemiBold.
 func Title(s string) *Node {
 	th := theme.Current()
@@ -198,6 +213,28 @@ func Caption(s string) *Node {
 func Strong(s string) *Node {
 	th := theme.Current()
 	return Text(s).Size(th.Typography.BodyStrong.Size).Weight(th.Typography.BodyStrong.Weight)
+}
+
+// Small is BodySmall text, for dense rows and secondary lines.
+func Small(s string) *Node {
+	th := theme.Current()
+	return Text(s).Size(th.Typography.BodySmall.Size)
+}
+
+// Overline is a section label: small semibold capitals in ForegroundMuted,
+// for nav groups and list sections.
+func Overline(s string) *Node {
+	th := theme.Current()
+	return Text(strings.ToUpper(s)).Size(th.Typography.Overline.Size).
+		Weight(th.Typography.Overline.Weight).
+		Style(Spec{}.TextColor(TokenForegroundMuted))
+}
+
+// Label is body-size text at Medium weight, for control labels and other UI
+// text that needs more presence than Body without the weight of Strong.
+func Label(s string) *Node {
+	th := theme.Current()
+	return Text(s).Size(th.Typography.Label.Size).Weight(th.Typography.Label.Weight)
 }
 
 // Muted is body text in ForegroundMuted.

@@ -129,6 +129,7 @@ func applyChaparEditor(editor domain.EditorConfig) {
 	ui.EditorDefaults.AutoCloseBrackets = editor.AutoCloseBrackets
 	ui.EditorDefaults.AutoCloseQuotes = editor.AutoCloseQuotes
 	ui.EditorDefaults.IndentSpaces = editor.Indentation != domain.IndentationTabs
+	ui.EditorDefaults.Minimap = editor.ShowMinimap
 }
 
 func applyChaparFonts(general domain.GeneralConfig, editor domain.EditorConfig) {
@@ -164,12 +165,19 @@ func scaleTypography(bodySize int) {
 	factor := float32(bodySize) / defaultUIFontSize
 	def := theme.DefaultTypography()
 	th := theme.Current()
+	// Every role is scaled: a role left zero here would stay zero, since
+	// theme.Register fills missing roles only when the theme is registered.
 	th.Typography = theme.Typography{
 		Caption:    scaleTypographyStyle(def.Caption, factor),
 		Body:       scaleTypographyStyle(def.Body, factor),
 		BodyStrong: scaleTypographyStyle(def.BodyStrong, factor),
 		Subtitle:   scaleTypographyStyle(def.Subtitle, factor),
 		Title:      scaleTypographyStyle(def.Title, factor),
+		Display:    scaleTypographyStyle(def.Display, factor),
+		Headline:   scaleTypographyStyle(def.Headline, factor),
+		BodySmall:  scaleTypographyStyle(def.BodySmall, factor),
+		Overline:   scaleTypographyStyle(def.Overline, factor),
+		Label:      scaleTypographyStyle(def.Label, factor),
 	}
 }
 

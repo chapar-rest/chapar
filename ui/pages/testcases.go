@@ -204,7 +204,7 @@ func (p *TestCases) side(c *ui.Ctx) ui.View {
 		).Gap(th.Spacing.XS).Padding(th.Spacing.M).Grow(1)
 	}
 	return ui.Column(
-		ui.Strong("Test cases").Margin(th.Spacing.S),
+		ui.Overline("Test cases").Margin(th.Spacing.S),
 		ui.Row(
 			ui.Spacer(),
 			ui.Button("tests-import", ui.Text("Import")).OnClick(p.importFile),

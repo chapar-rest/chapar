@@ -12,3 +12,9 @@ import (
 type TabIconer interface {
 	TabIcon(th *theme.Theme) (icons.Icon, render.Color)
 }
+
+// TabTooltiper is implemented by containers whose workspace tab shows more
+// than its title on hover, such as the URL a request is sent to.
+type TabTooltiper interface {
+	TabTooltip() string
+}

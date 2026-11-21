@@ -32,6 +32,7 @@ type glfwWindowHost struct {
 	controlsInset  float32 // in window points
 	undecorated    bool
 	zoom           float32 // SetZoom factor last applied; 0 is unzoomed
+	title          string
 
 	dragging                   bool
 	dragMouseX, dragMouseY     float64
@@ -47,6 +48,7 @@ func newGLFWWindowHost(window *glfw.Window, cfg Config) *glfwWindowHost {
 		window:         window,
 		customTitleBar: cfg.CustomTitleBar,
 		zoom:           1,
+		title:          cfg.Title,
 	}
 	if cfg.CustomTitleBar {
 		applyCustomTitleBarChrome(window, h)
@@ -73,6 +75,14 @@ func (h *glfwWindowHost) ControlsInset() float32 {
 func (h *glfwWindowHost) setZoom(z float32) { h.zoom = z }
 
 func (h *glfwWindowHost) Close() { h.window.SetShouldClose(true) }
+
+// SetTitle renames the window; unchanged titles are not sent again.
+func (h *glfwWindowHost) SetTitle(title string) {
+	if title != h.title {
+		h.title = title
+		h.window.SetTitle(title)
+	}
+}
 
 func (h *glfwWindowHost) Minimize() { h.window.Iconify() }
 

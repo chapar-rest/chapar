@@ -65,6 +65,7 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
 
 ### Workflow
 * **Workspaces** keep separate collections, requests and environments; switch between them from the title bar.
+* **Git** built in: commit, push, pull, branch and merge a workspace from the Git page, resolve conflicts field by field, and clone a teammate's workspace.
 * **Collections** share headers, auth and notes with every request inside them.
 * **Environments** hold variables you use as `{{name}}` anywhere in a request. Values you mark secret are encrypted with a key kept in the OS keychain, and stored on your machine only: the environment file names a secret but leaves its value out, so a workspace can be shared (in git, say) without its secrets.
 * **Cookie jar** per environment: cookies from responses are stored and sent back automatically, and you can view, edit, add or clear them.
@@ -72,15 +73,16 @@ The screenshots use the Tokyo Night theme and the free [Chapar mock server](http
 * **Pre and post-request actions**: run another request first, extract values from the response body, headers or cookies into the environment, or write Python scripts with tests and logs.
 * **Test cases** send your requests in order, check their responses (status, headers, JSON paths, timing and more) and pass values from one step to the next, with setup, teardown and retries. Run them in the app, or in CI with [`chapar-cli`](#command-line-runner-chapar-cli).
 * **Timeline** of every request: DNS, connect, TLS, time to first byte, scripts.
-* **Code generation** for cURL, Python, Go, JavaScript (fetch, axios), Java and Kotlin (OkHttp), Ruby and .NET.
-* **Import** Postman collections, OpenAPI specs and proto files.
+* **Code generation** for cURL, Python, Go, JavaScript (fetch, axios), Java (OkHttp), Ruby and .NET.
+* **Import** Postman collections, OpenAPI specs, proto files and curl commands, from the Import menu or by dropping files on the window.
 * **Command palette** (`⌘K` / `Ctrl+K`) to open any request, collection or environment and run any command.
 
 ### Editor and app
-* Code editors with language-server completion and diagnostics (Python out of the box; JSON, XML, Go, JavaScript and more in Settings).
+* Code editors with multiple cursors, folding, find and replace, a minimap, and language-server completion and diagnostics (Python out of the box; JSON, XML, Go, JavaScript and more in Settings).
 * Themes, including Tokyo Night, Catppuccin, Dracula, Nord, Gruvbox, One, Solarized and GitHub.
 * Side-by-side or stacked request/response layout, a console panel and a notification history.
 * Everything is stored as YAML files, so a workspace can live in git.
+* In-app updates on macOS, Windows and Homebrew, with every release signed.
 
 ### Roadmap
 * MQTT support.

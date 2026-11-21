@@ -60,6 +60,14 @@ func (w *Workspace) containerDeps(id string) container.Deps {
 	return d
 }
 
+// ActiveTitle is the title of the document in front, or "" when none is open.
+func (w *Workspace) ActiveTitle() string {
+	if w.active < 0 || w.active >= len(w.docs) {
+		return ""
+	}
+	return w.docs[w.active].Title()
+}
+
 func (w *Workspace) open(spec container.OpenSpec) {
 	ct, err := openContainer(spec)
 	if err != nil {
@@ -269,6 +277,9 @@ func (w *Workspace) Layout(c *ui.Ctx) ui.View {
 		if ic, ok := d.(container.TabIconer); ok {
 			w.tabs[i].Icon, w.tabs[i].IconColor = ic.TabIcon(th)
 		}
+		if tt, ok := d.(container.TabTooltiper); ok {
+			w.tabs[i].Tooltip = tt.TabTooltip()
+		}
 	}
 	body := w.docs[w.active].Layout(c)
 	return ui.Column(
@@ -277,8 +288,8 @@ func (w *Workspace) Layout(c *ui.Ctx) ui.View {
 			OnSelectItem(func(i int, _ string) { w.active = i }).
 			OnTabClose(func(i int) { w.requestClose(i) }).
 			OnTabContextMenu(w.tabMenu).
-			TabBackground(th.Background),
-		ui.HLine(th.Stroke.Thin, th.Border),
+			TabBackground(th.Background).
+			Attached(),
 		ui.ViewOf(body).Grow(1),
 	).Grow(1).Background(ui.TokenSurface)
 }

@@ -441,13 +441,17 @@ func (a *App) Body(c *ui.Ctx) ui.View {
 
 	if a.initErr != nil {
 		return ui.Column(
-			ui.Title("Chapar failed to start"),
+			ui.Headline("Chapar failed to start"),
 			ui.Text(a.initErr.Error()),
 		).Padding(th.Spacing.L).Grow(1).Background(ui.TokenSurface)
 	}
 
 	a.registerCommands(c)
 	a.git.Poll(c)
+	c.SetWindowTitle(a.windowTitle())
+	if a.navIndex == navRequests {
+		a.requests.TakeDroppedFiles(c)
+	}
 
 	main := ui.Column(
 		a.topBar(c),
@@ -576,6 +580,18 @@ func (a *App) registerCommands(c *ui.Ctx) {
 }
 
 // workspaceVisible reports whether the current page shows the tab strip.
+// windowTitle names the OS window after the document in front, so the Dock,
+// Mission Control and window switchers tell Chapar windows apart even under
+// the custom title bar.
+func (a *App) windowTitle() string {
+	if a.workspaceVisible() {
+		if t := a.ws.ActiveTitle(); t != "" {
+			return t + " — Chapar"
+		}
+	}
+	return "Chapar"
+}
+
 func (a *App) workspaceVisible() bool {
 	return a.navIndex == navRequests || a.navIndex == navEnvs || a.navIndex == navTests
 }
@@ -719,18 +735,24 @@ func (a *App) nav(c *ui.Ctx) ui.View {
 func (a *App) footer(c *ui.Ctx) ui.View {
 	th := c.Theme()
 	cfg := prefs.GetGlobalConfig()
+	horizontal := cfg.Spec.General.UseHorizontalSplit
 	splitIcon := icons.PanelLeft
-	if cfg.Spec.General.UseHorizontalSplit {
+	if horizontal {
 		splitIcon = icons.PanelTop
+	}
+	// setSplit places the response beside the request or under it.
+	setSplit := func(horizontal bool) {
+		cfg := prefs.GetGlobalConfig()
+		cfg.Spec.General.UseHorizontalSplit = horizontal
+		_ = prefs.UpdateGlobalConfig(cfg)
 	}
 	return ui.Row(
 		ui.Caption("Chapar "+version.GetAppVersion()).MarginLeft(th.Spacing.S),
 		ui.Spacer(),
-		ui.Button("footer-split", ui.Text("Split")).IconStart(splitIcon).Ghost().HoverFill().OnClick(func() {
-			cfg := prefs.GetGlobalConfig()
-			cfg.Spec.General.UseHorizontalSplit = !cfg.Spec.General.UseHorizontalSplit
-			_ = prefs.UpdateGlobalConfig(cfg)
-		}),
+		ui.MenuButton("footer-split", "Split", []ui.MenuItem{
+			{Label: "Side by side", Icon: icons.PanelLeft, Checked: !horizontal, OnSelect: func() { setSplit(false) }},
+			{Label: "Stacked", Icon: icons.PanelTop, Checked: horizontal, OnSelect: func() { setSplit(true) }},
+		}).IconStart(splitIcon).Ghost().NoChevron().Placement(ui.PlacementTop),
 		ui.Button("footer-console", ui.Text("Console")).IconStart(icons.Terminal).Ghost().HoverFill().OnClick(func() {
 			a.console.Toggle()
 		}),

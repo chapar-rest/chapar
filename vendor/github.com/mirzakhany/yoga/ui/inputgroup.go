@@ -89,25 +89,18 @@ func (n *Node) layoutInputGroup(c *Ctx) *layout.Element {
 	host := layout.New(applyLayoutSpec(
 		layout.Box().Direction(layout.Row).AlignItems(layout.AlignStretch).H(h).FlexShrink(0),
 		n.spec), append(kids, frame)...)
-	host.Paint = func(dl *render.DrawList, _ *shape.Engine) {
-		if focused() {
-			// The same soft glow a lone text field has.
-			f := host.Frame
-			glow := render.Rect{X: f.X - 2, Y: f.Y - 2, W: f.W + 4, H: f.H + 4}
-			dl.AddRoundedRect(glow, radius+2, alpha(th.FocusRing, 0.25))
-		}
-	}
 	frame.Paint = func(dl *render.DrawList, _ *shape.Engine) {
 		f := host.Frame
 		for _, k := range controls[1:] {
 			dl.AddRect(render.Rect{X: k.Frame.X, Y: f.Y, W: stroke, H: f.H}, th.Border)
 		}
-		border := th.Border
+		border, sw := th.Border, stroke
 		if focused() {
-			border = th.FocusRing
+			// The same treatment a lone text field gets: a thicker FocusRing border.
+			border, sw = th.FocusRing, max(stroke, th.Stroke.Thick)
 		}
 		r := render.Corners{TopLeft: radius, TopRight: radius, BottomRight: radius, BottomLeft: radius}
-		w := render.BorderEdges{Top: stroke, Right: stroke, Bottom: stroke, Left: stroke}
+		w := render.BorderEdges{Top: sw, Right: sw, Bottom: sw, Left: sw}
 		dl.AddRoundedRectStroke(f, r, w, border, render.BorderSolid)
 	}
 	return host

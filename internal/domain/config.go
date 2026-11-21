@@ -167,6 +167,9 @@ type EditorConfig struct {
 	AutoCloseQuotes   bool   `yaml:"autoCloseQuotes"`
 	ShowLineNumbers   bool   `yaml:"showLineNumbers"`
 	WrapLines         bool   `yaml:"wrapLines"`
+	// ShowMinimap draws a miniature of the document at the editor's right
+	// edge. Editors narrower than 480px leave it out.
+	ShowMinimap bool `yaml:"showMinimap"`
 	// HighlightLimitKB is the largest document, in KB, that editors color.
 	// Past it text is shown plain, since a syntax tree costs many times the
 	// text it describes. Zero means DefaultHighlightLimitKB.
@@ -194,6 +197,7 @@ func (e EditorConfig) Changed(other EditorConfig) bool {
 		e.AutoCloseQuotes != other.AutoCloseQuotes ||
 		e.ShowLineNumbers != other.ShowLineNumbers ||
 		e.WrapLines != other.WrapLines ||
+		e.ShowMinimap != other.ShowMinimap ||
 		e.HighlightLimitKB != other.HighlightLimitKB
 }
 

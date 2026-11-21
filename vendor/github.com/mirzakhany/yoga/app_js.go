@@ -401,6 +401,13 @@ func (h *jsWindowHost) ToggleMaximize()   {}
 func (h *jsWindowHost) IsMaximized() bool { return false }
 func (h *jsWindowHost) BeginMove()        {}
 
+// SetTitle sets the page's title.
+func (h *jsWindowHost) SetTitle(title string) {
+	if doc := js.Global().Get("document"); doc.Get("title").String() != title {
+		doc.Set("title", title)
+	}
+}
+
 type jsClipboard struct{}
 
 func (c *jsClipboard) Get() string {

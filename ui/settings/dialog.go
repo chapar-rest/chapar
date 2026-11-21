@@ -216,6 +216,11 @@ func (p *Panel) form(c *ui.Ctx) ui.View {
 				p.mark()
 				p.previewAppearance()
 			}),
+			ui.FormSwitch("showMinimap", "Show minimap", "Draw a miniature of the document at the editor's right edge; click or drag it to scroll", g.Editor.ShowMinimap, func(v bool) {
+				g.Editor.ShowMinimap = v
+				p.mark()
+				p.previewAppearance()
+			}),
 			ui.FormNumber("highlightLimit", "Syntax highlighting limit (KB)",
 				"Larger bodies and files are shown without colors; a highlighted document takes many times its size in memory. Applies to documents opened from now on.",
 				float64(g.Editor.HighlightLimitBytes()>>10), 16, 256<<10, 256, func(v float64) {

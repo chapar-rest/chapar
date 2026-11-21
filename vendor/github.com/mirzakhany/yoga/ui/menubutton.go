@@ -15,15 +15,36 @@ func MenuButton(id, label string, items []MenuItem) *Node {
 	return &Node{kind: kindMenuButton, id: id, text: label, extra: &dropdownData{items: items}}
 }
 
+// NoChevron hides a MenuButton's chevron, for a quiet trigger such as a
+// status bar item.
+func (n *Node) NoChevron() *Node {
+	if d, ok := n.extra.(*dropdownData); ok && n.kind == kindMenuButton {
+		d.noChevron = true
+	}
+	return n
+}
+
+// CaptionText draws a MenuButton's label and its menu in the caption size,
+// to match Caption text beside it, such as in a status bar.
+func (n *Node) CaptionText() *Node {
+	if d, ok := n.extra.(*dropdownData); ok && n.kind == kindMenuButton {
+		d.caption = true
+	}
+	return n
+}
+
 func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 	id := n.id
 	if id == "" {
 		id = autoID(c, "menubutton")
 	}
 	d, _ := n.extra.(*dropdownData)
-	items := []MenuItem{}
-	if d != nil {
-		items = d.items
+	if d == nil {
+		d = &dropdownData{}
+	}
+	items := d.items
+	if items == nil {
+		items = []MenuItem{}
 	}
 	mst := c.Widget(id+"-menu", func() any { return &dropdownState{} }).(*dropdownState)
 	st := c.Widget(id, func() any { return &buttonState{} }).(*buttonState)
@@ -45,6 +66,13 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 	padX, _, iconGap, h := buttonMetrics(n, c)
 	iconSz := th.Metrics.IconSizeSM
 	chevronSlot := iconSz + padX
+	if d.noChevron && !split {
+		chevronSlot = 0
+	}
+	textSize := th.Typography.Body.Size
+	if d.caption {
+		textSize = th.Typography.Caption.Size
+	}
 	padLeft, padRight := padX, padX+chevronSlot
 	minW := padLeft + padRight
 	if !icon.Empty() {
@@ -54,7 +82,7 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 	}
 	var lw float32
 	if c.Text() != nil {
-		lw, _ = c.Text().MeasureAt(label, th.Typography.Body.Size)
+		lw, _ = c.Text().MeasureAt(label, textSize)
 	}
 	if split {
 		minW += th.Stroke.Thin
@@ -91,6 +119,10 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 		mst.menu.SetItems(items)
 		mst.menu.width = menuW
 	}
+	mst.menu.TextSize = 0
+	if d.caption {
+		mst.menu.TextSize = textSize
+	}
 
 	toggleMenu := func() {
 		if mst.menu.Open {
@@ -99,6 +131,10 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 		}
 		f := el.Frame
 		mst.menu.width = triggerMenuWidth(menuW, f.W)
+		if d.placement == PlacementTop {
+			mst.menu.OpenAbove(f.X, f.Y-th.Spacing.XXS)
+			return
+		}
 		mst.menu.OpenAt(f.X, f.Y+f.H)
 	}
 
@@ -110,11 +146,7 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 		frame := scaledFrame(el.Frame, r.scaleX, r.scaleY)
 		paintResolvedBox(dl, frame, r, th.Radius.Medium)
 		if focusVisible(st.focused) {
-			fill := r.bg
-			if fill.A == 0 {
-				fill = th.Chrome
-			}
-			paintFocusRing(dl, el.Frame, fill, th)
+			paintFocusRing(dl, el.Frame, th.Radius.Medium, th)
 		}
 		fg := r.fg
 		if !r.hasFg {
@@ -128,13 +160,15 @@ func (n *Node) layoutMenuButton(c *Ctx) *layout.Element {
 			}
 			x += iconSz + iconGap
 		}
-		style := th.Typography.Body
 		shown := label
 		if shrinks {
-			shown = truncateToWidth(text, label, style.Size, shape.WeightRegular, frame.X+frame.W-padRight-x, EllipsisEnd)
+			shown = truncateToWidth(text, label, textSize, shape.WeightRegular, frame.X+frame.W-padRight-x, EllipsisEnd)
 		}
-		_, lh := text.MeasureAt(shown, style.Size)
-		text.DrawStringTopAt(dl, shown, x, cy-lh/2, fg, style.Size)
+		_, lh := text.MeasureAt(shown, textSize)
+		text.DrawStringTopAt(dl, shown, x, cy-lh/2, fg, textSize)
+		if chevronSlot == 0 {
+			return
+		}
 
 		chevronLeft := frame.X + frame.W - chevronSlot
 		if split {

@@ -12,6 +12,7 @@ type popoverData struct {
 	open             bool
 	onOpenChange     func(bool)
 	placement        Placement
+	anchorAt         *render.Rect // PopoverAt: a screen rect instead of a trigger
 }
 
 type popoverState struct {
@@ -36,6 +37,21 @@ func Popover(id string, trigger, content View) *Node {
 	}
 }
 
+// PopoverAt is a Popover anchored to a screen rect instead of a trigger, for
+// an overlay about something drawn inside a widget, such as an editor line.
+// It takes no room in the layout; place it anywhere in the tree.
+func PopoverAt(id string, anchor render.Rect, content View) *Node {
+	return &Node{
+		kind: kindPopover,
+		id:   id,
+		extra: &popoverData{
+			content:   content,
+			placement: PlacementBottom,
+			anchorAt:  &anchor,
+		},
+	}
+}
+
 // Open sets whether a Popover or Disclosure is shown/expanded (controlled).
 func (n *Node) Open(v bool) *Node {
 	switch d := n.extra.(type) {
@@ -55,10 +71,16 @@ func (n *Node) OnOpenChange(fn func(bool)) *Node {
 	return n
 }
 
-// Placement sets the preferred side for a Popover.
+// Placement sets the preferred side for a Popover. On a MenuButton,
+// PlacementTop opens the menu above the trigger instead of below it.
 func (n *Node) Placement(p Placement) *Node {
-	if d, ok := n.extra.(*popoverData); ok {
+	switch d := n.extra.(type) {
+	case *popoverData:
 		d.placement = p
+	case *dropdownData:
+		if n.kind == kindMenuButton {
+			d.placement = p
+		}
 	}
 	return n
 }
@@ -90,6 +112,10 @@ func (n *Node) layoutPopover(c *Ctx) *layout.Element {
 	if triggerEl != nil {
 		el.Children = []*layout.Element{triggerEl}
 	}
+	if d.anchorAt != nil {
+		el = layout.New(layout.Box().Absolute(0, 0).Size(0, 0))
+		st.triggerFrame = *d.anchorAt
+	}
 
 	open := d.open
 	onChange := d.onOpenChange
@@ -97,6 +123,9 @@ func (n *Node) layoutPopover(c *Ctx) *layout.Element {
 	content := d.content
 
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {
+		if d.anchorAt != nil {
+			return
+		}
 		st.triggerFrame = e.Frame
 		if e.Frame.Contains(m.X, m.Y) && m.Released {
 			m.Consumed = true
@@ -108,7 +137,7 @@ func (n *Node) layoutPopover(c *Ctx) *layout.Element {
 	}
 	// Keep anchor fresh while the trigger is painted (scroll / layout shifts).
 	el.Paint = func(_ *render.DrawList, _ *shape.Engine) {
-		if el.Frame.W > 0 {
+		if el.Frame.W > 0 && d.anchorAt == nil {
 			st.triggerFrame = el.Frame
 		}
 	}
@@ -153,7 +182,7 @@ func (n *Node) layoutPopover(c *Ctx) *layout.Element {
 		f := host.Frame
 		r := th.Radius.Large
 		drawElevationShadow(dl, f, r, th.Elevation.ShadowMd)
-		dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Chrome, th.Border)
+		dl.AddRoundedRectBorder(f, r, th.Stroke.Thin, th.Overlay, th.Border)
 	}
 	host.OnMouse = func(e *layout.Element, m *input.Mouse) {
 		if e.Frame.Contains(m.X, m.Y) {

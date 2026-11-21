@@ -64,7 +64,6 @@ type foldAnim struct {
 
 const (
 	foldGutterW     = float32(16)
-	foldAnimTime    = 170 * time.Millisecond
 	foldAnimMaxRows = 400 // larger blocks open and close at once
 	maxFoldScan     = 512 << 10
 	foldTailMax     = 24
@@ -598,12 +597,14 @@ func (e *Editor) foldEase() (float32, bool) {
 	if !a.on {
 		return 1, false
 	}
-	t := float32(time.Since(a.start)) / float32(foldAnimTime)
-	if t >= 1 {
+	// Reduced motion is checked when the fold starts (no animation is set up).
+	dur := theme.Current().Motion.Normal
+	elapsed := time.Since(a.start)
+	if dur <= 0 || elapsed >= dur {
 		a.on = false
 		return 1, false
 	}
-	return easeOutCubic(t), true
+	return theme.EaseEnter(float32(elapsed) / float32(dur)), true
 }
 
 // foldDY is how far visual row r is drawn from its place while a fold

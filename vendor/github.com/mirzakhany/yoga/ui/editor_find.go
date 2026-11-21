@@ -88,17 +88,43 @@ const (
 	findDebounce      = 120 * time.Millisecond
 	findTipDelay      = 500 * time.Millisecond
 
-	findRowH     = float32(34)
-	findFieldH   = float32(26)
-	findPad      = float32(4)
-	findChevW    = float32(20)
-	findToggleW  = float32(22)
-	findBtnW     = float32(26)
-	findCountW   = float32(78)
+	findCountW   = float32(78) // fits "9999 of 9999" at Body size
 	findFieldMin = float32(150)
 	findFieldMax = float32(300)
-	findIconSz   = float32(16)
 )
+
+// findMetrics sizes the find bar from the theme, so it follows density like
+// the rest of the chrome. At the default 32px ControlHeight it is the bar's
+// long-standing 34px rows and 26px fields and buttons.
+type findMetrics struct {
+	rowH, fieldH, pad  float32
+	chevW              float32
+	toggleW, toggleH   float32
+	btnW, iconSz       float32
+	gap, gapM, edge    float32
+	margin, fieldInset float32
+}
+
+func findMetricsFor(th *theme.Theme) findMetrics {
+	sp := th.Spacing
+	ch := th.Metrics.ControlHeight
+	field := ch - sp.SNudge
+	return findMetrics{
+		rowH:       ch + sp.XXS,
+		fieldH:     field,
+		pad:        sp.XS,
+		chevW:      sp.XL,
+		toggleW:    field - sp.XS,
+		toggleH:    field - sp.SNudge,
+		btnW:       field,
+		iconSz:     th.Metrics.IconSizeSM,
+		gap:        sp.XXS,
+		gapM:       sp.XS,
+		edge:       sp.SNudge,
+		margin:     sp.M,
+		fieldInset: th.Stroke.Thick + th.Stroke.Thin,
+	}
+}
 
 // OpenFind opens the in-file find bar, or find and replace when replace is
 // set, seeded with the selection. Apps that move the bar off ⌘F call it from
@@ -783,54 +809,54 @@ type findGeom struct {
 
 func (e *Editor) findGeom() findGeom {
 	var g findGeom
+	m := findMetricsFor(theme.Current())
 	f := e.viewport.Frame
 	_, _, vShow, _ := e.scrollMetrics()
 	vbarW := float32(0)
 	if vShow {
 		vbarW = editorBarSize
 	}
-	fixed := 2*findPad + findChevW + 2 + 6 + findCountW + 4*(findBtnW+2)
-	fieldW := clampf(f.W-vbarW-12-fixed, findFieldMin, findFieldMax)
+	fixed := 2*m.pad + m.chevW + m.gap + m.edge + findCountW + 4*(m.btnW+m.gap)
+	fieldW := clampf(f.W-vbarW-m.margin-fixed, findFieldMin, findFieldMax)
 	rows := float32(1)
 	if e.search.replaceMode {
 		rows = 2
 	}
 	w := fixed + fieldW
-	g.bar = render.Rect{X: max(f.X+f.W-vbarW-6-w, f.X), Y: f.Y + 6, W: w, H: rows*findRowH + findPad}
-	rowY := func(i int) float32 { return g.bar.Y + findPad/2 + float32(i)*findRowH }
-	fieldY := func(i int) float32 { return rowY(i) + (findRowH-findFieldH)/2 }
-	x := g.bar.X + findPad
-	g.r[hitChevron] = render.Rect{X: x, Y: g.bar.Y + 4, W: findChevW, H: g.bar.H - 8}
-	x += findChevW + 2
+	g.bar = render.Rect{X: max(f.X+f.W-vbarW-m.edge-w, f.X), Y: f.Y + m.edge, W: w, H: rows*m.rowH + m.pad}
+	rowY := func(i int) float32 { return g.bar.Y + m.pad/2 + float32(i)*m.rowH }
+	fieldY := func(i int) float32 { return rowY(i) + (m.rowH-m.fieldH)/2 }
+	x := g.bar.X + m.pad
+	g.r[hitChevron] = render.Rect{X: x, Y: g.bar.Y + m.pad, W: m.chevW, H: g.bar.H - 2*m.pad}
+	x += m.chevW + m.gap
 	fieldX := x
-	g.r[hitQuery] = render.Rect{X: fieldX, Y: fieldY(0), W: fieldW, H: findFieldH}
-	tY := fieldY(0) + (findFieldH-20)/2
-	right := fieldX + fieldW - 3
+	g.r[hitQuery] = render.Rect{X: fieldX, Y: fieldY(0), W: fieldW, H: m.fieldH}
+	tY := fieldY(0) + (m.fieldH-m.toggleH)/2
+	right := fieldX + fieldW - m.fieldInset
 	for _, h := range []findHit{hitRegex, hitWord, hitCase} {
-		right -= findToggleW
-		g.r[h] = render.Rect{X: right, Y: tY, W: findToggleW, H: 20}
+		right -= m.toggleW
+		g.r[h] = render.Rect{X: right, Y: tY, W: m.toggleW, H: m.toggleH}
 	}
-	x = fieldX + fieldW + 6
+	x = fieldX + fieldW + m.edge
 	x += findCountW
-	btnY := rowY(0) + (findRowH-findBtnW)/2
+	btnY := rowY(0) + (m.rowH-m.btnW)/2
 	for _, h := range []findHit{hitPrev, hitNext, hitInSel, hitClose} {
-		g.r[h] = render.Rect{X: x, Y: btnY, W: findBtnW, H: findBtnW}
-		x += findBtnW + 2
+		g.r[h] = render.Rect{X: x, Y: btnY, W: m.btnW, H: m.btnW}
+		x += m.btnW + m.gap
 	}
 	if e.search.replaceMode {
-		g.r[hitReplace] = render.Rect{X: fieldX, Y: fieldY(1), W: fieldW, H: findFieldH}
-		g.r[hitPreserve] = render.Rect{X: fieldX + fieldW - 3 - findToggleW, Y: fieldY(1) + (findFieldH-20)/2, W: findToggleW, H: 20}
-		x = fieldX + fieldW + 6
-		by := rowY(1) + (findRowH-findBtnW)/2
+		g.r[hitReplace] = render.Rect{X: fieldX, Y: fieldY(1), W: fieldW, H: m.fieldH}
+		g.r[hitPreserve] = render.Rect{X: fieldX + fieldW - m.fieldInset - m.toggleW, Y: fieldY(1) + (m.fieldH-m.toggleH)/2, W: m.toggleW, H: m.toggleH}
+		x = fieldX + fieldW + m.edge
+		by := rowY(1) + (m.rowH-m.btnW)/2
 		for _, h := range []findHit{hitReplOne, hitReplAll} {
-			g.r[h] = render.Rect{X: x, Y: by, W: findBtnW, H: findBtnW}
-			x += findBtnW + 4
+			g.r[h] = render.Rect{X: x, Y: by, W: m.btnW, H: m.btnW}
+			x += m.btnW + m.gapM
 		}
 	}
 	return g
 }
 
-// hitAt names the part of the bar under (x, y).
 func (g *findGeom) hitAt(x, y float32) findHit {
 	if !g.bar.Contains(x, y) {
 		return hitNone
@@ -953,15 +979,14 @@ func (e *Editor) paintFindBar(dl *render.DrawList, _ *shape.Engine) {
 		return
 	}
 	th := theme.Current()
+	m := findMetricsFor(th)
 	text := frameText()
 	sheet := frameIcons()
 	g := e.findGeom()
 	radius := th.Radius.Large
 
-	shadow := g.bar
-	shadow.Y += 2
-	dl.AddRoundedRect(shadow, radius+1, render.Color{A: 0.3})
-	dl.AddRoundedRectBorder(g.bar, radius, 1, th.Chrome, th.Border)
+	drawElevationShadow(dl, g.bar, radius, th.Elevation.ShadowMd)
+	dl.AddRoundedRectBorder(g.bar, radius, th.Stroke.Thin, th.Overlay, th.Border)
 
 	button := func(h findHit, icon icons.Icon, active, disabled bool) {
 		r := g.r[h]
@@ -970,17 +995,19 @@ func (e *Editor) paintFindBar(dl *render.DrawList, _ *shape.Engine) {
 		case disabled:
 			col = th.ForegroundDisabled
 		case active:
-			dl.AddRoundedRect(r, th.Radius.Medium, alpha(th.Accent, 0.25))
-			dl.AddRoundedRectStroke(r, render.UniformCorners(th.Radius.Medium), render.UniformBorder(1), alpha(th.Accent, 0.8), render.BorderSolid)
+			// An "on" toggle is selected: the Selected tint with a Link
+			// outline, the same cue as a selected row.
+			dl.AddRoundedRect(r, th.Radius.Medium, th.Selected)
+			dl.AddRoundedRectStroke(r, render.UniformCorners(th.Radius.Medium), render.UniformBorder(th.Stroke.Thin), th.Link, render.BorderSolid)
 			col = th.Foreground
 		case s.hover == h:
-			dl.AddRoundedRect(r, th.Radius.Medium, alpha(th.Foreground, 0.1))
+			dl.AddRoundedRect(r, th.Radius.Medium, th.HoverOn(th.Overlay))
 			col = th.Foreground
 		}
 		if s.focused && s.focus == h && e.focused {
-			dl.AddRoundedRectStroke(r, render.UniformCorners(th.Radius.Medium), render.UniformBorder(1), th.FocusRing, render.BorderSolid)
+			paintFocusRingInset(dl, r, th.Radius.Medium, th.Overlay, th)
 		}
-		sz := min(findIconSz, r.H-4)
+		sz := min(m.iconSz, r.H-2*m.gap)
 		sheet.Draw(dl, icon, render.Rect{X: r.X + (r.W-sz)/2, Y: r.Y + (r.H-sz)/2, W: sz, H: sz}, col)
 	}
 
@@ -999,7 +1026,7 @@ func (e *Editor) paintFindBar(dl *render.DrawList, _ *shape.Engine) {
 	}
 	q := s.query
 	q.host.Frame = g.r[hitQuery]
-	q.embed = fieldEmbed{on: true, padR: 3*findToggleW + 4, bg: fieldBg, line: th.Border}
+	q.embed = fieldEmbed{on: true, padR: 3*m.toggleW + m.gapM, bg: fieldBg, line: th.Border}
 	if bad && s.query.Value != "" {
 		q.embed.fg, q.embed.hasFg = th.ErrorForeground, true
 	}
@@ -1011,13 +1038,13 @@ func (e *Editor) paintFindBar(dl *render.DrawList, _ *shape.Engine) {
 	body := th.Typography.Body.Size
 	if countStr != "" {
 		_, ch := text.MeasureAt(countStr, body)
-		cx := g.r[hitQuery].X + g.r[hitQuery].W + 6
-		cy := g.r[hitQuery].Y + (findFieldH-ch)/2
+		cx := g.r[hitQuery].X + g.r[hitQuery].W + m.edge
+		cy := g.r[hitQuery].Y + (m.fieldH-ch)/2
 		col := th.TextDim
 		if bad {
 			col = th.ErrorForeground
 		}
-		dl.PushClip(render.Rect{X: cx, Y: g.bar.Y, W: findCountW - 2, H: findRowH})
+		dl.PushClip(render.Rect{X: cx, Y: g.bar.Y, W: findCountW - m.gap, H: m.rowH})
 		text.DrawStringTopAt(dl, countStr, cx, cy, col, body)
 		dl.PopClip()
 	}
@@ -1030,7 +1057,7 @@ func (e *Editor) paintFindBar(dl *render.DrawList, _ *shape.Engine) {
 	if s.replaceMode {
 		r := s.repl
 		r.host.Frame = g.r[hitReplace]
-		r.embed = fieldEmbed{on: true, padR: findToggleW + 4, bg: th.Background, line: th.Border}
+		r.embed = fieldEmbed{on: true, padR: m.toggleW + m.gapM, bg: th.Background, line: th.Border}
 		r.paint(dl, nil)
 		button(hitPreserve, icons.CaseUpper, s.preserveCase, false)
 		button(hitReplOne, icons.Replace, false, none || e.readOnly)
@@ -1050,11 +1077,12 @@ func (e *Editor) paintFindTip(dl *render.DrawList, g findGeom, anchor render.Rec
 	text := frameText()
 	size := th.Typography.Caption.Size
 	tw, thh := text.MeasureAt(tip, size)
-	box := render.Rect{W: tw + 12, H: thh + 8}
+	padX, padY := th.Spacing.SNudge, th.Spacing.XS
+	box := render.Rect{W: tw + 2*padX, H: thh + 2*padY}
 	box.X = anchor.X + anchor.W/2 - box.W/2
-	box.Y = g.bar.Y + g.bar.H + 4
+	box.Y = g.bar.Y + g.bar.H + th.Spacing.XS
 	vp := e.viewport.Frame
-	box.X = clampf(box.X, vp.X+2, vp.X+vp.W-box.W-2)
-	dl.AddRoundedRectBorder(box, th.Radius.Medium, 1, th.Chrome, th.Border)
-	text.DrawStringTopAt(dl, tip, box.X+6, box.Y+4, th.Foreground, size)
+	box.X = clampf(box.X, vp.X+th.Spacing.XXS, vp.X+vp.W-box.W-th.Spacing.XXS)
+	dl.AddRoundedRectBorder(box, th.Radius.Medium, th.Stroke.Thin, th.Overlay, th.Border)
+	text.DrawStringTopAt(dl, tip, box.X+padX, box.Y+padY, th.Foreground, size)
 }

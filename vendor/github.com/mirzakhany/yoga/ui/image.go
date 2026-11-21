@@ -24,6 +24,11 @@ const (
 	FitContain ImageFit = iota // default: letterbox, preserve aspect
 	FitCover                   // crop to fill
 	FitFill                    // stretch to box
+	// FitScaleDown is FitContain that never enlarges: an image smaller than
+	// its box is drawn at its own size, centered. Without Width or Height
+	// the box takes the room its parent gives it (Grow, stretch), as in an
+	// image viewer.
+	FitScaleDown
 )
 
 type imageSource struct {
@@ -124,7 +129,11 @@ func (n *Node) layoutImage(c *Ctx) *layout.Element {
 	if src.svg {
 		n.rasterizeSVG(st, id, w, h, src.fit, n.svgTint(th))
 	}
-	stStyle := applyLayoutSpec(layout.Box().Size(w, h).FlexShrink(0), n.spec)
+	box := layout.Box().Size(w, h).FlexShrink(0)
+	if src.fit == FitScaleDown && !n.spec.hasW && !n.spec.hasH {
+		box = layout.Box().FlexShrink(1)
+	}
+	stStyle := applyLayoutSpec(box, n.spec)
 	el := layout.New(stStyle)
 	n.paintImage(el, st, src, th)
 	return el
@@ -307,8 +316,11 @@ func imageDestRect(frame render.Rect, iw, ih float32, fit ImageFit) render.Rect 
 			Y: frame.Y + (boxH-dh)/2,
 			W: dw, H: dh,
 		}
-	default: // FitContain
+	default: // FitContain, FitScaleDown
 		scale := f32min(boxW/iw, boxH/ih)
+		if fit == FitScaleDown && scale > 1 {
+			scale = 1
+		}
 		dw, dh := iw*scale, ih*scale
 		return render.Rect{
 			X: frame.X + (boxW-dw)/2,

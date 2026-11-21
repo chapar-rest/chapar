@@ -55,6 +55,14 @@ func (e *Editor) lineBlocks(cs []cursor, adjacent bool) []lineBlock {
 	return out
 }
 
+// trimBreak is s without its final line break.
+func trimBreak(s string) string {
+	if t, ok := strings.CutSuffix(s, "\r\n"); ok {
+		return t
+	}
+	return strings.TrimSuffix(s, "\n")
+}
+
 // lineHi is the offset just past line ln's newline, or the document end.
 func (e *Editor) lineHi(ln int) int {
 	if ln+1 < e.pt.LineCount() {
@@ -124,6 +132,12 @@ func (e *Editor) setCursors(cs []cursor) {
 			cs[k].anchor = clampInt(cs[k].anchor, 0, n)
 		}
 	}
+	for k := range cs {
+		cs[k].caret = e.offBreak(cs[k].caret)
+		if cs[k].anchor >= 0 {
+			cs[k].anchor = e.offBreak(cs[k].anchor)
+		}
+	}
 	e.caret, e.selAnchor = cs[0].caret, cs[0].anchor
 	e.extra = append(e.extra[:0], cs[1:]...)
 	e.normalizeCursors()
@@ -146,7 +160,7 @@ func (e *Editor) DuplicateLines(dir int) {
 		block := string(doc[lo:hi])
 		nl := ""
 		if !strings.HasSuffix(block, "\n") {
-			nl = "\n" // the last line has no newline to copy
+			nl = e.EOL() // the last line has no newline to copy
 		}
 		shift := 0
 		if dir > 0 {
@@ -183,8 +197,9 @@ func (e *Editor) MoveLines(dir int) {
 			if !strings.HasSuffix(next, "\n") {
 				// The next line is the last and has no newline: it takes
 				// the block's.
-				text = next + "\n" + strings.TrimSuffix(block, "\n")
-				shift = len(next) + 1
+				eol := e.EOL()
+				text = next + eol + trimBreak(block)
+				shift = len(next) + len(eol)
 			}
 			edits = append(edits, blockEdit{lo: lo, hi: nhi, text: text, owned: b.owned,
 				remap: func(off int) int { return off + shift }})
@@ -194,7 +209,7 @@ func (e *Editor) MoveLines(dir int) {
 		prev := string(doc[plo:lo])
 		text := block + prev
 		if !strings.HasSuffix(block, "\n") {
-			text = block + "\n" + strings.TrimSuffix(prev, "\n")
+			text = block + e.EOL() + trimBreak(prev)
 		}
 		shift := len(prev)
 		edits = append(edits, blockEdit{lo: plo, hi: hi, text: text, owned: b.owned,
@@ -221,7 +236,7 @@ func (e *Editor) DeleteLines() {
 		case b.last+1 < lc:
 			landLen = e.pt.LineLen(b.last + 1)
 		case b.first > 0:
-			lo--
+			lo = e.lineEndOf(lo - 1)
 			landStart, landLen = e.pt.LineStart(b.first-1), e.pt.LineLen(b.first-1)
 		}
 		edits = append(edits, blockEdit{lo: lo, hi: hi, owned: b.owned,
@@ -337,8 +352,10 @@ func (e *Editor) ToggleComment() {
 			maps = append(maps, m)
 			hi = ls + len(s)
 			if ln < b.last {
-				out.WriteByte('\n')
-				hi++
+				// Keep the line's own break, "\n" or "\r\n".
+				next := e.pt.LineStart(ln + 1)
+				out.Write(e.pt.Bytes()[hi:next])
+				hi = next
 			}
 		}
 		edits = append(edits, blockEdit{lo: lo, hi: hi, text: out.String(), owned: b.owned,

@@ -222,6 +222,11 @@ func (n *Node) formRowContent(c *Ctx, item FormItem, stacked bool) *Node {
 	return Row(kids...).Align(AlignStretch).Gap(th.Spacing.M).Padding(pad)
 }
 
+// formControlW is the width of a row's full-size control (select, text,
+// slider, file button), so their left edges line up down the form as their
+// right edges already do. Numbers and steppers stay compact.
+const formControlW = 180
+
 // formStackW is the form width below which each row puts its control under
 // its label and description rather than beside them.
 const formStackW = 360
@@ -231,14 +236,14 @@ func (n *Node) formControl(c *Ctx, item FormItem) View {
 	case FormItemSwitch:
 		return Switch(item.ID).Check(item.Checked).OnToggle(item.OnToggle)
 	case FormItemSelect:
-		return Select(item.ID, item.Options).Width(180).Selected(item.Selected).OnChange(item.OnChange)
+		return Select(item.ID, item.Options).Width(formControlW).Selected(item.Selected).OnChange(item.OnChange)
 	case FormItemNumber:
 		return formNumberField(c, item)
 	case FormItemText:
-		return TextField(item.ID, item.Text).Width(180).Placeholder(item.Placeholder).OnChange(item.OnText)
+		return TextField(item.ID, item.Text).Width(formControlW).Placeholder(item.Placeholder).OnChange(item.OnText)
 	case FormItemSlider:
 		return Slider(item.ID, item.Number).Min(item.Min).Max(item.Max).Step(item.Step).
-			OnFloatChange(item.OnNumber).Width(160)
+			OnFloatChange(item.OnNumber).Width(formControlW)
 	case FormItemStepper:
 		return NumberStepper(item.ID, item.Number).Min(item.Min).Max(item.Max).Step(item.Step).
 			OnFloatChange(item.OnNumber)
@@ -333,7 +338,7 @@ func formFileControl(c *Ctx, item FormItem) View {
 	files := c.Files()
 	pick := Button(item.ID, Text(name).Ellipsis(EllipsisMiddle)).
 		IconStart(icons.FileText).
-		Width(180).
+		Width(formControlW).
 		OnClick(func() {
 			opts := FileDialogOpts{
 				Title:   "Choose " + item.Label,

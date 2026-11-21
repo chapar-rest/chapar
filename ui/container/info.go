@@ -25,6 +25,9 @@ func InfoPane(th *theme.Theme, id string, req *domain.Request, descEd *ui.Editor
 }
 
 // NewDescriptionEditor creates an editor for request metadata.description.
+// It is prose, so it never shows the minimap.
 func NewDescriptionEditor(description string) *ui.Editor {
-	return ui.NewEditor([]byte(description), highlight.Noop{})
+	ed := ui.NewEditor([]byte(description), highlight.Noop{})
+	ed.SetMinimap(false)
+	return ed
 }

@@ -377,13 +377,23 @@ func (m *Manager) SignatureHelp(ctx context.Context, path string, pos Position) 
 // CodeActions returns fixes and refactorings for r. diags are the
 // diagnostics overlapping r, which most quick fixes key on.
 func (m *Manager) CodeActions(ctx context.Context, path string, r Range, diags []Diagnostic) ([]CodeAction, error) {
+	return m.CodeActionsOf(ctx, path, r, diags, nil)
+}
+
+// CodeActionsOf is CodeActions limited to the kinds in only, such as
+// "source.organizeImports" before a save; nil asks for every kind.
+func (m *Manager) CodeActionsOf(ctx context.Context, path string, r Range, diags []Diagnostic, only []string) ([]CodeAction, error) {
 	if diags == nil {
 		diags = []Diagnostic{}
+	}
+	actx := map[string]any{"diagnostics": diags}
+	if len(only) > 0 {
+		actx["only"] = only
 	}
 	raw, err := m.call(ctx, path, "textDocument/codeAction", "codeActionProvider", map[string]any{
 		"textDocument": TextDocumentIdentifier{URI: pathToURI(abs(path))},
 		"range":        r,
-		"context":      map[string]any{"diagnostics": diags},
+		"context":      actx,
 	})
 	if err != nil {
 		return nil, err

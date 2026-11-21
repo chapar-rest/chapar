@@ -1,7 +1,9 @@
 package pages
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mirzakhany/yoga/highlight"
@@ -492,32 +494,75 @@ func (p *Requests) importFile() {
 			if len(paths) == 0 {
 				return
 			}
-			path := paths[0]
-			if strings.HasSuffix(strings.ToLower(path), ".proto") {
-				data, err := os.ReadFile(path)
-				if err != nil {
-					p.err(err)
-					return
-				}
-				if err := importer.ImportProtoFile(data, p.repo, path); err != nil {
-					p.err(err)
-					return
-				}
-			} else if err := importer.ImportPostmanCollectionFromFile(path, p.repo); err != nil {
-				data, readErr := os.ReadFile(path)
-				if readErr != nil {
-					p.err(err)
-					return
-				}
-				if err2 := importer.ImportOpenAPISpec(data, p.repo); err2 != nil {
-					p.err(err)
-					return
-				}
+			if err := p.importPath(paths[0]); err != nil {
+				p.err(err)
+				return
 			}
 			_ = p.cat.Load()
 			p.Rebuild()
 		},
 	})
+}
+
+// importPath imports one file: a .proto file as a gRPC collection, anything
+// else as a Postman collection or, failing that, an OpenAPI spec.
+func (p *Requests) importPath(path string) error {
+	if strings.HasSuffix(strings.ToLower(path), ".proto") {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return importer.ImportProtoFile(data, p.repo, path)
+	}
+	err := importer.ImportPostmanCollectionFromFile(path, p.repo)
+	if err == nil {
+		return nil
+	}
+	data, readErr := os.ReadFile(path)
+	if readErr != nil {
+		return err
+	}
+	if err2 := importer.ImportOpenAPISpec(data, p.repo); err2 != nil {
+		return err
+	}
+	return nil
+}
+
+// importableExt reports whether a dropped file is one Import from file takes.
+func importableExt(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".json", ".yaml", ".yml", ".proto":
+		return true
+	}
+	return false
+}
+
+// TakeDroppedFiles imports Postman collections, OpenAPI specs and .proto
+// files dropped on the window, as Import from file would. Other files are
+// left for the widget under the pointer.
+func (p *Requests) TakeDroppedFiles(c *ui.Ctx) {
+	m := c.Mouse()
+	if m == nil || len(m.Dropped) == 0 {
+		return
+	}
+	var rest []string
+	imported := 0
+	for _, path := range m.Dropped {
+		if !importableExt(path) {
+			rest = append(rest, path)
+			continue
+		}
+		if err := p.importPath(path); err != nil {
+			p.err(fmt.Errorf("import %s: %w", filepath.Base(path), err))
+			continue
+		}
+		imported++
+	}
+	m.Dropped = rest
+	if imported > 0 {
+		_ = p.cat.Load()
+		p.Rebuild()
+	}
 }
 
 func (p *Requests) importMenuItems() []ui.MenuItem {
@@ -539,6 +584,7 @@ func (p *Requests) importCurl(ref NodeRef) {
 		return
 	}
 	ed := ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
+	ed.SetMinimap(false)
 	var clipChecked bool
 	host.Show(ui.DialogOpts{
 		Title:  "Import curl command",
@@ -620,7 +666,7 @@ func (p *Requests) side(c *ui.Ctx) ui.View {
 	p.syncTreeLabels()
 
 	return ui.Column(
-		ui.Strong("Requests").Margin(th.Spacing.S),
+		ui.Overline("Requests").Margin(th.Spacing.S),
 		ui.Row(
 			ui.Spacer(),
 			ui.MenuButton("req-import", "Import", p.importMenuItems()).OnClick(p.importFile),

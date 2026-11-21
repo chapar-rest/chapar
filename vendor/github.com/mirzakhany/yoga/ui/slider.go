@@ -194,7 +194,7 @@ func (n *Node) layoutSlider(c *Ctx) *layout.Element {
 		}
 		dl.AddRoundedRect(thumb, thumbR, col)
 		if focusVisible(st.focused) && !disabled {
-			paintFocusRing(dl, thumb, col, th)
+			paintFocusRing(dl, thumb, thumbR, th)
 		}
 	}
 	el.OnMouse = func(e *layout.Element, m *input.Mouse) {

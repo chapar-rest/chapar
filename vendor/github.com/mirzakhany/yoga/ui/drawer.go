@@ -14,7 +14,6 @@ import (
 const (
 	drawerHandleHit = 8
 	drawerMinSize   = 80
-	drawerAnimDur   = 180 * time.Millisecond
 	drawerSwipeSlop = 8
 	drawerSwipeSnap = 0.4
 	drawerEdgeStrip = 20
@@ -304,24 +303,21 @@ func (d *drawerView) updateAnimation(c *Ctx, st *drawerState) {
 		st.animTarget = target
 	}
 	if st.animating {
+		th := c.Theme()
+		dur := th.Motion.Duration(th.Motion.Normal)
 		elapsed := c.Now().Sub(st.animStart)
-		t := float32(elapsed) / float32(drawerAnimDur)
-		if t >= 1 {
+		if dur <= 0 || elapsed >= dur {
 			st.progress = st.animTo
 			st.animating = false
 		} else {
-			st.progress = st.animFrom + (st.animTo-st.animFrom)*easeOutCubic(t)
-			remain := drawerAnimDur - elapsed
+			t := float32(elapsed) / float32(dur)
+			st.progress = st.animFrom + (st.animTo-st.animFrom)*theme.EaseEnter(t)
+			remain := dur - elapsed
 			if remain > 0 {
 				c.Animate(remain)
 			}
 		}
 	}
-}
-
-func easeOutCubic(t float32) float32 {
-	u := 1 - t
-	return 1 - u*u*u
 }
 
 func (d *drawerView) requestOpen(c *Ctx, open bool) {
