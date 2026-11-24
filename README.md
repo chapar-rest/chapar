@@ -97,7 +97,6 @@ On macOS, you can install Chapar via Homebrew, download the latest release, or i
 
 **Homebrew (recommended)**
 ```bash
-brew tap chapar-rest/chapar
 brew install --cask chapar
 ```
 
