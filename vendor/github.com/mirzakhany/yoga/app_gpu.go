@@ -124,6 +124,10 @@ func (a *Window) applyCursor() {
 }
 
 func (a *Window) wireCallbacks() {
+	// A close request that is not an input event, such as the quit Apple
+	// Event that the Dock, logout and `osascript ... to quit` send on macOS,
+	// only sets the should-close flag: wake WaitEvents so runApp sees it.
+	a.window.SetCloseCallback(func(*glfw.Window) { glfw.PostEmptyEvent() })
 	a.window.SetCursorPosCallback(func(_ *glfw.Window, x, y float64) {
 		a.mouse.SetPos(float32(x)/zoom.factor, float32(y)/zoom.factor)
 	})
