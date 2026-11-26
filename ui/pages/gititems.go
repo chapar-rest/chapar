@@ -5,8 +5,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
 	"gopkg.in/yaml.v2"
 )
 

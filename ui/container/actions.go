@@ -1,8 +1,9 @@
 package container
 
 import (
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
@@ -26,8 +27,8 @@ type ActionsOpts struct {
 	Post       *domain.PostRequest
 	PreOpts    PrePostOpts
 	PostOpts   PrePostOpts
-	PreScript  **ui.Editor
-	PostScript **ui.Editor
+	PreScript  **codeeditor.Editor
+	PostScript **codeeditor.Editor
 	Preview    string
 
 	// Vars is the response-extractor table. Nil omits the Extract nav item (GraphQL).

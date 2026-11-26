@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -28,7 +29,7 @@ type result struct {
 	// the dialog that asks the user to locate them can be opened.
 	missing []grpcsvc.MissingImport
 	// exampleBody carries a generated request body back to the UI thread.
-	// Editors must not be built off it: ui.NewEditor measures text through the
+	// Editors must not be built off it: codeeditor.NewEditor measures text through the
 	// window's shared text engine.
 	exampleBody *string
 	// exampleErr is why an example body could not be generated. It is shown
@@ -45,11 +46,11 @@ type Container struct {
 	req         *domain.Request
 	deps        container.Deps
 	dirty       bool
-	bodyEd      *ui.Editor
-	descEd      *ui.Editor
-	respEd      *ui.Editor
-	respMetaEd  *ui.Editor
-	respTrailEd *ui.Editor
+	bodyEd      *codeeditor.Editor
+	descEd      *codeeditor.Editor
+	respEd      *codeeditor.Editor
+	respMetaEd  *codeeditor.Editor
+	respTrailEd *codeeditor.Editor
 	meta        *ui.Table
 	vars        *ui.Table
 
@@ -72,8 +73,8 @@ type Container struct {
 	exampleLoading        bool
 	creatingCollection    bool
 	authState             container.AuthState
-	preScript             *ui.Editor
-	postScript            *ui.Editor
+	preScript             *codeeditor.Editor
+	postScript            *codeeditor.Editor
 }
 
 func Open(req *domain.Request, deps container.Deps) *Container {
@@ -616,7 +617,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	)
 }
 
-func (c *Container) activeResp() *ui.Editor {
+func (c *Container) activeResp() *codeeditor.Editor {
 	switch c.respActive {
 	case 1:
 		return c.respMetaEd

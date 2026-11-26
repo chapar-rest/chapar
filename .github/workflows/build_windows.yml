@@ -23,7 +23,7 @@ jobs:
       - name: Install yoga CLI
         shell: bash
         # The same yoga version go.mod builds the app with.
-        run: go install github.com/mirzakhany/yoga/cmd/yoga@$(go list -m -f '{{.Version}}' github.com/mirzakhany/yoga)
+        run: go install github.com/yogaui/yoga/cmd/yoga@$(go list -m -f '{{.Version}}' github.com/yogaui/yoga)
 
       # amd64 only: the prebuilt wgpu-native has no windows/386 library, and
       # its windows/arm64 one needs the MSVC C++ runtime, which cgo's MinGW

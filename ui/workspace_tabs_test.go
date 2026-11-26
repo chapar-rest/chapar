@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/ui/container"
 )

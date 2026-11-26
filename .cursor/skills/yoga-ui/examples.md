@@ -70,7 +70,7 @@ func (app *CatalogApp) topBar(c *ui.Ctx) ui.View {
 
 `TitleBar` auto-sizes child controls to `TitleBarControlHeight` (26px) with vertical centering. macOS keeps native traffic lights; Windows/Linux get framework min/max/close. Drag empty area to move; double-click toggles maximize.
 
-## App shell — `example/gallery`
+## App shell — `example/gallery` (in github.com/yogaui/editor)
 
 Page enum + subviews that return `ui.View`. Dialogs, file picker, and toasts are window services: `c.Dialogs()`, `c.Files()`, `c.Toasts()`. Do not put hosts in the tree.
 
@@ -97,7 +97,7 @@ func (app *AppShell) Body(c *ui.Ctx) ui.View {
 }
 ```
 
-Editor workspace: menu `Dropdown`s, `FileTree` + search `TextField`, `Tabs` + `ViewOf(editor)`, `Splitter`, status bar. Editors constructed with `ui.NewEditorFor` when a file opens — **not** rebuilt each frame.
+Editor workspace: menu `Dropdown`s, `FileTree` + search `TextField`, `Tabs` + `ViewOf(editor)`, `Splitter`, status bar. Editors constructed with `editor.NewEditorFor` when a file opens — **not** rebuilt each frame.
 
 ```go
 ui.Splitter("editor-split", ui.Horizontal, explorer, editorCol).Sizes(240, 0).Grow(1)
@@ -105,7 +105,7 @@ ui.Splitter("editor-split", ui.Horizontal, explorer, editorCol).Sizes(240, 0).Gr
 
 Theme menu: `theme.Names()` → `theme.Use(n)`.
 
-## Widget gallery — `example/gallery/gallery.go`
+## Widget gallery — `example/gallery/gallery.go` (in github.com/yogaui/editor)
 
 Scrollable column of every control. Table constructed in `buildComponentGallery`, then `ui.ViewOf(g.kvTable).Height(220)`.
 
@@ -128,7 +128,7 @@ c.Dialogs().Show(ui.DialogOpts{
 })
 ```
 
-Form rows: `ui.FormSwitch`, `FormSelect`, `FormNumber`, `FormText`.
+Form rows: `ui.FormSwitch`, `FormSelect`, `FormNumber`, `FormText`, `FormFile`.
 
 File dialog modes and footer options:
 
@@ -146,7 +146,7 @@ c.Files().Show(ui.FileDialogOpts{
 // FileDialogOpenFile (Multiple for multi-select), FileDialogOpenFolder
 ```
 
-## HTTP tester — `example/apitest`
+## HTTP tester — `example/apitest` (in github.com/yogaui/editor)
 
 Toolbar `Row` of Select + TextField + Segmented + Primary button with `.Hint("⌘↵")`. Body polls a result channel and `c.Animate(pendingPoll)` while in flight.
 
@@ -161,7 +161,7 @@ if app.pending {
 }
 ```
 
-Editors (`NewEditor` + highlighter) live on the app. Panes are helper methods returning `ui.View`. Split axis toggled via Segmented; `Sizes(0, splitFixedSize)`.
+Editors (`editor.NewEditor` + highlighter) live on the app. Panes are helper methods returning `ui.View`. Split axis toggled via Segmented; `Sizes(0, splitFixedSize)`.
 
 Select option tints: `.OptionColor("GET", th.Success)`.
 
@@ -235,7 +235,7 @@ GPU runtime already does two `BuildFrame` passes per drawn frame (hit-test, then
 
 ## Anti-patterns seen in reviews
 
-- `NewEditor` / `NewTable` inside `Body` — leaks and resets caret/scroll.
+- `editor.NewEditor` / `NewTable` inside `Body` — leaks and resets caret/scroll.
 - Uncontrolled TextField (`OnChange` only, never passing the stored string back).
 - Hardcoded `render.RGBA8` for chrome — use tokens so `theme.Use` works.
 - Forgetting `.Grow(1)` on the chain from expanding content to the Body root.

@@ -3,7 +3,7 @@ package vars
 import (
 	"testing"
 
-	"github.com/mirzakhany/yoga/theme"
+	"github.com/yogaui/yoga/theme"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )

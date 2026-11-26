@@ -35,7 +35,7 @@ jobs:
       - name: Install yoga CLI
         shell: bash
         # The same yoga version go.mod builds the app with.
-        run: go install github.com/mirzakhany/yoga/cmd/yoga@$(go list -m -f '{{.Version}}' github.com/mirzakhany/yoga)
+        run: go install github.com/yogaui/yoga/cmd/yoga@$(go list -m -f '{{.Version}}' github.com/yogaui/yoga)
 
       - name: Update Version in chapar.desktop
         run: |

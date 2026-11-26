@@ -298,19 +298,6 @@ github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-pointer v0.0.1
 ## explicit
 github.com/mattn/go-pointer
-# github.com/mirzakhany/yoga v0.49.1
-## explicit; go 1.26.2
-github.com/mirzakhany/yoga
-github.com/mirzakhany/yoga/highlight
-github.com/mirzakhany/yoga/icons
-github.com/mirzakhany/yoga/input
-github.com/mirzakhany/yoga/layout
-github.com/mirzakhany/yoga/lsp
-github.com/mirzakhany/yoga/render
-github.com/mirzakhany/yoga/shape
-github.com/mirzakhany/yoga/text
-github.com/mirzakhany/yoga/theme
-github.com/mirzakhany/yoga/ui
 # github.com/moby/docker-image-spec v1.3.1
 ## explicit; go 1.18
 github.com/moby/docker-image-spec/specs-go/v1
@@ -450,6 +437,24 @@ github.com/tree-sitter/tree-sitter-typescript/bindings/go
 # github.com/woodsbury/decimal128 v1.3.0
 ## explicit; go 1.21
 github.com/woodsbury/decimal128
+# github.com/yogaui/editor v0.1.0
+## explicit; go 1.26.2
+github.com/yogaui/editor
+github.com/yogaui/editor/highlight
+github.com/yogaui/editor/lsp
+# github.com/yogaui/yoga v0.50.0
+## explicit; go 1.26.2
+github.com/yogaui/yoga
+github.com/yogaui/yoga/icons
+github.com/yogaui/yoga/input
+github.com/yogaui/yoga/layout
+github.com/yogaui/yoga/render
+github.com/yogaui/yoga/shape
+github.com/yogaui/yoga/syntax
+github.com/yogaui/yoga/text
+github.com/yogaui/yoga/textedit
+github.com/yogaui/yoga/theme
+github.com/yogaui/yoga/ui
 # github.com/yuin/goldmark v1.8.6
 ## explicit; go 1.22
 github.com/yuin/goldmark

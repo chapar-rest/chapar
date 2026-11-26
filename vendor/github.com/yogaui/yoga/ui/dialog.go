@@ -1,0 +1,427 @@
+package ui
+
+import (
+	"fmt"
+
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/input"
+	"github.com/yogaui/yoga/layout"
+	"github.com/yogaui/yoga/theme"
+)
+
+// DialogAction is a button in a dialog footer.
+type DialogAction struct {
+	Label   string
+	Primary bool
+	// Danger styles the button in the theme's error color, for actions
+	// that destroy something, such as Delete.
+	Danger   bool
+	Disabled bool
+	OnClick  func()
+}
+
+// DialogSeverity styles the title/border of message dialogs.
+type DialogSeverity int
+
+const (
+	DialogSeverityNone DialogSeverity = iota
+	DialogSeverityInfo
+	DialogSeverityWarning
+	DialogSeverityError
+)
+
+// DialogOpts configures one Show of a DialogHost.
+type DialogOpts struct {
+	Title     string
+	Width     float32 // default 480 if 0
+	Height    float32 // default 360 if 0
+	Body      func(c *Ctx) View
+	Actions   []DialogAction
+	OnDismiss func() // Escape
+	Severity  DialogSeverity
+	// FitContent sizes the dialog to its content instead of Height: it
+	// grows with the body up to MaxHeight (or the window), then the body
+	// scrolls inside it.
+	FitContent bool
+	// MaxHeight caps a FitContent dialog; 0 means the window's height less
+	// its margin.
+	MaxHeight float32
+}
+
+// DialogHost manages modal dialogs with scrim.
+type DialogHost struct {
+	scrim *Scrim
+	panel *layout.Element
+	Open  bool
+	opts  DialogOpts
+	// inputValue holds the controlled text for ShowInput.
+	inputValue string
+	// inputFresh selects the starting value on the first frame.
+	inputFresh bool
+	// inputErr is what InputOpts.Validate said about inputValue.
+	inputErr string
+	// fitH is the natural height a FitContent dialog measured last frame;
+	// bodySV is the scroll its body lives in.
+	fitH   float32
+	bodySV *ScrollView
+}
+
+var _ View = (*DialogHost)(nil)
+var _ Focusable = (*DialogHost)(nil)
+
+// NewDialogHost builds a dialog host. The window Ctx owns a default host
+// (c.Dialogs()); construct a dedicated one only for tests or a second
+// picker, and place that one in the view tree so Layout can register overlays.
+func NewDialogHost() *DialogHost {
+	return &DialogHost{scrim: NewScrim()}
+}
+
+// Show opens a dialog with custom size, body layout, and footer actions.
+func (d *DialogHost) Show(opts DialogOpts) {
+	d.opts = opts
+	d.Open = true
+	d.fitH = 0
+	d.bodySV = nil
+}
+
+// showMessage opens a sized message dialog with the given footer actions.
+func (d *DialogHost) showMessage(title, message string, severity DialogSeverity, actions []DialogAction, onDismiss func()) {
+	th := theme.Current()
+	width := float32(360)
+	pad := th.Spacing.L
+	style := th.Typography.Body
+	bodyLines := wrapText(FrameText(), message, style.Size, width-2*pad)
+	bodyH := float32(len(bodyLines))*style.LineHeight + pad
+	titleH := th.Typography.Subtitle.LineHeight
+	if severity != DialogSeverityNone {
+		titleH = f32max(titleH, th.Metrics.IconSizeMD)
+	}
+	footerH := th.Metrics.ControlHeight + pad
+	height := pad + titleH + pad + bodyH + pad + footerH
+
+	d.Show(DialogOpts{
+		Title:    title,
+		Width:    width,
+		Height:   height,
+		Severity: severity,
+		Body: func(c *Ctx) View {
+			th := c.Theme()
+			pad := th.Spacing.L
+			lines := make([]View, 0, len(bodyLines))
+			for _, line := range bodyLines {
+				lines = append(lines, Muted(line))
+			}
+			return Column(lines...).Padding(pad)
+		},
+		Actions:   actions,
+		OnDismiss: onDismiss,
+	})
+}
+
+// showOKMessage opens a message dialog with a single primary OK button.
+func (d *DialogHost) showOKMessage(title, message string, severity DialogSeverity, onOK func()) {
+	dismiss := func() {
+		if onOK != nil {
+			onOK()
+		}
+	}
+	d.showMessage(title, message, severity,
+		[]DialogAction{{Label: "OK", Primary: true, OnClick: dismiss}},
+		dismiss,
+	)
+}
+
+// ShowInfo opens an informational message dialog.
+func (d *DialogHost) ShowInfo(title, message string, onOK func()) {
+	d.showOKMessage(title, message, DialogSeverityInfo, onOK)
+}
+
+// ShowWarning opens a warning message dialog.
+func (d *DialogHost) ShowWarning(title, message string, onOK func()) {
+	d.showOKMessage(title, message, DialogSeverityWarning, onOK)
+}
+
+// ShowError opens an error message dialog.
+func (d *DialogHost) ShowError(title, message string, onOK func()) {
+	d.showOKMessage(title, message, DialogSeverityError, onOK)
+}
+
+// ShowAction opens a Yes/No confirmation dialog. Escape runs onNo.
+func (d *DialogHost) ShowAction(title, message string, onYes, onNo func()) {
+	d.showMessage(title, message, DialogSeverityNone,
+		[]DialogAction{
+			{Label: "No", OnClick: onNo},
+			{Label: "Yes", Primary: true, OnClick: onYes},
+		},
+		onNo,
+	)
+}
+
+// dangerButtonSpec recolors a primary button for a destructive action.
+var dangerButtonSpec = Background(TokenError).
+	When(Hovered, Background(TokenError)).
+	When(Pressed, Background(TokenError).Scale(0.96, 0.96))
+
+// ShowDanger opens a confirmation for a destructive action: Cancel and a
+// confirm button labelled confirm, painted in the error color. Escape
+// cancels.
+func (d *DialogHost) ShowDanger(title, message, confirm string, onConfirm func()) {
+	d.showMessage(title, message, DialogSeverityNone,
+		[]DialogAction{
+			{Label: "Cancel"},
+			{Label: confirm, Danger: true, OnClick: onConfirm},
+		},
+		nil,
+	)
+}
+
+func dialogSeverityStyle(s DialogSeverity) (icon icons.Icon, color Token) {
+	switch s {
+	case DialogSeverityInfo:
+		return icons.CircleCheck, TokenAccent
+	case DialogSeverityWarning:
+		return icons.TriangleAlert, TokenWarning
+	case DialogSeverityError:
+		return icons.CircleAlert, TokenError
+	default:
+		return icons.Icon{}, TokenUnset
+	}
+}
+
+// ShowInput opens a dialog with a text field.
+func (d *DialogHost) ShowInput(title, placeholder string, onOK func(value string), onCancel func()) {
+	d.ShowInputValue(title, placeholder, "", onOK, onCancel)
+}
+
+// ShowInputValue opens a dialog with a text field that starts out holding
+// value, for renames and other edits. Enter in the field works like OK.
+func (d *DialogHost) ShowInputValue(title, placeholder, value string, onOK func(value string), onCancel func()) {
+	d.ShowInputOpts(InputOpts{Title: title, Placeholder: placeholder, Value: value, OnOK: onOK, OnCancel: onCancel})
+}
+
+// InputOpts configures ShowInputOpts.
+type InputOpts struct {
+	Title       string
+	Placeholder string
+	Value       string
+	// SelectStart and SelectEnd are the byte range selected at first; both
+	// zero selects the whole value.
+	SelectStart, SelectEnd int
+	// Validate, when set, runs on every change. A non-empty result shows
+	// under the field and disables OK and Enter.
+	Validate func(value string) string
+	OnOK     func(value string)
+	OnCancel func()
+}
+
+// ShowInputOpts opens a dialog with a text field, as ShowInputValue does, with
+// a chosen starting selection and live validation.
+func (d *DialogHost) ShowInputOpts(o InputOpts) {
+	th := theme.Current()
+	pad := th.Spacing.L
+	titleH := th.Typography.Subtitle.LineHeight
+	bodyH := th.Metrics.ControlHeight + pad
+	if o.Validate != nil {
+		bodyH += th.Spacing.S + th.Typography.Caption.LineHeight
+	}
+	footerH := th.Metrics.ControlHeight + pad
+	height := pad + titleH + pad + bodyH + pad + footerH
+
+	const okIdx = 1
+	validate := func() {
+		d.inputErr = ""
+		if o.Validate != nil {
+			d.inputErr = o.Validate(d.inputValue)
+		}
+		if len(d.opts.Actions) > okIdx {
+			d.opts.Actions[okIdx].Disabled = d.inputErr != ""
+		}
+	}
+	ok := func() {
+		if d.inputErr != "" {
+			return
+		}
+		d.Close()
+		if o.OnOK != nil {
+			o.OnOK(d.inputValue)
+		}
+	}
+	d.inputValue = o.Value
+	d.inputFresh = true
+	d.Show(DialogOpts{
+		Title:  o.Title,
+		Width:  360,
+		Height: height,
+		Body: func(c *Ctx) View {
+			th := c.Theme()
+			pad := th.Spacing.L
+			if d.inputFresh {
+				// The field's widget outlives the dialog, so drop the caret it
+				// kept from the last time and select the new value instead.
+				d.inputFresh = false
+				tf := c.Widget("__dialog-input", func() any {
+					return NewTextInput(TextFieldConfig{Placeholder: o.Placeholder})
+				}).(*TextInput)
+				tf.Value = d.inputValue
+				tf.resetHistory()
+				if o.SelectStart == 0 && o.SelectEnd == 0 {
+					tf.SelectAll()
+				} else {
+					tf.SetSelection(o.SelectStart, o.SelectEnd)
+				}
+			}
+			kids := []View{
+				TextField("__dialog-input", d.inputValue).
+					Placeholder(o.Placeholder).
+					OnChange(func(s string) { d.inputValue = s; validate() }).
+					OnSubmit(func(string) { ok() }).
+					DefaultFocus(),
+			}
+			if d.inputErr != "" {
+				kids = append(kids, Caption(d.inputErr).Style(Spec{}.TextColor(TokenError)))
+			}
+			return Column(kids...).Padding(pad).Gap(th.Spacing.S)
+		},
+		Actions: []DialogAction{
+			{Label: "Cancel", OnClick: o.OnCancel},
+			{Label: "OK", Primary: true, OnClick: func() {
+				if o.OnOK != nil {
+					o.OnOK(d.inputValue)
+				}
+			}},
+		},
+		OnDismiss: o.OnCancel,
+	})
+	validate()
+}
+
+// Layout registers the scrim and panel while open.
+func (d *DialogHost) Layout(c *Ctx) *layout.Element {
+	if !d.Open {
+		return layout.New(layout.Box().Size(0, 0))
+	}
+	vw, vh := c.Viewport()
+	th := c.Theme()
+	wantH := d.opts.Height
+	if d.opts.FitContent {
+		wantH = d.fitHeight(c)
+	}
+	dw, dh := clampModalSize(vw, vh, d.opts.Width, wantH, 0, 0, th)
+	d.panel = layoutModalPanel(c, d.scrim, d.chrome(c), dw, dh)
+	if c.Focus() != nil {
+		c.Focus().SetModal(d)
+	}
+	return layout.New(layout.Box().Size(0, 0))
+}
+
+func (d *DialogHost) chrome(c *Ctx) View {
+	th := c.Theme()
+	var body View
+	if d.opts.Body != nil {
+		body = d.opts.Body(c)
+	}
+
+	buttons := make([]View, 0, len(d.opts.Actions)+1)
+	buttons = append(buttons, Spacer())
+	for i, act := range d.opts.Actions {
+		btn := Button(fmt.Sprintf("dlg-act-%d", i), Text(act.Label))
+		if act.Primary {
+			btn = btn.Primary()
+		}
+		if act.Danger {
+			btn = btn.Primary().Style(dangerButtonSpec)
+		}
+		if act.Disabled {
+			btn = btn.Disabled(true)
+		}
+		actCopy := act
+		btn = btn.OnClick(func() {
+			d.Close()
+			if actCopy.OnClick != nil {
+				actCopy.OnClick()
+			}
+		})
+		buttons = append(buttons, btn)
+	}
+	footer := Row(buttons...).Gap(th.Spacing.S).Padding(th.Spacing.M)
+
+	kids := make([]View, 0, 4)
+	borderTok := TokenBorder
+	if d.opts.Title != "" {
+		titleColor := TokenForeground
+		var titleKids []View
+		if icon, tok := dialogSeverityStyle(d.opts.Severity); !icon.Empty() {
+			titleColor = tok
+			borderTok = tok
+			titleKids = append(titleKids, Icon(icon, th.Metrics.IconSizeMD, tok.Resolve(th)))
+		}
+		titleKids = append(titleKids, Text(d.opts.Title).Style(Spec{}.TextColor(titleColor)))
+		kids = append(kids,
+			Row(titleKids...).Gap(th.Spacing.S).Padding(th.Spacing.M),
+			HLine(th.Stroke.Thin, th.Border),
+		)
+	}
+	if body != nil && d.opts.FitContent {
+		d.bodySV = c.Widget("__dialog-body", func() any { return NewScrollView(nil) }).(*ScrollView)
+		kids = append(kids, Scroll("__dialog-body", body).Grow(1))
+	} else if body != nil {
+		kids = append(kids, ViewOf(body).Grow(1))
+	}
+	kids = append(kids, footer)
+
+	return Column(kids...).Grow(1).Background(TokenOverlay).
+		Style(Spec{}.Radius(th.Radius.Large).Border(borderTok, th.Stroke.Thin))
+}
+
+// fitHeight is the height a FitContent dialog asks for: what its chrome and
+// whole body took last frame, capped by MaxHeight. Until that is known (the
+// first frame) it uses Height, or a small default.
+func (d *DialogHost) fitHeight(c *Ctx) float32 {
+	if d.panel != nil && d.bodySV != nil && d.bodySV.host.Frame.H > 0 {
+		natural := d.panel.Frame.H - d.bodySV.host.Frame.H + d.bodySV.contentHeight()
+		if natural != d.fitH {
+			d.fitH = natural
+			c.Invalidate() // lay out again at the measured height
+		}
+	}
+	h := d.fitH
+	if h <= 0 {
+		h = d.opts.Height
+		if h <= 0 {
+			h = 200
+		}
+	}
+	if d.opts.MaxHeight > 0 {
+		h = f32min(h, d.opts.MaxHeight)
+	}
+	return h
+}
+
+// Close hides the dialog.
+func (d *DialogHost) Close() {
+	d.Open = false
+	d.scrim.Hide()
+}
+
+func (d *DialogHost) Focus()                   {}
+func (d *DialogHost) Blur()                    {}
+func (d *DialogHost) Focused() bool            { return d.Open }
+func (d *DialogHost) CapturesTab() bool        { return false }
+func (d *DialogHost) FocusOnClick() bool       { return false }
+func (d *DialogHost) FocusEl() *layout.Element { return d.panel }
+func (d *DialogHost) HandleText([]rune)        {}
+
+func (d *DialogHost) HandleKeys(keys []input.KeyEvent) {
+	if !d.Open {
+		return
+	}
+	for _, ev := range keys {
+		if ev.Key == input.KeyEscape {
+			d.Close()
+			if d.opts.OnDismiss != nil {
+				d.opts.OnDismiss()
+			}
+			return
+		}
+	}
+}

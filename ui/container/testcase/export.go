@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/yoga/ui"
 	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"

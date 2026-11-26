@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/input"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/input"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -21,7 +22,7 @@ import (
 type CookiesState struct {
 	received *ui.Table
 	sent     *ui.Table
-	raw      *ui.Editor
+	raw      *codeeditor.Editor
 
 	have   bool // a response was received
 	hasJar bool // the response went through a cookie jar

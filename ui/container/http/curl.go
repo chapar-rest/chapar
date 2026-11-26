@@ -3,7 +3,7 @@ package httpc
 import (
 	"strings"
 
-	"github.com/mirzakhany/yoga/input"
+	"github.com/yogaui/yoga/input"
 
 	"github.com/chapar-rest/chapar/internal/importer"
 	"github.com/chapar-rest/chapar/ui/container"

@@ -1,8 +1,9 @@
 package container
 
 import (
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/ui"
 )
 
 // floatInset is how far the buttons floating over a body editor sit from its
@@ -13,7 +14,7 @@ const floatInset = 11
 // button floating in its bottom-right corner, where it stays in reach
 // however long the body is. topRight, when not nil, floats in the top-right
 // corner, for an action such as loading an example body.
-func JSONBodyEditor(id string, ed *ui.Editor, deps Deps, topRight *ui.Node) ui.View {
+func JSONBodyEditor(id string, ed *codeeditor.Editor, deps Deps, topRight *ui.Node) ui.View {
 	var top ui.View
 	if topRight != nil {
 		top = topRight.Float(ui.CornerTopRight, floatInset, floatInset)
@@ -31,7 +32,7 @@ func JSONBodyEditor(id string, ed *ui.Editor, deps Deps, topRight *ui.Node) ui.V
 
 // FormatJSONEditor indents the JSON in ed as one edit the user can undo. A
 // body that is not valid JSON is left alone and the reason is shown.
-func FormatJSONEditor(ed *ui.Editor, deps Deps) {
+func FormatJSONEditor(ed *codeeditor.Editor, deps Deps) {
 	formatted, err := FormatJSONBody(string(ed.Bytes()), EditorIndent())
 	if err != nil {
 		deps.Toast(err.Error())

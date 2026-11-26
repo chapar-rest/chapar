@@ -1,7 +1,8 @@
 package container
 
 import (
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/vars"
@@ -69,7 +70,7 @@ func AssistURLField(n *ui.Node, src vars.Source) *ui.Node {
 // wherever text is allowed, and a language server, when one is attached, keeps
 // answering for everything else. It also lays the editor out with
 // StyleCodeEditor.
-func AssistEditor(ed *ui.Editor, src vars.Source) *ui.Editor {
+func AssistEditor(ed *codeeditor.Editor, src vars.Source) *codeeditor.Editor {
 	if ed == nil {
 		return nil
 	}

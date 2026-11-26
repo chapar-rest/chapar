@@ -10,11 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -66,13 +67,13 @@ type Container struct {
 	deps  container.Deps
 	dirty bool
 
-	msgEd   *ui.Editor
-	descEd  *ui.Editor
+	msgEd   *codeeditor.Editor
+	descEd  *codeeditor.Editor
 	headers *ui.Table
 	saved   *ui.Table
 
 	varSrc    vars.Source
-	preScript *ui.Editor
+	preScript *codeeditor.Editor
 	authState container.AuthState
 
 	reqTabs, respTabs     []ui.TabModel
@@ -93,7 +94,7 @@ type Container struct {
 
 	log       messageLog
 	handshake *egress.Response
-	respHdrEd *ui.Editor
+	respHdrEd *codeeditor.Editor
 	timeline  container.TimelineState
 	cookies   container.CookiesState
 	errText   string
@@ -441,7 +442,7 @@ func (c *Container) setFormat(format string) {
 	c.markDirty()
 }
 
-func (c *Container) newMessageEditor(data []byte) *ui.Editor {
+func (c *Container) newMessageEditor(data []byte) *codeeditor.Editor {
 	bodyType := domain.RequestBodyTypeText
 	if c.req.Spec.WebSocket.MessageFormat == domain.WebSocketFormatJSON {
 		bodyType = domain.RequestBodyTypeJSON

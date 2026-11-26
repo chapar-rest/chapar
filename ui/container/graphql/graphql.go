@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -29,18 +30,18 @@ type Container struct {
 	req       *domain.Request
 	deps      container.Deps
 	dirty     bool
-	queryEd   *ui.Editor
-	varsEd    *ui.Editor
-	descEd    *ui.Editor
-	respEd    *ui.Editor
-	respHdrEd *ui.Editor
+	queryEd   *codeeditor.Editor
+	varsEd    *codeeditor.Editor
+	descEd    *codeeditor.Editor
+	respEd    *codeeditor.Editor
+	respHdrEd *codeeditor.Editor
 	headers   *ui.Table
 
 	// varSrc is what the URL, header and auth fields complete and paint their
 	// {{variable}} placeholders from.
 	varSrc                vars.Source
-	preScript             *ui.Editor
-	postScript            *ui.Editor
+	preScript             *codeeditor.Editor
+	postScript            *codeeditor.Editor
 	reqTabs               []ui.TabModel
 	respTabs              []ui.TabModel
 	reqActive, respActive int
@@ -73,7 +74,7 @@ func Open(req *domain.Request, deps container.Deps) *Container {
 		respTabs:   []ui.TabModel{{Title: "Response"}, {Title: "Headers"}, {Title: "Cookies"}, {Title: "Timeline"}},
 		statusText: "Ready",
 	}
-	c.queryEd = ui.NewEditor([]byte(g.Query), highlight.Noop{})
+	c.queryEd = codeeditor.NewEditor([]byte(g.Query), highlight.Noop{})
 	c.varsEd = container.NewBodyEditor(deps, "gql-vars-"+r.MetaData.ID, domain.RequestBodyTypeJSON, []byte(g.Variables))
 	c.descEd = container.NewDescriptionEditor(r.MetaData.Description)
 	c.respEd = container.NewResponseEditor(nil, highlight.Noop{})
@@ -300,7 +301,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	)
 }
 
-func (c *Container) activeResp() *ui.Editor {
+func (c *Container) activeResp() *codeeditor.Editor {
 	if c.respActive == 1 {
 		return c.respHdrEd
 	}

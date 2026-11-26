@@ -1,9 +1,9 @@
 package container
 
 import (
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
 )
 
 // TabIconer is implemented by containers whose workspace tab shows an icon

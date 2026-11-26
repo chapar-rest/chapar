@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
@@ -583,7 +584,7 @@ func (p *Requests) importCurl(ref NodeRef) {
 	if host == nil {
 		return
 	}
-	ed := ui.NewEditor(nil, highlight.Noop{}, ui.WithSoftWrap(true))
+	ed := codeeditor.NewEditor(nil, highlight.Noop{}, codeeditor.WithSoftWrap(true))
 	ed.SetMinimap(false)
 	var clipChecked bool
 	host.Show(ui.DialogOpts{

@@ -1,15 +1,16 @@
 package container
 
 import (
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
 
 // InfoPane builds the Info tab for request containers: optional name override and description.
-func InfoPane(th *theme.Theme, id string, req *domain.Request, descEd *ui.Editor, markDirty func()) ui.View {
+func InfoPane(th *theme.Theme, id string, req *domain.Request, descEd *codeeditor.Editor, markDirty func()) ui.View {
 	autoName := domain.RequestAutoName(req)
 	return ui.Column(
 		ui.Text("Name").Style(ui.Spec{}.TextColor(ui.TokenForegroundMuted)),
@@ -26,8 +27,8 @@ func InfoPane(th *theme.Theme, id string, req *domain.Request, descEd *ui.Editor
 
 // NewDescriptionEditor creates an editor for request metadata.description.
 // It is prose, so it never shows the minimap.
-func NewDescriptionEditor(description string) *ui.Editor {
-	ed := ui.NewEditor([]byte(description), highlight.Noop{})
+func NewDescriptionEditor(description string) *codeeditor.Editor {
+	ed := codeeditor.NewEditor([]byte(description), highlight.Noop{})
 	ed.SetMinimap(false)
 	return ed
 }

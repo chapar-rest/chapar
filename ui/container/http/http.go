@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -30,12 +31,12 @@ type Container struct {
 	deps  container.Deps
 	dirty bool
 
-	bodyEd     *ui.Editor
-	descEd     *ui.Editor
-	respEd     *ui.Editor
-	respHdrEd  *ui.Editor
-	preScript  *ui.Editor
-	postScript *ui.Editor
+	bodyEd     *codeeditor.Editor
+	descEd     *codeeditor.Editor
+	respEd     *codeeditor.Editor
+	respHdrEd  *codeeditor.Editor
+	preScript  *codeeditor.Editor
+	postScript *codeeditor.Editor
 
 	queryParams *ui.Table
 	pathParams  *ui.Table
@@ -439,7 +440,7 @@ func (c *Container) respPane(th *theme.Theme, ctx *ui.Ctx) ui.View {
 	)
 }
 
-func (c *Container) activeResp() *ui.Editor {
+func (c *Container) activeResp() *codeeditor.Editor {
 	switch c.respActive {
 	case 1:
 		return c.respHdrEd

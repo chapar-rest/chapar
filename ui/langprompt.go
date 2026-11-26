@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/logger"
 	"github.com/chapar-rest/chapar/internal/prefs"

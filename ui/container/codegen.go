@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/codegen"
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -39,7 +40,7 @@ type codeDialogState struct {
 	deps   Deps
 	lang   string
 	code   string
-	editor *ui.Editor
+	editor *codeeditor.Editor
 }
 
 func (s *codeDialogState) layout(c *ui.Ctx) ui.View {
@@ -116,9 +117,9 @@ func (s *codeDialogState) regenerate() {
 	s.editor = s.newEditor()
 }
 
-func (s *codeDialogState) newEditor() *ui.Editor {
+func (s *codeDialogState) newEditor() *codeeditor.Editor {
 	if s.deps.Lang == nil {
-		return ui.NewEditor([]byte(s.code), highlight.Noop{})
+		return codeeditor.NewEditor([]byte(s.code), highlight.Noop{})
 	}
 	return s.deps.Lang.NewCodeViewer(s.lang, s.code)
 }

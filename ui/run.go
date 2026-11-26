@@ -3,8 +3,8 @@ package ui
 import (
 	"log"
 
-	"github.com/mirzakhany/yoga"
-	"github.com/mirzakhany/yoga/theme"
+	"github.com/yogaui/yoga"
+	"github.com/yogaui/yoga/theme"
 
 	"github.com/chapar-rest/chapar/internal/prefs"
 	"github.com/chapar-rest/chapar/internal/update"

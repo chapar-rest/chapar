@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -24,7 +25,7 @@ type PrePostOpts struct {
 }
 
 // PreRequestPane renders pre-request configuration.
-func PreRequestPane(th *theme.Theme, deps Deps, pre *domain.PreRequest, opts PrePostOpts, scriptEd **ui.Editor, markDirty func()) ui.View {
+func PreRequestPane(th *theme.Theme, deps Deps, pre *domain.PreRequest, opts PrePostOpts, scriptEd **codeeditor.Editor, markDirty func()) ui.View {
 	if pre == nil {
 		return ui.Column()
 	}
@@ -59,7 +60,7 @@ func PreRequestPane(th *theme.Theme, deps Deps, pre *domain.PreRequest, opts Pre
 }
 
 // PostRequestPane renders post-request configuration.
-func PostRequestPane(th *theme.Theme, deps Deps, post *domain.PostRequest, opts PrePostOpts, scriptEd **ui.Editor, preview string, markDirty func()) ui.View {
+func PostRequestPane(th *theme.Theme, deps Deps, post *domain.PostRequest, opts PrePostOpts, scriptEd **codeeditor.Editor, preview string, markDirty func()) ui.View {
 	if post == nil {
 		return ui.Column()
 	}
@@ -219,13 +220,13 @@ func PreviewPostSet(set domain.PostRequestSet, res *egress.Response) string {
 	return ""
 }
 
-func FlushPreScript(pre *domain.PreRequest, ed *ui.Editor) {
+func FlushPreScript(pre *domain.PreRequest, ed *codeeditor.Editor) {
 	if pre != nil && ed != nil && pre.Type == domain.PrePostTypePython {
 		pre.Script = string(ed.Bytes())
 	}
 }
 
-func FlushPostScript(post *domain.PostRequest, ed *ui.Editor) {
+func FlushPostScript(post *domain.PostRequest, ed *codeeditor.Editor) {
 	if post != nil && ed != nil && post.Type == domain.PrePostTypePython {
 		post.Script = string(ed.Bytes())
 	}

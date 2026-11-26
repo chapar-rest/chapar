@@ -11,7 +11,7 @@
 
 # Chapar - Native API Testing Tool
 
-Chapar is a fast, native API client for REST, gRPC, GraphQL and WebSocket, with a built-in proxy for inspecting the traffic of other apps. It is written in Go and draws its UI with [Yoga](https://github.com/mirzakhany/yoga), a GPU-rendered (WebGPU) UI toolkit, so it starts quickly, stays light, and runs the same on macOS, Linux and Windows without a browser engine. Your requests, environments and cookies are plain files on your machine: no account, no cloud sync, nothing sent anywhere you did not ask for.
+Chapar is a fast, native API client for REST, gRPC, GraphQL and WebSocket, with a built-in proxy for inspecting the traffic of other apps. It is written in Go and draws its UI with [Yoga](https://github.com/yogaui/yoga), a GPU-rendered (WebGPU) UI toolkit, so it starts quickly, stays light, and runs the same on macOS, Linux and Windows without a browser engine. Your requests, environments and cookies are plain files on your machine: no account, no cloud sync, nothing sent anywhere you did not ask for.
 
 MQTT is next on the list.
 
@@ -168,7 +168,7 @@ go build -o chapar .
 go build -o chapar-cli ./cmd/chapar-cli   # the command-line runner
 ```
 
-To build the same packages the releases ship (DMG, tar.xz, zip), install the [Yoga](https://github.com/mirzakhany/yoga) CLI with `make install_deps` (the version `go.mod` uses); `yoga.toml` holds the packaging config:
+To build the same packages the releases ship (DMG, tar.xz, zip), install the [Yoga](https://github.com/yogaui/yoga) CLI with `make install_deps` (the version `go.mod` uses); `yoga.toml` holds the packaging config:
 ```bash
 yoga package -os darwin -arch arm64 -version v0.7.0   # dist/darwin/*.dmg
 yoga package -os linux -version v0.7.0                # dist/linux/*.tar.xz
@@ -178,7 +178,7 @@ yoga package -os windows -version v0.7.0              # dist/windows/*.zip
 Dependencies are vendored. Update them with `make vendor`, not `go mod vendor`: the script also copies the tree-sitter C sources that `go mod vendor` leaves out.
 
 ## Dependencies
-Chapar is built with [Yoga](https://github.com/mirzakhany/yoga), which renders through GLFW and WebGPU, so building needs CGO and a C compiler:
+Chapar is built with [Yoga](https://github.com/yogaui/yoga), which renders through GLFW and WebGPU, so building needs CGO and a C compiler:
 
 - macOS: Xcode Command Line Tools (`xcode-select --install`).
 - Linux (Debian/Ubuntu): `sudo apt install gcc libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev libgl1-mesa-dev`.

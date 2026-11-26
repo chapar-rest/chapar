@@ -4,11 +4,11 @@ BUILD_NUMBER = $(shell date +%Y%m%d%H%M)
 # Packaging runs through the yoga CLI (see yoga.toml); make install_deps
 # installs the version go.mod builds the app with. Artifacts land in dist/<os>/.
 YOGA ?= yoga
-YOGA_VERSION = $(shell go list -m -f '{{.Version}}' github.com/mirzakhany/yoga)
+YOGA_VERSION = $(shell go list -m -f '{{.Version}}' github.com/yogaui/yoga)
 
 .PHONY: install_deps
 install_deps:
-	go install github.com/mirzakhany/yoga/cmd/yoga@$(YOGA_VERSION)
+	go install github.com/yogaui/yoga/cmd/yoga@$(YOGA_VERSION)
 
 # Use this instead of `go mod vendor`: it also restores the tree-sitter C
 # sources that `go mod vendor` drops.

@@ -5,9 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/logger"
@@ -20,7 +21,7 @@ type ConsolePanel struct {
 
 	// ed shows the filtered logs read-only so they can be selected and
 	// copied. It is rebuilt only when shown lines change (see sig).
-	ed     *ui.Editor
+	ed     *codeeditor.Editor
 	sig    consoleSig
 	synced bool
 }
@@ -177,8 +178,8 @@ func (p *ConsolePanel) syncEditor(logs []domain.Log) bool {
 	if b.Len() == 0 {
 		return false
 	}
-	p.ed = ui.NewEditor([]byte(b.String()), &logHighlighter{tokens: toks},
-		ui.WithReadOnly(), ui.WithoutGutter(), ui.WithSoftWrap(true))
+	p.ed = codeeditor.NewEditor([]byte(b.String()), &logHighlighter{tokens: toks},
+		codeeditor.WithReadOnly(), codeeditor.WithoutGutter(), codeeditor.WithSoftWrap(true))
 	p.ed.ScrollPx = scroll
 	return true
 }
