@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	codeeditor "github.com/yogaui/editor"
-
 	"github.com/dustin/go-humanize"
+	codeeditor "github.com/yogaui/editor"
 	"github.com/yogaui/editor/highlight"
 	"github.com/yogaui/yoga/icons"
 	"github.com/yogaui/yoga/theme"

@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	codeeditor "github.com/yogaui/editor"
-
 	"github.com/google/uuid"
+	codeeditor "github.com/yogaui/editor"
 	"github.com/yogaui/editor/highlight"
 	"github.com/yogaui/yoga/ui"
 	"gopkg.in/yaml.v2"
