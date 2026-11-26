@@ -3,7 +3,7 @@ package icons
 import (
 	"testing"
 
-	"github.com/mirzakhany/yoga/render"
+	"github.com/yogaui/yoga/render"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )

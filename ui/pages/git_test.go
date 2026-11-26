@@ -3,7 +3,7 @@ package pages
 import (
 	"testing"
 
-	"github.com/mirzakhany/yoga/highlight"
+	"github.com/yogaui/editor/highlight"
 
 	"github.com/chapar-rest/chapar/internal/gitx"
 )

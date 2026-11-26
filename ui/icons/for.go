@@ -1,9 +1,9 @@
 package icons
 
 import (
-	yogaicons "github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
+	yogaicons "github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )

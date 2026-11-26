@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mirzakhany/yoga/lsp"
+	"github.com/yogaui/editor/lsp"
 )
 
 // TestPyrightKnowsScriptGlobals runs the real pyright against the virtual

@@ -7,9 +7,11 @@ import (
 	"strings"
 	"time"
 
+	codeeditor "github.com/yogaui/editor"
+
 	"github.com/google/uuid"
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/ui"
 	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -41,7 +43,7 @@ type stepModel struct {
 	vars          *ui.Table
 	headers       *ui.Table
 	query         *ui.Table
-	body          *ui.Editor
+	body          *codeeditor.Editor
 }
 
 type assertModel struct {
@@ -111,7 +113,7 @@ func loadStep(s domain.TestStep, markDirty func()) *stepModel {
 		body = w.Body
 		m.showOverrides = len(vars)+len(w.Headers)+len(w.Query) > 0 || body != ""
 	}
-	m.body = ui.NewEditor([]byte(body), highlight.NewJSON(), ui.WithSoftWrap(true))
+	m.body = codeeditor.NewEditor([]byte(body), highlight.NewJSON(), codeeditor.WithSoftWrap(true))
 	return m
 }
 

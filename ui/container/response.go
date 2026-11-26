@@ -7,11 +7,13 @@ import (
 	"strings"
 	"time"
 
+	codeeditor "github.com/yogaui/editor"
+
 	"github.com/dustin/go-humanize"
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/assets"
 	"github.com/chapar-rest/chapar/internal/egress"
@@ -70,23 +72,23 @@ func BodyHighlighter(kind string) highlight.Highlighter {
 // NewResponseEditor returns a read-only, soft-wrapped editor for something a
 // server sent back: a body, headers, metadata or cookies. It can be searched,
 // selected and copied, but not typed into. data is copied.
-func NewResponseEditor(data []byte, hl highlight.Highlighter, opts ...ui.EditorOption) *ui.Editor {
-	opts = append([]ui.EditorOption{ui.WithReadOnly(), ui.WithSoftWrap(true)}, opts...)
-	return StyleCodeEditor(ui.NewEditor(data, hl, opts...))
+func NewResponseEditor(data []byte, hl highlight.Highlighter, opts ...codeeditor.EditorOption) *codeeditor.Editor {
+	opts = append([]codeeditor.EditorOption{codeeditor.WithReadOnly(), codeeditor.WithSoftWrap(true)}, opts...)
+	return StyleCodeEditor(codeeditor.NewEditor(data, hl, opts...))
 }
 
 // StyleCodeEditor sets up how a code editor lays out its text: wrapped rows
 // hang one tab stop past their line's indent, so nested JSON keeps its shape,
 // and the line-number gutter is only as wide as its digits.
-func StyleCodeEditor(ed *ui.Editor) *ui.Editor {
-	ed.SetWrapIndent(ui.WrapHanging)
-	ed.SetGutter(ui.GutterSpec{MinDigits: 2, Fill: ui.TokenChromeMuted, Separator: true})
+func StyleCodeEditor(ed *codeeditor.Editor) *codeeditor.Editor {
+	ed.SetWrapIndent(codeeditor.WrapHanging)
+	ed.SetGutter(codeeditor.GutterSpec{MinDigits: 2, Fill: ui.TokenChromeMuted, Separator: true})
 	return ed
 }
 
 // ReplaceEditor closes the previous editor and returns a new read-only one
 // with data. data is copied, so the caller may keep using it.
-func ReplaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Editor {
+func ReplaceEditor(old *codeeditor.Editor, data []byte, hl highlight.Highlighter) *codeeditor.Editor {
 	if old != nil {
 		old.Close()
 	}
@@ -99,7 +101,7 @@ func ReplaceEditor(old *ui.Editor, data []byte, hl highlight.Highlighter) *ui.Ed
 // bodies and their formatted forms are never modified after the response is
 // built, so the editor can read them in place; for a large body that saves a
 // full copy of the document per tab.
-func ReplaceResponseEditor(old *ui.Editor, res *egress.Response, raw bool) *ui.Editor {
+func ReplaceResponseEditor(old *codeeditor.Editor, res *egress.Response, raw bool) *codeeditor.Editor {
 	if old != nil {
 		old.Close()
 	}
@@ -107,7 +109,7 @@ func ReplaceResponseEditor(old *ui.Editor, res *egress.Response, raw bool) *ui.E
 	if res != nil {
 		kind = res.BodyKind
 	}
-	return NewResponseEditor(DisplayBody(res, raw), BodyHighlighter(kind), ui.WithSharedContent())
+	return NewResponseEditor(DisplayBody(res, raw), BodyHighlighter(kind), codeeditor.WithSharedContent())
 }
 
 // FailedStatus is the status line text for a request that failed; the error
@@ -169,7 +171,7 @@ func ResponseTabsRow(id string, th *theme.Theme, tabs []ui.TabModel, selected in
 
 // ResponseEditorMenu adds Save… to the editor's right-click menu and makes
 // Copy take the whole body when nothing is selected.
-func ResponseEditorMenu(ed *ui.Editor, ctx *ui.Ctx, deps Deps, defaultName string) ui.View {
+func ResponseEditorMenu(ed *codeeditor.Editor, ctx *ui.Ctx, deps Deps, defaultName string) ui.View {
 	if ed == nil {
 		return ui.Text("").Grow(1)
 	}
@@ -203,7 +205,7 @@ func ResponseEditorMenu(ed *ui.Editor, ctx *ui.Ctx, deps Deps, defaultName strin
 
 // HighlightOffNotice tells the reader why ed shows no syntax colors — its
 // document is over the size limit — and offers to highlight it anyway.
-func HighlightOffNotice(ed *ui.Editor) ui.View {
+func HighlightOffNotice(ed *codeeditor.Editor) ui.View {
 	th := theme.Current()
 	msg := fmt.Sprintf("Syntax highlighting is off: this body is %s, over the %s limit (Settings › Editor).",
 		humanize.IBytes(uint64(len(ed.Bytes()))), humanize.IBytes(uint64(highlight.MaxBytes)))

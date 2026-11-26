@@ -9,12 +9,14 @@ import (
 	"sync"
 	"time"
 
+	codeeditor "github.com/yogaui/editor"
+
 	"github.com/google/uuid"
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 	"gopkg.in/yaml.v2"
 
 	"github.com/chapar-rest/chapar/internal/domain"
@@ -50,7 +52,7 @@ type Container struct {
 	tab      int
 	editTabs []ui.TabModel
 	cardW    float32 // width of the step cards in the last layout
-	yamlEd   *ui.Editor
+	yamlEd   *codeeditor.Editor
 	yamlBase string
 	yamlErr  string
 
@@ -67,7 +69,7 @@ type Container struct {
 	run      *testrun.Run
 	results  map[string]*testrun.StepResult // by section/step id
 	selected int                            // index into run.Steps
-	respEd   *ui.Editor
+	respEd   *codeeditor.Editor
 	respFor  string // the step result respEd shows
 	runSeq   int    // counts runs, so a new run's bodies replace the old
 	// detailTab is the Checks, Body or Headers tab of the selected step.
@@ -427,7 +429,7 @@ func (c *Container) setTab(i int) {
 		if c.yamlEd != nil {
 			c.yamlEd.Close()
 		}
-		c.yamlEd = ui.NewEditor(b, highlight.Noop{})
+		c.yamlEd = codeeditor.NewEditor(b, highlight.Noop{})
 	}
 	c.tab = i
 	c.checked = false

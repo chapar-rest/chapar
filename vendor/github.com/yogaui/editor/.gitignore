@@ -1,0 +1,9 @@
+# Built binaries (do not commit)
+/gallery
+/apitest
+
+# Package output
+dist/
+**/dist/
+
+.DS_Store

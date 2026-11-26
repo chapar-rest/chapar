@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/mirzakhany/yoga/theme"
+	"github.com/yogaui/yoga/theme"
 )
 
 // Every type role must survive the UI font size scaling: the text helpers

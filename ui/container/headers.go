@@ -1,9 +1,9 @@
 package container
 
 import (
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 )
 
 // HeadersPane shows an editable headers table and optional inherited collection headers.

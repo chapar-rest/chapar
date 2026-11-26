@@ -9,10 +9,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	wsegress "github.com/chapar-rest/chapar/internal/egress/websocket"
 	"github.com/chapar-rest/chapar/ui/container"
@@ -40,7 +42,7 @@ type messageLog struct {
 	received int
 
 	table    *ui.Table
-	detail   *ui.Editor
+	detail   *codeeditor.Editor
 	selected int // seq of the selected entry; 0 is none
 	filter   string
 }

@@ -13,11 +13,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/importer"
@@ -124,8 +126,8 @@ type Proxy struct {
 	selID   uint64
 	reqTab  int
 	respTab int
-	reqEd   *ui.Editor
-	respEd  *ui.Editor
+	reqEd   *codeeditor.Editor
+	respEd  *codeeditor.Editor
 	edFlow  *mitm.Flow
 	edTabs  [2]int
 

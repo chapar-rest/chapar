@@ -12,10 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/gitx"
@@ -99,7 +101,7 @@ type gitDiffView struct {
 	diff    []byte
 	loading bool
 	err     error
-	ed      *ui.Editor
+	ed      *codeeditor.Editor
 	edKey   string
 	// edSel is the file the editor shows.
 	edSel string

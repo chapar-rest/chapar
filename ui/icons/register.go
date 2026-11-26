@@ -1,6 +1,6 @@
 package icons
 
-import "github.com/mirzakhany/yoga/render"
+import "github.com/yogaui/yoga/render"
 
 func init() {
 	for name, label := range badgeLabels {

@@ -1,11 +1,12 @@
 package collection
 
 import (
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/icons"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/icons"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/theme"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/ui/container"
@@ -16,7 +17,7 @@ type Container struct {
 	col                         *domain.Collection
 	deps                        container.Deps
 	dirty                       bool
-	notes                       *ui.Editor
+	notes                       *codeeditor.Editor
 	headers                     *ui.Table
 	tabs                        []ui.TabModel
 	active                      int
@@ -34,7 +35,7 @@ func Open(col *domain.Collection, deps container.Deps) *Container {
 		deps: deps,
 		tabs: []ui.TabModel{{Title: "Notes"}, {Title: "Headers"}, {Title: "Auth"}},
 	}
-	c.notes = ui.NewEditor([]byte(c.col.Spec.Notes), highlight.Noop{})
+	c.notes = codeeditor.NewEditor([]byte(c.col.Spec.Notes), highlight.Noop{})
 	c.notes.SetMinimap(false) // prose
 	c.headers = container.NewKVTable("col-hdr-"+c.col.MetaData.ID, c.markDirty)
 	container.LoadKV(c.headers, c.col.Spec.Headers)

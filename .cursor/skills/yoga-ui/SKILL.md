@@ -1,7 +1,7 @@
 ---
 name: yoga-ui
 description: >-
-  Build desktop UI with the Yoga Go framework (github.com/mirzakhany/yoga):
+  Build desktop UI with the Yoga Go framework (github.com/yogaui/yoga):
   yoga.App, ui.View, Column/Row, widgets, theme tokens, overlays, focus.
   Use when writing or changing Yoga apps, widgets, example/* demos, or anything
   that implements Body(c *ui.Ctx) ui.View.
@@ -9,19 +9,19 @@ description: >-
 
 # Yoga UI — agent instructions
 
-Module `github.com/mirzakhany/yoga`. Public UI surface is **`ui/`**. Read [widgets.md](widgets.md) for constructors and [examples.md](examples.md) for `example/` patterns.
+Module `github.com/yogaui/yoga`. Public UI surface is **`ui/`**. Read [widgets.md](widgets.md) for constructors and [examples.md](examples.md) for `example/` patterns.
 
 ## Mental model
 
 Retained app state + per-frame declarative rebuild (SwiftUI `@State` analogue):
 
-1. App struct holds durable state (lists, strings, `*ui.Editor`, `*ui.Table`).
+1. App struct holds durable state (lists, strings, `*ui.Table`, `*editor.Editor`).
 2. `Body(c)` runs on every **drawn** wake and returns a `ui.View` tree. The GPU loop skips present (and the second Body rebuild) when nothing visual changed; idle `WaitEvents` does no work. There is no host widget cache / React reconciliation.
 3. `ui.View` is `Layout(c *ui.Ctx) *layout.Element`. `*ui.Node` implements it.
 4. Widget **micro-state** (hover, caret, scroll, open menu) lives in `c.Widget(id, alloc)` keyed by a **unique-per-window id**. App data does not.
 5. Do not retain per-frame `*ui.Ctx` fields across frames. The Ctx pointer is window-lifetime: `c.Dialogs()`, `c.Files()`, `c.Toasts()`, `c.Focus()`, `c.Invalidate()`, and `c.MarkNeedsPaint()` are safe to capture in OnClick. Async work must `Invalidate()` so the next wake paints.
 
-Heavy widgets (`Editor`, `Table`, `Tree`, `FileTree`, `ListView`) are constructed **once** in `Build*` and placed with `ui.ViewOf(w)`. Stateless DSL nodes (`Column`, `Button`, `TextField`, …) may be allocated in `Body`. Dialogs, file picker, and toasts are window services on `c` — do not construct or thread hosts.
+Heavy widgets (`Table`, `editor.Editor`, `Tree`, `FileTree`, `ListView`) are constructed **once** in `Build*` and placed with `ui.ViewOf(w)`. Stateless DSL nodes (`Column`, `Button`, `TextField`, …) may be allocated in `Body`. Dialogs, file picker, and toasts are window services on `c` — do not construct or thread hosts.
 
 ## Bootstrap
 
@@ -31,8 +31,8 @@ Heavy widgets (`Editor`, `Table`, `Tree`, `FileTree`, `ListView`) are constructe
 package main
 
 import (
-	"github.com/mirzakhany/yoga"
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/yoga"
+	"github.com/yogaui/yoga/ui"
 )
 
 type App struct{ name string }
@@ -118,7 +118,7 @@ ui.Button("tip", ui.Text("Save")).Tooltip("Save document")
 
 Button variants: default **Secondary**; `.Primary()` / `.Subtle()` / `.Ghost()`. Ghost is text-like (no padding or chrome) for footers; chain `.HoverFill()` for a hover background. Supports `.IconStart()` and `.Tooltip()`. `IconButton(id, iconName)`.
 
-Do **not** construct `NewEditor` / `NewTable` / `NewTree` inside `Body`. Construct in `Build*`, then `ui.ViewOf(app.table).Height(220)` / `.Grow(1)`.
+Do **not** construct `editor.NewEditor` / `NewTable` / `NewTree` inside `Body`. Construct in `Build*`, then `ui.ViewOf(app.table).Height(220)` / `.Grow(1)`.
 
 ## Theme
 
@@ -131,7 +131,7 @@ ui.Column(...).Background(ui.TokenChrome)
 
 Typography helpers: `Text`, `Title`, `Subtitle`, `Caption`, `Strong`, `Muted`. Color/size inherit from parent env (e.g. a Button’s `TextColor`).
 
-Select a theme **before** `yoga.Run` if the app is not dark-default (`example/apitest` uses `yoga-midnight`).
+Select a theme **before** `yoga.Run` if the app is not dark-default.
 
 ## Overlays, focus, async
 
@@ -166,8 +166,8 @@ Store hover in `c.Widget(id, func() any { return &state{} })`.
 - `Row` children that should stretch vertically: parent `.Align(ui.AlignStretch)`.
 - Splitter: `ui.Splitter(id, ui.Horizontal|Vertical, a, b).Sizes(240, 0).Grow(1)` — `0` means flex. Prefer `.Percents(30, 70)` for ratio splits; `.MinSizes` / `.MaxSizes` (px, `0` max = none); `.HandleOnHover()` hides the handle line until hover/drag.
 - Drawer: `ui.Drawer(id, panel, page).Open(v).Edge(ui.EdgeRight).Overlay().Size(320).Grow(1)` — or `.Push()`; nest for IDE-style terminal + chat; `.Swipe(true)` for drag gestures. Panel content fills a clipped viewport — use `.Grow(1)` on the panel view, not fixed width.
-- Icons: Lucide symbols from `github.com/mirzakhany/yoga/icons` (`icons.Search`, `icons.Plus`, `icons.Settings`, …). Full list in `icons/catalog` for the component gallery. Regenerate: `go run ./cmd/generate-lucide`.
-- After async HTTP/highlight: `Invalidate` or `Animate`; idle loop otherwise waits forever.
+- Icons: Lucide symbols from `github.com/yogaui/yoga/icons` (`icons.Search`, `icons.Plus`, `icons.Settings`, …). Full list in `icons/catalog` for the component gallery. Regenerate: `go run ./cmd/generate-lucide`.
+- After async work (HTTP, highlighting): `Invalidate` or `Animate`; idle loop otherwise waits forever.
 - Tests/CI: `go test ./...` and `go build -tags nogpu ./...`.
 
 ## Example map
@@ -175,10 +175,10 @@ Store hover in `c.Widget(id, func() any { return &state{} })`.
 | Package | Why read it |
 |---|---|
 | `example/todo` | Smallest complete app: form, list, controlled fields |
-| `example/gallery` | Shell + editor workspace + widget gallery |
 | `example/catalog` | Sidebar catalog + live showcases; **custom title bar** demo |
-| `example/apitest` | Splitter, editors, Select colors, pending Animate |
 | `example/chapar` | Multi-page nav shell, sub-`Layout` helpers |
+
+`example/gallery` (editor workspace + widget gallery) and `example/apitest` (splitter, editors, pending Animate) live in `github.com/yogaui/editor`.
 
 ## Additional resources
 

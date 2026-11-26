@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"github.com/mirzakhany/yoga"
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/render"
-	"github.com/mirzakhany/yoga/shape"
-	"github.com/mirzakhany/yoga/theme"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga"
+	"github.com/yogaui/yoga/render"
+	"github.com/yogaui/yoga/shape"
+	"github.com/yogaui/yoga/theme"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 )
@@ -124,12 +124,12 @@ func applyChaparLayout(general domain.GeneralConfig) {
 // applyChaparEditor hands the editor preferences to yoga. Open editors pick
 // them up on their next frame.
 func applyChaparEditor(editor domain.EditorConfig) {
-	ui.EditorDefaults.LineNumbers = editor.ShowLineNumbers
-	ui.EditorDefaults.SoftWrap = editor.WrapLines
-	ui.EditorDefaults.AutoCloseBrackets = editor.AutoCloseBrackets
-	ui.EditorDefaults.AutoCloseQuotes = editor.AutoCloseQuotes
-	ui.EditorDefaults.IndentSpaces = editor.Indentation != domain.IndentationTabs
-	ui.EditorDefaults.Minimap = editor.ShowMinimap
+	codeeditor.EditorDefaults.LineNumbers = editor.ShowLineNumbers
+	codeeditor.EditorDefaults.SoftWrap = editor.WrapLines
+	codeeditor.EditorDefaults.AutoCloseBrackets = editor.AutoCloseBrackets
+	codeeditor.EditorDefaults.AutoCloseQuotes = editor.AutoCloseQuotes
+	codeeditor.EditorDefaults.IndentSpaces = editor.Indentation != domain.IndentationTabs
+	codeeditor.EditorDefaults.Minimap = editor.ShowMinimap
 }
 
 func applyChaparFonts(general domain.GeneralConfig, editor domain.EditorConfig) {

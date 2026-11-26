@@ -3,8 +3,10 @@ package container
 import (
 	"time"
 
-	"github.com/mirzakhany/yoga/highlight"
-	"github.com/mirzakhany/yoga/ui"
+	codeeditor "github.com/yogaui/editor"
+
+	"github.com/yogaui/editor/highlight"
+	"github.com/yogaui/yoga/ui"
 
 	"github.com/chapar-rest/chapar/internal/domain"
 	"github.com/chapar-rest/chapar/internal/repository"
@@ -81,16 +83,16 @@ type Deps struct {
 // NewScriptEditor returns an editor for a Python pre/post-request script.
 // Scripts run against the active environment, so the editor completes and
 // explains the same {{variable}} placeholders the request's fields do.
-func NewScriptEditor(deps Deps, phase scripting.Phase, name, script string) *ui.Editor {
+func NewScriptEditor(deps Deps, phase scripting.Phase, name, script string) *codeeditor.Editor {
 	if deps.Lang == nil {
-		return AssistEditor(ui.NewEditor([]byte(script), highlight.NewPython()), VarSource(deps, nil))
+		return AssistEditor(codeeditor.NewEditor([]byte(script), highlight.NewPython()), VarSource(deps, nil))
 	}
 	return AssistEditor(deps.Lang.NewScriptEditor(phase, name, script), VarSource(deps, nil))
 }
 
 // NewBodyEditor returns an editor for a request body of the given
 // domain.RequestBodyType*.
-func NewBodyEditor(deps Deps, name, bodyType string, body []byte, opts ...ui.EditorOption) *ui.Editor {
+func NewBodyEditor(deps Deps, name, bodyType string, body []byte, opts ...codeeditor.EditorOption) *codeeditor.Editor {
 	if deps.Lang == nil {
 		hl := highlight.Highlighter(highlight.Noop{})
 		switch bodyType {
@@ -99,7 +101,7 @@ func NewBodyEditor(deps Deps, name, bodyType string, body []byte, opts ...ui.Edi
 		case domain.RequestBodyTypeXML:
 			hl = highlight.NewXML()
 		}
-		return AssistEditor(ui.NewEditor(body, hl, opts...), VarSource(deps, nil))
+		return AssistEditor(codeeditor.NewEditor(body, hl, opts...), VarSource(deps, nil))
 	}
 	return AssistEditor(deps.Lang.NewBodyEditor(name, bodyType, body, opts...), VarSource(deps, nil))
 }

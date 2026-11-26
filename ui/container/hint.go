@@ -1,6 +1,6 @@
 package container
 
-import "github.com/mirzakhany/yoga/ui"
+import "github.com/yogaui/yoga/ui"
 
 // MutedParagraph is body text in ForegroundMuted that wraps to its pane's width.
 func MutedParagraph(s string) *ui.Node {

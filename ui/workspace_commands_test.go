@@ -3,8 +3,8 @@ package ui
 import (
 	"testing"
 
-	"github.com/mirzakhany/yoga/input"
-	"github.com/mirzakhany/yoga/ui"
+	"github.com/yogaui/yoga/input"
+	"github.com/yogaui/yoga/ui"
 )
 
 // pressTabKey registers the workspace commands in a fresh frame and sends one
