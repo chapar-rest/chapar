@@ -338,8 +338,8 @@ func brewUpgrade(ctx context.Context, u *updater, want string) error {
 	if err != nil {
 		return fmt.Errorf("brew upgrade failed: %w", err)
 	}
-	// The tap is bumped after the release builds, so brew can be a little
-	// behind GitHub.
+	// Homebrew's bot bumps the cask some hours after a release, so brew can
+	// be behind GitHub.
 	if got := update.InstalledVersion(); !strings.EqualFold(got, want) {
 		return fmt.Errorf("the Homebrew cask is not at %s yet; try again later", want)
 	}
